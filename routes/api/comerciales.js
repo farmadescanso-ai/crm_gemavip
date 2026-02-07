@@ -4,6 +4,14 @@ const { asyncHandler, toInt } = require('./_utils');
 
 const router = express.Router();
 
+function sanitizeComercial(row) {
+  if (!row || typeof row !== 'object') return row;
+  // Nunca exponer Password (en BD legacy a veces contiene DNI en claro)
+  // eslint-disable-next-line no-unused-vars
+  const { Password, password, ...rest } = row;
+  return rest;
+}
+
 /**
  * @openapi
  * /api/comerciales:
@@ -17,7 +25,7 @@ router.get(
   '/',
   asyncHandler(async (_req, res) => {
     const items = await db.getComerciales();
-    res.json({ ok: true, items });
+    res.json({ ok: true, items: (items || []).map(sanitizeComercial) });
   })
 );
 
@@ -34,7 +42,7 @@ router.get(
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
     const item = await db.getComercialById(id);
     if (!item) return res.status(404).json({ ok: false, error: 'No encontrado' });
-    res.json({ ok: true, item });
+    res.json({ ok: true, item: sanitizeComercial(item) });
   })
 );
 
