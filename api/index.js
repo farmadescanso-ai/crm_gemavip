@@ -4,6 +4,7 @@ const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const MySQLStoreFactory = require('express-mysql-session');
 
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
@@ -19,16 +20,34 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
 
+const sessionMaxAgeDays = Number(process.env.SESSION_MAX_AGE_DAYS || 30);
+const sessionMaxAgeMs = Number.isFinite(sessionMaxAgeDays) ? Math.max(1, sessionMaxAgeDays) * 24 * 60 * 60 * 1000 : 30 * 864e5;
+
+const MySQLStore = MySQLStoreFactory(session);
+const sessionStore = new MySQLStore({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || 'crm_gemavip',
+  // Tabla por defecto: sessions
+  createDatabaseTable: true,
+  expiration: sessionMaxAgeMs
+});
+
 app.use(
   session({
     name: 'crm_session',
     secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
     resave: false,
     saveUninitialized: false,
+    rolling: true,
+    store: sessionStore,
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: sessionMaxAgeMs
     }
   })
 );
@@ -166,15 +185,9 @@ app.post('/logout', (req, res) => {
 app.get(
   '/',
   async (_req, res) => {
-    // No bloquear la home si falla la BD: solo indicamos si hay conexión.
-    let dbOk = false;
-    try {
-      await db.query('SELECT 1 AS ok');
-      dbOk = true;
-    } catch (_) {
-      dbOk = false;
-    }
-    res.status(200).render('home', { dbOk });
+    // En producción no exponemos la home/entrada: vamos a login o dashboard
+    if (res.locals.user) return res.redirect('/dashboard');
+    return res.redirect('/login');
   }
 );
 
