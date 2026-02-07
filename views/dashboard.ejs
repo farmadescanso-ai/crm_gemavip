@@ -7,22 +7,22 @@
   </div>
   <div class="card-bd">
     <div class="dash-stats">
-      <div class="dash-stat">
+      <div class="dash-stat" data-variant="blue">
         <div class="dash-stat-label">Clientes</div>
         <div class="dash-stat-value"><%= stats.clientes ?? '—' %></div>
         <div class="dash-stat-foot">Total en BD</div>
       </div>
-      <div class="dash-stat">
+      <div class="dash-stat" data-variant="navy">
         <div class="dash-stat-label">Pedidos</div>
         <div class="dash-stat-value"><%= stats.pedidos ?? '—' %></div>
         <div class="dash-stat-foot">Total en BD</div>
       </div>
-      <div class="dash-stat">
+      <div class="dash-stat" data-variant="green">
         <div class="dash-stat-label">Visitas</div>
         <div class="dash-stat-value"><%= stats.visitas ?? '—' %></div>
         <div class="dash-stat-foot">Total en BD</div>
       </div>
-      <div class="dash-stat">
+      <div class="dash-stat" data-variant="yellow">
         <div class="dash-stat-label">Comerciales</div>
         <div class="dash-stat-value"><%= stats.comerciales ?? '—' %></div>
         <div class="dash-stat-foot">Total en BD</div>
@@ -63,7 +63,16 @@
                 <td><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
                 <td><%= c.Poblacion ?? '' %></td>
                 <td><%= c.CodigoPostal ?? '' %></td>
-                <td><%= c.OK_KO ?? c.Estado ?? '' %></td>
+                <td>
+                  <% const st = (c.OK_KO ?? c.Estado ?? '').toString().toUpperCase(); %>
+                  <% if (st === 'OK' || st === '1') { %>
+                    <span class="badge ok">OK</span>
+                  <% } else if (st === 'KO' || st === '0') { %>
+                    <span class="badge warn">KO</span>
+                  <% } else { %>
+                    <span class="badge info"><%= st || '—' %></span>
+                  <% } %>
+                </td>
               </tr>
             <% }) %>
           </tbody>
