@@ -1,9 +1,17 @@
 /* Tema inspirado en gemavip.com (Divi) */
 :root{
+  /* Paleta GEMAVIP */
   --gv-primary: #008bd2;
-  --gv-primary-2: #17428b;
   --gv-primary-hover: #2ea3f2;
+  --gv-primary-2: #17428b;
   --gv-ink: #0c143a;
+
+  /* Amarillo y verde presentes en CSS de gemavip.com */
+  --gv-yellow: #ffba00;
+  --gv-yellow-2: #ffc733;
+  --gv-green: #8fae1b;
+  --gv-green-2: #7ad03a;
+
   --gv-text: #1f2a44;
   --gv-muted: #5b667a;
   --gv-border: #e5e5e5;
