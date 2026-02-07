@@ -1,0 +1,55 @@
+<%- include('partials/header', { title: 'Clientes' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Clientes</h1>
+    <p class="card-subtitle">
+      Página <%= paging.page %> · Mostrando <%= items.length %> de <%= paging.total %> (limit <%= paging.limit %>)
+    </p>
+  </div>
+  <div class="card-bd">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
+      <% if (paging.page > 1) { %>
+        <a class="btn secondary" href="/clientes?page=<%= paging.page - 1 %>&limit=<%= paging.limit %>">Anterior</a>
+      <% } %>
+      <% if ((paging.page * paging.limit) < paging.total) { %>
+        <a class="btn secondary" href="/clientes?page=<%= paging.page + 1 %>&limit=<%= paging.limit %>">Siguiente</a>
+      <% } %>
+      <a class="btn" href="/api/clientes?limit=<%= paging.limit %>&offset=<%= (paging.page-1)*paging.limit %>">Ver JSON</a>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre/Razón Social</th>
+            <th>Nombre Comercial</th>
+            <th>CP</th>
+            <th>Población</th>
+            <th>Provincia</th>
+            <th>Comercial</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach((c) => { %>
+            <tr>
+              <td><%= c.id ?? c.Id %></td>
+              <td><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
+              <td><%= c.Nombre_Cial ?? '' %></td>
+              <td><%= c.CodigoPostal ?? '' %></td>
+              <td><%= c.Poblacion ?? '' %></td>
+              <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
+              <td><%= c.ComercialNombre ?? '' %></td>
+              <td><%= c.EstadoClienteNombre ?? c.OK_KO ?? '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

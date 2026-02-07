@@ -1,14 +1,20 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const swaggerUi = require('swagger-ui-express');
+const path = require('path');
 
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
+const db = require('../config/mysql-crm');
 
 const app = express();
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '..', 'views'));
+app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
 
 function requireApiKeyIfConfigured(req, res, next) {
   const configured = process.env.API_KEY;
@@ -23,11 +29,69 @@ app.get('/favicon.ico', (_req, res) => {
   res.status(204).end();
 });
 
-app.get('/', (_req, res) => {
-  res
-    .status(200)
-    .type('text/plain; charset=utf-8')
-    .send('CRM Gemavip: servicio activo');
+app.get(
+  '/',
+  async (_req, res) => {
+    // No bloquear la home si falla la BD: solo indicamos si hay conexión.
+    let dbOk = false;
+    try {
+      await db.query('SELECT 1 AS ok');
+      dbOk = true;
+    } catch (_) {
+      dbOk = false;
+    }
+    res.status(200).render('home', { dbOk });
+  }
+);
+
+app.get('/comerciales', async (req, res, next) => {
+  try {
+    const items = await db.getComerciales();
+    // Redactar password por seguridad
+    const sanitized = (items || []).map((c) => {
+      if (!c || typeof c !== 'object') return c;
+      // eslint-disable-next-line no-unused-vars
+      const { Password, password, ...rest } = c;
+      return rest;
+    });
+    res.render('comerciales', { items: sanitized });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/clientes', async (req, res, next) => {
+  try {
+    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const offset = (page - 1) * limit;
+    const filters = {};
+    const [items, total] = await Promise.all([
+      db.getClientesOptimizadoPaged(filters, { limit, offset }),
+      db.countClientesOptimizado(filters)
+    ]);
+    res.render('clientes', { items: items || [], paging: { page, limit, total: total || 0 } });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/pedidos', async (_req, res, next) => {
+  try {
+    const items = await db.query('SELECT * FROM pedidos ORDER BY Id DESC LIMIT 50');
+    res.render('pedidos', { items: items || [] });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/visitas', async (_req, res, next) => {
+  try {
+    const items = await db.query('SELECT * FROM visitas ORDER BY Id DESC LIMIT 50');
+    res.render('visitas', { items: items || [] });
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.get('/health', (_req, res) => {
@@ -96,11 +160,20 @@ app.use('/api', requireApiKeyIfConfigured, apiRouter);
 // Swagger UI (protegido con API_KEY si está configurada)
 app.use('/api/docs', requireApiKeyIfConfigured, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Error handler JSON
+// Error handler (si el cliente pide HTML, devolvemos página simple)
 app.use((err, _req, res, _next) => {
   // Evitar filtrar stack en producción
   const message = err?.message || String(err);
   const code = err?.code;
+  const accept = String(_req.headers?.accept || '');
+  if (accept.includes('text/html')) {
+    return res
+      .status(500)
+      .type('text/html; charset=utf-8')
+      .send(
+        `<html><body style="font-family:system-ui;padding:24px"><h1>Error</h1><pre>${String(message)}</pre><pre>${String(code || '')}</pre></body></html>`
+      );
+  }
   res.status(500).json({ ok: false, error: message, code });
 });
 

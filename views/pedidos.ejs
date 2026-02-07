@@ -1,0 +1,44 @@
+<%- include('partials/header', { title: 'Pedidos' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Pedidos</h1>
+    <p class="card-subtitle">Últimos <%= items.length %> pedidos (vista ligera).</p>
+  </div>
+  <div class="card-bd">
+    <div style="margin-bottom: 12px;">
+      <a class="btn" href="/api/pedidos">Ver JSON</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>NumPedido</th>
+            <th>Fecha</th>
+            <th>Cliente</th>
+            <th>Comercial</th>
+            <th>Total</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach((p) => { %>
+            <tr>
+              <td><%= p.Id ?? p.id %></td>
+              <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
+              <td><%= (p.FechaPedido ?? p.Fecha ?? '').toString().slice(0,10) %></td>
+              <td><%= p.Id_Cliente ?? p.Cliente_id ?? p.ClienteId ?? '' %></td>
+              <td><%= p.Id_Cial ?? p.ComercialId ?? '' %></td>
+              <td><%= p.TotalPedido ?? p.Total ?? '' %></td>
+              <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

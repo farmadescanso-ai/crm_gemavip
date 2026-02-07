@@ -1,0 +1,44 @@
+<%- include('partials/header', { title: 'Visitas' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Visitas</h1>
+    <p class="card-subtitle">Últimas <%= items.length %> visitas (vista ligera).</p>
+  </div>
+  <div class="card-bd">
+    <div style="margin-bottom: 12px;">
+      <a class="btn" href="/api/visitas">Ver JSON</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Tipo</th>
+            <th>Cliente</th>
+            <th>Comercial</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach((v) => { %>
+            <tr>
+              <td><%= v.Id ?? v.id %></td>
+              <td><%= (v.Fecha ?? v.FechaVisita ?? '').toString().slice(0,10) %></td>
+              <td><%= v.Hora ?? '' %></td>
+              <td><%= v.TipoVisita ?? '' %></td>
+              <td><%= v.ClienteId ?? v.FarmaciaClienteId ?? '' %></td>
+              <td><%= v.Id_Cial ?? v.ComercialId ?? '' %></td>
+              <td><%= v.Estado ?? '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

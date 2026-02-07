@@ -1,0 +1,44 @@
+<%- include('partials/header', { title: 'Inicio' }) %>
+
+<div class="grid cols-2">
+  <section class="card">
+    <div class="card-hd">
+      <h1 class="card-title">Servicio activo</h1>
+      <p class="card-subtitle">
+        Backend en Vercel + MySQL. Estilo visual alineado con la paleta de Gemavip.
+      </p>
+    </div>
+    <div class="card-bd">
+      <div class="kpi">
+        <span class="pill">DB: <%= dbOk ? 'OK' : 'Sin comprobar' %></span>
+        <span class="pill">API: <a href="/api" style="text-decoration:none;">/api</a></span>
+        <span class="pill">Swagger: <a href="/api/docs" style="text-decoration:none;">/api/docs</a></span>
+      </div>
+      <div style="margin-top: 16px; display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn" href="/clientes">Ver clientes</a>
+        <a class="btn secondary" href="/pedidos">Ver pedidos</a>
+        <a class="btn secondary" href="/visitas">Ver visitas</a>
+      </div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <div class="card-hd">
+      <h2 class="card-title">Acciones</h2>
+      <p class="card-subtitle">Atajos útiles para validar el entorno.</p>
+    </div>
+    <div class="card-bd">
+      <ul style="margin:0; padding-left: 18px; color: var(--gv-muted);">
+        <li><a href="/health" style="font-weight:600;">/health</a></li>
+        <li><a href="/health/db" style="font-weight:600;">/health/db</a> (requiere API_KEY si la defines)</li>
+        <li><a href="/api/comerciales" style="font-weight:600;">/api/comerciales</a></li>
+      </ul>
+      <div style="margin-top: 14px; font-size: 12px; color: var(--gv-muted);">
+        Recomendación: define <code>API_KEY</code> en Vercel para proteger la API.
+      </div>
+    </div>
+  </aside>
+</div>
+
+<%- include('partials/footer') %>
+

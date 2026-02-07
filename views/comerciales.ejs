@@ -1,0 +1,39 @@
+<%- include('partials/header', { title: 'Comerciales' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Comerciales</h1>
+    <p class="card-subtitle">Listado de comerciales (sin exponer contraseñas).</p>
+  </div>
+  <div class="card-bd">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Roll</th>
+            <th>Movil</th>
+            <th>Provincia</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach((c) => { %>
+            <tr>
+              <td><%= c.id ?? c.Id %></td>
+              <td><%= c.Nombre ?? '' %></td>
+              <td><%= c.Email ?? c.email ?? '' %></td>
+              <td><%= Array.isArray(c.Roll) ? c.Roll.join(', ') : (c.Roll ?? '') %></td>
+              <td><%= c.Movil ?? '' %></td>
+              <td><%= c.Id_Provincia ?? '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
