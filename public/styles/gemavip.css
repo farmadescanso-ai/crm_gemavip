@@ -177,6 +177,42 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   font-size: 13px;
 }
 
+/* Dashboard (solo aplica a nuevos bloques) */
+.dash-stats{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 960px){
+  .dash-stats{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.dash-stat{
+  border: 1px solid var(--gv-border);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(0,139,210,.08), rgba(255,255,255,0) 55%),
+    var(--gv-surface);
+  padding: 14px 14px 12px 14px;
+}
+.dash-stat-label{
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing:.3px;
+  text-transform: uppercase;
+  color: var(--gv-muted);
+}
+.dash-stat-value{
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--gv-ink);
+}
+.dash-stat-foot{
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--gv-muted);
+}
+
 .footer{
   padding: 28px 18px;
   color: var(--gv-muted);

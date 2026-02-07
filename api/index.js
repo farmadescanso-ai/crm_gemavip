@@ -94,6 +94,56 @@ app.get('/visitas', async (_req, res, next) => {
   }
 });
 
+app.get('/dashboard', async (_req, res, next) => {
+  try {
+    const safeCount = async (table) => {
+      try {
+        const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${table}\``);
+        return Number(rows?.[0]?.n ?? 0);
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const [clientes, pedidos, visitas, comerciales] = await Promise.all([
+      safeCount('clientes'),
+      safeCount('pedidos'),
+      safeCount('visitas'),
+      safeCount('comerciales')
+    ]);
+
+    const stats = { clientes, pedidos, visitas, comerciales };
+
+    const latest = { clientes: [], pedidos: [], visitas: [] };
+
+    try {
+      latest.clientes = await db.query(
+        'SELECT Id, Nombre_Razon_Social, Poblacion, CodigoPostal, OK_KO FROM clientes ORDER BY Id DESC LIMIT 8'
+      );
+    } catch (_) {
+      latest.clientes = [];
+    }
+    try {
+      latest.pedidos = await db.query(
+        'SELECT Id, NumPedido, FechaPedido, TotalPedido, EstadoPedido FROM pedidos ORDER BY Id DESC LIMIT 8'
+      );
+    } catch (_) {
+      latest.pedidos = [];
+    }
+    try {
+      latest.visitas = await db.query(
+        'SELECT Id, Fecha, TipoVisita, ClienteId, Id_Cial, Estado FROM visitas ORDER BY Id DESC LIMIT 10'
+      );
+    } catch (_) {
+      latest.visitas = [];
+    }
+
+    res.render('dashboard', { stats, latest });
+  } catch (e) {
+    next(e);
+  }
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({
     ok: true,

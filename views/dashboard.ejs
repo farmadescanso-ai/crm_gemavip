@@ -1,0 +1,151 @@
+<%- include('partials/header', { title: 'Dashboard' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Dashboard</h1>
+    <p class="card-subtitle">Resumen rápido del CRM (estilo Gemavip).</p>
+  </div>
+  <div class="card-bd">
+    <div class="dash-stats">
+      <div class="dash-stat">
+        <div class="dash-stat-label">Clientes</div>
+        <div class="dash-stat-value"><%= stats.clientes ?? '—' %></div>
+        <div class="dash-stat-foot">Total en BD</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-stat-label">Pedidos</div>
+        <div class="dash-stat-value"><%= stats.pedidos ?? '—' %></div>
+        <div class="dash-stat-foot">Total en BD</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-stat-label">Visitas</div>
+        <div class="dash-stat-value"><%= stats.visitas ?? '—' %></div>
+        <div class="dash-stat-foot">Total en BD</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-stat-label">Comerciales</div>
+        <div class="dash-stat-value"><%= stats.comerciales ?? '—' %></div>
+        <div class="dash-stat-foot">Total en BD</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap;">
+      <a class="btn" href="/clientes">Clientes</a>
+      <a class="btn secondary" href="/pedidos">Pedidos</a>
+      <a class="btn secondary" href="/visitas">Visitas</a>
+      <a class="btn secondary" href="/api/docs">API Docs</a>
+    </div>
+  </div>
+</section>
+
+<div class="grid cols-2" style="margin-top: 16px;">
+  <section class="card">
+    <div class="card-hd">
+      <h2 class="card-title">Últimos clientes</h2>
+      <p class="card-subtitle">Últimos <%= (latest.clientes || []).length %></p>
+    </div>
+    <div class="card-bd">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Población</th>
+              <th>CP</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (latest.clientes || []).forEach((c) => { %>
+              <tr>
+                <td><%= c.Id ?? c.id %></td>
+                <td><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
+                <td><%= c.Poblacion ?? '' %></td>
+                <td><%= c.CodigoPostal ?? '' %></td>
+                <td><%= c.OK_KO ?? c.Estado ?? '' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top: 10px;">
+        <a class="btn secondary" href="/clientes">Ver todos</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-hd">
+      <h2 class="card-title">Últimos pedidos</h2>
+      <p class="card-subtitle">Últimos <%= (latest.pedidos || []).length %></p>
+    </div>
+    <div class="card-bd">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>NumPedido</th>
+              <th>Fecha</th>
+              <th>Total</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (latest.pedidos || []).forEach((p) => { %>
+              <tr>
+                <td><%= p.Id ?? p.id %></td>
+                <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
+                <td><%= (p.FechaPedido ?? p.Fecha ?? '').toString().slice(0,10) %></td>
+                <td><%= p.TotalPedido ?? p.Total ?? '' %></td>
+                <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top: 10px;">
+        <a class="btn secondary" href="/pedidos">Ver todos</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card" style="margin-top: 16px;">
+  <div class="card-hd">
+    <h2 class="card-title">Últimas visitas</h2>
+    <p class="card-subtitle">Últimas <%= (latest.visitas || []).length %></p>
+  </div>
+  <div class="card-bd">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Cliente</th>
+            <th>Comercial</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (latest.visitas || []).forEach((v) => { %>
+            <tr>
+              <td><%= v.Id ?? v.id %></td>
+              <td><%= (v.Fecha ?? v.FechaVisita ?? '').toString().slice(0,10) %></td>
+              <td><%= v.TipoVisita ?? '' %></td>
+              <td><%= v.ClienteId ?? v.FarmaciaClienteId ?? '' %></td>
+              <td><%= v.Id_Cial ?? v.ComercialId ?? '' %></td>
+              <td><%= v.Estado ?? '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
