@@ -1,0 +1,79 @@
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar visita' : 'Nueva visita' }) %>
+
+<section class="card" style="max-width: 860px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar visita' : 'Nueva visita' %></h1>
+    <p class="card-subtitle">Completa la información de la visita.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="badge warn" style="display:block; border-radius: 14px;"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form method="post" action="<%= mode === 'edit' ? ('/visitas/' + (item.Id || item.id) + '/edit') : '/visitas/new' %>" style="display:grid; gap: 12px;">
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Fecha</span>
+          <input name="Fecha" type="date" required value="<%= (item.Fecha || item[meta.colFecha] || '').toString().slice(0,10) %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Hora</span>
+          <input name="Hora" type="time" value="<%= (item.Hora || item[meta.colHora] || '').toString().slice(0,5) %>" />
+        </label>
+      </div>
+
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo de visita</span>
+          <input name="TipoVisita" placeholder="Ej. Presencial / Teléfono / Online" value="<%= (item.TipoVisita || item[meta.colTipo] || '') %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Estado</span>
+          <input name="Estado" placeholder="Ej. Planificada / Realizada / Cancelada" value="<%= (item.Estado || item[meta.colEstado] || '') %>" />
+        </label>
+      </div>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cliente</span>
+        <input name="ClienteId" type="number" min="1" placeholder="ID cliente" value="<%= item.ClienteId || item[meta.colCliente] || '' %>" list="clientes-list" />
+        <datalist id="clientes-list">
+          <% (clientes || []).forEach((c) => { %>
+            <option value="<%= c.Id %>"><%= c.Nombre_Razon_Social %></option>
+          <% }) %>
+        </datalist>
+        <div style="font-size: 12px; color: var(--gv-muted);">
+          Consejo: escribe el ID del cliente o selecciona uno reciente.
+        </div>
+      </label>
+
+      <% if (admin) { %>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial</span>
+          <select name="ComercialId">
+            <option value="">(sin asignar)</option>
+            <% (comerciales || []).forEach((c) => { %>
+              <% const cid = (c.id ?? c.Id); %>
+              <option value="<%= cid %>" <%= (item.ComercialId || item[meta.colComercial]) == cid ? 'selected' : '' %>>
+                <%= c.Nombre %> (<%= c.Email || c.email || '' %>)
+              </option>
+            <% }) %>
+          </select>
+        </label>
+      <% } %>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Notas</span>
+        <textarea name="Notas" rows="4" placeholder="Resumen de la visita..."><%= (item.Notas || item[meta.colNotas] || '') %></textarea>
+      </label>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+        <a class="btn secondary" href="/visitas">Cancelar</a>
+        <button class="btn" type="submit"><%= mode === 'edit' ? 'Guardar cambios' : 'Crear visita' %></button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

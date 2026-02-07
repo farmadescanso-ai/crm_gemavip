@@ -3,14 +3,23 @@
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Visitas</h1>
-    <p class="card-subtitle">Últimas <%= items.length %> visitas (vista ligera).</p>
+    <p class="card-subtitle">Vista lista · <%= items.length %> resultados<% if (selectedDate) { %> · <span class="badge info"><%= selectedDate %></span><% } %></p>
   </div>
   <div class="card-bd">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom: 12px;">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <a class="btn secondary" href="/visitas?view=list">Lista</a>
+        <a class="btn secondary" href="/visitas?view=calendar">Calendario</a>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn" href="/visitas/new">Nueva visita</a>
+      </div>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>ID</th>
+            <th>Acciones</th>
             <th>Fecha</th>
             <th>Hora</th>
             <th>Tipo</th>
@@ -22,12 +31,18 @@
         <tbody>
           <% items.forEach((v) => { %>
             <tr>
-              <td><%= v.Id ?? v.id %></td>
-              <td><%= (v.Fecha ?? v.FechaVisita ?? '').toString().slice(0,10) %></td>
+              <td style="white-space: nowrap;">
+                <a class="btn secondary" style="padding:6px 10px;" href="/visitas/<%= v.Id %>">Ver</a>
+                <a class="btn secondary" style="padding:6px 10px;" href="/visitas/<%= v.Id %>/edit">Editar</a>
+                <form method="post" action="/visitas/<%= v.Id %>/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar esta visita?');">
+                  <button class="btn secondary" style="padding:6px 10px; border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
+                </form>
+              </td>
+              <td><%= (v.Fecha ?? '').toString().slice(0,10) %></td>
               <td><%= v.Hora ?? '' %></td>
               <td><%= v.TipoVisita ?? '' %></td>
-              <td><%= v.ClienteId ?? v.FarmaciaClienteId ?? '' %></td>
-              <td><%= v.Id_Cial ?? v.ComercialId ?? '' %></td>
+              <td><%= v.ClienteNombre ? v.ClienteNombre : (v.ClienteId ?? '') %></td>
+              <td><%= v.ComercialNombre ? v.ComercialNombre : (v.ComercialId ?? '') %></td>
               <td><%= v.Estado ?? '' %></td>
             </tr>
           <% }) %>

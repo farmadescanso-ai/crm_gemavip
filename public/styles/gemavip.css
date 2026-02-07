@@ -293,6 +293,68 @@ th{
 }
 tr:hover td{ background: rgba(0,139,210,.04); }
 
+/* Calendario (tabla) */
+table.calendar td{
+  vertical-align: top;
+  min-width: 140px;
+  height: 120px;
+  background: #fff;
+}
+table.calendar td.is-empty{
+  background: #fbfbfb;
+}
+.cal-day{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 10px 10px 6px 10px;
+}
+.cal-day-num{
+  font-weight: 900;
+  color: var(--gv-ink);
+}
+.cal-items{
+  padding: 0 10px 10px 10px;
+  display:grid;
+  gap: 6px;
+}
+.cal-item{
+  display:flex;
+  gap: 8px;
+  align-items:center;
+  padding: 6px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,139,210,.18);
+  background: rgba(0,139,210,.06);
+  color: var(--gv-ink);
+  text-decoration:none;
+}
+.cal-item:hover{
+  background: rgba(46,163,242,.10);
+  text-decoration:none;
+}
+.cal-time{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--gv-primary-2);
+}
+.cal-title{
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--gv-ink);
+  overflow:hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-more{
+  font-size: 12px;
+  color: var(--gv-muted);
+  font-weight: 700;
+  padding-left: 2px;
+}
+
 .kpi{
   display:flex;
   gap: 14px;

@@ -124,6 +124,11 @@ function requireLogin(req, res, next) {
   return res.redirect('/login');
 }
 
+function isAdminUser(user) {
+  const roles = user?.roles || [];
+  return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
+}
+
 // Locals para todas las vistas
 app.use((req, _res, next) => {
   const user = req.session?.user || null;
@@ -243,10 +248,295 @@ app.get('/pedidos', requireLogin, async (_req, res, next) => {
   }
 });
 
-app.get('/visitas', requireLogin, async (_req, res, next) => {
+app.get('/visitas', requireLogin, async (req, res, next) => {
   try {
-    const items = await db.query('SELECT * FROM visitas ORDER BY Id DESC LIMIT 50');
-    res.render('visitas', { items: items || [] });
+    const view = String(req.query.view || 'list').toLowerCase();
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+
+    // Filtros opcionales
+    const qDate = String(req.query.date || '').trim(); // YYYY-MM-DD
+    const qMonth = String(req.query.month || '').trim(); // YYYY-MM
+
+    const where = [];
+    const params = [];
+
+    if (!admin && meta.colComercial) {
+      where.push(`v.\`${meta.colComercial}\` = ?`);
+      params.push(res.locals.user.id);
+    }
+
+    if (qDate && meta.colFecha) {
+      where.push(`DATE(v.\`${meta.colFecha}\`) = ?`);
+      params.push(qDate);
+    }
+
+    const joinCliente =
+      meta.colCliente
+        ? 'LEFT JOIN clientes c ON v.`' + meta.colCliente + '` = c.Id'
+        : '';
+    const joinComercial =
+      meta.colComercial
+        ? 'LEFT JOIN comerciales co ON v.`' + meta.colComercial + '` = co.id'
+        : '';
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    if (view === 'calendar') {
+      const now = new Date();
+      const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const [yy, mm] = month.split('-').map((x) => Number(x));
+      const monthStart = new Date(yy, (mm || 1) - 1, 1);
+      const monthEnd = new Date(yy, (mm || 1), 0);
+
+      const startStr = `${yy}-${String(mm).padStart(2, '0')}-01`;
+      const endStr = `${yy}-${String(mm).padStart(2, '0')}-${String(monthEnd.getDate()).padStart(2, '0')}`;
+
+      const whereCal = [...where];
+      const paramsCal = [...params];
+      if (meta.colFecha) {
+        whereCal.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
+        paramsCal.push(startStr, endStr);
+      }
+      const whereCalSql = whereCal.length ? `WHERE ${whereCal.join(' AND ')}` : '';
+
+      const sql = `
+        SELECT
+          v.\`${meta.pk}\` as Id,
+          ${meta.colFecha ? `v.\`${meta.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
+          ${meta.colHora ? `v.\`${meta.colHora}\` as Hora,` : "'' as Hora,"}
+          ${meta.colTipo ? `v.\`${meta.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
+          ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
+          ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
+          ${meta.colComercial ? `v.\`${meta.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
+          c.Nombre_Razon_Social as ClienteNombre,
+          co.Nombre as ComercialNombre
+        FROM \`${meta.table}\` v
+        ${joinCliente}
+        ${joinComercial}
+        ${whereCalSql}
+        ORDER BY ${meta.colFecha ? `v.\`${meta.colFecha}\`` : 'v.`' + meta.pk + '`'} DESC, v.\`${meta.pk}\` DESC
+      `;
+      const items = await db.query(sql, paramsCal);
+
+      // Construir grid calendario (lunes-domingo)
+      const firstDow = (monthStart.getDay() + 6) % 7; // 0=lunes
+      const daysInMonth = monthEnd.getDate();
+      const cells = [];
+      const byDay = new Map();
+      for (const it of items || []) {
+        const d = (it.Fecha ? new Date(it.Fecha) : null);
+        if (!d) continue;
+        const key = d.toISOString().slice(0, 10);
+        if (!byDay.has(key)) byDay.set(key, []);
+        byDay.get(key).push(it);
+      }
+      // 6 semanas max
+      const totalCells = 42;
+      for (let i = 0; i < totalCells; i++) {
+        const dayNum = i - firstDow + 1;
+        if (dayNum < 1 || dayNum > daysInMonth) {
+          cells.push({ date: null, day: null, items: [] });
+        } else {
+          const date = `${yy}-${String(mm).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+          cells.push({ date, day: dayNum, items: byDay.get(date) || [] });
+        }
+      }
+
+      return res.render('visitas-calendar', {
+        month,
+        cells,
+        meta,
+        admin
+      });
+    }
+
+    // LISTA
+    const sql = `
+      SELECT
+        v.\`${meta.pk}\` as Id,
+        ${meta.colFecha ? `v.\`${meta.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
+        ${meta.colHora ? `v.\`${meta.colHora}\` as Hora,` : "'' as Hora,"}
+        ${meta.colTipo ? `v.\`${meta.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
+        ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
+        ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
+        ${meta.colComercial ? `v.\`${meta.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
+        c.Nombre_Razon_Social as ClienteNombre,
+        co.Nombre as ComercialNombre
+      FROM \`${meta.table}\` v
+      ${joinCliente}
+      ${joinComercial}
+      ${whereSql}
+      ORDER BY ${meta.colFecha ? `v.\`${meta.colFecha}\`` : 'v.`' + meta.pk + '`'} DESC, v.\`${meta.pk}\` DESC
+      LIMIT 200
+    `;
+    const items = await db.query(sql, params);
+    return res.render('visitas', { items: items || [], admin, selectedDate: qDate || null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/visitas/new', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+    const comerciales = admin ? await db.getComerciales() : [];
+    const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
+    res.render('visita-form', {
+      mode: 'create',
+      admin,
+      meta,
+      comerciales,
+      clientes,
+      item: {
+        Fecha: new Date().toISOString().slice(0, 10),
+        Hora: '',
+        TipoVisita: '',
+        Estado: '',
+        ClienteId: null,
+        ComercialId: admin ? null : res.locals.user.id,
+        Notas: ''
+      },
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/visitas/new', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+
+    const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
+    const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
+    const tipo = String(req.body?.TipoVisita || req.body?.tipo || '').slice(0, 80);
+    const estado = String(req.body?.Estado || req.body?.estado || '').slice(0, 40);
+    const notas = String(req.body?.Notas || req.body?.notas || '').slice(0, 500);
+    const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
+    const comercialId = admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id);
+
+    if (!fecha) return res.status(400).json({ ok: false, error: 'Fecha obligatoria' });
+
+    const payload = {};
+    if (meta.colFecha) payload[meta.colFecha] = fecha;
+    if (meta.colHora && hora) payload[meta.colHora] = hora;
+    if (meta.colTipo && tipo) payload[meta.colTipo] = tipo;
+    if (meta.colEstado && estado) payload[meta.colEstado] = estado;
+    if (meta.colNotas && notas) payload[meta.colNotas] = notas;
+    if (meta.colCliente && clienteId) payload[meta.colCliente] = clienteId;
+    if (meta.colComercial && comercialId) payload[meta.colComercial] = comercialId;
+
+    await db.createVisita(payload);
+    return res.redirect('/visitas');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/visitas/:id', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+    const id = Number(req.params.id);
+    const row = await db.getVisitaById(id);
+    if (!row) return res.status(404).send('No encontrado');
+
+    if (!admin && meta.colComercial) {
+      const owner = Number(row[meta.colComercial]);
+      if (owner && owner !== Number(res.locals.user.id)) return res.status(403).send('Forbidden');
+    }
+
+    res.render('visita', { item: row, meta, admin });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/visitas/:id/edit', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+    const id = Number(req.params.id);
+    const row = await db.getVisitaById(id);
+    if (!row) return res.status(404).send('No encontrado');
+
+    if (!admin && meta.colComercial) {
+      const owner = Number(row[meta.colComercial]);
+      if (owner && owner !== Number(res.locals.user.id)) return res.status(403).send('Forbidden');
+    }
+
+    const comerciales = admin ? await db.getComerciales() : [];
+    const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
+
+    res.render('visita-form', {
+      mode: 'edit',
+      admin,
+      meta,
+      comerciales,
+      clientes,
+      item: row,
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/visitas/:id/edit', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+    const id = Number(req.params.id);
+    const row = await db.getVisitaById(id);
+    if (!row) return res.status(404).send('No encontrado');
+
+    if (!admin && meta.colComercial) {
+      const owner = Number(row[meta.colComercial]);
+      if (owner && owner !== Number(res.locals.user.id)) return res.status(403).send('Forbidden');
+    }
+
+    const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
+    const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
+    const tipo = String(req.body?.TipoVisita || req.body?.tipo || '').slice(0, 80);
+    const estado = String(req.body?.Estado || req.body?.estado || '').slice(0, 40);
+    const notas = String(req.body?.Notas || req.body?.notas || '').slice(0, 500);
+    const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
+    const comercialId = admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id);
+
+    const payload = {};
+    if (meta.colFecha && fecha) payload[meta.colFecha] = fecha;
+    if (meta.colHora) payload[meta.colHora] = hora || null;
+    if (meta.colTipo) payload[meta.colTipo] = tipo || null;
+    if (meta.colEstado) payload[meta.colEstado] = estado || null;
+    if (meta.colNotas) payload[meta.colNotas] = notas || null;
+    if (meta.colCliente) payload[meta.colCliente] = clienteId || null;
+    if (meta.colComercial && comercialId) payload[meta.colComercial] = comercialId;
+
+    await db.updateVisita(id, payload);
+    return res.redirect('/visitas');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/visitas/:id/delete', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+    const id = Number(req.params.id);
+    const row = await db.getVisitaById(id);
+    if (!row) return res.redirect('/visitas');
+
+    if (!admin && meta.colComercial) {
+      const owner = Number(row[meta.colComercial]);
+      if (owner && owner !== Number(res.locals.user.id)) return res.status(403).send('Forbidden');
+    }
+
+    await db.deleteVisita(id);
+    return res.redirect('/visitas');
   } catch (e) {
     next(e);
   }

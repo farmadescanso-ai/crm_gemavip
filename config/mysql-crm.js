@@ -34,8 +34,82 @@ class MySQLCRM {
     this.pool = null;
     this.connected = false;
     this._schemaEnsured = false;
+    this._visitasIndexesEnsured = false;
     // Cache interno para metadatos de tablas/columnas (útil en serverless)
     this._metaCache = {};
+  }
+
+  async _ensureVisitasMeta() {
+    if (this._metaCache?.visitasMeta) return this._metaCache.visitasMeta;
+
+    const tVisitas = await this._resolveTableNameCaseInsensitive('visitas');
+    let colsRows = [];
+    try {
+      colsRows = await this.query(`SHOW COLUMNS FROM \`${tVisitas}\``);
+    } catch (_) {
+      colsRows = [];
+    }
+
+    const cols = (Array.isArray(colsRows) ? colsRows : [])
+      .map(r => String(r.Field || r.field || '').trim())
+      .filter(Boolean);
+    const colsLower = new Set(cols.map(c => c.toLowerCase()));
+
+    const pickCI = (cands) => {
+      for (const cand of (cands || [])) {
+        const cl = String(cand).toLowerCase();
+        if (colsLower.has(cl)) {
+          const idx = cols.findIndex(c => c.toLowerCase() === cl);
+          return idx >= 0 ? cols[idx] : cand;
+        }
+      }
+      return null;
+    };
+
+    const meta = {
+      table: tVisitas,
+      pk: pickCI(['Id', 'id']) || 'Id',
+      colComercial: pickCI(['Id_Cial', 'id_cial', 'ComercialId', 'comercialId', 'Comercial_id', 'comercial_id']),
+      colCliente: pickCI(['ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
+      colFecha: pickCI(['Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita']),
+      colHora: pickCI(['Hora', 'hora']),
+      colTipo: pickCI(['TipoVisita', 'tipoVisita', 'Tipo', 'tipo']),
+      colEstado: pickCI(['Estado', 'estado', 'EstadoVisita', 'estadoVisita']),
+      colNotas: pickCI(['Notas', 'notas', 'Observaciones', 'observaciones', 'Comentarios', 'comentarios', 'Mensaje', 'mensaje'])
+    };
+
+    this._metaCache.visitasMeta = meta;
+    return meta;
+  }
+
+  async ensureVisitasIndexes() {
+    if (this._visitasIndexesEnsured) return;
+    this._visitasIndexesEnsured = true;
+
+    try {
+      if (!this.pool) return;
+      const meta = await this._ensureVisitasMeta();
+      const t = meta.table;
+      const idxRows = await this.query(`SHOW INDEX FROM \`${t}\``).catch(() => []);
+      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+
+      const createIfMissing = async (name, cols) => {
+        if (!name || existing.has(name)) return;
+        const colsSql = (cols || []).filter(Boolean).map(c => `\`${c}\``).join(', ');
+        if (!colsSql) return;
+        await this.query(`CREATE INDEX \`${name}\` ON \`${t}\` (${colsSql})`);
+        existing.add(name);
+        console.log(`✅ [INDEX] Creado ${name} en ${t} (${colsSql})`);
+      };
+
+      await createIfMissing('idx_visitas_fecha', [meta.colFecha]);
+      await createIfMissing('idx_visitas_comercial', [meta.colComercial]);
+      await createIfMissing('idx_visitas_cliente', [meta.colCliente]);
+      await createIfMissing('idx_visitas_comercial_fecha', [meta.colComercial, meta.colFecha]);
+    } catch (e) {
+      // No romper si no hay permisos de ALTER/INDEX
+      console.warn('⚠️ [INDEX] No se pudieron asegurar índices en visitas:', e?.message || e);
+    }
   }
 
   // Resolver nombre real de tabla sin depender de information_schema (puede estar restringido en hosting).
@@ -283,6 +357,8 @@ class MySQLCRM {
 
       // Asegurar compatibilidad de esquema (evita errores tipo "Column 'meet_email' cannot be null").
       await this.ensureComercialesReunionesNullable();
+      // Índices recomendados para rendimiento del CRM (best-effort)
+      await this.ensureVisitasIndexes();
       return true;
     } catch (error) {
       console.error('❌ Error conectando a MySQL:', error.message);
