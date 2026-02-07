@@ -11,7 +11,7 @@ class ComisionesCRM {
       port: process.env.DB_PORT || 3306,
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'farmadescanso',
+      database: process.env.DB_NAME || 'crm_gemavip',
       charset: 'utf8mb4',
       collation: 'utf8mb4_unicode_ci'
     };

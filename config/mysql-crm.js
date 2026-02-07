@@ -3,7 +3,7 @@ const mysql = require('mysql2/promise');
 class MySQLCRM {
   constructor() {
     // Configuración de conexión MySQL directa
-    // Base de datos remota: farmadescanso (Easypanel)
+    // Base de datos remota: crm_gemavip (Easypanel)
     // phpMyAdmin: https://farmadescanso-sql-crm-farmadescanso-phpmyadmin.6f4r35.easypanel.host/
     
     this.config = {
@@ -12,8 +12,8 @@ class MySQLCRM {
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || '',
       // En Vercel, si DB_NAME no está configurada, por defecto usamos la BD del CRM
-      // (evita que apunte a "farmadescanso" por error y no veas cambios en phpMyAdmin).
-      database: process.env.DB_NAME || (process.env.VERCEL ? 'crm_farmadescanso' : 'farmadescanso'),
+      // (evita que apunte a otra BD por error y no veas cambios en phpMyAdmin).
+      database: process.env.DB_NAME || (process.env.VERCEL ? 'crm_gemavip' : 'crm_gemavip'),
       charset: 'utf8mb4',
       waitForConnections: true,
       connectionLimit: 10,
