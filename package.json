@@ -1,0 +1,48 @@
+{
+  "name": "farmadescaso-crm",
+  "version": "1.0.0",
+  "description": "Portal CRM para comerciales de Farmadescaso 2021 SL",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
+    "build": "echo \"no build step\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "farmadescaso",
+    "crm",
+    "comerciales",
+    "mysql"
+  ],
+  "author": "Farmadescaso 2021 SL",
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/speed-insights": "^1.2.0",
+    "axios": "^1.13.2",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "express-validator": "^7.0.1",
+    "googleapis": "^166.0.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.6.5",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.10",
+    "pdf-parse": "^1.1.1",
+    "puppeteer": "^22.5.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
