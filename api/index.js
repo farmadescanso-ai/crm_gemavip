@@ -20,8 +20,19 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
 
+// Sesión por inactividad:
+// si el usuario no usa la app durante SESSION_IDLE_TIMEOUT_MINUTES, expira y vuelve a /login.
+const idleMinutesRaw = process.env.SESSION_IDLE_TIMEOUT_MINUTES;
+const idleMinutes = Number(idleMinutesRaw || 60);
+
+// Compatibilidad: si alguien sigue usando SESSION_MAX_AGE_DAYS, lo respetamos solo si no hay idle timeout.
 const sessionMaxAgeDays = Number(process.env.SESSION_MAX_AGE_DAYS || 30);
-const sessionMaxAgeMs = Number.isFinite(sessionMaxAgeDays) ? Math.max(1, sessionMaxAgeDays) * 24 * 60 * 60 * 1000 : 30 * 864e5;
+
+const sessionMaxAgeMs = Number.isFinite(idleMinutes)
+  ? Math.max(5, idleMinutes) * 60 * 1000
+  : Number.isFinite(sessionMaxAgeDays)
+    ? Math.max(1, sessionMaxAgeDays) * 24 * 60 * 60 * 1000
+    : 60 * 60 * 1000;
 
 const MySQLStore = MySQLStoreFactory(session);
 const sessionStore = new MySQLStore({
