@@ -64,19 +64,27 @@ function normalizeRoles(roll) {
   return [String(roll)];
 }
 
-function getNavLinksForRoles(roles) {
+function getCommonNavLinksForRoles(roles) {
   const has = (name) => (roles || []).some((r) => String(r).toLowerCase().includes(String(name).toLowerCase()));
   const isAdmin = has('admin');
   const isComercial = has('comercial') || !roles || roles.length === 0;
 
   const links = [{ href: '/dashboard', label: 'Dashboard' }];
-
-  if (isAdmin) links.push({ href: '/comerciales', label: 'Comerciales' });
   if (isAdmin || isComercial) {
     links.push({ href: '/clientes', label: 'Clientes' });
     links.push({ href: '/pedidos', label: 'Pedidos' });
     links.push({ href: '/visitas', label: 'Visitas' });
   }
+  return links;
+}
+
+function getRoleNavLinksForRoles(roles) {
+  const has = (name) => (roles || []).some((r) => String(r).toLowerCase().includes(String(name).toLowerCase()));
+  const isAdmin = has('admin');
+
+  const links = [];
+  // Solo enlaces específicos del rol (no repetir los del menú principal)
+  if (isAdmin) links.push({ href: '/comerciales', label: 'Comerciales' });
   if (isAdmin) links.push({ href: '/api/docs', label: 'API Docs' });
   return links;
 }
@@ -94,7 +102,9 @@ app.use((req, _res, next) => {
 });
 app.use((req, res, next) => {
   res.locals.user = req.user || null;
-  res.locals.navLinks = res.locals.user ? getNavLinksForRoles(res.locals.user.roles || []) : [];
+  const roles = res.locals.user?.roles || [];
+  res.locals.navLinks = res.locals.user ? getCommonNavLinksForRoles(roles) : [];
+  res.locals.roleNavLinks = res.locals.user ? getRoleNavLinksForRoles(roles) : [];
   next();
 });
 
