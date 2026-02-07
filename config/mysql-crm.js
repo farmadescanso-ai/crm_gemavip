@@ -314,8 +314,9 @@ class MySQLCRM {
 
   // Método helper para ejecutar consultas
   async query(sql, params = []) {
-    // Si no estamos conectados (aunque exista un pool), intentar reconectar.
-    if (!this.connected) {
+    // En serverless es posible quedar con flags inconsistentes entre invocaciones.
+    // Asegurar siempre que existe pool + estado conectado antes de pedir getConnection().
+    if (!this.connected || !this.pool) {
       await this.connect();
     }
     
