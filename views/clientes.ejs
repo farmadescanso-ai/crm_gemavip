@@ -15,7 +15,6 @@
       <% if ((paging.page * paging.limit) < paging.total) { %>
         <a class="btn secondary" href="/clientes?page=<%= paging.page + 1 %>&limit=<%= paging.limit %>">Siguiente</a>
       <% } %>
-      <a class="btn" href="/api/clientes?limit=<%= paging.limit %>&offset=<%= (paging.page-1)*paging.limit %>">Ver JSON</a>
     </div>
 
     <div class="table-wrap">
