@@ -18,17 +18,42 @@
     <div class="topbar">
       <div class="topbar-inner container" style="padding-top: 14px; padding-bottom: 14px;">
         <a class="brand" href="/" style="text-decoration:none;">
-          <span class="brand-badge" aria-hidden="true"></span>
-          <span>CRM Gemavip</span>
+          <img class="brand-logo" src="/assets/images/gemavip-logo.svg" alt="Gemavip" />
+          <span class="brand-title">CRM</span>
         </a>
         <nav class="nav" aria-label="Principal">
-          <a href="/dashboard">Dashboard</a>
-          <a href="/comerciales">Comerciales</a>
-          <a href="/clientes">Clientes</a>
-          <a href="/pedidos">Pedidos</a>
-          <a href="/visitas">Visitas</a>
-          <a href="/api/docs">API Docs</a>
+          <% if (user) { %>
+            <% (navLinks || []).forEach((l) => { %>
+              <a href="<%= l.href %>"><%= l.label %></a>
+            <% }) %>
+          <% } %>
         </nav>
+        <div class="userbox">
+          <% if (user) { %>
+            <details class="user-menu">
+              <summary class="user-summary">
+                <span class="user-name"><%= user.nombre || user.email %></span>
+                <span class="user-role"><%= (user.roles || []).join(', ') || 'Usuario' %></span>
+              </summary>
+              <div class="user-dropdown">
+                <div class="user-dropdown-hd">
+                  <div style="font-weight:800; color: var(--gv-ink);"><%= user.nombre || 'Usuario' %></div>
+                  <div style="font-size:12px; color: var(--gv-muted);"><%= user.email %></div>
+                </div>
+                <div class="user-links">
+                  <% (navLinks || []).forEach((l) => { %>
+                    <a href="<%= l.href %>"><%= l.label %></a>
+                  <% }) %>
+                </div>
+                <form method="post" action="/logout" style="margin:0; padding: 10px;">
+                  <button class="btn secondary" type="submit" style="width:100%; justify-content:center;">Salir</button>
+                </form>
+              </div>
+            </details>
+          <% } else { %>
+            <a class="btn secondary" href="/login">Entrar</a>
+          <% } %>
+        </div>
       </div>
     </div>
     <main class="container">

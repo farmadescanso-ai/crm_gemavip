@@ -1,0 +1,33 @@
+<%- include('partials/header', { title: 'Login' }) %>
+
+<section class="card" style="max-width: 520px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Acceso</h1>
+    <p class="card-subtitle">Entra con tu email de comercial.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="badge warn" style="display:block; border-radius: 14px;">
+        <%= error %>
+      </div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form method="post" action="/login" style="display:grid; gap: 12px;">
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Email</span>
+        <input name="email" type="email" autocomplete="username" required />
+      </label>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Contraseña</span>
+        <input name="password" type="password" autocomplete="current-password" required />
+      </label>
+
+      <button class="btn" type="submit" style="justify-content:center;">Entrar</button>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

@@ -2,12 +2,15 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const swaggerUi = require('swagger-ui-express');
 const path = require('path');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
 
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
 const db = require('../config/mysql-crm');
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -15,6 +18,20 @@ app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
+
+app.use(
+  session({
+    name: 'crm_session',
+    secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    }
+  })
+);
 
 function requireApiKeyIfConfigured(req, res, next) {
   const configured = process.env.API_KEY;
@@ -24,9 +41,116 @@ function requireApiKeyIfConfigured(req, res, next) {
   return res.status(401).json({ ok: false, error: 'API key requerida (X-API-Key)' });
 }
 
+function normalizeRoles(roll) {
+  if (!roll) return [];
+  if (Array.isArray(roll)) return roll.map(String);
+  if (typeof roll === 'string') {
+    const s = roll.trim();
+    // JSON array en string
+    if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('{') && s.endsWith('}'))) {
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch (_) {
+        // ignore
+      }
+    }
+    // CSV fallback
+    return s
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return [String(roll)];
+}
+
+function getNavLinksForRoles(roles) {
+  const has = (name) => (roles || []).some((r) => String(r).toLowerCase().includes(String(name).toLowerCase()));
+  const isAdmin = has('admin');
+  const isComercial = has('comercial') || !roles || roles.length === 0;
+
+  const links = [{ href: '/dashboard', label: 'Dashboard' }];
+
+  if (isAdmin) links.push({ href: '/comerciales', label: 'Comerciales' });
+  if (isAdmin || isComercial) {
+    links.push({ href: '/clientes', label: 'Clientes' });
+    links.push({ href: '/pedidos', label: 'Pedidos' });
+    links.push({ href: '/visitas', label: 'Visitas' });
+  }
+  if (isAdmin) links.push({ href: '/api/docs', label: 'API Docs' });
+  return links;
+}
+
+function requireLogin(req, res, next) {
+  if (req.session?.user) return next();
+  return res.redirect('/login');
+}
+
+// Locals para todas las vistas
+app.use((req, _res, next) => {
+  const user = req.session?.user || null;
+  req.user = user;
+  next();
+});
+app.use((req, res, next) => {
+  res.locals.user = req.user || null;
+  res.locals.navLinks = res.locals.user ? getNavLinksForRoles(res.locals.user.roles || []) : [];
+  next();
+});
+
 // Evita 404 en navegadores por el icono
 app.get('/favicon.ico', (_req, res) => {
   res.status(204).end();
+});
+
+app.get('/login', (req, res) => {
+  if (req.session?.user) return res.redirect('/dashboard');
+  res.render('login', { title: 'Login', error: null });
+});
+
+app.post('/login', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email || '').trim();
+    const password = String(req.body?.password || '');
+    if (!email || !password) {
+      return res.status(400).render('login', { title: 'Login', error: 'Email y contraseña son obligatorios' });
+    }
+
+    const comercial = await db.getComercialByEmail(email);
+    if (!comercial) {
+      return res.status(401).render('login', { title: 'Login', error: 'Credenciales incorrectas' });
+    }
+
+    const stored = String(comercial.Password || comercial.password || '');
+    let ok = false;
+    if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
+      ok = await bcrypt.compare(password, stored);
+    } else {
+      // Legacy: comparación directa
+      ok = password === stored;
+    }
+
+    if (!ok) {
+      return res.status(401).render('login', { title: 'Login', error: 'Credenciales incorrectas' });
+    }
+
+    req.session.user = {
+      id: comercial.id ?? comercial.Id,
+      nombre: comercial.Nombre || null,
+      email: comercial.Email || comercial.email || email,
+      roles: normalizeRoles(comercial.Roll || comercial.roll || comercial.Rol)
+    };
+
+    return res.redirect('/dashboard');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/login');
+  });
 });
 
 app.get(
@@ -44,7 +168,7 @@ app.get(
   }
 );
 
-app.get('/comerciales', async (req, res, next) => {
+app.get('/comerciales', requireLogin, async (req, res, next) => {
   try {
     const items = await db.getComerciales();
     // Redactar password por seguridad
@@ -60,7 +184,7 @@ app.get('/comerciales', async (req, res, next) => {
   }
 });
 
-app.get('/clientes', async (req, res, next) => {
+app.get('/clientes', requireLogin, async (req, res, next) => {
   try {
     const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -76,7 +200,7 @@ app.get('/clientes', async (req, res, next) => {
   }
 });
 
-app.get('/pedidos', async (_req, res, next) => {
+app.get('/pedidos', requireLogin, async (_req, res, next) => {
   try {
     const items = await db.query('SELECT * FROM pedidos ORDER BY Id DESC LIMIT 50');
     res.render('pedidos', { items: items || [] });
@@ -85,7 +209,7 @@ app.get('/pedidos', async (_req, res, next) => {
   }
 });
 
-app.get('/visitas', async (_req, res, next) => {
+app.get('/visitas', requireLogin, async (_req, res, next) => {
   try {
     const items = await db.query('SELECT * FROM visitas ORDER BY Id DESC LIMIT 50');
     res.render('visitas', { items: items || [] });
@@ -94,7 +218,7 @@ app.get('/visitas', async (_req, res, next) => {
   }
 });
 
-app.get('/dashboard', async (_req, res, next) => {
+app.get('/dashboard', requireLogin, async (_req, res, next) => {
   try {
     const safeCount = async (table) => {
       try {
