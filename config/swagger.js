@@ -1,5 +1,6 @@
 // Configuración de Swagger/OpenAPI para documentación de la API
 const swaggerJsdoc = require('swagger-jsdoc');
+const path = require('path');
 
 const options = {
   definition: {
@@ -150,7 +151,7 @@ const options = {
       }
     ]
   },
-    apis: ['./routes/api/**/*.js']
+  apis: [path.join(__dirname, '..', 'routes', 'api', '**', '*.js')]
 };
 
 const swaggerSpec = swaggerJsdoc(options);

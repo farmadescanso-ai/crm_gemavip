@@ -1,10 +1,22 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
+const swaggerUi = require('swagger-ui-express');
+
+const swaggerSpec = require('../config/swagger');
+const apiRouter = require('../routes/api');
 
 const app = express();
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+function requireApiKeyIfConfigured(req, res, next) {
+  const configured = process.env.API_KEY;
+  if (!configured) return next();
+  const provided = req.header('x-api-key') || req.header('X-API-Key');
+  if (provided && provided === configured) return next();
+  return res.status(401).json({ ok: false, error: 'API key requerida (X-API-Key)' });
+}
 
 // Evita 404 en navegadores por el icono
 app.get('/favicon.ico', (_req, res) => {
@@ -28,7 +40,7 @@ app.get('/health', (_req, res) => {
 
 // Comprueba conectividad con la BD configurada en variables de entorno.
 // No devuelve credenciales; solo un diagnóstico básico.
-app.get('/health/db', async (_req, res) => {
+app.get('/health/db', requireApiKeyIfConfigured, async (_req, res) => {
   const host = process.env.DB_HOST;
   const port = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
   const user = process.env.DB_USER;
@@ -76,6 +88,20 @@ app.get('/health/db', async (_req, res) => {
       timestamp: new Date().toISOString()
     });
   }
+});
+
+// API REST (protegida con API_KEY si está configurada)
+app.use('/api', requireApiKeyIfConfigured, apiRouter);
+
+// Swagger UI (protegido con API_KEY si está configurada)
+app.use('/api/docs', requireApiKeyIfConfigured, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Error handler JSON
+app.use((err, _req, res, _next) => {
+  // Evitar filtrar stack en producción
+  const message = err?.message || String(err);
+  const code = err?.code;
+  res.status(500).json({ ok: false, error: message, code });
 });
 
 // En Vercel (runtime @vercel/node) se exporta la app como handler.
