@@ -15,56 +15,69 @@
     <link rel="stylesheet" href="/assets/styles/gemavip.css" />
   </head>
   <body>
-    <div class="topbar">
+    <% const hv = (typeof headerVariant !== 'undefined' && headerVariant) ? headerVariant : 'default'; %>
+    <div class="topbar <%= hv === 'login' ? 'topbar--login' : '' %>">
       <div class="topbar-inner container" style="padding-top: 14px; padding-bottom: 14px;">
-        <a class="brand" href="/" style="text-decoration:none;">
-          <img
-            class="brand-logo"
-            src="/assets/images/logo-gemavip.jpeg"
-            alt="Gemavip"
-            onerror="this.onerror=null; this.src='/assets/images/gemavip-logo.svg';"
-          />
-          <span class="brand-title">CRM</span>
-        </a>
-        <nav class="nav" aria-label="Principal">
-          <% if (user) { %>
-            <% (navLinks || []).forEach((l) => { %>
-              <a href="<%= l.href %>"><%= l.label %></a>
-            <% }) %>
-          <% } %>
-        </nav>
-        <div class="userbox">
-          <% if (user) { %>
-            <details class="user-menu">
-              <summary class="user-summary">
-                <span class="user-name"><%= user.nombre || user.email %></span>
-                <span class="user-role"><%= (user.roles || []).join(', ') || 'Usuario' %></span>
-              </summary>
-              <div class="user-dropdown">
-                <div class="user-dropdown-hd">
-                  <div style="font-weight:800; color: var(--gv-ink);"><%= user.nombre || 'Usuario' %></div>
-                  <div style="font-size:12px; color: var(--gv-muted);"><%= user.email %></div>
+        <% if (hv === 'login') { %>
+          <div class="login-topbar">
+            <img
+              class="brand-logo"
+              src="/assets/images/logo-gemavip.jpeg"
+              alt="Gemavip"
+              onerror="this.onerror=null; this.src='/assets/images/gemavip-logo.svg';"
+            />
+            <div class="login-topbar-title">CRM COMERCIAL GEMAVIP</div>
+          </div>
+        <% } else { %>
+          <a class="brand" href="/" style="text-decoration:none;">
+            <img
+              class="brand-logo"
+              src="/assets/images/logo-gemavip.jpeg"
+              alt="Gemavip"
+              onerror="this.onerror=null; this.src='/assets/images/gemavip-logo.svg';"
+            />
+            <span class="brand-title">CRM</span>
+          </a>
+          <nav class="nav" aria-label="Principal">
+            <% if (user) { %>
+              <% (navLinks || []).forEach((l) => { %>
+                <a href="<%= l.href %>"><%= l.label %></a>
+              <% }) %>
+            <% } %>
+          </nav>
+          <div class="userbox">
+            <% if (user) { %>
+              <details class="user-menu">
+                <summary class="user-summary">
+                  <span class="user-name"><%= user.nombre || user.email %></span>
+                  <span class="user-role"><%= (user.roles || []).join(', ') || 'Usuario' %></span>
+                </summary>
+                <div class="user-dropdown">
+                  <div class="user-dropdown-hd">
+                    <div style="font-weight:800; color: var(--gv-ink);"><%= user.nombre || 'Usuario' %></div>
+                    <div style="font-size:12px; color: var(--gv-muted);"><%= user.email %></div>
+                  </div>
+                  <div class="user-links">
+                    <% if ((roleNavLinks || []).length === 0) { %>
+                      <div style="padding: 10px 10px; color: var(--gv-muted); font-weight: 700; font-size: 12px;">
+                        Sin accesos adicionales.
+                      </div>
+                    <% } else { %>
+                      <% (roleNavLinks || []).forEach((l) => { %>
+                        <a href="<%= l.href %>"><%= l.label %></a>
+                      <% }) %>
+                    <% } %>
+                  </div>
+                  <form method="post" action="/logout" style="margin:0; padding: 10px;">
+                    <button class="btn secondary" type="submit" style="width:100%; justify-content:center;">Salir</button>
+                  </form>
                 </div>
-                <div class="user-links">
-                  <% if ((roleNavLinks || []).length === 0) { %>
-                    <div style="padding: 10px 10px; color: var(--gv-muted); font-weight: 700; font-size: 12px;">
-                      Sin accesos adicionales.
-                    </div>
-                  <% } else { %>
-                    <% (roleNavLinks || []).forEach((l) => { %>
-                      <a href="<%= l.href %>"><%= l.label %></a>
-                    <% }) %>
-                  <% } %>
-                </div>
-                <form method="post" action="/logout" style="margin:0; padding: 10px;">
-                  <button class="btn secondary" type="submit" style="width:100%; justify-content:center;">Salir</button>
-                </form>
-              </div>
-            </details>
-          <% } else { %>
-            <a class="btn secondary" href="/login">Entrar</a>
-          <% } %>
-        </div>
+              </details>
+            <% } else { %>
+              <a class="btn secondary" href="/login">Entrar</a>
+            <% } %>
+          </div>
+        <% } %>
       </div>
     </div>
     <main class="container">

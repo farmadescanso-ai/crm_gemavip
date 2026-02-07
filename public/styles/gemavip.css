@@ -65,6 +65,72 @@ main.container{
   padding-top: 104px;
 }
 
+/* Login: banner centrado y logo +50% (solo /login) */
+.topbar--login .topbar-inner{
+  justify-content: center;
+}
+.topbar--login .brand-logo{
+  height: 51px; /* +50% */
+}
+.login-topbar{
+  display:flex;
+  align-items:center;
+  gap: 14px;
+  padding: 2px 0;
+}
+.login-topbar-title{
+  font-weight: 900;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--gv-ink);
+  font-size: 14px;
+}
+@media (min-width: 720px){
+  .login-topbar-title{ font-size: 16px; }
+}
+
+/* Login: hero + card */
+.login-hero{
+  margin: 0 auto;
+  max-width: 860px;
+  padding: 10px 0 18px 0;
+  text-align: center;
+}
+.login-title{
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  color: var(--gv-ink);
+  letter-spacing: -.3px;
+}
+.login-subtitle{
+  margin: 10px auto 0 auto;
+  max-width: 54ch;
+  color: var(--gv-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.login-highlights{
+  margin-top: 12px;
+  display:flex;
+  gap: 10px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+.login-card{
+  max-width: 520px;
+  margin: 0 auto;
+  border-color: rgba(229,229,229,.9);
+  background:
+    radial-gradient(900px 500px at 30% 0%, rgba(0,139,210,.10), transparent 60%),
+    radial-gradient(900px 500px at 80% 0%, rgba(255,186,0,.10), transparent 55%),
+    var(--gv-surface);
+}
+.login-form{
+  display:grid;
+  gap: 12px;
+}
+
 .topbar-inner{
   display:flex;
   align-items:center;
