@@ -102,7 +102,7 @@ function getCommonNavLinksForRoles(roles) {
   const isAdmin = has('admin');
   const isComercial = has('comercial') || !roles || roles.length === 0;
 
-  const links = [{ href: '/dashboard', label: 'Dashboard' }];
+  const links = [];
   if (isAdmin || isComercial) {
     links.push({ href: '/clientes', label: 'Clientes' });
     links.push({ href: '/pedidos', label: 'Pedidos' });
