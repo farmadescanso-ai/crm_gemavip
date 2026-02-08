@@ -1699,10 +1699,42 @@ class MySQLCRM {
   }
 
   // ARTÍCULOS
-  async getArticulos() {
+  async getArticulos(options = {}) {
     try {
-      const sql = 'SELECT * FROM articulos ORDER BY Id ASC';
-      const rows = await this.query(sql);
+      const marcaIdRaw = options && typeof options === 'object' ? options.marcaId : null;
+      const marcaId = Number(marcaIdRaw);
+      const hasMarcaId = Number.isFinite(marcaId) && marcaId > 0;
+
+      // Incluir nombre de marca si existe tabla `marcas`
+      let rows = [];
+      try {
+        const tArt = await this._resolveTableNameCaseInsensitive('articulos');
+        const tMarcas = await this._resolveTableNameCaseInsensitive('marcas').catch(() => null);
+        if (!tMarcas) throw new Error('Sin tabla marcas');
+
+        const mCols = await this._getColumns(tMarcas).catch(() => []);
+        const mColsLower = new Set((mCols || []).map((c) => String(c).toLowerCase()));
+        const pick = (cands) => (cands || []).find((c) => mColsLower.has(String(c).toLowerCase())) || null;
+        const mPk = pick(['id', 'Id']) || 'id';
+        const mNombre =
+          pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
+
+        const selectMarcaNombre = mNombre
+          ? `m.\`${mNombre}\` AS MarcaNombre`
+          : `CAST(m.\`${mPk}\` AS CHAR) AS MarcaNombre`;
+
+        const sql = `
+          SELECT a.*, ${selectMarcaNombre}
+          FROM \`${tArt}\` a
+          LEFT JOIN \`${tMarcas}\` m ON m.\`${mPk}\` = a.\`Id_Marca\`
+          ${hasMarcaId ? 'WHERE a.`Id_Marca` = ?' : ''}
+          ORDER BY a.\`Id\` ASC
+        `;
+        rows = hasMarcaId ? await this.query(sql, [marcaId]) : await this.query(sql);
+      } catch (_) {
+        const sql = hasMarcaId ? 'SELECT * FROM articulos WHERE Id_Marca = ? ORDER BY Id ASC' : 'SELECT * FROM articulos ORDER BY Id ASC';
+        rows = hasMarcaId ? await this.query(sql, [marcaId]) : await this.query(sql);
+      }
       console.log(`✅ Obtenidos ${rows.length} artículos`);
       return rows;
     } catch (error) {
@@ -1713,8 +1745,36 @@ class MySQLCRM {
 
   async getArticuloById(id) {
     try {
-      const sql = 'SELECT * FROM articulos WHERE Id = ? LIMIT 1';
-      const rows = await this.query(sql, [id]);
+      // Incluir nombre de marca si existe tabla `marcas`
+      let rows = [];
+      try {
+        const tArt = await this._resolveTableNameCaseInsensitive('articulos');
+        const tMarcas = await this._resolveTableNameCaseInsensitive('marcas').catch(() => null);
+        if (!tMarcas) throw new Error('Sin tabla marcas');
+
+        const mCols = await this._getColumns(tMarcas).catch(() => []);
+        const mColsLower = new Set((mCols || []).map((c) => String(c).toLowerCase()));
+        const pick = (cands) => (cands || []).find((c) => mColsLower.has(String(c).toLowerCase())) || null;
+        const mPk = pick(['id', 'Id']) || 'id';
+        const mNombre =
+          pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
+
+        const selectMarcaNombre = mNombre
+          ? `m.\`${mNombre}\` AS MarcaNombre`
+          : `CAST(m.\`${mPk}\` AS CHAR) AS MarcaNombre`;
+
+        const sql = `
+          SELECT a.*, ${selectMarcaNombre}
+          FROM \`${tArt}\` a
+          LEFT JOIN \`${tMarcas}\` m ON m.\`${mPk}\` = a.\`Id_Marca\`
+          WHERE a.\`Id\` = ?
+          LIMIT 1
+        `;
+        rows = await this.query(sql, [id]);
+      } catch (_) {
+        const sql = 'SELECT * FROM articulos WHERE Id = ? LIMIT 1';
+        rows = await this.query(sql, [id]);
+      }
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo artículo por ID:', error.message);

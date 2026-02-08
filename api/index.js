@@ -185,6 +185,7 @@ function getCommonNavLinksForRoles(roles) {
     links.push({ href: '/clientes', label: 'Clientes' });
     links.push({ href: '/pedidos', label: 'Pedidos' });
     links.push({ href: '/visitas', label: 'Visitas' });
+    links.push({ href: '/articulos', label: 'Artículos' });
   }
   return links;
 }
@@ -231,6 +232,27 @@ function requireAdmin(req, res, next) {
     return res.status(403).send('Forbidden');
   }
   return next();
+}
+
+async function loadMarcasForSelect(db) {
+  // Best-effort: si falta permisos/tabla, devolver vacío.
+  try {
+    const tMarcas = await db._resolveTableNameCaseInsensitive('marcas');
+    const cols = await db._getColumns(tMarcas);
+    const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+    const pick = (cands) => (cands || []).find((c) => colsLower.has(String(c).toLowerCase())) || null;
+    const colId = pick(['id', 'Id']) || 'id';
+    const colNombre =
+      pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
+    const colActivo = pick(['Activo', 'activo']);
+
+    const selectNombre = colNombre ? `\`${colNombre}\` AS nombre` : `CAST(\`${colId}\` AS CHAR) AS nombre`;
+    const whereActivo = colActivo ? `WHERE \`${colActivo}\` = 1` : '';
+    const rows = await db.query(`SELECT \`${colId}\` AS id, ${selectNombre} FROM \`${tMarcas}\` ${whereActivo} ORDER BY nombre ASC`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (_) {
+    return [];
+  }
 }
 
 // Locals para todas las vistas
@@ -365,25 +387,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
     const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
     const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
 
-    // Cargar marcas (para selector)
-    let marcas = [];
-    try {
-      const tMarcas = await db._resolveTableNameCaseInsensitive('marcas');
-      const cols = await db._getColumns(tMarcas);
-      const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
-      const pick = (cands) => (cands || []).find((c) => colsLower.has(String(c).toLowerCase())) || null;
-      const colId = pick(['id', 'Id']) || 'id';
-      const colNombre = pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
-      const colActivo = pick(['Activo', 'activo']);
-
-      const selectNombre = colNombre ? `\`${colNombre}\` AS nombre` : `CAST(\`${colId}\` AS CHAR) AS nombre`;
-      const whereActivo = colActivo ? `WHERE \`${colActivo}\` = 1` : '';
-      marcas = await db.query(
-        `SELECT \`${colId}\` AS id, ${selectNombre} FROM \`${tMarcas}\` ${whereActivo} ORDER BY nombre ASC`
-      );
-    } catch (_) {
-      marcas = [];
-    }
+    const marcas = await loadMarcasForSelect(db);
 
     // Filtrar por año (y opcionalmente marca) usando FechaPedido (datetime)
     let items = [];
@@ -413,6 +417,162 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ===========================
+// ARTÍCULOS (HTML)
+// Comerciales: solo lectura (lista + ficha)
+// Admin: CRUD completo
+// ===========================
+
+app.get('/articulos', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const rawMarca = String(req.query.marca || req.query.brand || '').trim();
+    const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
+    const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
+
+    const marcas = await loadMarcasForSelect(db);
+    const items = await db.getArticulos({ marcaId: selectedMarcaId });
+
+    res.render('articulos', {
+      items: items || [],
+      admin,
+      marcas: Array.isArray(marcas) ? marcas : [],
+      selectedMarcaId
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/articulos/:id', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getArticuloById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    res.render('articulo', { item, admin });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/articulos/new', requireAdmin, async (_req, res, next) => {
+  try {
+    const marcas = await loadMarcasForSelect(db);
+    res.render('articulo-form', {
+      mode: 'create',
+      marcas,
+      item: { SKU: '', Nombre: '', Presentacion: '', Unidades_Caja: 1, PVL: 0, IVA: 21, Imagen: '', Id_Marca: null, EAN13: '', Activo: 1 },
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/articulos/new', requireAdmin, async (req, res, next) => {
+  try {
+    const marcas = await loadMarcasForSelect(db);
+    const body = req.body || {};
+    const payload = {
+      SKU: String(body.SKU || '').trim(),
+      Nombre: String(body.Nombre || '').trim(),
+      Presentacion: String(body.Presentacion || '').trim(),
+      Unidades_Caja: Number(body.Unidades_Caja || 0) || 0,
+      PVL: Number(body.PVL || 0) || 0,
+      IVA: Number(body.IVA ?? 21) || 0,
+      Imagen: String(body.Imagen || '').trim(),
+      Id_Marca: body.Id_Marca ? (Number(body.Id_Marca) || null) : null,
+      EAN13: body.EAN13 ? String(body.EAN13).trim() : null,
+      Activo: String(body.Activo || '1') === '1' ? 1 : 0
+    };
+
+    if (!payload.SKU || !payload.Nombre) {
+      return res.status(400).render('articulo-form', { mode: 'create', marcas, item: payload, error: 'SKU y Nombre son obligatorios' });
+    }
+
+    await db.createArticulo(payload);
+    return res.redirect('/articulos');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/articulos/:id/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getArticuloById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    const marcas = await loadMarcasForSelect(db);
+    res.render('articulo-form', { mode: 'edit', marcas, item, error: null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/articulos/:id/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const marcas = await loadMarcasForSelect(db);
+    const body = req.body || {};
+
+    // Solo columnas existentes en tu esquema actual (según SHOW COLUMNS)
+    const payload = {
+      SKU: body.SKU !== undefined ? String(body.SKU || '').trim() : undefined,
+      Nombre: body.Nombre !== undefined ? String(body.Nombre || '').trim() : undefined,
+      Presentacion: body.Presentacion !== undefined ? String(body.Presentacion || '').trim() : undefined,
+      Unidades_Caja: body.Unidades_Caja !== undefined ? (Number(body.Unidades_Caja || 0) || 0) : undefined,
+      PVL: body.PVL !== undefined ? (Number(body.PVL || 0) || 0) : undefined,
+      IVA: body.IVA !== undefined ? (Number(body.IVA || 0) || 0) : undefined,
+      Imagen: body.Imagen !== undefined ? String(body.Imagen || '').trim() : undefined,
+      Id_Marca: body.Id_Marca !== undefined ? (body.Id_Marca ? (Number(body.Id_Marca) || null) : null) : undefined,
+      EAN13: body.EAN13 !== undefined ? (String(body.EAN13 || '').trim() || null) : undefined,
+      Activo: body.Activo !== undefined ? (String(body.Activo) === '1' ? 1 : 0) : undefined
+    };
+
+    if (payload.SKU !== undefined && !payload.SKU) {
+      const item = await db.getArticuloById(id);
+      return res.status(400).render('articulo-form', { mode: 'edit', marcas, item: { ...item, ...payload }, error: 'SKU es obligatorio' });
+    }
+    if (payload.Nombre !== undefined && !payload.Nombre) {
+      const item = await db.getArticuloById(id);
+      return res.status(400).render('articulo-form', { mode: 'edit', marcas, item: { ...item, ...payload }, error: 'Nombre es obligatorio' });
+    }
+
+    await db.updateArticulo(id, payload);
+    return res.redirect(`/articulos/${id}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/articulos/:id/delete', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    await db.deleteArticulo(id);
+    return res.redirect('/articulos');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/articulos/:id/toggle', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const value = String(req.body?.Activo ?? req.body?.activo ?? '').toLowerCase();
+    const nextVal = value === '0' || value === 'false' || value === 'ko' || value === 'inactivo' ? 0 : 1;
+    await db.toggleArticuloOkKo(id, nextVal);
+    return res.redirect(`/articulos/${id}`);
   } catch (e) {
     next(e);
   }

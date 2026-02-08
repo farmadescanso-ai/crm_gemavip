@@ -1,0 +1,82 @@
+<%- include('partials/header', { title: 'Artículos' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; flex-wrap:wrap;">
+      <div>
+        <h1 class="card-title">Artículos</h1>
+        <p class="card-subtitle"><%= items.length %> artículos</p>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <form method="get" action="/articulos" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0;">
+          <label for="marca" style="font-weight:700; color: var(--gv-ink);">Marca</label>
+          <select id="marca" name="marca" class="gv-client-picker__q" style="width:auto; min-width: 220px;">
+            <option value="" <%= !selectedMarcaId ? 'selected' : '' %>>Todas</option>
+            <% (marcas || []).forEach((m) => { %>
+              <option value="<%= m.id %>" <%= Number(selectedMarcaId) === Number(m.id) ? 'selected' : '' %>><%= m.nombre ?? m.id %></option>
+            <% }) %>
+          </select>
+          <button class="btn secondary" type="submit">Filtrar</button>
+          <a class="btn secondary" href="/articulos">Todas</a>
+        </form>
+        <% if (admin) { %>
+          <a class="btn secondary" href="/articulos/new">Nuevo artículo</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+  <div class="card-bd">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>SKU</th>
+            <th>Nombre</th>
+            <th>Marca</th>
+            <th>PVL</th>
+            <th>IVA</th>
+            <th>Activo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (items || []).forEach((a) => { %>
+            <tr>
+              <td><%= a.Id ?? a.id %></td>
+              <td><%= a.SKU ?? '' %></td>
+              <td><%= a.Nombre ?? '' %></td>
+              <td><%= a.MarcaNombre ?? a.Marca ?? a.Id_Marca ?? '' %></td>
+              <td><%= a.PVL ?? '' %></td>
+              <td><%= a.IVA ?? '' %></td>
+              <td><%= (a.Activo ?? 1) ? 'Sí' : 'No' %></td>
+              <td>
+                <div class="gv-actions">
+                  <a class="btn secondary icon" href="/articulos/<%= a.Id ?? a.id %>" title="Ver ficha" aria-label="Ver ficha">
+                    Ver
+                  </a>
+                  <% if (admin) { %>
+                    <a class="btn secondary icon" href="/articulos/<%= a.Id ?? a.id %>/edit" title="Editar" aria-label="Editar">
+                      Editar
+                    </a>
+                    <form method="post" action="/articulos/<%= a.Id ?? a.id %>/delete" onsubmit="return confirm('¿Eliminar este artículo?');">
+                      <button class="btn secondary icon danger" type="submit" title="Eliminar" aria-label="Eliminar">Eliminar</button>
+                    </form>
+                  <% } %>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!items || items.length === 0) { %>
+            <tr>
+              <td colspan="8" style="color: var(--gv-muted); font-weight:700;">No hay artículos.</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
