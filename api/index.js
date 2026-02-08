@@ -349,10 +349,70 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/pedidos', requireLogin, async (_req, res, next) => {
+app.get('/pedidos', requireLogin, async (req, res, next) => {
   try {
-    const items = await db.query('SELECT * FROM pedidos ORDER BY Id DESC LIMIT 50');
-    res.render('pedidos', { items: items || [] });
+    const startYear = 2025;
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = currentYear; y >= startYear; y--) years.push(y);
+
+    const rawYear = String(req.query.year || '').trim();
+    const parsedYear = rawYear && /^\d{4}$/.test(rawYear) ? Number(rawYear) : NaN;
+    const selectedYear =
+      Number.isFinite(parsedYear) && parsedYear >= startYear && parsedYear <= currentYear ? parsedYear : currentYear;
+
+    const rawMarca = String(req.query.marca || req.query.brand || '').trim();
+    const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
+    const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
+
+    // Cargar marcas (para selector)
+    let marcas = [];
+    try {
+      const tMarcas = await db._resolveTableNameCaseInsensitive('marcas');
+      const cols = await db._getColumns(tMarcas);
+      const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+      const pick = (cands) => (cands || []).find((c) => colsLower.has(String(c).toLowerCase())) || null;
+      const colId = pick(['id', 'Id']) || 'id';
+      const colNombre = pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
+      const colActivo = pick(['Activo', 'activo']);
+
+      const selectNombre = colNombre ? `\`${colNombre}\` AS nombre` : `CAST(\`${colId}\` AS CHAR) AS nombre`;
+      const whereActivo = colActivo ? `WHERE \`${colActivo}\` = 1` : '';
+      marcas = await db.query(
+        `SELECT \`${colId}\` AS id, ${selectNombre} FROM \`${tMarcas}\` ${whereActivo} ORDER BY nombre ASC`
+      );
+    } catch (_) {
+      marcas = [];
+    }
+
+    // Filtrar por año (y opcionalmente marca) usando FechaPedido (datetime)
+    let items = [];
+    if (selectedMarcaId) {
+      items = await db.query(
+        `
+          SELECT DISTINCT p.*
+          FROM pedidos p
+          INNER JOIN pedidos_articulos pa ON pa.Id_NumPedido = p.id
+          INNER JOIN articulos a ON a.id = pa.Id_Articulo
+          WHERE YEAR(p.FechaPedido) = ? AND a.Id_Marca = ?
+          ORDER BY p.id DESC
+          LIMIT 200
+        `,
+        [selectedYear, selectedMarcaId]
+      );
+    } else {
+      items = await db.query('SELECT * FROM pedidos WHERE YEAR(FechaPedido) = ? ORDER BY id DESC LIMIT 200', [
+        selectedYear
+      ]);
+    }
+
+    res.render('pedidos', {
+      items: items || [],
+      years,
+      selectedYear,
+      marcas: Array.isArray(marcas) ? marcas : [],
+      selectedMarcaId
+    });
   } catch (e) {
     next(e);
   }
