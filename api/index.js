@@ -187,7 +187,10 @@ function getCommonNavLinksForRoles(roles) {
     links.push({ href: '/visitas', label: 'Visitas' });
     links.push({ href: '/articulos', label: 'Artículos' });
   }
-  return links;
+  // Orden alfabético por etiqueta (español), para que nuevos enlaces caigan en su sitio.
+  return links.sort((a, b) =>
+    String(a?.label || '').localeCompare(String(b?.label || ''), 'es', { sensitivity: 'base' })
+  );
 }
 
 function getRoleNavLinksForRoles(roles) {
@@ -198,7 +201,9 @@ function getRoleNavLinksForRoles(roles) {
   // Solo enlaces específicos del rol (no repetir los del menú principal)
   if (isAdmin) links.push({ href: '/comerciales', label: 'Comerciales' });
   if (isAdmin) links.push({ href: '/api/docs', label: 'API Docs' });
-  return links;
+  return links.sort((a, b) =>
+    String(a?.label || '').localeCompare(String(b?.label || ''), 'es', { sensitivity: 'base' })
+  );
 }
 
 function requireLogin(req, res, next) {

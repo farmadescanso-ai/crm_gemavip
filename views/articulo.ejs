@@ -16,53 +16,57 @@
     </div>
   </div>
   <div class="card-bd">
-    <div class="grid" style="gap: 10px;">
-      <div><strong>SKU:</strong> <%= item.SKU ?? '' %></div>
-      <div><strong>Nombre:</strong> <%= item.Nombre ?? '' %></div>
-      <div><strong>Presentación:</strong> <%= item.Presentacion ?? '' %></div>
-      <div><strong>Unidades caja:</strong> <%= item.Unidades_Caja ?? '' %></div>
-      <div><strong>PVL:</strong> <%= item.PVL ?? '' %></div>
-      <div><strong>IVA:</strong> <%= item.IVA ?? '' %></div>
-      <div><strong>EAN13:</strong> <%= item.EAN13 ?? '' %></div>
-      <div><strong>Marca:</strong> <%= item.MarcaNombre ?? item.Marca ?? '—' %></div>
-      <div><strong>Id_Marca:</strong> <%= item.Id_Marca ?? '—' %></div>
-      <div><strong>Activo:</strong> <%= (item.Activo ?? 1) ? 'Sí' : 'No' %></div>
-      <div><strong>Imagen:</strong> <%= item.Imagen ?? '' %></div>
+    <% const imgUrl = String(item.Imagen || '').trim(); %>
+    <div class="gv-article-ficha">
+      <div class="gv-article-ficha__main">
+        <div class="grid gv-article-ficha__grid" style="gap: 10px;">
+          <div><strong>SKU:</strong> <%= item.SKU ?? '' %></div>
+          <div><strong>Nombre:</strong> <%= item.Nombre ?? '' %></div>
+          <div><strong>Presentación:</strong> <%= item.Presentacion ?? '' %></div>
+          <div><strong>Unidades caja:</strong> <%= item.Unidades_Caja ?? '' %></div>
+          <div><strong>PVL:</strong> <%= item.PVL ?? '' %></div>
+          <div><strong>IVA:</strong> <%= item.IVA ?? '' %></div>
+          <div><strong>EAN13:</strong> <%= item.EAN13 ?? '' %></div>
+          <div><strong>Marca:</strong> <%= item.MarcaNombre ?? item.Marca ?? '—' %></div>
+          <div><strong>Id_Marca:</strong> <%= item.Id_Marca ?? '—' %></div>
+          <div><strong>Activo:</strong> <%= (item.Activo ?? 1) ? 'Sí' : 'No' %></div>
+          <div><strong>Imagen:</strong> <%= item.Imagen ?? '' %></div>
+        </div>
+
+        <% if (admin) { %>
+          <hr style="border:0; border-top:1px solid var(--gv-border); margin: 14px 0;" />
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <form method="post" action="/articulos/<%= item.Id ?? item.id %>/toggle">
+              <input type="hidden" name="Activo" value="<%= (item.Activo ?? 1) ? 0 : 1 %>" />
+              <button class="btn secondary" type="submit">
+                <%= (item.Activo ?? 1) ? 'Desactivar' : 'Activar' %>
+              </button>
+            </form>
+            <form method="post" action="/articulos/<%= item.Id ?? item.id %>/delete" onsubmit="return confirm('¿Eliminar este artículo? Esta acción no se puede deshacer.');">
+              <button class="btn secondary danger" type="submit">Eliminar</button>
+            </form>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (imgUrl) { %>
+        <aside class="gv-article-ficha__media" aria-label="Imagen del artículo">
+          <a class="gv-article-ficha__imgLink" href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">
+            <img
+              class="gv-article-ficha__img"
+              src="<%= imgUrl %>"
+              alt="<%= item.Nombre ?? 'Artículo' %>"
+              onerror="this.onerror=null; this.style.display='none';"
+              loading="lazy"
+            />
+          </a>
+          <div class="gv-article-ficha__mediaFoot">
+            <a href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">Abrir imagen</a>
+          </div>
+        </aside>
+      <% } %>
     </div>
 
-    <% const imgUrl = String(item.Imagen || '').trim(); %>
-    <% if (imgUrl) { %>
-      <div style="margin-top: 12px;">
-        <div style="font-weight:800; color: var(--gv-ink); margin-bottom: 6px;">Vista previa</div>
-        <a href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer" style="display:inline-block; max-width: 520px;">
-          <img
-            src="<%= imgUrl %>"
-            alt="<%= item.Nombre ?? 'Artículo' %>"
-            style="width: 100%; max-width: 520px; height: auto; border-radius: 14px; border: 1px solid var(--gv-border); background: #fff;"
-            onerror="this.onerror=null; this.style.display='none';"
-            loading="lazy"
-          />
-        </a>
-        <div style="margin-top: 6px; font-size: 12px; color: var(--gv-muted);">
-          <a href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">Abrir imagen</a>
-        </div>
-      </div>
-    <% } %>
-
-    <% if (admin) { %>
-      <hr style="border:0; border-top:1px solid var(--gv-border); margin: 14px 0;" />
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <form method="post" action="/articulos/<%= item.Id ?? item.id %>/toggle">
-          <input type="hidden" name="Activo" value="<%= (item.Activo ?? 1) ? 0 : 1 %>" />
-          <button class="btn secondary" type="submit">
-            <%= (item.Activo ?? 1) ? 'Desactivar' : 'Activar' %>
-          </button>
-        </form>
-        <form method="post" action="/articulos/<%= item.Id ?? item.id %>/delete" onsubmit="return confirm('¿Eliminar este artículo? Esta acción no se puede deshacer.');">
-          <button class="btn secondary danger" type="submit">Eliminar</button>
-        </form>
-      </div>
-    <% } %>
   </div>
 </section>
 
