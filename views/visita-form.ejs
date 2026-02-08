@@ -41,7 +41,22 @@
         </label>
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Estado</span>
-          <input name="Estado" placeholder="Ej. Planificada / Realizada / Cancelada" value="<%= (item.Estado || item[meta.colEstado] || '') %>" />
+          <% const curEstado = (item.Estado || item[meta.colEstado] || ''); %>
+          <% if ((estadosVisita || []).length > 0) { %>
+            <select name="Estado" required>
+              <option value="">(selecciona)</option>
+              <% (estadosVisita || []).forEach((e) => { %>
+                <% const val = (e && (e.nombre || e.Nombre || e.estado || e.Estado)) ? (e.nombre || e.Nombre || e.estado || e.Estado) : ''; %>
+                <% if (!val) return; %>
+                <option value="<%= val %>" <%= String(curEstado) === String(val) ? 'selected' : '' %>><%= val %></option>
+              <% }) %>
+              <% if (curEstado && !(estadosVisita || []).some((x) => String((x?.nombre || x?.Nombre || x?.estado || x?.Estado) || '') === String(curEstado))) { %>
+                <option value="<%= curEstado %>" selected>(actual) <%= curEstado %></option>
+              <% } %>
+            </select>
+          <% } else { %>
+            <input name="Estado" required placeholder="Ej. Planificada / Realizada / Cancelada" value="<%= curEstado %>" />
+          <% } %>
         </label>
       </div>
 

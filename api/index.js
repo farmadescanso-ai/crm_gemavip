@@ -392,6 +392,7 @@ app.get('/visitas/new', requireLogin, async (req, res, next) => {
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
     const tiposVisita = await db.getTiposVisita().catch(() => []);
+    const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const comerciales = admin ? await db.getComerciales() : [];
     const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
 
@@ -403,6 +404,7 @@ app.get('/visitas/new', requireLogin, async (req, res, next) => {
       admin,
       meta,
       tiposVisita,
+      estadosVisita,
       tipoIsId,
       comerciales,
       clientes,
@@ -427,6 +429,7 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
     const tiposVisita = await db.getTiposVisita().catch(() => []);
+    const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const comerciales = admin ? await db.getComerciales() : [];
     // Mantener recientes para el selector (y fallback visual)
     const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
@@ -447,6 +450,7 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
         admin,
         meta,
         tiposVisita,
+        estadosVisita,
         tipoIsId,
         comerciales,
         clientes,
@@ -465,6 +469,7 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
 
     if (!fecha) return renderError('Fecha obligatoria');
     if (meta.colTipo && !tipoRaw) return renderError('Tipo de visita obligatorio');
+    if (meta.colEstado && !estado) return renderError('Estado obligatorio');
 
     const payload = {};
     if (meta.colFecha) payload[meta.colFecha] = fecha;
@@ -521,6 +526,7 @@ app.get('/visitas/:id/edit', requireLogin, async (req, res, next) => {
     const comerciales = admin ? await db.getComerciales() : [];
     const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
     const tiposVisita = await db.getTiposVisita().catch(() => []);
+    const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const colTipoLower = String(meta.colTipo || '').toLowerCase();
     const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
 
@@ -529,6 +535,7 @@ app.get('/visitas/:id/edit', requireLogin, async (req, res, next) => {
       admin,
       meta,
       tiposVisita,
+      estadosVisita,
       tipoIsId,
       comerciales,
       clientes,

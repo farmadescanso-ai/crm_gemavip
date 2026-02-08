@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
 const tiposVisitaFallback = require('./tipos-visita.json');
+const estadosVisitaFallback = require('./estados-visita.json');
 
 class MySQLCRM {
   constructor() {
@@ -40,6 +41,7 @@ class MySQLCRM {
     this._pedidosIndexesEnsured = false;
     this._pedidosArticulosIndexesEnsured = false;
     this._contactosIndexesEnsured = false;
+    this._estadosVisitaEnsured = false;
     // Cache interno para metadatos de tablas/columnas (útil en serverless)
     this._metaCache = {};
   }
@@ -128,7 +130,7 @@ class MySQLCRM {
         'Tipo_VisitaId',
         'tipoVisitaId'
       ]),
-      colEstado: pickCI(['Estado', 'estado', 'EstadoVisita', 'estadoVisita']),
+      colEstado: pickCI(['Estado', 'estado', 'EstadoVisita', 'estadoVisita', 'Estado_Visita', 'estado_visita']),
       colNotas: pickCI(['Notas', 'notas', 'Observaciones', 'observaciones', 'Comentarios', 'comentarios', 'Mensaje', 'mensaje'])
     };
 
@@ -214,6 +216,148 @@ class MySQLCRM {
     } catch (e) {
       console.warn('⚠️ Error obteniendo tipos de visita:', e?.message || e);
       return Array.isArray(tiposVisitaFallback) ? tiposVisitaFallback : [];
+    }
+  }
+
+  async ensureEstadosVisitaCatalog() {
+    if (this._estadosVisitaEnsured) return;
+    this._estadosVisitaEnsured = true;
+
+    // Best-effort: no romper la app si no hay permisos para CREATE/INSERT en producción
+    try {
+      if (!this.pool) return;
+
+      // Crear tabla catálogo si no existe
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`estados_visita\` (
+          id INT NOT NULL AUTO_INCREMENT,
+          nombre VARCHAR(80) NOT NULL,
+          activo TINYINT(1) NOT NULL DEFAULT 1,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_estados_visita_nombre (nombre)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
+      // Estados por defecto + estados reales existentes en la tabla visitas (si hay columna estado)
+      const base = Array.isArray(estadosVisitaFallback) ? estadosVisitaFallback : [];
+      const normalized = new Set(
+        base
+          .map((x) => (typeof x === 'string' ? x : x?.nombre))
+          .map((s) => String(s || '').trim())
+          .filter(Boolean)
+      );
+
+      try {
+        const meta = await this._ensureVisitasMeta();
+        if (meta?.table && meta?.colEstado) {
+          const rows = await this.query(
+            `SELECT DISTINCT TRIM(COALESCE(CONCAT(v.\`${meta.colEstado}\`,''),'')) AS nombre
+             FROM \`${meta.table}\` v
+             WHERE v.\`${meta.colEstado}\` IS NOT NULL AND TRIM(COALESCE(CONCAT(v.\`${meta.colEstado}\`,''),'')) != ''
+             LIMIT 500`
+          ).catch(() => []);
+
+          for (const r of rows || []) {
+            const s = String(r?.nombre || '').trim();
+            if (s) normalized.add(s);
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+
+      const values = Array.from(normalized).slice(0, 200);
+      for (const nombre of values) {
+        await this.query('INSERT IGNORE INTO `estados_visita` (nombre, activo) VALUES (?, 1)', [nombre]);
+      }
+
+      // invalidar cache para que se vea al momento
+      if (this._metaCache) delete this._metaCache.estadosVisita;
+    } catch (e) {
+      console.warn('⚠️ [CATALOGO] No se pudo asegurar estados_visita:', e?.message || e);
+    }
+  }
+
+  async getEstadosVisita() {
+    try {
+      if (this._metaCache?.estadosVisita) return this._metaCache.estadosVisita;
+
+      const candidates = [
+        'estados_visita',
+        'estados_visitas',
+        'visitas_estados',
+        'estados_visita_catalogo'
+      ];
+
+      let table = null;
+      let colsRows = [];
+      for (const base of candidates) {
+        const t = await this._resolveTableNameCaseInsensitive(base);
+        try {
+          colsRows = await this.query(`SHOW COLUMNS FROM \`${t}\``);
+          if (Array.isArray(colsRows) && colsRows.length) {
+            table = t;
+            break;
+          }
+        } catch (_) {
+          // probar siguiente
+        }
+      }
+
+      if (!table) {
+        const fallback = (Array.isArray(estadosVisitaFallback) ? estadosVisitaFallback : [])
+          .map((x, idx) => (typeof x === 'string' ? { id: idx + 1, nombre: x } : x))
+          .filter((x) => x?.nombre);
+        this._metaCache.estadosVisita = fallback;
+        return fallback;
+      }
+
+      const cols = (Array.isArray(colsRows) ? colsRows : [])
+        .map((r) => String(r.Field || '').trim())
+        .filter(Boolean);
+      const colsLower = new Set(cols.map((c) => c.toLowerCase()));
+      const pickCI = (cands) => {
+        for (const cand of (cands || [])) {
+          const cl = String(cand).toLowerCase();
+          if (colsLower.has(cl)) {
+            const idx = cols.findIndex((c) => c.toLowerCase() === cl);
+            return idx >= 0 ? cols[idx] : cand;
+          }
+        }
+        return null;
+      };
+
+      const idCol = pickCI(['Id', 'id']) || cols[0];
+      const nameCol = pickCI(['Nombre', 'nombre', 'Estado', 'estado', 'Name', 'name']) || cols[1] || cols[0];
+      const activeCol = pickCI(['Activo', 'activo', 'Enabled', 'enabled', 'Activa', 'activa']);
+
+      let sql = `SELECT \`${idCol}\` AS id, \`${nameCol}\` AS nombre FROM \`${table}\``;
+      const params = [];
+      if (activeCol) sql += ` WHERE \`${activeCol}\` = 1`;
+      sql += ` ORDER BY \`${nameCol}\` ASC LIMIT 200`;
+
+      const rows = await this.query(sql, params);
+      const estados = (rows || [])
+        .map((r) => ({ id: r.id, nombre: r.nombre }))
+        .filter((r) => r?.nombre !== null && r?.nombre !== undefined && String(r.nombre).trim() !== '');
+
+      // Si existe tabla pero está vacía, usar fallback
+      if (!estados.length) {
+        const fallback = (Array.isArray(estadosVisitaFallback) ? estadosVisitaFallback : [])
+          .map((x, idx) => (typeof x === 'string' ? { id: idx + 1, nombre: x } : x))
+          .filter((x) => x?.nombre);
+        this._metaCache.estadosVisita = fallback;
+        return fallback;
+      }
+
+      this._metaCache.estadosVisita = estados;
+      return estados;
+    } catch (e) {
+      const fallback = (Array.isArray(estadosVisitaFallback) ? estadosVisitaFallback : [])
+        .map((x, idx) => (typeof x === 'string' ? { id: idx + 1, nombre: x } : x))
+        .filter((x) => x?.nombre);
+      return fallback;
     }
   }
 
@@ -888,6 +1032,8 @@ class MySQLCRM {
       await this.ensureComercialesReunionesNullable();
       // Índices recomendados para rendimiento del CRM (best-effort)
       await this.ensureVisitasIndexes();
+      // Catálogos (best-effort)
+      await this.ensureEstadosVisitaCatalog();
       await this.ensureClientesIndexes();
       await this.ensurePedidosIndexes();
       await this.ensurePedidosArticulosIndexes();
