@@ -272,7 +272,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       if (view === 'calendar') {
         return res.render('visitas-calendar', { month: qMonth || '', cells: [], meta, admin });
       }
-      return res.render('visitas', { items: [], admin, selectedDate: qDate || null });
+      return res.render('visitas', { items: [], admin, selectedDate: qDate || null, paging: { page: 1, limit: 50, total: 0 }, id: '' });
     }
 
     if (!admin && meta.colComercial) {

@@ -5,7 +5,8 @@
     <h1 class="card-title">Visitas</h1>
     <p class="card-subtitle">
       Vista lista · <%= items.length %> resultados
-      <% if (paging && typeof paging.total !== 'undefined') { %>
+      <% const hasPaging = (typeof paging !== 'undefined' && paging && typeof paging.total !== 'undefined'); %>
+      <% if (hasPaging) { %>
         · Total <%= paging.total %> · Página <%= paging.page %>
       <% } %>
       <% if (selectedDate) { %> · <span class="badge info"><%= selectedDate %></span><% } %>
@@ -24,7 +25,7 @@
 
     <form method="get" action="/visitas" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom: 12px;">
       <input type="hidden" name="view" value="list" />
-      <input type="hidden" name="limit" value="<%= (paging && paging.limit) ? paging.limit : 50 %>" />
+      <input type="hidden" name="limit" value="<%= (hasPaging && paging.limit) ? paging.limit : 50 %>" />
       <input
         type="date"
         name="date"
@@ -43,7 +44,7 @@
       <a class="btn secondary" href="/visitas?view=list">Limpiar</a>
     </form>
 
-    <% if (paging && paging.total && paging.total > paging.limit) { %>
+    <% if (hasPaging && paging.total && paging.total > paging.limit) { %>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
         <% const prev = paging.page > 1 ? paging.page - 1 : null; %>
         <% const next = (paging.page * paging.limit) < paging.total ? paging.page + 1 : null; %>
