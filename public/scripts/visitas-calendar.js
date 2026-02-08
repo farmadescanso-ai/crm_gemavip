@@ -41,12 +41,14 @@
       events: async (info, success, failure) => {
         try {
           const url = `/api/visitas/events?start=${encodeURIComponent(info.startStr)}&end=${encodeURIComponent(info.endStr)}`;
-          const r = await fetch(url, { headers: { Accept: 'application/json' } });
+          const r = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const json = await r.json();
           if (!json || json.ok !== true) throw new Error('Respuesta no válida');
           success(Array.isArray(json.items) ? json.items : []);
         } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('Error cargando eventos del calendario', e);
           failure(e);
         }
       }

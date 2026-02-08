@@ -318,7 +318,35 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       const now = new Date();
       const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const initialDate = qDate || `${month}-01`;
-      return res.render('visitas-calendar', { month, initialDate, meta, admin });
+      let totalMes = 0;
+      try {
+        if (meta?.table && meta?.colFecha) {
+          const m = String(month).match(/^(\d{4})-(\d{2})$/);
+          const y = m ? Number(m[1]) : now.getFullYear();
+          const mo = m ? Number(m[2]) - 1 : now.getMonth();
+          const start = `${y}-${String(mo + 1).padStart(2, '0')}-01`;
+          const end = new Date(Date.UTC(y, mo + 1, 1)).toISOString().slice(0, 10);
+
+          const whereCal = [];
+          const paramsCal = [];
+          if (!admin) {
+            const uIdNum = Number(res.locals.user?.id);
+            if (meta.colComercial && Number.isFinite(uIdNum) && uIdNum > 0) {
+              whereCal.push(`v.\`${meta.colComercial}\` = ?`);
+              paramsCal.push(uIdNum);
+            }
+          }
+          whereCal.push(`DATE(v.\`${meta.colFecha}\`) >= ? AND DATE(v.\`${meta.colFecha}\`) < ?`);
+          paramsCal.push(start, end);
+          const whereCalSql = whereCal.length ? `WHERE ${whereCal.join(' AND ')}` : '';
+          const rows = await db.query(`SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereCalSql}`, paramsCal);
+          totalMes = Number(rows?.[0]?.total ?? 0);
+        }
+      } catch (_) {
+        totalMes = 0;
+      }
+
+      return res.render('visitas-calendar', { month, initialDate, meta, admin, totalMes });
     }
 
     // LISTA

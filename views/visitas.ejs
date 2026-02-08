@@ -1,5 +1,37 @@
 <%- include('partials/header', { title: 'Visitas' }) %>
 
+<%
+  function fmtDateES(val) {
+    if (!val) return '';
+    try {
+      if (val instanceof Date) {
+        const dd = String(val.getDate()).padStart(2, '0');
+        const mm = String(val.getMonth() + 1).padStart(2, '0');
+        const yy = String(val.getFullYear());
+        return `${dd}/${mm}/${yy}`;
+      }
+      const s = String(val);
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+      return s.slice(0, 10);
+    } catch (_) {
+      return String(val).slice(0, 10);
+    }
+  }
+  function fmtTimeHM(val) {
+    if (!val) return '';
+    try {
+      if (val instanceof Date) return val.toISOString().slice(11, 16);
+      const s = String(val);
+      const m = s.match(/(\d{2}):(\d{2})/);
+      if (m) return `${m[1]}:${m[2]}`;
+      return s.slice(0, 5);
+    } catch (_) {
+      return String(val).slice(0, 5);
+    }
+  }
+%>
+
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Visitas</h1>
@@ -101,8 +133,8 @@
                   </form>
                 </div>
               </td>
-              <td><%= (v.Fecha ?? '').toString().slice(0,10) %></td>
-              <td><%= v.Hora ?? '' %></td>
+              <td><%= fmtDateES(v.Fecha) %></td>
+              <td><%= fmtTimeHM(v.Hora) %></td>
               <td><%= v.TipoVisita ?? '' %></td>
               <td><%= v.ClienteNombre ? v.ClienteNombre : (v.ClienteId ?? '') %></td>
               <td><%= v.ComercialNombre ? v.ComercialNombre : (v.ComercialId ?? '') %></td>

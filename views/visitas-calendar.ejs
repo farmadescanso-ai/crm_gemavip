@@ -2,11 +2,14 @@
 
 <% const safeMonth = (typeof month !== 'undefined' && month) ? String(month) : ''; %>
 <% const safeInitialDate = (typeof initialDate !== 'undefined' && initialDate) ? String(initialDate) : ''; %>
+<% const safeTotalMes = (typeof totalMes !== 'undefined' && totalMes !== null) ? Number(totalMes) : 0; %>
 
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Visitas</h1>
-    <p class="card-subtitle">Calendario profesional · <span class="badge info"><%= safeMonth %></span></p>
+    <p class="card-subtitle">
+      Calendario profesional · <span class="badge info"><%= safeMonth %></span> · Total <%= safeTotalMes %>
+    </p>
   </div>
   <div class="card-bd">
     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom: 12px;">

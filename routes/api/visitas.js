@@ -103,9 +103,24 @@ router.get(
     `;
 
     const rows = await db.query(sql, params);
+    const toYmd = (value) => {
+      if (!value) return null;
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+      const s = String(value);
+      const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (m) return m[1];
+      return null;
+    };
+    const toHm = (value) => {
+      if (!value) return '';
+      if (value instanceof Date) return value.toISOString().slice(11, 16);
+      const s = String(value);
+      const m = s.match(/(\d{2}:\d{2})/);
+      return m ? m[1] : '';
+    };
     const items = (rows || []).map((r) => {
-      const date = r?.Fecha ? String(r.Fecha).slice(0, 10) : null;
-      const hora = r?.Hora ? String(r.Hora).slice(0, 5) : '';
+      const date = toYmd(r?.Fecha);
+      const hora = toHm(r?.Hora);
       const startIso = date ? (hora ? `${date}T${hora}:00` : `${date}`) : null;
 
       const cliente = r?.ClienteNombre ? String(r.ClienteNombre) : r?.ClienteId ? `Cliente ${r.ClienteId}` : 'Visita';
