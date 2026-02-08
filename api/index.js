@@ -374,6 +374,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
         v.\`${meta.pk}\` as Id,
         ${meta.colFecha ? `v.\`${meta.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
         ${meta.colHora ? `v.\`${meta.colHora}\` as Hora,` : "'' as Hora,"}
+        ${meta.colHoraFinal ? `v.\`${meta.colHoraFinal}\` as HoraFinal,` : "'' as HoraFinal,"}
         ${meta.colTipo ? `v.\`${meta.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
         ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
         ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}

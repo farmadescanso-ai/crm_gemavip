@@ -97,6 +97,7 @@
             <th>Acciones</th>
             <th>Fecha</th>
             <th>Hora</th>
+            <th>Hora fin</th>
             <th>Tipo</th>
             <th>Cliente</th>
             <% if (admin) { %><th>Comercial</th><% } %>
@@ -135,6 +136,7 @@
               </td>
               <td><%= fmtDateES(v.Fecha) %></td>
               <td><%= fmtTimeHM(v.Hora) %></td>
+              <td><%= fmtTimeHM(v.HoraFinal || v.Hora_Final) %></td>
               <td><%= v.TipoVisita ?? '' %></td>
               <td><%= (v.ClienteRazonSocial || v.ClienteNombre) ? (v.ClienteRazonSocial || v.ClienteNombre) : (v.ClienteId ?? '') %></td>
               <% if (admin) { %>
