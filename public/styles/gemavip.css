@@ -269,6 +269,29 @@ main.container{
   box-shadow:none;
 }
 
+/* Tablas: acciones compactas en iconos */
+.gv-actions{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.gv-actions form{ display: inline; margin: 0; }
+.btn.icon{
+  padding: 6px 8px;
+  min-width: 34px;
+  justify-content: center;
+  gap: 0;
+}
+.btn.icon svg{
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.btn.icon.danger{
+  border-color: rgba(255,186,0,.6);
+}
+
 .table-wrap{ overflow:auto; border-radius: 14px; border:1px solid var(--gv-border); }
 table{
   width: 100%;
