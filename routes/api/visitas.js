@@ -47,6 +47,7 @@ router.get(
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminSessionUser(sessionUser);
     const meta = await db._ensureVisitasMeta();
+    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
 
     const startRaw = typeof req.query.start === 'string' ? String(req.query.start) : '';
     const endRaw = typeof req.query.end === 'string' ? String(req.query.end) : '';
@@ -80,7 +81,9 @@ router.get(
     params.push(start, end);
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const joinCliente = meta.colCliente ? 'LEFT JOIN clientes c ON v.`' + meta.colCliente + '` = c.Id' : '';
+    const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
+    const pkClientes = clientesMeta?.pk || 'Id';
+    const joinCliente = meta.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${meta.colCliente}\` = c.\`${pkClientes}\`` : '';
     const selectClienteNombre = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
 
     const sql = `
