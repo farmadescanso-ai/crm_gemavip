@@ -107,6 +107,12 @@
       results.innerHTML = '';
     };
 
+    const selectItem = (id, label) => {
+      if (id !== undefined && id !== null && String(id).trim() !== '') idInput.value = String(id).trim();
+      if (label) qInput.value = String(label);
+      hideResults();
+    };
+
     const showRecent = (on) => {
       if (!recent) return;
       recent.style.display = on ? '' : 'none';
@@ -117,9 +123,7 @@
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-client-pick');
         const label = btn.getAttribute('data-client-label') || '';
-        if (id) idInput.value = id;
-        if (label) qInput.value = label;
-        hideResults();
+        selectItem(id, label);
       });
     });
 
@@ -155,13 +159,17 @@
           .join('');
 
         results.querySelectorAll('.gv-client-picker__item').forEach((b) => {
-          b.addEventListener('click', () => {
+          const handler = (e) => {
+            // Importante: seleccionar antes de que el input pierda el foco (blur),
+            // y evitar que el botón "robe" el foco si no queremos.
+            if (e && typeof e.preventDefault === 'function') e.preventDefault();
             const id = b.getAttribute('data-id');
             const label = b.getAttribute('data-label');
-            if (id) idInput.value = id;
-            if (label) qInput.value = label;
-            hideResults();
-          });
+            selectItem(id, label);
+          };
+          b.addEventListener('pointerdown', handler);
+          b.addEventListener('mousedown', handler);
+          b.addEventListener('click', handler);
         });
       } catch (_e) {
         results.innerHTML = `<div class="gv-client-picker__empty">No se pudo buscar (reintenta)</div>`;
@@ -173,7 +181,14 @@
       const q = qInput.value.trim();
       if (q.length < 3 && !isDigitsOnly(q)) showRecent(true);
     });
-    qInput.addEventListener('blur', () => setTimeout(hideResults, 120));
+    qInput.addEventListener('blur', () => {
+      // Si el foco pasa a un elemento dentro del componente (p.ej. botón resultado),
+      // no ocultar aún (permite seleccionar).
+      setTimeout(() => {
+        if (root.contains(document.activeElement)) return;
+        hideResults();
+      }, 120);
+    });
     qInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !results.hidden) {
         const first = results.querySelector('.gv-client-picker__item');
