@@ -1,4 +1,5 @@
 const mysql = require('mysql2/promise');
+const tiposVisitaFallback = require('./tipos-visita.json');
 
 class MySQLCRM {
   constructor() {
@@ -131,8 +132,9 @@ class MySQLCRM {
       }
 
       if (!table) {
-        this._metaCache.tiposVisita = [];
-        return [];
+        const fallback = Array.isArray(tiposVisitaFallback) ? tiposVisitaFallback : [];
+        this._metaCache.tiposVisita = fallback;
+        return fallback;
       }
 
       const cols = (Array.isArray(colsRows) ? colsRows : [])
@@ -166,11 +168,18 @@ class MySQLCRM {
         .map(r => ({ id: r.id, nombre: r.nombre }))
         .filter(r => r?.nombre !== null && r?.nombre !== undefined && String(r.nombre).trim() !== '');
 
+      // Si la tabla existe pero está vacía, usar fallback de fichero.
+      if (!tipos.length) {
+        const fallback = Array.isArray(tiposVisitaFallback) ? tiposVisitaFallback : [];
+        this._metaCache.tiposVisita = fallback;
+        return fallback;
+      }
+
       this._metaCache.tiposVisita = tipos;
       return tipos;
     } catch (e) {
       console.warn('⚠️ Error obteniendo tipos de visita:', e?.message || e);
-      return [];
+      return Array.isArray(tiposVisitaFallback) ? tiposVisitaFallback : [];
     }
   }
 

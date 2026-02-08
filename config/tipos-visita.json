@@ -1,0 +1,8 @@
+[
+  { "id": 1, "nombre": "Presencial" },
+  { "id": 2, "nombre": "Teléfono" },
+  { "id": 3, "nombre": "Online" },
+  { "id": 4, "nombre": "Formación" },
+  { "id": 5, "nombre": "Seguimiento" }
+]
+
