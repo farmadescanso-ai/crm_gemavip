@@ -69,7 +69,16 @@ class MySQLCRM {
     const meta = {
       table: tVisitas,
       pk: pickCI(['Id', 'id']) || 'Id',
-      colComercial: pickCI(['Id_Cial', 'id_cial', 'ComercialId', 'comercialId', 'Comercial_id', 'comercial_id']),
+      colComercial: pickCI([
+        'Id_Cial',
+        'id_cial',
+        'ComercialId',
+        'comercialId',
+        'Comercial_id',
+        'comercial_id',
+        'Id_Comercial',
+        'id_comercial'
+      ]),
       colCliente: pickCI(['ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
       colFecha: pickCI(['Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita']),
       colHora: pickCI(['Hora', 'hora']),

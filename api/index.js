@@ -261,6 +261,14 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     const where = [];
     const params = [];
 
+    // Seguridad: si no podemos resolver columna de comercial, un comercial no debe ver visitas "globales"
+    if (!admin && !meta.colComercial) {
+      if (view === 'calendar') {
+        return res.render('visitas-calendar', { month: qMonth || '', cells: [], meta, admin });
+      }
+      return res.render('visitas', { items: [], admin, selectedDate: qDate || null });
+    }
+
     if (!admin && meta.colComercial) {
       where.push(`v.\`${meta.colComercial}\` = ?`);
       params.push(res.locals.user.id);
@@ -271,14 +279,10 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       params.push(qDate);
     }
 
-    const joinCliente =
-      meta.colCliente
-        ? 'LEFT JOIN clientes c ON v.`' + meta.colCliente + '` = c.Id'
-        : '';
-    const joinComercial =
-      meta.colComercial
-        ? 'LEFT JOIN comerciales co ON v.`' + meta.colComercial + '` = co.id'
-        : '';
+    const joinCliente = meta.colCliente ? 'LEFT JOIN clientes c ON v.`' + meta.colCliente + '` = c.Id' : '';
+    const joinComercial = meta.colComercial ? 'LEFT JOIN comerciales co ON v.`' + meta.colComercial + '` = co.id' : '';
+    const selectClienteNombre = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
+    const selectComercialNombre = meta.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -309,8 +313,8 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
           ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
           ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
           ${meta.colComercial ? `v.\`${meta.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
-          c.Nombre_Razon_Social as ClienteNombre,
-          co.Nombre as ComercialNombre
+          ${selectClienteNombre},
+          ${selectComercialNombre}
         FROM \`${meta.table}\` v
         ${joinCliente}
         ${joinComercial}
@@ -361,8 +365,8 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
         ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
         ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
         ${meta.colComercial ? `v.\`${meta.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
-        c.Nombre_Razon_Social as ClienteNombre,
-        co.Nombre as ComercialNombre
+        ${selectClienteNombre},
+        ${selectComercialNombre}
       FROM \`${meta.table}\` v
       ${joinCliente}
       ${joinComercial}
