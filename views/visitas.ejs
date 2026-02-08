@@ -99,7 +99,7 @@
             <th>Hora</th>
             <th>Tipo</th>
             <th>Cliente</th>
-            <th>Comercial</th>
+            <% if (admin) { %><th>Comercial</th><% } %>
             <th>Estado</th>
           </tr>
         </thead>
@@ -137,7 +137,9 @@
               <td><%= fmtTimeHM(v.Hora) %></td>
               <td><%= v.TipoVisita ?? '' %></td>
               <td><%= (v.ClienteRazonSocial || v.ClienteNombre) ? (v.ClienteRazonSocial || v.ClienteNombre) : (v.ClienteId ?? '') %></td>
-              <td><%= v.ComercialNombre ? v.ComercialNombre : (v.ComercialId ?? '') %></td>
+              <% if (admin) { %>
+                <td><%= v.ComercialNombre ? v.ComercialNombre : (v.ComercialId ?? '') %></td>
+              <% } %>
               <td><%= v.Estado ?? '' %></td>
             </tr>
           <% }) %>
