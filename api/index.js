@@ -426,6 +426,10 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
   try {
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
+    const tiposVisita = await db.getTiposVisita().catch(() => []);
+    const comerciales = admin ? await db.getComerciales() : [];
+    // Mantener recientes para el selector (y fallback visual)
+    const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
 
     const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
     const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
@@ -435,12 +439,37 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
     const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
     const comercialId = admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id);
 
-    if (!fecha) return res.status(400).json({ ok: false, error: 'Fecha obligatoria' });
+    const renderError = (message) => {
+      const colTipoLower = String(meta.colTipo || '').toLowerCase();
+      const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
+      return res.status(400).render('visita-form', {
+        mode: 'create',
+        admin,
+        meta,
+        tiposVisita,
+        tipoIsId,
+        comerciales,
+        clientes,
+        item: {
+          Fecha: fecha || new Date().toISOString().slice(0, 10),
+          Hora: hora || '',
+          TipoVisita: tipoRaw || '',
+          Estado: estado || '',
+          ClienteId: clienteId || null,
+          ComercialId: comercialId || res.locals.user.id,
+          Notas: notas || ''
+        },
+        error: message
+      });
+    };
+
+    if (!fecha) return renderError('Fecha obligatoria');
+    if (meta.colTipo && !tipoRaw) return renderError('Tipo de visita obligatorio');
 
     const payload = {};
     if (meta.colFecha) payload[meta.colFecha] = fecha;
     if (meta.colHora && hora) payload[meta.colHora] = hora;
-    if (meta.colTipo && tipoRaw) {
+    if (meta.colTipo) {
       const colTipoLower = String(meta.colTipo || '').toLowerCase();
       const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
       payload[meta.colTipo] = tipoIsId ? (Number(tipoRaw) || null) : tipoRaw.slice(0, 80);

@@ -27,7 +27,7 @@
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo de visita</span>
           <% if ((tiposVisita || []).length > 0) { %>
-            <select name="TipoVisita">
+            <select name="TipoVisita" required>
               <option value="">(selecciona)</option>
               <% (tiposVisita || []).forEach((t) => { %>
                 <% const val = (tipoIsId ? t.id : t.nombre); %>
@@ -36,7 +36,7 @@
               <% }) %>
             </select>
           <% } else { %>
-            <input name="TipoVisita" placeholder="Ej. Presencial / Teléfono / Online" value="<%= (item.TipoVisita || item[meta.colTipo] || '') %>" />
+            <input name="TipoVisita" required placeholder="Ej. Presencial / Teléfono / Online" value="<%= (item.TipoVisita || item[meta.colTipo] || '') %>" />
           <% } %>
         </label>
         <label style="display:grid; gap: 6px;">

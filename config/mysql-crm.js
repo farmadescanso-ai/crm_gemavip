@@ -115,12 +115,17 @@ class MySQLCRM {
       colTipo: pickCI([
         'TipoVisita',
         'tipoVisita',
+        'Tipo_Visita',
+        'tipo_visita',
         'Tipo',
         'tipo',
         'Id_TipoVisita',
         'id_tipovisita',
+        'Id_Tipo_Visita',
+        'id_tipo_visita',
         'id_tipo_visita',
         'TipoVisitaId',
+        'Tipo_VisitaId',
         'tipoVisitaId'
       ]),
       colEstado: pickCI(['Estado', 'estado', 'EstadoVisita', 'estadoVisita']),
