@@ -1,15 +1,18 @@
 <%- include('partials/header', { title: 'Visitas' }) %>
 
+<% const safeMonth = (typeof month !== 'undefined' && month) ? String(month) : ''; %>
+<% const safeInitialDate = (typeof initialDate !== 'undefined' && initialDate) ? String(initialDate) : ''; %>
+
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Visitas</h1>
-    <p class="card-subtitle">Calendario profesional · <span class="badge info"><%= month %></span></p>
+    <p class="card-subtitle">Calendario profesional · <span class="badge info"><%= safeMonth %></span></p>
   </div>
   <div class="card-bd">
     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom: 12px;">
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <a class="btn secondary" href="/visitas?view=list">Lista</a>
-        <a class="btn secondary" href="/visitas?view=calendar&month=<%= month %>">Calendario</a>
+        <a class="btn secondary" href="/visitas?view=calendar&month=<%= safeMonth %>">Calendario</a>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <a class="btn" href="/visitas/new">Nueva visita</a>
@@ -17,7 +20,7 @@
     </div>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" />
-    <div id="gv-visitas-calendar" data-initial-date="<%= (initialDate || '').toString().slice(0,10) %>" style="min-height: 560px;"></div>
+    <div id="gv-visitas-calendar" data-initial-date="<%= safeInitialDate.toString().slice(0,10) %>" style="min-height: 560px;"></div>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script defer src="/assets/scripts/visitas-calendar.js"></script>
   </div>

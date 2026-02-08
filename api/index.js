@@ -270,7 +270,10 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     // Seguridad: si no podemos resolver columna de comercial, un comercial no debe ver visitas "globales"
     if (!admin && !meta.colComercial) {
       if (view === 'calendar') {
-        return res.render('visitas-calendar', { month: qMonth || '', cells: [], meta, admin });
+        const now = new Date();
+        const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const initialDate = qDate || `${month}-01`;
+        return res.render('visitas-calendar', { month, initialDate, meta, admin });
       }
       return res.render('visitas', { items: [], admin, selectedDate: qDate || null, paging: { page: 1, limit: 50, total: 0 }, id: '' });
     }
