@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const swaggerUi = require('swagger-ui-express');
+const crypto = require('crypto');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
@@ -8,6 +9,7 @@ const MySQLStoreFactory = require('express-mysql-session');
 
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
+const publicRouter = require('../routes/public');
 const db = require('../config/mysql-crm');
 
 const app = express();
@@ -62,6 +64,82 @@ app.use(
     }
   })
 );
+
+function makeRequestId() {
+  try {
+    return crypto.randomUUID();
+  } catch (_) {
+    return crypto.randomBytes(16).toString('hex');
+  }
+}
+
+function wantsHtml(req) {
+  const accept = String(req.headers?.accept || '');
+  return accept.includes('text/html');
+}
+
+function buildSupportDetails(req, { status, heading, summary, publicMessage, code } = {}) {
+  const user = req.session?.user || null;
+  const roles = Array.isArray(user?.roles) ? user.roles.join(', ') : String(user?.roles || '');
+  const lines = [
+    'CRM Gemavip · Reporte de incidencia',
+    `Fecha: ${new Date().toISOString()}`,
+    `Request ID: ${req.requestId || '—'}`,
+    `Ruta: ${req.method} ${req.originalUrl || req.url || ''}`,
+    `Estado: ${status || 500}`,
+    `Título: ${heading || '—'}`,
+    `Resumen: ${summary || '—'}`,
+    `Mensaje: ${publicMessage || '—'}`,
+    `Código interno: ${code || '—'}`,
+    `Usuario: ${user ? `${user.email || '—'} (id: ${user.id ?? '—'})` : 'No logueado'}`,
+    `Roles: ${roles || '—'}`,
+    `User-Agent: ${String(req.headers['user-agent'] || '—')}`
+  ];
+  return lines.join('\n');
+}
+
+function renderErrorPage(req, res, opts) {
+  const status = opts?.status || 500;
+  const heading = opts?.heading || 'Ha ocurrido un problema';
+  const summary = opts?.summary || 'No se ha podido completar la acción.';
+  const statusLabel = opts?.statusLabel
+    || (status === 404 ? 'Not Found' : status === 403 ? 'Forbidden' : status === 401 ? 'Unauthorized' : 'Error');
+  const whatToDo = opts?.whatToDo || [
+    'Vuelve atrás e inténtalo de nuevo.',
+    'Si estabas editando algo, revisa que los datos sean correctos.',
+    'Si el problema continúa, copia los detalles y envíalos a soporte.'
+  ];
+  const primaryAction = opts?.primaryAction
+    || (req.session?.user ? { href: '/dashboard', label: 'Ir al Dashboard' } : { href: '/login', label: 'Ir a Login' });
+  const supportDetails = opts?.supportDetails || buildSupportDetails(req, {
+    status,
+    heading,
+    summary,
+    publicMessage: opts?.publicMessage,
+    code: opts?.code
+  });
+
+  return res.status(status).render('error', {
+    title: opts?.title || `Error ${status}`,
+    status,
+    statusLabel,
+    heading,
+    summary,
+    whatToDo,
+    primaryAction,
+    requestId: req.requestId,
+    when: new Date().toISOString(),
+    supportDetails
+  });
+}
+
+// Request ID estándar (útil para soporte)
+app.use((req, res, next) => {
+  req.requestId = makeRequestId();
+  res.locals.requestId = req.requestId;
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 
 function requireApiKeyIfConfigured(req, res, next) {
   // Si el usuario está logueado por sesión, permitimos acceso a /api desde la propia app
@@ -132,6 +210,29 @@ function isAdminUser(user) {
   return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
 }
 
+function requireAdmin(req, res, next) {
+  // API Docs debe ser visible solo para administradores (por sesión)
+  if (!req.session?.user) return res.redirect('/login');
+  if (!isAdminUser(req.session.user)) {
+    if (wantsHtml(req)) {
+      return renderErrorPage(req, res, {
+        status: 403,
+        title: 'Acceso restringido',
+        heading: 'No tienes permisos para ver esta página',
+        summary: 'Esta sección está disponible solo para administradores.',
+        statusLabel: 'Forbidden',
+        whatToDo: [
+          'Si crees que esto es un error, cierra sesión e inicia de nuevo.',
+          'Si sigues sin acceso, solicita permisos a un administrador.',
+          'Si necesitas ayuda, copia los detalles y envíalos a soporte.'
+        ]
+      });
+    }
+    return res.status(403).send('Forbidden');
+  }
+  return next();
+}
+
 // Locals para todas las vistas
 app.use((req, _res, next) => {
   const user = req.session?.user || null;
@@ -150,6 +251,9 @@ app.use((req, res, next) => {
 app.get('/favicon.ico', (_req, res) => {
   res.status(204).end();
 });
+
+// Vistas y endpoints públicos (no requieren login)
+app.use('/', publicRouter);
 
 app.get('/login', (req, res) => {
   if (req.session?.user) return res.redirect('/dashboard');
@@ -210,7 +314,7 @@ app.get(
   }
 );
 
-app.get('/comerciales', requireLogin, async (req, res, next) => {
+app.get('/comerciales', requireAdmin, async (req, res, next) => {
   try {
     const items = await db.getComerciales();
     // Redactar password por seguridad
@@ -845,26 +949,59 @@ app.get('/health/db', requireApiKeyIfConfigured, async (_req, res) => {
 // API REST (protegida con API_KEY si está configurada)
 app.use('/api', requireApiKeyIfConfigured, apiRouter);
 
-// Swagger UI (protegido con API_KEY si está configurada)
-app.use('/api/docs', requireApiKeyIfConfigured, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Swagger UI (solo admins)
+app.use('/api/docs', requireAdmin, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Error handler (si el cliente pide HTML, devolvemos página simple)
-app.use((err, _req, res, _next) => {
-  // Evitar filtrar stack en producción
-  const message = err?.message || String(err);
-  const code = err?.code;
-  const accept = String(_req.headers?.accept || '');
-  if (accept.includes('text/html')) {
-    return res
-      .status(500)
-      .type('text/html; charset=utf-8')
-      .send(
-        `<html><body style="font-family:system-ui;padding:24px"><h1>Error</h1><pre>${String(message)}</pre><pre>${String(code || '')}</pre></body></html>`
-      );
+// 404 estándar (HTML bonito + JSON consistente)
+app.use((req, res) => {
+  if (wantsHtml(req)) {
+    return renderErrorPage(req, res, {
+      status: 404,
+      title: 'No encontrado',
+      heading: 'No encontramos esa página',
+      summary: 'Puede que el enlace esté desactualizado o que no tengas acceso.',
+      statusLabel: 'Not Found',
+      whatToDo: [
+        'Comprueba la URL y vuelve a intentarlo.',
+        'Vuelve al Dashboard y navega desde el menú.',
+        'Si llegaste aquí desde un enlace interno, envía el ID a soporte.'
+      ]
+    });
   }
-  res.status(500).json({ ok: false, error: message, code });
+  return res.status(404).json({ ok: false, error: 'Not Found', requestId: req.requestId });
+});
+
+// Error handler (HTML bonito + JSON estándar)
+app.use((err, req, res, _next) => {
+  const status = Number(err?.status || err?.statusCode || res.statusCode || 500) || 500;
+  const code = err?.code;
+  const message = err?.message || String(err);
+
+  if (wantsHtml(req)) {
+    const publicMessage = status >= 500 ? 'Se produjo un error interno al procesar la solicitud.' : message;
+    return renderErrorPage(req, res, {
+      status,
+      title: `Error ${status}`,
+      heading: status >= 500 ? 'Error interno' : 'No se ha podido completar la acción',
+      summary: publicMessage,
+      statusLabel: status >= 500 ? 'Server Error' : 'Error',
+      publicMessage,
+      code
+    });
+  }
+
+  return res.status(status).json({ ok: false, error: message, code, requestId: req.requestId });
 });
 
 // En Vercel (runtime @vercel/node) se exporta la app como handler.
 module.exports = app;
+
+// Si se ejecuta en local con `node api/index.js`, levantamos servidor HTTP.
+if (require.main === module) {
+  const port = Number(process.env.PORT || 3000);
+  app.listen(port, () => {
+    // eslint-disable-next-line no-console
+    console.log(`CRM Gemavip escuchando en http://localhost:${port}`);
+  });
+}
 

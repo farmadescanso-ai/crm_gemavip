@@ -573,3 +573,184 @@ table.calendar td.is-empty{
   text-align:center;
 }
 
+/* Alerts (estándar) */
+.gv-alert{
+  display:block;
+  border-radius: 14px;
+  padding: 12px 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  color: var(--gv-ink);
+  font-weight: 800;
+}
+.gv-alert--success{
+  background: rgba(143,174,27,.12);
+  border-color: rgba(143,174,27,.30);
+}
+.gv-alert--warn{
+  background: rgba(255,186,0,.16);
+  border-color: rgba(255,186,0,.35);
+}
+.gv-alert--info{
+  background: rgba(0,139,210,.12);
+  border-color: rgba(0,139,210,.30);
+}
+/* Compat: permitir clases legacy `.success/.error/.info` */
+.gv-alert.success{ background: rgba(143,174,27,.12); border-color: rgba(143,174,27,.30); }
+.gv-alert.error{ background: rgba(255,186,0,.16); border-color: rgba(255,186,0,.35); }
+.gv-alert.info{ background: rgba(0,139,210,.12); border-color: rgba(0,139,210,.30); }
+
+/* Página de error (estándar) */
+.gv-error{
+  max-width: 960px;
+  margin: 0 auto;
+}
+.gv-error-card{
+  background:
+    radial-gradient(900px 520px at 20% 0%, rgba(0,139,210,.10), transparent 55%),
+    radial-gradient(900px 520px at 90% 0%, rgba(255,186,0,.10), transparent 52%),
+    var(--gv-surface);
+}
+.gv-error-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.gv-error-title{
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.18;
+  color: var(--gv-ink);
+  letter-spacing: -.2px;
+}
+.gv-error-subtitle{
+  margin: 8px 0 0 0;
+  color: var(--gv-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 70ch;
+}
+.gv-error-code{
+  min-width: 130px;
+  border-radius: 16px;
+  border: 1px solid rgba(229,229,229,.85);
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 10px 18px rgba(12,20,58,.06);
+  padding: 10px 12px;
+  text-align: right;
+}
+.gv-error-code-num{
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--gv-ink);
+  line-height: 1;
+}
+.gv-error-code-label{
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--gv-muted);
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.gv-error-actions{
+  margin-top: 12px;
+  display:flex;
+  gap: 10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.gv-error-what{
+  border: 1px solid rgba(229,229,229,.85);
+  background: rgba(255,255,255,.72);
+  border-radius: 16px;
+  padding: 12px 12px;
+}
+.gv-error-what-title{
+  font-weight: 900;
+  color: var(--gv-ink);
+  font-size: 13px;
+  letter-spacing: .2px;
+}
+.gv-error-what-list{
+  margin: 8px 0 0 0;
+  padding-left: 18px;
+  color: var(--gv-muted);
+  line-height: 1.55;
+  font-weight: 600;
+  font-size: 13px;
+}
+.gv-error-support{
+  margin-top: 14px;
+  border-top: 1px dashed rgba(229,229,229,.95);
+  padding-top: 14px;
+}
+.gv-error-support-title{
+  font-weight: 900;
+  color: var(--gv-ink);
+  font-size: 13px;
+  letter-spacing: .2px;
+}
+.gv-error-support-text{
+  margin: 8px 0 0 0;
+  color: var(--gv-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.gv-error-meta{
+  margin-top: 10px;
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gv-pill{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(0,139,210,.08);
+  border: 1px solid rgba(0,139,210,.16);
+  color: var(--gv-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+.gv-pill code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 900;
+}
+.gv-copy{
+  margin-top: 10px;
+  display:grid;
+  gap: 10px;
+}
+.gv-copy-box{
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  padding: 12px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(229,229,229,.95);
+  background: rgba(255,255,255,.92);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: var(--gv-ink);
+  outline: none;
+}
+.gv-copy-box:focus{
+  border-color: rgba(0,139,210,.55);
+  box-shadow: 0 0 0 4px rgba(0,139,210,.10);
+}
+.gv-copy-actions{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gv-copy-hint{
+  color: var(--gv-muted);
+  font-weight: 800;
+  font-size: 12px;
+}
+

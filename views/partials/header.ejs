@@ -13,6 +13,13 @@
     <!-- Evita petición de favicon.ico (y errores en consola) -->
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/assets/styles/gemavip.css" />
+    <% if (typeof extraStyles !== 'undefined' && Array.isArray(extraStyles)) { %>
+      <% extraStyles.forEach((href) => { %>
+        <% if (href) { %>
+          <link rel="stylesheet" href="<%= href %>" />
+        <% } %>
+      <% }) %>
+    <% } %>
   </head>
   <body>
     <% const hv = (typeof headerVariant !== 'undefined' && headerVariant) ? headerVariant : 'default'; %>
@@ -28,6 +35,21 @@
             />
             <div class="login-topbar-title">CRM COMERCIAL GEMAVIP</div>
           </div>
+        <% } else if (hv === 'public') { %>
+          <a class="brand" href="/registro-visitas" style="text-decoration:none;">
+            <img
+              class="brand-logo"
+              src="/assets/images/logo-gemavip.jpeg"
+              alt="Gemavip"
+              onerror="this.onerror=null; this.src='/assets/images/gemavip-logo.svg';"
+            />
+            <span class="brand-title">REGISTRO VISITAS</span>
+          </a>
+          <nav class="nav" aria-label="Principal">
+            <a href="/registro-visitas">Formulario</a>
+            <a href="/login">Acceso CRM</a>
+          </nav>
+          <div class="userbox"></div>
         <% } else { %>
           <a class="brand" href="/dashboard" style="text-decoration:none;">
             <img

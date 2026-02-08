@@ -1,0 +1,194 @@
+<%- include('partials/header', { title: 'Registro de visitas', headerVariant: 'public', extraStyles: ['/assets/styles/public-registro-visitas.css'] }) %>
+
+<section class="gv-hero">
+  <div class="card">
+    <div class="card-hd">
+      <h1 class="gv-hero-title">Registro diario de visitas comerciales</h1>
+      <p class="gv-hero-subtitle">
+        Una vista pública, rápida y clara para informar la actividad del día (visitas, tipo, resultado e importe estimado).
+        Los comerciales se cargan directamente desde la base de datos.
+      </p>
+      <div class="gv-hero-badges">
+        <span class="badge info">Público</span>
+        <span class="badge info">MySQL</span>
+        <span class="badge info">Gemavip</span>
+      </div>
+    </div>
+    <div class="card-bd">
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn secondary" href="/login">Acceso CRM</a>
+        <a class="btn secondary" href="/health" style="text-decoration:none;">Estado del servicio</a>
+      </div>
+      <div style="margin-top:12px" class="gv-help">
+        Consejo: guarda esta URL como favorito en móvil para reportar en 30 segundos.
+      </div>
+    </div>
+  </div>
+
+  <aside class="card gv-hero-aside">
+    <div class="card-hd">
+      <h2 class="card-title">Qué registra</h2>
+      <p class="card-subtitle">Campos pensados para tu Excel de visitas diarias.</p>
+    </div>
+    <div class="card-bd">
+      <ul style="margin:0; padding-left:18px; color: var(--gv-muted); line-height: 1.6;">
+        <li>Fecha, comercial, cliente y zona</li>
+        <li>Tipo, motivo y resultado</li>
+        <li>Importe estimado y próxima acción</li>
+        <li>Notas</li>
+      </ul>
+    </div>
+  </aside>
+</section>
+
+<section class="card">
+  <div class="card-hd">
+    <h2 class="card-title">Nuevo registro</h2>
+    <p class="card-subtitle">Completa el formulario y queda guardado en la base de datos.</p>
+  </div>
+  <div class="card-bd">
+    <% if (success) { %>
+      <div class="gv-alert success">Registro guardado correctamente.</div>
+      <div style="height: 10px;"></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="gv-alert error"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form class="gv-form" method="post" action="/registro-visitas" autocomplete="on">
+      <div class="gv-form-grid">
+        <label class="gv-field">
+          <span class="gv-label">Fecha *</span>
+          <input name="fecha" type="date" required value="<%= values?.fecha || '' %>" />
+        </label>
+
+        <label class="gv-field">
+          <span class="gv-label">Comercial *</span>
+          <select name="comercialId" required>
+            <option value="">Selecciona…</option>
+            <% (comerciales || []).forEach((c) => { %>
+              <option value="<%= c.id %>" <%= String(values?.comercialId || '') === String(c.id) ? 'selected' : '' %>><%= c.nombre %></option>
+            <% }) %>
+          </select>
+          <span class="gv-help">Listado cargado desde BD.</span>
+        </label>
+
+        <label class="gv-field gv-span-2">
+          <span class="gv-label">Cliente *</span>
+          <input name="cliente" type="text" required maxlength="180" placeholder="Ej. Clínica Smile" value="<%= values?.cliente || '' %>" />
+        </label>
+
+        <label class="gv-field">
+          <span class="gv-label">Ciudad / Zona</span>
+          <input name="ciudadZona" type="text" maxlength="120" placeholder="Ej. Murcia / Centro" value="<%= values?.ciudadZona || '' %>" />
+        </label>
+
+        <label class="gv-field">
+          <span class="gv-label">Tipo de visita *</span>
+          <select name="tipoVisita" required>
+            <% (tiposVisita || []).forEach((t) => { %>
+              <option value="<%= t %>" <%= String(values?.tipoVisita || '') === String(t) ? 'selected' : '' %>><%= t %></option>
+            <% }) %>
+          </select>
+        </label>
+
+        <label class="gv-field">
+          <span class="gv-label">Motivo</span>
+          <select name="motivo">
+            <option value="">—</option>
+            <% (motivos || []).forEach((m) => { %>
+              <option value="<%= m %>" <%= String(values?.motivo || '') === String(m) ? 'selected' : '' %>><%= m %></option>
+            <% }) %>
+          </select>
+        </label>
+
+        <label class="gv-field">
+          <span class="gv-label">Resultado</span>
+          <select name="resultado">
+            <option value="">—</option>
+            <% (resultados || []).forEach((r) => { %>
+              <option value="<%= r %>" <%= String(values?.resultado || '') === String(r) ? 'selected' : '' %>><%= r %></option>
+            <% }) %>
+          </select>
+        </label>
+
+        <label class="gv-field">
+          <span class="gv-label">Importe estimado</span>
+          <input name="importe" type="number" step="0.01" min="0" placeholder="Ej. 2000" value="<%= values?.importe || '' %>" />
+        </label>
+
+        <label class="gv-field gv-span-2">
+          <span class="gv-label">Próxima acción</span>
+          <input name="proximaAccion" type="text" maxlength="120" placeholder="Ej. Llamar para cerrar" value="<%= values?.proximaAccion || '' %>" />
+        </label>
+
+        <label class="gv-field">
+          <span class="gv-label">Próxima fecha</span>
+          <input name="proximaFecha" type="date" value="<%= values?.proximaFecha || '' %>" />
+        </label>
+
+        <label class="gv-field gv-span-2">
+          <span class="gv-label">Notas</span>
+          <textarea name="notas" maxlength="800" placeholder="Detalles relevantes…"><%= values?.notas || '' %></textarea>
+        </label>
+      </div>
+
+      <div class="gv-actions-row">
+        <button class="btn" type="submit">Guardar registro</button>
+        <a class="btn secondary" href="/registro-visitas" style="text-decoration:none;">Limpiar</a>
+      </div>
+
+      <div class="gv-help">
+        Campos obligatorios: Fecha, Comercial, Cliente y Tipo de visita.
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card" style="margin-top: 16px;">
+  <div class="card-hd">
+    <h2 class="card-title">Registros del día</h2>
+    <p class="card-subtitle">Últimos registros guardados para la fecha seleccionada.</p>
+  </div>
+  <div class="card-bd">
+    <% if (!registrosHoy || registrosHoy.length === 0) { %>
+      <div class="gv-help">Aún no hay registros para esta fecha.</div>
+    <% } else { %>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Comercial</th>
+              <th>Cliente</th>
+              <th>Tipo</th>
+              <th>Resultado</th>
+              <th>Importe</th>
+              <th>Próxima</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% registrosHoy.forEach((r) => { %>
+              <tr>
+                <td><%= (r.created_at ? String(r.created_at).slice(11,16) : '') %></td>
+                <td><%= r.comercial_nombre || ('Comercial ' + r.comercial_id) %></td>
+                <td><%= r.cliente %></td>
+                <td><%= r.tipo_visita %></td>
+                <td><%= r.resultado || '—' %></td>
+                <td><%= (r.importe_estimado !== null && r.importe_estimado !== undefined && r.importe_estimado !== '') ? Number(r.importe_estimado).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—' %></td>
+                <td>
+                  <%= r.proxima_fecha ? String(r.proxima_fecha).slice(0,10) : '—' %>
+                  <%= r.proxima_accion ? (' · ' + r.proxima_accion) : '' %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

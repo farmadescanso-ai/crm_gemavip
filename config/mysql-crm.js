@@ -6773,6 +6773,102 @@ class MySQLCRM {
       return 0;
     }
   }
+
+  // REGISTRO PÚBLICO DE VISITAS (layout tipo Excel)
+  async ensureRegistroVisitasSchema() {
+    try {
+      if (!this.connected && !this.pool) {
+        await this.connect();
+      }
+      // Best-effort: si el entorno no permite CREATE TABLE, no romper el servidor
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`registro_visitas\` (
+          id INT NOT NULL AUTO_INCREMENT,
+          fecha DATE NOT NULL,
+          comercial_id INT NOT NULL,
+          cliente VARCHAR(180) NOT NULL,
+          ciudad_zona VARCHAR(120) NULL,
+          tipo_visita VARCHAR(40) NOT NULL,
+          motivo VARCHAR(40) NULL,
+          resultado VARCHAR(40) NULL,
+          importe_estimado DECIMAL(12,2) NULL,
+          proxima_accion VARCHAR(120) NULL,
+          proxima_fecha DATE NULL,
+          notas VARCHAR(800) NULL,
+          ip VARCHAR(45) NULL,
+          user_agent VARCHAR(255) NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_registro_visitas_fecha (fecha),
+          KEY idx_registro_visitas_comercial (comercial_id),
+          KEY idx_registro_visitas_fecha_comercial (fecha, comercial_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+    } catch (e) {
+      console.warn('⚠️ [SCHEMA] No se pudo asegurar registro_visitas:', e?.message || e);
+    }
+  }
+
+  async createRegistroVisita(payload) {
+    if (!payload || typeof payload !== 'object') throw new Error('Payload no válido');
+    await this.ensureRegistroVisitasSchema();
+
+    const fields = Object.keys(payload)
+      .filter((k) => payload[k] !== undefined)
+      .map((k) => `\`${k}\``)
+      .join(', ');
+    const placeholders = Object.keys(payload)
+      .filter((k) => payload[k] !== undefined)
+      .map(() => '?')
+      .join(', ');
+    const values = Object.keys(payload)
+      .filter((k) => payload[k] !== undefined)
+      .map((k) => payload[k]);
+
+    const sql = `INSERT INTO \`registro_visitas\` (${fields}) VALUES (${placeholders})`;
+    const result = await this.query(sql, values);
+    return { insertId: result?.insertId || null };
+  }
+
+  async getRegistroVisitasByFecha(fechaYmd, { limit = 50 } = {}) {
+    try {
+      await this.ensureRegistroVisitasSchema();
+      const lim = Math.max(1, Math.min(200, Number(limit) || 50));
+      const ymd = String(fechaYmd || '').slice(0, 10);
+      if (!ymd) return [];
+
+      // Join suave: si cambia el esquema de comerciales, mostramos al menos el id
+      const rows = await this.query(
+        `
+          SELECT
+            rv.id,
+            rv.fecha,
+            rv.comercial_id,
+            COALESCE(c.Nombre, c.nombre, c.name, CONCAT('Comercial ', rv.comercial_id)) AS comercial_nombre,
+            rv.cliente,
+            rv.ciudad_zona,
+            rv.tipo_visita,
+            rv.motivo,
+            rv.resultado,
+            rv.importe_estimado,
+            rv.proxima_accion,
+            rv.proxima_fecha,
+            rv.notas,
+            rv.created_at
+          FROM \`registro_visitas\` rv
+          LEFT JOIN \`comerciales\` c ON (c.id = rv.comercial_id OR c.Id = rv.comercial_id)
+          WHERE rv.fecha = ?
+          ORDER BY rv.id DESC
+          LIMIT ${lim}
+        `,
+        [ymd]
+      );
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.warn('⚠️ Error leyendo registro_visitas por fecha:', e?.message || e);
+      return [];
+    }
+  }
 }
 
 module.exports = new MySQLCRM();

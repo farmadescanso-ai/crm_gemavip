@@ -1,0 +1,95 @@
+<%- include('partials/header', { title: title || 'Error' }) %>
+
+<section class="gv-error">
+  <div class="card gv-error-card">
+    <div class="card-hd">
+      <div class="gv-error-top">
+        <div>
+          <h1 class="gv-error-title"><%= heading || 'Ha ocurrido un problema' %></h1>
+          <p class="gv-error-subtitle"><%= summary || 'No se ha podido completar la acción.' %></p>
+        </div>
+        <div class="gv-error-code">
+          <div class="gv-error-code-num"><%= status || 500 %></div>
+          <div class="gv-error-code-label"><%= statusLabel || 'Error' %></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-bd">
+      <% if (whatToDo && whatToDo.length) { %>
+        <div class="gv-error-what">
+          <div class="gv-error-what-title">Qué puedes hacer</div>
+          <ul class="gv-error-what-list">
+            <% whatToDo.forEach((x) => { %>
+              <li><%= x %></li>
+            <% }) %>
+          </ul>
+        </div>
+      <% } %>
+
+      <div class="gv-error-actions">
+        <% if (primaryAction && primaryAction.href) { %>
+          <a class="btn" href="<%= primaryAction.href %>"><%= primaryAction.label || 'Continuar' %></a>
+        <% } else { %>
+          <a class="btn" href="/dashboard">Volver al Dashboard</a>
+        <% } %>
+        <a class="btn secondary" href="javascript:history.back()">Volver atrás</a>
+        <a class="btn secondary" href="/login">Ir a Login</a>
+      </div>
+
+      <div class="gv-error-support">
+        <div class="gv-error-support-title">Para soporte</div>
+        <p class="gv-error-support-text">
+          Copia el bloque de abajo y envíalo a soporte. Incluye también una captura de pantalla si es posible.
+        </p>
+
+        <div class="gv-error-meta">
+          <span class="gv-pill"><strong>ID</strong> <code><%= requestId || '—' %></code></span>
+          <span class="gv-pill"><strong>Fecha</strong> <%= when || new Date().toISOString() %></span>
+        </div>
+
+        <div class="gv-copy">
+          <textarea class="gv-copy-box" id="gvSupportDetails" readonly><%= supportDetails || '' %></textarea>
+          <div class="gv-copy-actions">
+            <button class="btn secondary" type="button" id="gvCopyBtn">Copiar detalles</button>
+            <span class="gv-copy-hint" id="gvCopyHint" aria-live="polite"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    var btn = document.getElementById('gvCopyBtn');
+    var box = document.getElementById('gvSupportDetails');
+    var hint = document.getElementById('gvCopyHint');
+    if (!btn || !box) return;
+
+    function setHint(text) {
+      if (!hint) return;
+      hint.textContent = text || '';
+      if (!text) return;
+      setTimeout(function(){ if (hint.textContent === text) hint.textContent = ''; }, 2200);
+    }
+
+    btn.addEventListener('click', async function () {
+      try {
+        box.focus();
+        box.select();
+        if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(box.value);
+        } else {
+          document.execCommand('copy');
+        }
+        setHint('Copiado.');
+      } catch (e) {
+        setHint('No se pudo copiar. Selecciona el texto y cópialo manualmente.');
+      }
+    });
+  })();
+</script>
+
+<%- include('partials/footer') %>
+

@@ -4,6 +4,18 @@ const { asyncHandler, toInt } = require('./_utils');
 
 const router = express.Router();
 
+function isAdminSessionUser(user) {
+  const roles = user?.roles || [];
+  return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
+}
+
+function requireAdminApi(req, res, next) {
+  const user = req.session?.user || null;
+  if (!user) return res.status(401).json({ ok: false, error: 'Login requerido' });
+  if (!isAdminSessionUser(user)) return res.status(403).json({ ok: false, error: 'Forbidden' });
+  return next();
+}
+
 function sanitizeComercial(row) {
   if (!row || typeof row !== 'object') return row;
   // Nunca exponer Password (en BD legacy a veces contiene DNI en claro)
@@ -11,6 +23,9 @@ function sanitizeComercial(row) {
   const { Password, password, ...rest } = row;
   return rest;
 }
+
+// Todo el recurso /api/comerciales queda restringido a administradores
+router.use(requireAdminApi);
 
 /**
  * @openapi
