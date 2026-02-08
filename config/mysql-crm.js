@@ -37,6 +37,7 @@ class MySQLCRM {
     this.connected = false;
     this._schemaEnsured = false;
     this._visitasIndexesEnsured = false;
+    this._visitasSchemaEnsured = false;
     this._clientesIndexesEnsured = false;
     this._pedidosIndexesEnsured = false;
     this._pedidosArticulosIndexesEnsured = false;
@@ -472,6 +473,104 @@ class MySQLCRM {
     } catch (e) {
       // No romper si no hay permisos de ALTER/INDEX
       console.warn('⚠️ [INDEX] No se pudieron asegurar índices en visitas:', e?.message || e);
+    }
+  }
+
+  async ensureVisitasSchema() {
+    if (this._visitasSchemaEnsured) return;
+    this._visitasSchemaEnsured = true;
+
+    try {
+      if (!this.pool) return;
+
+      const tVisitas = await this._resolveTableNameCaseInsensitive('visitas');
+      const cols = await this._getColumns(tVisitas);
+      const colsLower = new Set((cols || []).map((c) => String(c || '').toLowerCase()));
+
+      const hasColCI = (name) => colsLower.has(String(name || '').toLowerCase());
+
+      // 1) Añadir Id_Comercial si no existe
+      if (!hasColCI('Id_Comercial')) {
+        try {
+          await this.query(`ALTER TABLE \`${tVisitas}\` ADD COLUMN \`Id_Comercial\` INT NULL`);
+          console.log(`✅ [SCHEMA] Añadida columna Id_Comercial en ${tVisitas}`);
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir Id_Comercial en visitas:', e?.message || e);
+        }
+      }
+
+      // Refrescar columnas/meta
+      if (this._metaCache) delete this._metaCache.visitasMeta;
+      const meta = await this._ensureVisitasMeta();
+
+      // 2) Backfill best-effort desde columnas legacy si existen
+      if (meta?.colComercial && String(meta.colComercial).toLowerCase() === 'id_comercial') {
+        const legacyCandidates = [
+          'Id_Cial',
+          'id_cial',
+          'IdCial',
+          'idCial',
+          'ComercialId',
+          'comercialId',
+          'Comercial_id',
+          'comercial_id',
+          'Id_Comercial',
+          'id_comercial'
+        ];
+        const legacy = legacyCandidates.find((c) => hasColCI(c) && String(c).toLowerCase() !== 'id_comercial');
+        if (legacy) {
+          try {
+            await this.query(
+              `UPDATE \`${meta.table}\` SET \`Id_Comercial\` = \`${legacy}\` WHERE \`Id_Comercial\` IS NULL AND \`${legacy}\` IS NOT NULL`
+            );
+            console.log(`✅ [SCHEMA] Backfill Id_Comercial desde ${legacy}`);
+          } catch (e) {
+            console.warn('⚠️ [SCHEMA] No se pudo hacer backfill Id_Comercial:', e?.message || e);
+          }
+        }
+      }
+
+      // 3) Índices recomendados para consultas por comercial/fecha
+      try {
+        const idxRows = await this.query(`SHOW INDEX FROM \`${meta.table}\``).catch(() => []);
+        const existing = new Set((idxRows || []).map((r) => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+        const createIfMissing = async (name, colsToUse) => {
+          if (!name || existing.has(name)) return;
+          const colsSql = (colsToUse || []).filter(Boolean).map((c) => `\`${c}\``).join(', ');
+          if (!colsSql) return;
+          await this.query(`CREATE INDEX \`${name}\` ON \`${meta.table}\` (${colsSql})`);
+          existing.add(name);
+        };
+        await createIfMissing('idx_visitas_id_comercial', [meta.colComercial || 'Id_Comercial']);
+        await createIfMissing('idx_visitas_id_comercial_fecha', [meta.colComercial || 'Id_Comercial', meta.colFecha]);
+      } catch (e) {
+        console.warn('⚠️ [INDEX] No se pudieron crear índices para Id_Comercial:', e?.message || e);
+      }
+
+      // 4) Foreign key best-effort hacia comerciales
+      try {
+        const comMeta = await this._ensureComercialesMeta().catch(() => null);
+        if (comMeta?.table && comMeta?.pk && (meta.colComercial || hasColCI('Id_Comercial'))) {
+          // comprobar si ya existe FK
+          const fkName = 'fk_visitas_comercial';
+          try {
+            await this.query(
+              `ALTER TABLE \`${meta.table}\` ADD CONSTRAINT \`${fkName}\` FOREIGN KEY (\`${meta.colComercial || 'Id_Comercial'}\`) REFERENCES \`${comMeta.table}\`(\`${comMeta.pk}\`) ON DELETE SET NULL ON UPDATE CASCADE`
+            );
+            console.log(`✅ [FK] Creada ${fkName}`);
+          } catch (e) {
+            // Si ya existe o no hay permisos, no romper
+            const msg = String(e?.message || e);
+            if (!msg.toLowerCase().includes('duplicate') && !msg.toLowerCase().includes('already') && !msg.toLowerCase().includes('exists')) {
+              console.warn('⚠️ [FK] No se pudo crear FK visitas->comerciales:', e?.message || e);
+            }
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+    } catch (e) {
+      console.warn('⚠️ [SCHEMA] No se pudo asegurar esquema de visitas:', e?.message || e);
     }
   }
 
@@ -1126,6 +1225,8 @@ class MySQLCRM {
       // Asegurar compatibilidad de esquema (evita errores tipo "Column 'meet_email' cannot be null").
       await this.ensureComercialesReunionesNullable();
       // Índices recomendados para rendimiento del CRM (best-effort)
+      // Schema/relaciones (best-effort)
+      await this.ensureVisitasSchema();
       await this.ensureVisitasIndexes();
       // Catálogos (best-effort)
       await this.ensureEstadosVisitaCatalog();
