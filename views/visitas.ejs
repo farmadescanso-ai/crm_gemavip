@@ -136,7 +136,7 @@
               <td><%= fmtDateES(v.Fecha) %></td>
               <td><%= fmtTimeHM(v.Hora) %></td>
               <td><%= v.TipoVisita ?? '' %></td>
-              <td><%= v.ClienteNombre ? v.ClienteNombre : (v.ClienteId ?? '') %></td>
+              <td><%= (v.ClienteRazonSocial || v.ClienteNombre) ? (v.ClienteRazonSocial || v.ClienteNombre) : (v.ClienteId ?? '') %></td>
               <td><%= v.ComercialNombre ? v.ComercialNombre : (v.ComercialId ?? '') %></td>
               <td><%= v.Estado ?? '' %></td>
             </tr>

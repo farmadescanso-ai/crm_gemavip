@@ -310,6 +310,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     const joinCliente = meta.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${meta.colCliente}\` = c.\`${pkClientes}\`` : '';
     const joinComercial = meta.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${meta.colComercial}\` = co.\`${pkComerciales}\`` : '';
     const selectClienteNombre = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
+    const selectClienteRazon = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteRazonSocial' : 'NULL as ClienteRazonSocial';
     const selectComercialNombre = meta.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -378,6 +379,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
         ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
         ${meta.colComercial ? `v.\`${meta.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
         ${selectClienteNombre},
+        ${selectClienteRazon},
         ${selectComercialNombre}
       FROM \`${meta.table}\` v
       ${joinCliente}
