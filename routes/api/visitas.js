@@ -59,9 +59,14 @@ router.get(
     const where = [];
     const params = [];
 
-    if (!isAdmin && meta.colComercial && sessionUser?.id) {
-      where.push(`v.\`${meta.colComercial}\` = ?`);
-      params.push(Number(sessionUser.id));
+    if (!isAdmin) {
+      const owner = db._buildVisitasOwnerWhere(meta, sessionUser, 'v');
+      if (owner.clause) {
+        where.push(owner.clause);
+        params.push(...owner.params);
+      } else {
+        return res.json({ ok: true, items: [] });
+      }
     }
 
     // Rango [start, end) para FullCalendar

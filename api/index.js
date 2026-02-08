@@ -267,20 +267,20 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     const where = [];
     const params = [];
 
-    // Seguridad: si no podemos resolver columna de comercial, un comercial no debe ver visitas "globales"
-    if (!admin && !meta.colComercial) {
-      if (view === 'calendar') {
-        const now = new Date();
-        const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const initialDate = qDate || `${month}-01`;
-        return res.render('visitas-calendar', { month, initialDate, meta, admin });
+    // Seguridad: un comercial solo ve sus visitas.
+    if (!admin) {
+      const owner = db._buildVisitasOwnerWhere(meta, res.locals.user, 'v');
+      if (!owner.clause) {
+        if (view === 'calendar') {
+          const now = new Date();
+          const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const initialDate = qDate || `${month}-01`;
+          return res.render('visitas-calendar', { month, initialDate, meta, admin });
+        }
+        return res.render('visitas', { items: [], admin, selectedDate: qDate || null, paging: { page: 1, limit: 20, total: 0 }, id: '' });
       }
-      return res.render('visitas', { items: [], admin, selectedDate: qDate || null, paging: { page: 1, limit: 20, total: 0 }, id: '' });
-    }
-
-    if (!admin && meta.colComercial) {
-      where.push(`v.\`${meta.colComercial}\` = ?`);
-      params.push(res.locals.user.id);
+      where.push(owner.clause);
+      params.push(...owner.params);
     }
 
     if (qDate && meta.colFecha) {
@@ -315,6 +315,13 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     }
     const whereListSql = whereList.length ? `WHERE ${whereList.join(' AND ')}` : '';
 
+    // Por defecto: próximas visitas (incluye hoy) si hay columna fecha y no hay filtros explícitos
+    const hasExplicitFilter = Boolean(qDate || idFilter);
+    if (!hasExplicitFilter && meta.colFecha) {
+      whereList.push(`DATE(v.\`${meta.colFecha}\`) >= CURDATE()`);
+    }
+    const whereListSql = whereList.length ? `WHERE ${whereList.join(' AND ')}` : '';
+
     const sql = `
       SELECT
         v.\`${meta.pk}\` as Id,
@@ -330,7 +337,13 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       ${joinCliente}
       ${joinComercial}
       ${whereListSql}
-      ORDER BY ${meta.colFecha ? `v.\`${meta.colFecha}\`` : 'v.`' + meta.pk + '`'} DESC, v.\`${meta.pk}\` DESC
+      ORDER BY ${
+        meta.colFecha && !hasExplicitFilter
+          ? `DATE(v.\`${meta.colFecha}\`) ASC, v.\`${meta.pk}\` ASC`
+          : meta.colFecha
+            ? `v.\`${meta.colFecha}\` DESC, v.\`${meta.pk}\` DESC`
+            : 'v.`' + meta.pk + '` DESC'
+      }
       LIMIT ${limit} OFFSET ${offset}
     `;
     const countSql = `SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereListSql}`;
@@ -580,12 +593,29 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
       }
     };
 
-    const [clientes, pedidos, visitas, comerciales] = await Promise.all([
+    const admin = isAdminUser(res.locals.user);
+    const [clientes, pedidos, visitasTotal, comerciales] = await Promise.all([
       safeCount('clientes'),
       safeCount('pedidos'),
       safeCount('visitas'),
       safeCount('comerciales')
     ]);
+
+    let visitas = visitasTotal;
+    if (!admin) {
+      try {
+        const meta = await db._ensureVisitasMeta();
+        const owner = db._buildVisitasOwnerWhere(meta, res.locals.user, 'v');
+        if (owner.clause) {
+          const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${meta.table}\` v WHERE ${owner.clause}`, owner.params);
+          visitas = Number(rows?.[0]?.n ?? 0);
+        } else {
+          visitas = 0;
+        }
+      } catch (_) {
+        visitas = 0;
+      }
+    }
 
     const stats = { clientes, pedidos, visitas, comerciales };
 

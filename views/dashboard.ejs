@@ -20,7 +20,7 @@
       <div class="dash-stat" data-variant="green">
         <div class="dash-stat-label">Visitas</div>
         <div class="dash-stat-value"><%= stats.visitas ?? '—' %></div>
-        <div class="dash-stat-foot">Total en BD</div>
+        <div class="dash-stat-foot"><%= user && !(user.roles || []).some((r) => String(r).toLowerCase().includes('admin')) ? 'Tus visitas' : 'Total en BD' %></div>
       </div>
       <div class="dash-stat" data-variant="yellow">
         <div class="dash-stat-label">Comerciales</div>

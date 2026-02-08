@@ -100,15 +100,20 @@ class MySQLCRM {
     };
 
     // Heurística: si no encontramos una columna exacta, intenta deducirla por nombre.
-    const guessIdColByKeywords = (keywords) => {
+    // Preferir columnas con "id", pero si no hay, aceptar columnas que contengan la keyword.
+    const guessColByKeywords = (keywords) => {
       const keys = (keywords || []).map(k => String(k || '').toLowerCase()).filter(Boolean);
       if (!keys.length) return null;
-      // preferir columnas que incluyan keyword y "id"
-      const cand = (cols || []).find((c) => {
+      const withId = (cols || []).find((c) => {
         const cl = String(c || '').toLowerCase();
         return keys.some(k => cl.includes(k)) && (cl.includes('id') || cl.startsWith('id_') || cl.startsWith('id'));
       });
-      return cand || null;
+      if (withId) return withId;
+      const any = (cols || []).find((c) => {
+        const cl = String(c || '').toLowerCase();
+        return keys.some(k => cl.includes(k));
+      });
+      return any || null;
     };
 
     const meta = {
@@ -129,8 +134,8 @@ class MySQLCRM {
         'id_comercial'
       ]),
       colCliente: pickCI(['ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
-      colFecha: pickCI(['Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita']),
-      colHora: pickCI(['Hora', 'hora']),
+      colFecha: pickCI(['Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita', 'Fecha_Visita', 'fechaVisita']),
+      colHora: pickCI(['Hora', 'hora', 'Hora_Visita', 'hora_visita']),
       colTipo: pickCI([
         'TipoVisita',
         'tipoVisita',
@@ -153,14 +158,68 @@ class MySQLCRM {
 
     // Fallback por heurística si no se detecta por lista cerrada (evita quedarse sin filtro en prod).
     if (!meta.colComercial) {
-      meta.colComercial = guessIdColByKeywords(['comercial', 'cial']);
+      meta.colComercial = guessColByKeywords(['comercial', 'cial']);
     }
     if (!meta.colCliente) {
-      meta.colCliente = guessIdColByKeywords(['cliente', 'farmacia']);
+      meta.colCliente = guessColByKeywords(['cliente', 'farmacia']);
     }
+    if (!meta.colFecha) {
+      meta.colFecha = guessColByKeywords(['fecha']);
+    }
+    if (!meta.colHora) {
+      meta.colHora = guessColByKeywords(['hora']);
+    }
+    if (!meta.colTipo) {
+      meta.colTipo = guessColByKeywords(['tipo']);
+    }
+    if (!meta.colEstado) {
+      meta.colEstado = guessColByKeywords(['estado']);
+    }
+
+    // Guardar columnas para debug/fallbacks
+    meta._cols = cols;
 
     this._metaCache.visitasMeta = meta;
     return meta;
+  }
+
+  _buildVisitasOwnerWhere(meta, user, alias = 'v') {
+    const cols = Array.isArray(meta?._cols) ? meta._cols : [];
+    const candCols = [];
+    if (meta?.colComercial) candCols.push(meta.colComercial);
+    for (const c of cols) {
+      const cl = String(c || '').toLowerCase();
+      if (cl.includes('comercial') || cl.includes('cial')) candCols.push(c);
+    }
+    // unique + cap
+    const uniqCols = Array.from(new Set(candCols.map(String))).filter(Boolean).slice(0, 6);
+
+    const uId = user?.id !== undefined && user?.id !== null ? String(user.id).trim() : '';
+    const uEmail = user?.email ? String(user.email).trim() : '';
+    const uNombre = user?.nombre ? String(user.nombre).trim() : '';
+    const haveAny = Boolean(uId || uEmail || uNombre);
+    if (!haveAny || !uniqCols.length) return { clause: null, params: [] };
+
+    const params = [];
+    const ors = [];
+    for (const col of uniqCols) {
+      const per = [];
+      if (uId) {
+        per.push(`${alias}.\`${col}\` = ?`);
+        params.push(uId);
+      }
+      if (uEmail) {
+        per.push(`LOWER(COALESCE(CONCAT(${alias}.\`${col}\`,''),'')) = LOWER(?)`);
+        params.push(uEmail);
+      }
+      if (uNombre) {
+        per.push(`LOWER(COALESCE(CONCAT(${alias}.\`${col}\`,''),'')) = LOWER(?)`);
+        params.push(uNombre);
+      }
+      if (per.length) ors.push(`(${per.join(' OR ')})`);
+    }
+    if (!ors.length) return { clause: null, params: [] };
+    return { clause: `(${ors.join(' OR ')})`, params };
   }
 
   async getTiposVisita() {
