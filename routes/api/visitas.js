@@ -51,8 +51,27 @@ router.get(
 
     const startRaw = typeof req.query.start === 'string' ? String(req.query.start) : '';
     const endRaw = typeof req.query.end === 'string' ? String(req.query.end) : '';
-    const start = startRaw.slice(0, 10);
-    const end = endRaw.slice(0, 10);
+
+    const extractYmd = (raw) => {
+      if (!raw) return '';
+      const s = String(raw);
+      const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : '';
+    };
+    const addDaysYmd = (ymd, days) => {
+      const m = String(ymd).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return ymd;
+      const y = Number(m[1]);
+      const mo = Number(m[2]) - 1;
+      const d = Number(m[3]);
+      const dt = new Date(Date.UTC(y, mo, d + Number(days || 0)));
+      return dt.toISOString().slice(0, 10);
+    };
+
+    let start = extractYmd(startRaw);
+    let end = extractYmd(endRaw);
+    // Algunas vistas (día/semana) pueden venir con end dentro del mismo día; garantizamos rango no vacío.
+    if (start && end && end <= start) end = addDaysYmd(start, 1);
 
     if (!meta?.table || !meta?.pk) return res.json({ ok: true, items: [] });
     if (!meta.colFecha || !start || !end) return res.json({ ok: true, items: [] });

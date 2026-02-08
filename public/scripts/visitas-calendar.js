@@ -23,12 +23,17 @@
       locale: 'es',
       firstDay: 1,
       height: 'auto',
+      expandRows: true,
       nowIndicator: true,
       navLinks: true,
       headerToolbar: {
         left: 'prev,next today',
         center: 'title',
         right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+      },
+      views: {
+        timeGridWeek: { titleFormat: { year: 'numeric', month: '2-digit', day: '2-digit' } },
+        timeGridDay: { titleFormat: { year: 'numeric', month: '2-digit', day: '2-digit' } }
       },
       buttonText: {
         today: 'Hoy',
@@ -38,6 +43,11 @@
         list: 'Lista'
       },
       eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+      eventDisplay: 'block',
+      displayEventEnd: false,
+      // Hace más evidente la navegación en semana/día
+      weekNumbers: false,
+      dayMaxEvents: true,
       events: async (info, success, failure) => {
         try {
           const url = `/api/visitas/events?start=${encodeURIComponent(info.startStr)}&end=${encodeURIComponent(info.endStr)}`;
