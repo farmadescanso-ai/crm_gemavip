@@ -295,73 +295,23 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     if (view === 'calendar') {
       const now = new Date();
       const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const [yy, mm] = month.split('-').map((x) => Number(x));
-      const monthStart = new Date(yy, (mm || 1) - 1, 1);
-      const monthEnd = new Date(yy, (mm || 1), 0);
-
-      const startStr = `${yy}-${String(mm).padStart(2, '0')}-01`;
-      const endStr = `${yy}-${String(mm).padStart(2, '0')}-${String(monthEnd.getDate()).padStart(2, '0')}`;
-
-      const whereCal = [...where];
-      const paramsCal = [...params];
-      if (meta.colFecha) {
-        whereCal.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
-        paramsCal.push(startStr, endStr);
-      }
-      const whereCalSql = whereCal.length ? `WHERE ${whereCal.join(' AND ')}` : '';
-
-      const sql = `
-        SELECT
-          v.\`${meta.pk}\` as Id,
-          ${meta.colFecha ? `v.\`${meta.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
-          ${meta.colHora ? `v.\`${meta.colHora}\` as Hora,` : "'' as Hora,"}
-          ${meta.colTipo ? `v.\`${meta.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
-          ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
-          ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
-          ${meta.colComercial ? `v.\`${meta.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
-          ${selectClienteNombre},
-          ${selectComercialNombre}
-        FROM \`${meta.table}\` v
-        ${joinCliente}
-        ${joinComercial}
-        ${whereCalSql}
-        ORDER BY ${meta.colFecha ? `v.\`${meta.colFecha}\`` : 'v.`' + meta.pk + '`'} DESC, v.\`${meta.pk}\` DESC
-      `;
-      const items = await db.query(sql, paramsCal);
-
-      // Construir grid calendario (lunes-domingo)
-      const firstDow = (monthStart.getDay() + 6) % 7; // 0=lunes
-      const daysInMonth = monthEnd.getDate();
-      const cells = [];
-      const byDay = new Map();
-      for (const it of items || []) {
-        const d = (it.Fecha ? new Date(it.Fecha) : null);
-        if (!d) continue;
-        const key = d.toISOString().slice(0, 10);
-        if (!byDay.has(key)) byDay.set(key, []);
-        byDay.get(key).push(it);
-      }
-      // 6 semanas max
-      const totalCells = 42;
-      for (let i = 0; i < totalCells; i++) {
-        const dayNum = i - firstDow + 1;
-        if (dayNum < 1 || dayNum > daysInMonth) {
-          cells.push({ date: null, day: null, items: [] });
-        } else {
-          const date = `${yy}-${String(mm).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-          cells.push({ date, day: dayNum, items: byDay.get(date) || [] });
-        }
-      }
-
-      return res.render('visitas-calendar', {
-        month,
-        cells,
-        meta,
-        admin
-      });
+      const initialDate = qDate || `${month}-01`;
+      return res.render('visitas-calendar', { month, initialDate, meta, admin });
     }
 
     // LISTA
+    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const offset = (page - 1) * limit;
+    const idFilter = Number(req.query.id || 0) || null;
+    const whereList = [...where];
+    const paramsList = [...params];
+    if (idFilter && meta.pk) {
+      whereList.push(`v.\`${meta.pk}\` = ?`);
+      paramsList.push(idFilter);
+    }
+    const whereListSql = whereList.length ? `WHERE ${whereList.join(' AND ')}` : '';
+
     const sql = `
       SELECT
         v.\`${meta.pk}\` as Id,
@@ -376,12 +326,20 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       FROM \`${meta.table}\` v
       ${joinCliente}
       ${joinComercial}
-      ${whereSql}
+      ${whereListSql}
       ORDER BY ${meta.colFecha ? `v.\`${meta.colFecha}\`` : 'v.`' + meta.pk + '`'} DESC, v.\`${meta.pk}\` DESC
-      LIMIT 200
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    const items = await db.query(sql, params);
-    return res.render('visitas', { items: items || [], admin, selectedDate: qDate || null });
+    const countSql = `SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereListSql}`;
+    const [items, countRows] = await Promise.all([db.query(sql, paramsList), db.query(countSql, paramsList)]);
+    const total = Number(countRows?.[0]?.total ?? 0);
+    return res.render('visitas', {
+      items: items || [],
+      admin,
+      selectedDate: qDate || null,
+      paging: { page, limit, total },
+      id: idFilter || ''
+    });
   } catch (e) {
     next(e);
   }

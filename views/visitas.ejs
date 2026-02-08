@@ -3,7 +3,13 @@
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Visitas</h1>
-    <p class="card-subtitle">Vista lista · <%= items.length %> resultados<% if (selectedDate) { %> · <span class="badge info"><%= selectedDate %></span><% } %></p>
+    <p class="card-subtitle">
+      Vista lista · <%= items.length %> resultados
+      <% if (paging && typeof paging.total !== 'undefined') { %>
+        · Total <%= paging.total %> · Página <%= paging.page %>
+      <% } %>
+      <% if (selectedDate) { %> · <span class="badge info"><%= selectedDate %></span><% } %>
+    </p>
   </div>
   <div class="card-bd">
     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom: 12px;">
@@ -15,6 +21,42 @@
         <a class="btn" href="/visitas/new">Nueva visita</a>
       </div>
     </div>
+
+    <form method="get" action="/visitas" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom: 12px;">
+      <input type="hidden" name="view" value="list" />
+      <input type="hidden" name="limit" value="<%= (paging && paging.limit) ? paging.limit : 50 %>" />
+      <input
+        type="date"
+        name="date"
+        value="<%= selectedDate ? selectedDate : '' %>"
+        style="min-width: 170px;"
+      />
+      <input
+        type="number"
+        name="id"
+        min="1"
+        placeholder="ID visita"
+        value="<%= (typeof id !== 'undefined' && id) ? id : '' %>"
+        style="min-width: 140px;"
+      />
+      <button class="btn secondary" type="submit">Filtrar</button>
+      <a class="btn secondary" href="/visitas?view=list">Limpiar</a>
+    </form>
+
+    <% if (paging && paging.total && paging.total > paging.limit) { %>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
+        <% const prev = paging.page > 1 ? paging.page - 1 : null; %>
+        <% const next = (paging.page * paging.limit) < paging.total ? paging.page + 1 : null; %>
+        <% const base = `/visitas?view=list&limit=${paging.limit}` + (selectedDate ? `&date=${encodeURIComponent(selectedDate)}` : '') + ((typeof id !== 'undefined' && id) ? `&id=${encodeURIComponent(id)}` : ''); %>
+        <% if (prev) { %>
+          <a class="btn secondary" href="<%= base %>&page=<%= prev %>">Anterior</a>
+        <% } %>
+        <% if (next) { %>
+          <a class="btn secondary" href="<%= base %>&page=<%= next %>">Siguiente</a>
+        <% } %>
+      </div>
+    <% } %>
+
     <div class="table-wrap">
       <table>
         <thead>

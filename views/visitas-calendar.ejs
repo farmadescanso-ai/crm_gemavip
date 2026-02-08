@@ -3,7 +3,7 @@
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Visitas</h1>
-    <p class="card-subtitle">Vista calendario · <span class="badge info"><%= month %></span></p>
+    <p class="card-subtitle">Calendario profesional · <span class="badge info"><%= month %></span></p>
   </div>
   <div class="card-bd">
     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom: 12px;">
@@ -16,47 +16,10 @@
       </div>
     </div>
 
-    <div class="table-wrap">
-      <table class="calendar">
-        <thead>
-          <tr>
-            <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% for (let w = 0; w < 6; w++) { %>
-            <tr>
-              <% for (let d = 0; d < 7; d++) { %>
-                <% const cell = (cells && cells[w*7 + d]) ? cells[w*7 + d] : { date: null, day: null, items: [] }; %>
-                <td class="<%= cell.date ? '' : 'is-empty' %>">
-                  <% if (cell.date) { %>
-                    <div class="cal-day">
-                      <div class="cal-day-num"><%= cell.day %></div>
-                      <div class="cal-day-actions">
-                        <a href="/visitas?view=list&date=<%= cell.date %>" class="badge info" style="text-decoration:none;">
-                          <%= (cell.items || []).length %> visitas
-                        </a>
-                      </div>
-                    </div>
-                    <div class="cal-items">
-                      <% (cell.items || []).slice(0,3).forEach((it) => { %>
-                        <a class="cal-item" href="/visitas/<%= it.Id %>">
-                          <span class="cal-time"><%= (it.Hora || '').toString().slice(0,5) %></span>
-                          <span class="cal-title"><%= it.ClienteNombre || ('Cliente ' + (it.ClienteId ?? '')) %></span>
-                        </a>
-                      <% }) %>
-                      <% if ((cell.items || []).length > 3) { %>
-                        <div class="cal-more">+<%= (cell.items.length - 3) %> más</div>
-                      <% } %>
-                    </div>
-                  <% } %>
-                </td>
-              <% } %>
-            </tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" />
+    <div id="gv-visitas-calendar" data-initial-date="<%= (initialDate || '').toString().slice(0,10) %>" style="min-height: 560px;"></div>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <script defer src="/assets/scripts/visitas-calendar.js"></script>
   </div>
 </section>
 

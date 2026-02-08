@@ -354,6 +354,35 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   padding: 0 2px;
  }
 
+/* FullCalendar (Visitas) - ajuste visual al tema */
+.fc{
+  --fc-border-color: rgba(229,229,229,.85);
+  --fc-page-bg-color: #fff;
+  --fc-today-bg-color: rgba(0,139,210,.08);
+  --fc-neutral-bg-color: rgba(0,0,0,.02);
+  --fc-button-bg-color: var(--gv-primary);
+  --fc-button-border-color: transparent;
+  --fc-button-hover-bg-color: var(--gv-primary-hover);
+  --fc-button-hover-border-color: transparent;
+  --fc-button-active-bg-color: var(--gv-primary-2);
+  --fc-button-active-border-color: transparent;
+  --fc-event-bg-color: rgba(0,139,210,.14);
+  --fc-event-border-color: rgba(0,139,210,.25);
+  --fc-event-text-color: var(--gv-ink);
+}
+.fc .fc-toolbar-title{
+  font-weight: 900;
+  color: var(--gv-ink);
+}
+.fc .fc-button{
+  border-radius: 12px;
+  font-weight: 800;
+}
+.fc .fc-col-header-cell-cushion{
+  font-weight: 900;
+  color: var(--gv-ink);
+}
+
 /* Calendario (tabla) */
 table.calendar td{
   vertical-align: top;
