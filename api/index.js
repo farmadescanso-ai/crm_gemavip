@@ -449,19 +449,6 @@ app.get('/articulos', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/articulos/:id', requireLogin, async (req, res, next) => {
-  try {
-    const admin = isAdminUser(res.locals.user);
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getArticuloById(id);
-    if (!item) return res.status(404).send('No encontrado');
-    res.render('articulo', { item, admin });
-  } catch (e) {
-    next(e);
-  }
-});
-
 app.get('/articulos/new', requireAdmin, async (_req, res, next) => {
   try {
     const marcas = await loadMarcasForSelect(db);
@@ -573,6 +560,20 @@ app.post('/articulos/:id/toggle', requireAdmin, async (req, res, next) => {
     const nextVal = value === '0' || value === 'false' || value === 'ko' || value === 'inactivo' ? 0 : 1;
     await db.toggleArticuloOkKo(id, nextVal);
     return res.redirect(`/articulos/${id}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// IMPORTANTE: esta ruta va DESPUÉS de /new y /:id/edit para no capturar "new" como id.
+app.get('/articulos/:id', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getArticuloById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    res.render('articulo', { item, admin });
   } catch (e) {
     next(e);
   }
