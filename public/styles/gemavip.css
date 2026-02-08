@@ -247,8 +247,18 @@ main.container{
 }
 @media (min-width: 960px){
   .gv-article-ficha{
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: minmax(0, 1fr) 320px; /* evita overflow por textos largos */
   }
+}
+.gv-article-ficha__main{ min-width: 0; } /* permite que la columna principal encoja */
+.gv-article-ficha__grid > div{
+  min-width: 0;
+  overflow-wrap: anywhere; /* partir URLs (p.ej. Imagen) sin empujar la imagen fuera */
+  word-break: break-word;
+}
+.gv-break{
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .gv-article-ficha__media{
   justify-self: end;

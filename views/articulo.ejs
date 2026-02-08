@@ -30,7 +30,14 @@
           <div><strong>Marca:</strong> <%= item.MarcaNombre ?? item.Marca ?? '—' %></div>
           <div><strong>Id_Marca:</strong> <%= item.Id_Marca ?? '—' %></div>
           <div><strong>Activo:</strong> <%= (item.Activo ?? 1) ? 'Sí' : 'No' %></div>
-          <div><strong>Imagen:</strong> <%= item.Imagen ?? '' %></div>
+          <div>
+            <strong>Imagen:</strong>
+            <% if (imgUrl) { %>
+              <a class="gv-break" href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer"><%= imgUrl %></a>
+            <% } else { %>
+              —
+            <% } %>
+          </div>
         </div>
 
         <% if (admin) { %>
