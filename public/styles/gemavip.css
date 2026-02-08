@@ -247,7 +247,7 @@ main.container{
 }
 @media (min-width: 960px){
   .gv-article-ficha{
-    grid-template-columns: minmax(0, 1fr) 320px; /* evita overflow por textos largos */
+    grid-template-columns: minmax(0, 1fr) 416px; /* +30% (320 -> 416) */
   }
 }
 .gv-article-ficha__main{ min-width: 0; } /* permite que la columna principal encoja */
@@ -263,7 +263,7 @@ main.container{
 .gv-article-ficha__media{
   justify-self: end;
   width: 100%;
-  max-width: 320px;
+  max-width: 416px; /* +30% */
 }
 .gv-article-ficha__imgLink{
   display:block;
@@ -276,7 +276,7 @@ main.container{
 .gv-article-ficha__img{
   display:block;
   width: 100%;
-  height: 240px; /* tamaño controlado para no tapar la ficha */
+  height: 312px; /* +30% (240 -> 312) */
   object-fit: contain;
   background: #fff;
 }
