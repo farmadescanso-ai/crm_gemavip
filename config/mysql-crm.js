@@ -67,7 +67,17 @@ class MySQLCRM {
         .filter(Boolean);
       return cols;
     } catch (_) {
-      return [];
+      // Fallback cuando SHOW COLUMNS no está permitido
+      try {
+        const r = await this.queryWithFields(`SELECT * FROM \`${tableName}\` LIMIT 0`);
+        const fields = Array.isArray(r?.fields) ? r.fields : [];
+        const cols = fields
+          .map((f) => String(f?.name || '').trim())
+          .filter(Boolean);
+        return cols;
+      } catch (_) {
+        return [];
+      }
     }
   }
 
@@ -75,16 +85,7 @@ class MySQLCRM {
     if (this._metaCache?.visitasMeta) return this._metaCache.visitasMeta;
 
     const tVisitas = await this._resolveTableNameCaseInsensitive('visitas');
-    let colsRows = [];
-    try {
-      colsRows = await this.query(`SHOW COLUMNS FROM \`${tVisitas}\``);
-    } catch (_) {
-      colsRows = [];
-    }
-
-    const cols = (Array.isArray(colsRows) ? colsRows : [])
-      .map(r => String(r.Field || r.field || '').trim())
-      .filter(Boolean);
+    const cols = await this._getColumns(tVisitas);
     const colsLower = new Set(cols.map(c => c.toLowerCase()));
 
     const pickCI = (cands) => {
@@ -834,6 +835,17 @@ class MySQLCRM {
       }
     }
 
+    // Fallback: si SHOW COLUMNS está restringido pero SELECT está permitido, probar con SELECT LIMIT 0.
+    for (const cand of candidates) {
+      try {
+        await this.queryWithFields(`SELECT * FROM \`${cand}\` LIMIT 0`);
+        this._cache[cacheKey] = cand;
+        return cand;
+      } catch (_) {
+        // seguir probando
+      }
+    }
+
     // Fallback: usar el nombre base tal cual.
     this._cache[cacheKey] = base;
     return base;
@@ -1149,6 +1161,39 @@ class MySQLCRM {
       console.error('SQL:', sql);
       console.error('Params:', params);
       throw error;
+    }
+  }
+
+  // Igual que query(), pero también devuelve metadata de campos.
+  // Útil cuando SHOW COLUMNS está restringido pero SELECT está permitido.
+  async queryWithFields(sql, params = []) {
+    if (!this.connected || !this.pool) {
+      await this.connect();
+    }
+
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.query("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+      await connection.query("SET CHARACTER SET utf8mb4");
+      await connection.query("SET character_set_connection=utf8mb4");
+      await connection.query("SET character_set_client=utf8mb4");
+      await connection.query("SET character_set_results=utf8mb4");
+      try {
+        await connection.query("SET time_zone = 'Europe/Madrid'");
+      } catch (_) {
+        // ignore
+      }
+
+      const result = await Promise.race([
+        connection.execute(sql, params),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout en consulta SQL después de 15 segundos: ${sql.substring(0, 100)}...`)), 15000)
+        )
+      ]);
+      const [rows, fields] = result;
+      return { rows, fields };
+    } finally {
+      connection.release();
     }
   }
 

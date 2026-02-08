@@ -25,7 +25,7 @@
 
     <form method="get" action="/visitas" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom: 12px;">
       <input type="hidden" name="view" value="list" />
-      <input type="hidden" name="limit" value="<%= (hasPaging && paging.limit) ? paging.limit : 50 %>" />
+      <input type="hidden" name="limit" value="<%= (hasPaging && paging.limit) ? paging.limit : 20 %>" />
       <input
         type="date"
         name="date"

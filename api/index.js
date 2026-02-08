@@ -228,7 +228,7 @@ app.get('/comerciales', requireLogin, async (req, res, next) => {
 
 app.get('/clientes', requireLogin, async (req, res, next) => {
   try {
-    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
+    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
     const page = Math.max(1, Number(req.query.page) || 1);
     const offset = (page - 1) * limit;
     const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search).trim() : '';
@@ -275,7 +275,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
         const initialDate = qDate || `${month}-01`;
         return res.render('visitas-calendar', { month, initialDate, meta, admin });
       }
-      return res.render('visitas', { items: [], admin, selectedDate: qDate || null, paging: { page: 1, limit: 50, total: 0 }, id: '' });
+      return res.render('visitas', { items: [], admin, selectedDate: qDate || null, paging: { page: 1, limit: 20, total: 0 }, id: '' });
     }
 
     if (!admin && meta.colComercial) {
@@ -303,7 +303,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     }
 
     // LISTA
-    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
+    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
     const page = Math.max(1, Number(req.query.page) || 1);
     const offset = (page - 1) * limit;
     const idFilter = Number(req.query.id || 0) || null;
