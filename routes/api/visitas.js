@@ -60,12 +60,18 @@ router.get(
     const params = [];
 
     if (!isAdmin) {
-      const owner = db._buildVisitasOwnerWhere(meta, sessionUser, 'v');
-      if (owner.clause) {
-        where.push(owner.clause);
-        params.push(...owner.params);
+      const uIdNum = Number(sessionUser?.id);
+      if (meta.colComercial && Number.isFinite(uIdNum) && uIdNum > 0) {
+        where.push(`v.\`${meta.colComercial}\` = ?`);
+        params.push(uIdNum);
       } else {
-        return res.json({ ok: true, items: [] });
+        const owner = db._buildVisitasOwnerWhere(meta, sessionUser, 'v');
+        if (owner.clause) {
+          where.push(owner.clause);
+          params.push(...owner.params);
+        } else {
+          return res.json({ ok: true, items: [] });
+        }
       }
     }
 

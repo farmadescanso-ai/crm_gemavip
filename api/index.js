@@ -259,6 +259,8 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     const view = String(req.query.view || 'list').toLowerCase();
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
+    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+    const comercialesMeta = await db._ensureComercialesMeta().catch(() => null);
 
     // Filtros opcionales
     const qDate = String(req.query.date || '').trim(); // YYYY-MM-DD
@@ -269,18 +271,30 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
 
     // Seguridad: un comercial solo ve sus visitas.
     if (!admin) {
-      const owner = db._buildVisitasOwnerWhere(meta, res.locals.user, 'v');
-      if (!owner.clause) {
-        if (view === 'calendar') {
-          const now = new Date();
-          const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-          const initialDate = qDate || `${month}-01`;
-          return res.render('visitas-calendar', { month, initialDate, meta, admin });
+      const uIdNum = Number(res.locals.user?.id);
+      if (meta.colComercial && Number.isFinite(uIdNum) && uIdNum > 0) {
+        where.push(`v.\`${meta.colComercial}\` = ?`);
+        params.push(uIdNum);
+      } else {
+        const owner = db._buildVisitasOwnerWhere(meta, res.locals.user, 'v');
+        if (!owner.clause) {
+          if (view === 'calendar') {
+            const now = new Date();
+            const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const initialDate = qDate || `${month}-01`;
+            return res.render('visitas-calendar', { month, initialDate, meta, admin });
+          }
+          return res.render('visitas', {
+            items: [],
+            admin,
+            selectedDate: qDate || null,
+            paging: { page: 1, limit: 20, total: 0 },
+            id: ''
+          });
         }
-        return res.render('visitas', { items: [], admin, selectedDate: qDate || null, paging: { page: 1, limit: 20, total: 0 }, id: '' });
+        where.push(owner.clause);
+        params.push(...owner.params);
       }
-      where.push(owner.clause);
-      params.push(...owner.params);
     }
 
     if (qDate && meta.colFecha) {
@@ -288,8 +302,13 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       params.push(qDate);
     }
 
-    const joinCliente = meta.colCliente ? 'LEFT JOIN clientes c ON v.`' + meta.colCliente + '` = c.Id' : '';
-    const joinComercial = meta.colComercial ? 'LEFT JOIN comerciales co ON v.`' + meta.colComercial + '` = co.id' : '';
+    const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
+    const pkClientes = clientesMeta?.pk || 'Id';
+    const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
+    const pkComerciales = comercialesMeta?.pk || 'id';
+
+    const joinCliente = meta.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${meta.colCliente}\` = c.\`${pkClientes}\`` : '';
+    const joinComercial = meta.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${meta.colComercial}\` = co.\`${pkComerciales}\`` : '';
     const selectClienteNombre = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
     const selectComercialNombre = meta.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
 
@@ -593,10 +612,13 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
     };
 
     const admin = isAdminUser(res.locals.user);
+    const metaVisitas = await db._ensureVisitasMeta().catch(() => null);
+    const visitasTable = metaVisitas?.table ? metaVisitas.table : 'visitas';
+
     const [clientes, pedidos, visitasTotal, comerciales] = await Promise.all([
       safeCount('clientes'),
       safeCount('pedidos'),
-      safeCount('visitas'),
+      safeCount(visitasTable),
       safeCount('comerciales')
     ]);
 
@@ -635,8 +657,50 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
       latest.pedidos = [];
     }
     try {
+      if (!metaVisitas?.table) throw new Error('Sin meta visitas');
+
+      const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+      const comercialesMeta = await db._ensureComercialesMeta().catch(() => null);
+      const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
+      const pkClientes = clientesMeta?.pk || 'Id';
+      const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
+      const pkComerciales = comercialesMeta?.pk || 'id';
+
+      const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
+      const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
+      const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
+      const selectComercialNombre = metaVisitas.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
+
+      const where = [];
+      const params = [];
+      if (!admin) {
+        const uIdNum = Number(res.locals.user?.id);
+        if (metaVisitas.colComercial && Number.isFinite(uIdNum) && uIdNum > 0) {
+          where.push(`v.\`${metaVisitas.colComercial}\` = ?`);
+          params.push(uIdNum);
+        }
+      }
+      const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
       latest.visitas = await db.query(
-        'SELECT Id, Fecha, TipoVisita, ClienteId, Id_Cial, Estado FROM visitas ORDER BY Id DESC LIMIT 10'
+        `
+          SELECT
+            v.\`${metaVisitas.pk}\` as Id,
+            ${metaVisitas.colFecha ? `v.\`${metaVisitas.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
+            ${metaVisitas.colTipo ? `v.\`${metaVisitas.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
+            ${metaVisitas.colEstado ? `v.\`${metaVisitas.colEstado}\` as Estado,` : "'' as Estado,"}
+            ${metaVisitas.colCliente ? `v.\`${metaVisitas.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
+            ${metaVisitas.colComercial ? `v.\`${metaVisitas.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
+            ${selectClienteNombre},
+            ${selectComercialNombre}
+          FROM \`${metaVisitas.table}\` v
+          ${joinCliente}
+          ${joinComercial}
+          ${whereSql}
+          ORDER BY v.\`${metaVisitas.pk}\` DESC
+          LIMIT 10
+        `,
+        params
       );
     } catch (_) {
       latest.visitas = [];

@@ -132,6 +132,7 @@ class MySQLCRM {
         'Comercial_id',
         'comercial_id',
         'Id_Comercial',
+        'id_Comercial',
         'id_comercial'
       ]),
       colCliente: pickCI(['ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
@@ -195,7 +196,8 @@ class MySQLCRM {
     // unique + cap
     const uniqCols = Array.from(new Set(candCols.map(String))).filter(Boolean).slice(0, 6);
 
-    const uId = user?.id !== undefined && user?.id !== null ? String(user.id).trim() : '';
+    const uIdNum = Number(user?.id);
+    const uId = Number.isFinite(uIdNum) && uIdNum > 0 ? uIdNum : (user?.id !== undefined && user?.id !== null ? String(user.id).trim() : '');
     const uEmail = user?.email ? String(user.email).trim() : '';
     const uNombre = user?.nombre ? String(user.nombre).trim() : '';
     const haveAny = Boolean(uId || uEmail || uNombre);
