@@ -26,7 +26,18 @@
       <div class="grid cols-2" style="gap: 12px;">
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo de visita</span>
-          <input name="TipoVisita" placeholder="Ej. Presencial / Teléfono / Online" value="<%= (item.TipoVisita || item[meta.colTipo] || '') %>" />
+          <% if ((tiposVisita || []).length > 0) { %>
+            <select name="TipoVisita">
+              <option value="">(selecciona)</option>
+              <% (tiposVisita || []).forEach((t) => { %>
+                <% const val = (tipoIsId ? t.id : t.nombre); %>
+                <% const cur = (item.TipoVisita || item[meta.colTipo] || ''); %>
+                <option value="<%= val %>" <%= String(cur) === String(val) ? 'selected' : '' %>><%= t.nombre %></option>
+              <% }) %>
+            </select>
+          <% } else { %>
+            <input name="TipoVisita" placeholder="Ej. Presencial / Teléfono / Online" value="<%= (item.TipoVisita || item[meta.colTipo] || '') %>" />
+          <% } %>
         </label>
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Estado</span>
@@ -60,6 +71,13 @@
             <% }) %>
           </select>
         </label>
+      <% } else { %>
+        <div style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial</span>
+          <div class="badge info" style="border-radius: 14px;">
+            <%= (user && (user.nombre || user.email)) ? (user.nombre || user.email) : '—' %>
+          </div>
+        </div>
       <% } %>
 
       <label style="display:grid; gap: 6px;">

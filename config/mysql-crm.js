@@ -82,13 +82,96 @@ class MySQLCRM {
       colCliente: pickCI(['ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
       colFecha: pickCI(['Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita']),
       colHora: pickCI(['Hora', 'hora']),
-      colTipo: pickCI(['TipoVisita', 'tipoVisita', 'Tipo', 'tipo']),
+      colTipo: pickCI([
+        'TipoVisita',
+        'tipoVisita',
+        'Tipo',
+        'tipo',
+        'Id_TipoVisita',
+        'id_tipovisita',
+        'id_tipo_visita',
+        'TipoVisitaId',
+        'tipoVisitaId'
+      ]),
       colEstado: pickCI(['Estado', 'estado', 'EstadoVisita', 'estadoVisita']),
       colNotas: pickCI(['Notas', 'notas', 'Observaciones', 'observaciones', 'Comentarios', 'comentarios', 'Mensaje', 'mensaje'])
     };
 
     this._metaCache.visitasMeta = meta;
     return meta;
+  }
+
+  async getTiposVisita() {
+    try {
+      // cache
+      if (this._metaCache?.tiposVisita) return this._metaCache.tiposVisita;
+
+      const candidates = [
+        'tipos_visitas',
+        'tipos_visita',
+        'tipo_visitas',
+        'tipo_visita',
+        'visitas_tipos',
+        'tipos_visitas_catalogo'
+      ];
+
+      let table = null;
+      let colsRows = [];
+      for (const base of candidates) {
+        const t = await this._resolveTableNameCaseInsensitive(base);
+        try {
+          colsRows = await this.query(`SHOW COLUMNS FROM \`${t}\``);
+          if (Array.isArray(colsRows) && colsRows.length) {
+            table = t;
+            break;
+          }
+        } catch (_) {
+          // probar siguiente
+        }
+      }
+
+      if (!table) {
+        this._metaCache.tiposVisita = [];
+        return [];
+      }
+
+      const cols = (Array.isArray(colsRows) ? colsRows : [])
+        .map(r => String(r.Field || '').trim())
+        .filter(Boolean);
+      const colsLower = new Set(cols.map(c => c.toLowerCase()));
+      const pickCI = (cands) => {
+        for (const cand of (cands || [])) {
+          const cl = String(cand).toLowerCase();
+          if (colsLower.has(cl)) {
+            const idx = cols.findIndex(c => c.toLowerCase() === cl);
+            return idx >= 0 ? cols[idx] : cand;
+          }
+        }
+        return null;
+      };
+
+      const idCol = pickCI(['Id', 'id']) || cols[0];
+      const nameCol = pickCI(['Nombre', 'nombre', 'Tipo', 'tipo', 'Descripcion', 'descripcion', 'Name', 'name']) || cols[1] || cols[0];
+      const activeCol = pickCI(['Activo', 'activo', 'Enabled', 'enabled', 'Activa', 'activa']);
+
+      let sql = `SELECT \`${idCol}\` AS id, \`${nameCol}\` AS nombre FROM \`${table}\``;
+      const params = [];
+      if (activeCol) {
+        sql += ` WHERE \`${activeCol}\` = 1`;
+      }
+      sql += ` ORDER BY \`${nameCol}\` ASC LIMIT 200`;
+
+      const rows = await this.query(sql, params);
+      const tipos = (rows || [])
+        .map(r => ({ id: r.id, nombre: r.nombre }))
+        .filter(r => r?.nombre !== null && r?.nombre !== undefined && String(r.nombre).trim() !== '');
+
+      this._metaCache.tiposVisita = tipos;
+      return tipos;
+    } catch (e) {
+      console.warn('⚠️ Error obteniendo tipos de visita:', e?.message || e);
+      return [];
+    }
   }
 
   async ensureVisitasIndexes() {

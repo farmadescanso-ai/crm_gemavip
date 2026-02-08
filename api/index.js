@@ -385,12 +385,19 @@ app.get('/visitas/new', requireLogin, async (req, res, next) => {
   try {
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
+    const tiposVisita = await db.getTiposVisita().catch(() => []);
     const comerciales = admin ? await db.getComerciales() : [];
     const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
+
+    const colTipoLower = String(meta.colTipo || '').toLowerCase();
+    const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
+
     res.render('visita-form', {
       mode: 'create',
       admin,
       meta,
+      tiposVisita,
+      tipoIsId,
       comerciales,
       clientes,
       item: {
@@ -399,7 +406,7 @@ app.get('/visitas/new', requireLogin, async (req, res, next) => {
         TipoVisita: '',
         Estado: '',
         ClienteId: null,
-        ComercialId: admin ? null : res.locals.user.id,
+        ComercialId: res.locals.user.id,
         Notas: ''
       },
       error: null
@@ -416,7 +423,7 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
 
     const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
     const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
-    const tipo = String(req.body?.TipoVisita || req.body?.tipo || '').slice(0, 80);
+    const tipoRaw = String(req.body?.TipoVisita || req.body?.tipo || '').trim();
     const estado = String(req.body?.Estado || req.body?.estado || '').slice(0, 40);
     const notas = String(req.body?.Notas || req.body?.notas || '').slice(0, 500);
     const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
@@ -427,7 +434,11 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
     const payload = {};
     if (meta.colFecha) payload[meta.colFecha] = fecha;
     if (meta.colHora && hora) payload[meta.colHora] = hora;
-    if (meta.colTipo && tipo) payload[meta.colTipo] = tipo;
+    if (meta.colTipo && tipoRaw) {
+      const colTipoLower = String(meta.colTipo || '').toLowerCase();
+      const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
+      payload[meta.colTipo] = tipoIsId ? (Number(tipoRaw) || null) : tipoRaw.slice(0, 80);
+    }
     if (meta.colEstado && estado) payload[meta.colEstado] = estado;
     if (meta.colNotas && notas) payload[meta.colNotas] = notas;
     if (meta.colCliente && clienteId) payload[meta.colCliente] = clienteId;
@@ -474,11 +485,16 @@ app.get('/visitas/:id/edit', requireLogin, async (req, res, next) => {
 
     const comerciales = admin ? await db.getComerciales() : [];
     const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
+    const tiposVisita = await db.getTiposVisita().catch(() => []);
+    const colTipoLower = String(meta.colTipo || '').toLowerCase();
+    const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
 
     res.render('visita-form', {
       mode: 'edit',
       admin,
       meta,
+      tiposVisita,
+      tipoIsId,
       comerciales,
       clientes,
       item: row,
@@ -504,7 +520,7 @@ app.post('/visitas/:id/edit', requireLogin, async (req, res, next) => {
 
     const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
     const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
-    const tipo = String(req.body?.TipoVisita || req.body?.tipo || '').slice(0, 80);
+    const tipoRaw = String(req.body?.TipoVisita || req.body?.tipo || '').trim();
     const estado = String(req.body?.Estado || req.body?.estado || '').slice(0, 40);
     const notas = String(req.body?.Notas || req.body?.notas || '').slice(0, 500);
     const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
@@ -513,7 +529,11 @@ app.post('/visitas/:id/edit', requireLogin, async (req, res, next) => {
     const payload = {};
     if (meta.colFecha && fecha) payload[meta.colFecha] = fecha;
     if (meta.colHora) payload[meta.colHora] = hora || null;
-    if (meta.colTipo) payload[meta.colTipo] = tipo || null;
+    if (meta.colTipo) {
+      const colTipoLower = String(meta.colTipo || '').toLowerCase();
+      const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
+      payload[meta.colTipo] = tipoRaw ? (tipoIsId ? (Number(tipoRaw) || null) : tipoRaw.slice(0, 80)) : null;
+    }
     if (meta.colEstado) payload[meta.colEstado] = estado || null;
     if (meta.colNotas) payload[meta.colNotas] = notas || null;
     if (meta.colCliente) payload[meta.colCliente] = clienteId || null;
