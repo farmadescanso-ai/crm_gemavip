@@ -678,11 +678,18 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
     const metaVisitas = await db._ensureVisitasMeta().catch(() => null);
     const visitasTable = metaVisitas?.table ? metaVisitas.table : 'visitas';
 
+    const userId = Number(res.locals.user?.id);
+    const hasUserId = Number.isFinite(userId) && userId > 0;
+
     const [clientes, pedidos, visitasTotal, comerciales] = await Promise.all([
-      safeCount('clientes'),
-      safeCount('pedidos'),
+      admin
+        ? safeCount('clientes')
+        : (hasUserId ? db.countClientesOptimizado({ comercial: userId }) : 0),
+      admin
+        ? safeCount('pedidos')
+        : (hasUserId ? db.countPedidos({ comercialId: userId }) : 0),
       safeCount(visitasTable),
-      safeCount('comerciales')
+      admin ? safeCount('comerciales') : null
     ]);
 
     let visitas = visitasTotal;
