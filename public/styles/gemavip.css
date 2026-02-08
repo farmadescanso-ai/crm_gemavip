@@ -406,6 +406,12 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   color: var(--gv-ink);
 }
 
+/* FullCalendar: feedback visual durante cargas/refetch */
+#gv-visitas-calendar.gv-fc-loading{
+  opacity: .78;
+  transition: opacity .15s ease;
+}
+
 /* Calendario (tabla) */
 table.calendar td{
   vertical-align: top;

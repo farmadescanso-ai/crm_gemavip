@@ -138,6 +138,7 @@ class MySQLCRM {
       colCliente: pickCI(['ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
       colFecha: pickCI(['Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita', 'Fecha_Visita', 'fechaVisita']),
       colHora: pickCI(['Hora', 'hora', 'Hora_Visita', 'hora_visita']),
+      colHoraFinal: pickCI(['Hora_Final', 'hora_final', 'HoraFinal', 'horaFinal', 'Hora_Fin', 'hora_fin', 'HoraFin', 'horaFin']),
       colTipo: pickCI([
         'TipoVisita',
         'tipoVisita',
@@ -170,6 +171,9 @@ class MySQLCRM {
     }
     if (!meta.colHora) {
       meta.colHora = guessColByKeywords(['hora']);
+    }
+    if (!meta.colHoraFinal) {
+      meta.colHoraFinal = guessColByKeywords(['hora_final', 'horafinal']);
     }
     if (!meta.colTipo) {
       meta.colTipo = guessColByKeywords(['tipo']);
@@ -501,9 +505,31 @@ class MySQLCRM {
         }
       }
 
+      // 1b) Añadir Hora_Final si no existe (duración por defecto +30m)
+      if (!hasColCI('Hora_Final')) {
+        try {
+          await this.query(`ALTER TABLE \`${tVisitas}\` ADD COLUMN \`Hora_Final\` TIME NULL`);
+          console.log(`✅ [SCHEMA] Añadida columna Hora_Final en ${tVisitas}`);
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir Hora_Final en visitas:', e?.message || e);
+        }
+      }
+
       // Refrescar columnas/meta
       if (this._metaCache) delete this._metaCache.visitasMeta;
       const meta = await this._ensureVisitasMeta();
+
+      // Backfill Hora_Final: si es null o 00:00:00, sumar 30m a Hora
+      if (meta?.colHora && (meta?.colHoraFinal || hasColCI('hora_final'))) {
+        const colHoraFinal = meta.colHoraFinal || 'Hora_Final';
+        try {
+          await this.query(
+            `UPDATE \`${meta.table}\` SET \`${colHoraFinal}\` = ADDTIME(\`${meta.colHora}\`, '00:30:00') WHERE (\`${colHoraFinal}\` IS NULL OR \`${colHoraFinal}\` = '00:00:00') AND \`${meta.colHora}\` IS NOT NULL`
+          );
+        } catch (_) {
+          // ignore
+        }
+      }
 
       // 2) Backfill best-effort desde columnas legacy si existen
       if (meta?.colComercial && String(meta.colComercial).toLowerCase() === 'id_comercial') {

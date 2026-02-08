@@ -456,11 +456,25 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
 
     const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
     const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
+    const horaFinalRaw = String(req.body?.Hora_Final || req.body?.hora_final || req.body?.HoraFinal || '').slice(0, 5);
     const tipoRaw = String(req.body?.TipoVisita || req.body?.tipo || '').trim();
     const estado = String(req.body?.Estado || req.body?.estado || '').slice(0, 40);
     const notas = String(req.body?.Notas || req.body?.notas || '').slice(0, 500);
     const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
     const comercialId = admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id);
+
+    const addMinutesHHMM = (hhmm, minutes) => {
+      const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return '';
+      const hh = Number(m[1]);
+      const mm = Number(m[2]);
+      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '';
+      const total = (hh * 60 + mm + Number(minutes || 0)) % (24 * 60);
+      const outH = String(Math.floor((total + 24 * 60) % (24 * 60) / 60)).padStart(2, '0');
+      const outM = String(((total + 24 * 60) % (24 * 60)) % 60).padStart(2, '0');
+      return `${outH}:${outM}`;
+    };
+    const horaFinal = horaFinalRaw || (hora ? addMinutesHHMM(hora, 30) : '');
 
     const renderError = (message) => {
       const colTipoLower = String(meta.colTipo || '').toLowerCase();
@@ -488,12 +502,14 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
     };
 
     if (!fecha) return renderError('Fecha obligatoria');
+    if (meta.colHora && !hora) return renderError('Hora obligatoria');
     if (meta.colTipo && !tipoRaw) return renderError('Tipo de visita obligatorio');
     if (meta.colEstado && !estado) return renderError('Estado obligatorio');
 
     const payload = {};
     if (meta.colFecha) payload[meta.colFecha] = fecha;
-    if (meta.colHora && hora) payload[meta.colHora] = hora;
+    if (meta.colHora) payload[meta.colHora] = hora;
+    if (meta.colHoraFinal && horaFinal) payload[meta.colHoraFinal] = horaFinal;
     if (meta.colTipo) {
       const colTipoLower = String(meta.colTipo || '').toLowerCase();
       const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
@@ -582,15 +598,31 @@ app.post('/visitas/:id/edit', requireLogin, async (req, res, next) => {
 
     const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
     const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
+    const horaFinalRaw = String(req.body?.Hora_Final || req.body?.hora_final || req.body?.HoraFinal || '').slice(0, 5);
     const tipoRaw = String(req.body?.TipoVisita || req.body?.tipo || '').trim();
     const estado = String(req.body?.Estado || req.body?.estado || '').slice(0, 40);
     const notas = String(req.body?.Notas || req.body?.notas || '').slice(0, 500);
     const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
     const comercialId = admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id);
 
+    const addMinutesHHMM = (hhmm, minutes) => {
+      const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return '';
+      const hh = Number(m[1]);
+      const mm = Number(m[2]);
+      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '';
+      const total = (hh * 60 + mm + Number(minutes || 0)) % (24 * 60);
+      const outH = String(Math.floor((total + 24 * 60) % (24 * 60) / 60)).padStart(2, '0');
+      const outM = String(((total + 24 * 60) % (24 * 60)) % 60).padStart(2, '0');
+      return `${outH}:${outM}`;
+    };
+    const currentHoraFinal = meta.colHoraFinal ? String(row?.[meta.colHoraFinal] || '').slice(0, 5) : '';
+    const horaFinal = horaFinalRaw || (hora ? addMinutesHHMM(hora, 30) : currentHoraFinal);
+
     const payload = {};
     if (meta.colFecha && fecha) payload[meta.colFecha] = fecha;
     if (meta.colHora) payload[meta.colHora] = hora || null;
+    if (meta.colHoraFinal) payload[meta.colHoraFinal] = horaFinal || null;
     if (meta.colTipo) {
       const colTipoLower = String(meta.colTipo || '').toLowerCase();
       const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');

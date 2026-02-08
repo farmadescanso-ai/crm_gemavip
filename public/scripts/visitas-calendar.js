@@ -1,4 +1,11 @@
 (() => {
+  function debounce(fn, waitMs) {
+    let t = null;
+    return (...args) => {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(() => fn(...args), Number(waitMs || 0));
+    };
+  }
   function $(sel) {
     return document.querySelector(sel);
   }
@@ -17,13 +24,19 @@
       return;
     }
 
-    const cal = new Calendar(el, {
+    let cal = null;
+    const refetchSoon = debounce(() => {
+      if (cal) cal.refetchEvents();
+    }, 150);
+
+    cal = new Calendar(el, {
       initialView: 'dayGridMonth',
       initialDate,
       locale: 'es',
       firstDay: 1,
       height: 'auto',
       expandRows: true,
+      lazyFetching: false,
       nowIndicator: true,
       navLinks: true,
       headerToolbar: {
@@ -48,6 +61,13 @@
       // Hace más evidente la navegación en semana/día
       weekNumbers: false,
       dayMaxEvents: true,
+      loading: (isLoading) => {
+        el.classList.toggle('gv-fc-loading', Boolean(isLoading));
+      },
+      datesSet: () => {
+        // Al cambiar de vista/rango, refrescar automáticamente (sin esperar a recargar página)
+        refetchSoon();
+      },
       events: async (info, success, failure) => {
         try {
           const url = `/api/visitas/events?start=${encodeURIComponent(info.startStr)}&end=${encodeURIComponent(info.endStr)}`;

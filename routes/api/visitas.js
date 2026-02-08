@@ -110,6 +110,7 @@ router.get(
         v.\`${meta.pk}\` as Id,
         v.\`${meta.colFecha}\` as Fecha,
         ${meta.colHora ? `v.\`${meta.colHora}\` as Hora,` : "'' as Hora,"}
+        ${meta.colHoraFinal ? `v.\`${meta.colHoraFinal}\` as HoraFinal,` : "'' as HoraFinal,"}
         ${meta.colTipo ? `v.\`${meta.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
         ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
         ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
@@ -137,10 +138,23 @@ router.get(
       const m = s.match(/(\d{2}:\d{2})/);
       return m ? m[1] : '';
     };
+    const addMinutesHHMM = (hhmm, minutes) => {
+      const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return '';
+      const hh = Number(m[1]);
+      const mm = Number(m[2]);
+      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '';
+      const total = (hh * 60 + mm + Number(minutes || 0)) % (24 * 60);
+      const outH = String(Math.floor((total + 24 * 60) % (24 * 60) / 60)).padStart(2, '0');
+      const outM = String(((total + 24 * 60) % (24 * 60)) % 60).padStart(2, '0');
+      return `${outH}:${outM}`;
+    };
     const items = (rows || []).map((r) => {
       const date = toYmd(r?.Fecha);
       const hora = toHm(r?.Hora);
+      const horaFinal = toHm(r?.HoraFinal) || (hora ? addMinutesHHMM(hora, 30) : '');
       const startIso = date ? (hora ? `${date}T${hora}:00` : `${date}`) : null;
+      const endIso = date && hora && horaFinal ? `${date}T${horaFinal}:00` : null;
 
       const cliente = r?.ClienteNombre ? String(r.ClienteNombre) : r?.ClienteId ? `Cliente ${r.ClienteId}` : 'Visita';
       const tipo = r?.TipoVisita ? String(r.TipoVisita) : '';
@@ -151,6 +165,7 @@ router.get(
         id: r?.Id,
         title,
         start: startIso,
+        end: endIso || undefined,
         allDay: !hora,
         url: r?.Id ? `/visitas/${r.Id}` : undefined
       };
