@@ -98,12 +98,28 @@ class MySQLCRM {
       return null;
     };
 
+    // Heurística: si no encontramos una columna exacta, intenta deducirla por nombre.
+    const guessIdColByKeywords = (keywords) => {
+      const keys = (keywords || []).map(k => String(k || '').toLowerCase()).filter(Boolean);
+      if (!keys.length) return null;
+      // preferir columnas que incluyan keyword y "id"
+      const cand = (cols || []).find((c) => {
+        const cl = String(c || '').toLowerCase();
+        return keys.some(k => cl.includes(k)) && (cl.includes('id') || cl.startsWith('id_') || cl.startsWith('id'));
+      });
+      return cand || null;
+    };
+
     const meta = {
       table: tVisitas,
       pk: pickCI(['Id', 'id']) || 'Id',
       colComercial: pickCI([
         'Id_Cial',
         'id_cial',
+        'IdCial',
+        'idCial',
+        'CialId',
+        'cialId',
         'ComercialId',
         'comercialId',
         'Comercial_id',
@@ -133,6 +149,14 @@ class MySQLCRM {
       colEstado: pickCI(['Estado', 'estado', 'EstadoVisita', 'estadoVisita', 'Estado_Visita', 'estado_visita']),
       colNotas: pickCI(['Notas', 'notas', 'Observaciones', 'observaciones', 'Comentarios', 'comentarios', 'Mensaje', 'mensaje'])
     };
+
+    // Fallback por heurística si no se detecta por lista cerrada (evita quedarse sin filtro en prod).
+    if (!meta.colComercial) {
+      meta.colComercial = guessIdColByKeywords(['comercial', 'cial']);
+    }
+    if (!meta.colCliente) {
+      meta.colCliente = guessIdColByKeywords(['cliente', 'farmacia']);
+    }
 
     this._metaCache.visitasMeta = meta;
     return meta;
