@@ -313,7 +313,6 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       whereList.push(`v.\`${meta.pk}\` = ?`);
       paramsList.push(idFilter);
     }
-    const whereListSql = whereList.length ? `WHERE ${whereList.join(' AND ')}` : '';
 
     // Por defecto: próximas visitas (incluye hoy) si hay columna fecha y no hay filtros explícitos
     const hasExplicitFilter = Boolean(qDate || idFilter);
