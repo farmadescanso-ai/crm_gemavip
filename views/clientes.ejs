@@ -5,15 +5,33 @@
     <h1 class="card-title">Clientes</h1>
     <p class="card-subtitle">
       Página <%= paging.page %> · Mostrando <%= items.length %> de <%= paging.total %> (limit <%= paging.limit %>)
+      <% if (typeof q !== 'undefined' && q) { %>
+        · Buscando: "<%= q %>"
+      <% } %>
     </p>
   </div>
   <div class="card-bd">
+    <form method="get" action="/clientes" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom: 12px;">
+      <input
+        type="search"
+        name="q"
+        placeholder="Búsqueda inteligente (nombre, CIF, email, teléfono, CP o ID...)"
+        value="<%= (typeof q !== 'undefined' && q) ? q : '' %>"
+        style="min-width: 320px; flex: 1 1 320px;"
+      />
+      <input type="hidden" name="limit" value="<%= paging.limit %>" />
+      <button class="btn" type="submit">Buscar</button>
+      <% if (typeof q !== 'undefined' && q) { %>
+        <a class="btn secondary" href="/clientes?limit=<%= paging.limit %>">Limpiar</a>
+      <% } %>
+    </form>
+
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
       <% if (paging.page > 1) { %>
-        <a class="btn secondary" href="/clientes?page=<%= paging.page - 1 %>&limit=<%= paging.limit %>">Anterior</a>
+        <a class="btn secondary" href="/clientes?page=<%= paging.page - 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %>">Anterior</a>
       <% } %>
       <% if ((paging.page * paging.limit) < paging.total) { %>
-        <a class="btn secondary" href="/clientes?page=<%= paging.page + 1 %>&limit=<%= paging.limit %>">Siguiente</a>
+        <a class="btn secondary" href="/clientes?page=<%= paging.page + 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %>">Siguiente</a>
       <% } %>
     </div>
 

@@ -36,8 +36,37 @@ class MySQLCRM {
     this.connected = false;
     this._schemaEnsured = false;
     this._visitasIndexesEnsured = false;
+    this._clientesIndexesEnsured = false;
+    this._pedidosIndexesEnsured = false;
+    this._pedidosArticulosIndexesEnsured = false;
+    this._contactosIndexesEnsured = false;
     // Cache interno para metadatos de tablas/columnas (útil en serverless)
     this._metaCache = {};
+  }
+
+  _pickCIFromColumns(cols, cands) {
+    const colsArr = (cols || []).map(c => String(c || '').trim()).filter(Boolean);
+    const colsLower = new Set(colsArr.map(c => c.toLowerCase()));
+    for (const cand of (cands || [])) {
+      const cl = String(cand).toLowerCase();
+      if (colsLower.has(cl)) {
+        const idx = colsArr.findIndex(c => c.toLowerCase() === cl);
+        return idx >= 0 ? colsArr[idx] : cand;
+      }
+    }
+    return null;
+  }
+
+  async _getColumns(tableName) {
+    try {
+      const rows = await this.query(`SHOW COLUMNS FROM \`${tableName}\``);
+      const cols = (Array.isArray(rows) ? rows : [])
+        .map(r => String(r.Field || r.field || '').trim())
+        .filter(Boolean);
+      return cols;
+    } catch (_) {
+      return [];
+    }
   }
 
   async _ensureVisitasMeta() {
@@ -211,6 +240,400 @@ class MySQLCRM {
       // No romper si no hay permisos de ALTER/INDEX
       console.warn('⚠️ [INDEX] No se pudieron asegurar índices en visitas:', e?.message || e);
     }
+  }
+
+  async _ensurePedidosMeta() {
+    if (this._metaCache?.pedidosMeta) return this._metaCache.pedidosMeta;
+
+    const tPedidos = await this._resolveTableNameCaseInsensitive('pedidos');
+    const cols = await this._getColumns(tPedidos);
+    const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+
+    const pk = pickCI(['Id', 'id']) || 'Id';
+    const colComercial = pickCI([
+      'Id_Cial',
+      'id_cial',
+      'Comercial_id',
+      'comercial_id',
+      'ComercialId',
+      'comercialId',
+      'Id_Comercial',
+      'id_comercial'
+    ]);
+    const colCliente = pickCI([
+      'Id_Cliente',
+      'id_cliente',
+      'Cliente_id',
+      'cliente_id',
+      'ClienteId',
+      'clienteId'
+    ]);
+    const colFecha = pickCI([
+      'FechaPedido',
+      'Fecha_Pedido',
+      'Fecha',
+      'fecha',
+      'created_at',
+      'CreatedAt'
+    ]);
+    const colNumPedido = pickCI([
+      'NumPedido',
+      'Numero_Pedido',
+      'numero_pedido',
+      'Número_Pedido',
+      'Número Pedido',
+      'NumeroPedido',
+      'numeroPedido'
+    ]);
+
+    const meta = { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido };
+    this._metaCache.pedidosMeta = meta;
+    return meta;
+  }
+
+  async _ensurePedidosArticulosMeta() {
+    if (this._metaCache?.pedidosArticulosMeta) return this._metaCache.pedidosArticulosMeta;
+
+    const t = await this._resolveTableNameCaseInsensitive('pedidos_articulos');
+    const cols = await this._getColumns(t);
+    const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+
+    const pk = pickCI(['Id', 'id']) || 'Id';
+    const colNumPedido = pickCI(['NumPedido', 'numPedido', 'NumeroPedido', 'numeroPedido', 'Numero_Pedido', 'Número_Pedido', 'Número Pedido']);
+    const colPedidoId = pickCI(['PedidoId', 'pedidoId', 'Id_Pedido', 'id_pedido', 'pedido_id']);
+    const colPedidoIdNum = pickCI(['Id_NumPedido', 'id_numpedido', 'id_num_pedido', 'PedidoIdNum', 'pedidoIdNum']);
+    const colArticulo = pickCI(['Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloId', 'IdArticulo', 'idArticulo']);
+
+    const meta = { table: t, pk, colNumPedido, colPedidoId, colPedidoIdNum, colArticulo };
+    this._metaCache.pedidosArticulosMeta = meta;
+    return meta;
+  }
+
+  async ensureClientesIndexes() {
+    if (this._clientesIndexesEnsured) return;
+    this._clientesIndexesEnsured = true;
+
+    try {
+      if (!this.pool) return;
+      const { tClientes, pk, colComercial, colEstadoCliente } = await this._ensureClientesMeta();
+      const cols = await this._getColumns(tClientes);
+      const colsSet = new Set(cols);
+      const hasCol = (c) => c && colsSet.has(c);
+
+      const idxRows = await this.query(`SHOW INDEX FROM \`${tClientes}\``).catch(() => []);
+      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+
+      const createIfMissing = async (name, colsToUse, kind = 'INDEX') => {
+        if (!name || existing.has(name)) return;
+        const cleanCols = (colsToUse || []).filter(hasCol);
+        if (!cleanCols.length) return;
+        const colsSql = cleanCols.map(c => `\`${c}\``).join(', ');
+        const stmt =
+          kind === 'FULLTEXT'
+            ? `CREATE FULLTEXT INDEX \`${name}\` ON \`${tClientes}\` (${colsSql})`
+            : `CREATE INDEX \`${name}\` ON \`${tClientes}\` (${colsSql})`;
+        await this.query(stmt);
+        existing.add(name);
+        console.log(`✅ [INDEX] Creado ${name} en ${tClientes} (${colsSql})`);
+      };
+
+      // Filtros habituales
+      await createIfMissing('idx_clientes_provincia', ['Id_Provincia']);
+      await createIfMissing('idx_clientes_tipocliente', ['Id_TipoCliente']);
+      await createIfMissing('idx_clientes_comercial', [colComercial]);
+      await createIfMissing('idx_clientes_estado_cliente', [colEstadoCliente]);
+
+      // Búsquedas / listados frecuentes
+      await createIfMissing('idx_clientes_cp', ['CodigoPostal']);
+      await createIfMissing('idx_clientes_poblacion', ['Poblacion']);
+      await createIfMissing('idx_clientes_nombre', ['Nombre_Razon_Social']);
+
+      // FULLTEXT (best-effort) para búsqueda rápida: si el servidor no soporta, no rompemos.
+      // Usamos pocas columnas de alto valor para minimizar coste de índice.
+      await createIfMissing(
+        'ft_clientes_busqueda',
+        ['Nombre_Razon_Social', 'Nombre_Cial', 'DNI_CIF', 'Email', 'Telefono', 'Movil', 'Poblacion', 'CodigoPostal', 'NomContacto', 'Observaciones'],
+        'FULLTEXT'
+      );
+
+      // FULLTEXT "básico" (más barato) para autocomplete: solo los campos clave de identidad.
+      await createIfMissing('ft_clientes_busqueda_basica', ['Nombre_Razon_Social', 'Nombre_Cial', 'DNI_CIF'], 'FULLTEXT');
+
+      // Orden estable por PK (normalmente ya está por ser PRIMARY), pero si no, creamos.
+      if (hasCol(pk)) {
+        await createIfMissing('idx_clientes_pk', [pk]);
+      }
+    } catch (e) {
+      console.warn('⚠️ [INDEX] No se pudieron asegurar índices en clientes:', e?.message || e);
+    }
+  }
+
+  async ensurePedidosIndexes() {
+    if (this._pedidosIndexesEnsured) return;
+    this._pedidosIndexesEnsured = true;
+
+    try {
+      if (!this.pool) return;
+      const { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido } = await this._ensurePedidosMeta();
+      const cols = await this._getColumns(tPedidos);
+      const colsSet = new Set(cols);
+      const hasCol = (c) => c && colsSet.has(c);
+
+      const idxRows = await this.query(`SHOW INDEX FROM \`${tPedidos}\``).catch(() => []);
+      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+
+      const createIfMissing = async (name, colsToUse) => {
+        if (!name || existing.has(name)) return;
+        const cleanCols = (colsToUse || []).filter(hasCol);
+        if (!cleanCols.length) return;
+        const colsSql = cleanCols.map(c => `\`${c}\``).join(', ');
+        await this.query(`CREATE INDEX \`${name}\` ON \`${tPedidos}\` (${colsSql})`);
+        existing.add(name);
+        console.log(`✅ [INDEX] Creado ${name} en ${tPedidos} (${colsSql})`);
+      };
+
+      // Filtros + EXISTS/ORDER BY en clientes (conVentas / último pedido)
+      await createIfMissing('idx_pedidos_cliente', [colCliente]);
+      await createIfMissing('idx_pedidos_comercial', [colComercial]);
+      await createIfMissing('idx_pedidos_fecha', [colFecha]);
+      await createIfMissing('idx_pedidos_cliente_fecha', [colCliente, colFecha]);
+      await createIfMissing('idx_pedidos_comercial_fecha', [colComercial, colFecha]);
+
+      // Para getNextNumeroPedido y búsquedas por número
+      await createIfMissing('idx_pedidos_num_pedido', [colNumPedido]);
+
+      if (hasCol(pk)) {
+        await createIfMissing('idx_pedidos_pk', [pk]);
+      }
+    } catch (e) {
+      console.warn('⚠️ [INDEX] No se pudieron asegurar índices en pedidos:', e?.message || e);
+    }
+  }
+
+  async ensurePedidosArticulosIndexes() {
+    if (this._pedidosArticulosIndexesEnsured) return;
+    this._pedidosArticulosIndexesEnsured = true;
+
+    try {
+      if (!this.pool) return;
+      const meta = await this._ensurePedidosArticulosMeta();
+      const t = meta.table;
+      const cols = await this._getColumns(t);
+      const colsSet = new Set(cols);
+      const hasCol = (c) => c && colsSet.has(c);
+
+      const idxRows = await this.query(`SHOW INDEX FROM \`${t}\``).catch(() => []);
+      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+
+      const createIfMissing = async (name, colsToUse) => {
+        if (!name || existing.has(name)) return;
+        const cleanCols = (colsToUse || []).filter(hasCol);
+        if (!cleanCols.length) return;
+        const colsSql = cleanCols.map(c => `\`${c}\``).join(', ');
+        await this.query(`CREATE INDEX \`${name}\` ON \`${t}\` (${colsSql})`);
+        existing.add(name);
+        console.log(`✅ [INDEX] Creado ${name} en ${t} (${colsSql})`);
+      };
+
+      await createIfMissing('idx_pedidos_articulos_num_pedido', [meta.colNumPedido]);
+      await createIfMissing('idx_pedidos_articulos_pedido_id', [meta.colPedidoId]);
+      await createIfMissing('idx_pedidos_articulos_id_num_pedido', [meta.colPedidoIdNum]);
+      await createIfMissing('idx_pedidos_articulos_articulo', [meta.colArticulo]);
+      await createIfMissing('idx_pedidos_articulos_num_articulo', [meta.colNumPedido, meta.colArticulo]);
+
+      if (hasCol(meta.pk)) {
+        await createIfMissing('idx_pedidos_articulos_pk', [meta.pk]);
+      }
+    } catch (e) {
+      console.warn('⚠️ [INDEX] No se pudieron asegurar índices en pedidos_articulos:', e?.message || e);
+    }
+  }
+
+  async ensureContactosIndexes() {
+    if (this._contactosIndexesEnsured) return;
+    this._contactosIndexesEnsured = true;
+
+    try {
+      if (!this.pool) return;
+      const t = await this._resolveTableNameCaseInsensitive('contactos');
+      const cols = await this._getColumns(t);
+      const colsSet = new Set(cols);
+      const hasCol = (c) => c && colsSet.has(c);
+
+      const idxRows = await this.query(`SHOW INDEX FROM \`${t}\``).catch(() => []);
+      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+
+      const createIfMissing = async (name, colsToUse, kind = 'INDEX') => {
+        if (!name || existing.has(name)) return;
+        const cleanCols = (colsToUse || []).filter(hasCol);
+        if (!cleanCols.length) return;
+        const colsSql = cleanCols.map(c => `\`${c}\``).join(', ');
+        const stmt =
+          kind === 'FULLTEXT'
+            ? `CREATE FULLTEXT INDEX \`${name}\` ON \`${t}\` (${colsSql})`
+            : `CREATE INDEX \`${name}\` ON \`${t}\` (${colsSql})`;
+        await this.query(stmt);
+        existing.add(name);
+        console.log(`✅ [INDEX] Creado ${name} en ${t} (${colsSql})`);
+      };
+
+      await createIfMissing('idx_contactos_activo_apellidos_nombre', ['Activo', 'Apellidos', 'Nombre']);
+      await createIfMissing('ft_contactos_busqueda', ['Nombre', 'Apellidos', 'Empresa', 'Email', 'Movil', 'Telefono'], 'FULLTEXT');
+    } catch (e) {
+      console.warn('⚠️ [INDEX] No se pudieron asegurar índices en contactos:', e?.message || e);
+    }
+  }
+
+  async _ensureComercialesMeta() {
+    if (this._metaCache?.comercialesMeta) return this._metaCache.comercialesMeta;
+    const t = await this._resolveTableNameCaseInsensitive('comerciales');
+    const cols = await this._getColumns(t);
+    const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+    const pk = pickCI(['id', 'Id']) || 'id';
+    const meta = { table: t, pk };
+    this._metaCache.comercialesMeta = meta;
+    return meta;
+  }
+
+  /**
+   * Reporte de integridad referencial (best-effort).
+   * No modifica datos. Útil para detectar huérfanos y relaciones rotas.
+   */
+  async getIntegrityReport() {
+    const report = {
+      ok: true,
+      generatedAt: new Date().toISOString(),
+      database: this.config?.database || null,
+      checks: []
+    };
+
+    const add = (item) => report.checks.push(item);
+    const runCount = async (name, sql, params = []) => {
+      try {
+        const rows = await this.query(sql, params);
+        const n = Number(rows?.[0]?.n ?? rows?.[0]?.N ?? 0);
+        add({ name, ok: true, n });
+      } catch (e) {
+        add({ name, ok: false, error: e?.message || String(e) });
+      }
+    };
+
+    // Metas principales
+    const clientes = await this._ensureClientesMeta().catch(() => null);
+    const pedidos = await this._ensurePedidosMeta().catch(() => null);
+    const visitas = await this._ensureVisitasMeta().catch(() => null);
+    const comerciales = await this._ensureComercialesMeta().catch(() => null);
+    const pedArt = await this._ensurePedidosArticulosMeta().catch(() => null);
+
+    // Tablas catálogos (si existen)
+    const tProvincias = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
+    const tTiposClientes = await this._resolveTableNameCaseInsensitive('tipos_clientes').catch(() => null);
+    const tEstadosClientes = await this._resolveTableNameCaseInsensitive('estdoClientes').catch(() => null);
+    const tArticulos = await this._resolveTableNameCaseInsensitive('articulos').catch(() => null);
+
+    // clientes -> provincias / tipos_clientes / estdoClientes / comerciales
+    if (clientes?.tClientes) {
+      await runCount(
+        'clientes_orfanos_provincia',
+        `SELECT COUNT(*) AS n
+         FROM \`${clientes.tClientes}\` c
+         LEFT JOIN \`${tProvincias || 'provincias'}\` p ON c.Id_Provincia = p.id
+         WHERE c.Id_Provincia IS NOT NULL AND c.Id_Provincia != 0 AND p.id IS NULL`
+      );
+      await runCount(
+        'clientes_orfanos_tipo_cliente',
+        `SELECT COUNT(*) AS n
+         FROM \`${clientes.tClientes}\` c
+         LEFT JOIN \`${tTiposClientes || 'tipos_clientes'}\` tc ON c.Id_TipoCliente = tc.id
+         WHERE c.Id_TipoCliente IS NOT NULL AND c.Id_TipoCliente != 0 AND tc.id IS NULL`
+      );
+      if (clientes.colEstadoCliente) {
+        await runCount(
+          'clientes_orfanos_estado_cliente',
+          `SELECT COUNT(*) AS n
+           FROM \`${clientes.tClientes}\` c
+           LEFT JOIN \`${tEstadosClientes || 'estdoClientes'}\` ec ON c.\`${clientes.colEstadoCliente}\` = ec.id
+           WHERE c.\`${clientes.colEstadoCliente}\` IS NOT NULL AND c.\`${clientes.colEstadoCliente}\` != 0 AND ec.id IS NULL`
+        );
+      }
+      if (clientes.colComercial && comerciales?.table && comerciales?.pk) {
+        await runCount(
+          'clientes_orfanos_comercial',
+          `SELECT COUNT(*) AS n
+           FROM \`${clientes.tClientes}\` c
+           LEFT JOIN \`${comerciales.table}\` co ON c.\`${clientes.colComercial}\` = co.\`${comerciales.pk}\`
+           WHERE c.\`${clientes.colComercial}\` IS NOT NULL AND c.\`${clientes.colComercial}\` != 0 AND co.\`${comerciales.pk}\` IS NULL`
+        );
+      }
+    }
+
+    // pedidos -> clientes / comerciales
+    if (pedidos?.tPedidos) {
+      if (pedidos.colCliente && clientes?.tClientes) {
+        await runCount(
+          'pedidos_orfanos_cliente',
+          `SELECT COUNT(*) AS n
+           FROM \`${pedidos.tPedidos}\` p
+           LEFT JOIN \`${clientes.tClientes}\` c ON p.\`${pedidos.colCliente}\` = c.\`${clientes.pk}\`
+           WHERE p.\`${pedidos.colCliente}\` IS NOT NULL AND p.\`${pedidos.colCliente}\` != 0 AND c.\`${clientes.pk}\` IS NULL`
+        );
+      }
+      if (pedidos.colComercial && comerciales?.table) {
+        await runCount(
+          'pedidos_orfanos_comercial',
+          `SELECT COUNT(*) AS n
+           FROM \`${pedidos.tPedidos}\` p
+           LEFT JOIN \`${comerciales.table}\` co ON p.\`${pedidos.colComercial}\` = co.\`${comerciales.pk}\`
+           WHERE p.\`${pedidos.colComercial}\` IS NOT NULL AND p.\`${pedidos.colComercial}\` != 0 AND co.\`${comerciales.pk}\` IS NULL`
+        );
+      }
+    }
+
+    // visitas -> clientes / comerciales
+    if (visitas?.table) {
+      if (visitas.colCliente && clientes?.tClientes) {
+        await runCount(
+          'visitas_orfanos_cliente',
+          `SELECT COUNT(*) AS n
+           FROM \`${visitas.table}\` v
+           LEFT JOIN \`${clientes.tClientes}\` c ON v.\`${visitas.colCliente}\` = c.\`${clientes.pk}\`
+           WHERE v.\`${visitas.colCliente}\` IS NOT NULL AND v.\`${visitas.colCliente}\` != 0 AND c.\`${clientes.pk}\` IS NULL`
+        );
+      }
+      if (visitas.colComercial && comerciales?.table) {
+        await runCount(
+          'visitas_orfanos_comercial',
+          `SELECT COUNT(*) AS n
+           FROM \`${visitas.table}\` v
+           LEFT JOIN \`${comerciales.table}\` co ON v.\`${visitas.colComercial}\` = co.\`${comerciales.pk}\`
+           WHERE v.\`${visitas.colComercial}\` IS NOT NULL AND v.\`${visitas.colComercial}\` != 0 AND co.\`${comerciales.pk}\` IS NULL`
+        );
+      }
+    }
+
+    // pedidos_articulos -> pedidos (por NumPedido) / articulos
+    if (pedArt?.table) {
+      if (pedArt.colNumPedido && pedidos?.tPedidos && pedidos.colNumPedido) {
+        await runCount(
+          'pedidos_articulos_orfanos_pedido_num',
+          `SELECT COUNT(*) AS n
+           FROM \`${pedArt.table}\` pa
+           LEFT JOIN \`${pedidos.tPedidos}\` p ON pa.\`${pedArt.colNumPedido}\` = p.\`${pedidos.colNumPedido}\`
+           WHERE pa.\`${pedArt.colNumPedido}\` IS NOT NULL AND TRIM(CONCAT(pa.\`${pedArt.colNumPedido}\`,'')) != '' AND p.\`${pedidos.colNumPedido}\` IS NULL`
+        );
+      }
+      if (pedArt.colArticulo && tArticulos) {
+        await runCount(
+          'pedidos_articulos_orfanos_articulo',
+          `SELECT COUNT(*) AS n
+           FROM \`${pedArt.table}\` pa
+           LEFT JOIN \`${tArticulos}\` a ON pa.\`${pedArt.colArticulo}\` = a.Id
+           WHERE pa.\`${pedArt.colArticulo}\` IS NOT NULL AND pa.\`${pedArt.colArticulo}\` != 0 AND a.Id IS NULL`
+        );
+      }
+    }
+
+    return report;
   }
 
   // Resolver nombre real de tabla sin depender de information_schema (puede estar restringido en hosting).
@@ -460,6 +883,10 @@ class MySQLCRM {
       await this.ensureComercialesReunionesNullable();
       // Índices recomendados para rendimiento del CRM (best-effort)
       await this.ensureVisitasIndexes();
+      await this.ensureClientesIndexes();
+      await this.ensurePedidosIndexes();
+      await this.ensurePedidosArticulosIndexes();
+      await this.ensureContactosIndexes();
       return true;
     } catch (error) {
       console.error('❌ Error conectando a MySQL:', error.message);
@@ -1204,13 +1631,32 @@ class MySQLCRM {
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
       const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : 50;
       const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
+      const compact = options.compact === true || options.compact === '1';
+      const compactSearch = options.compactSearch === true || options.compactSearch === '1';
+      const order = String(options.order || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
       const whereConditions = [];
       const params = [];
 
       sql = `
         SELECT 
-          c.*,
+          ${
+            compact
+              ? [
+                  `c.\`${pk}\` as Id`,
+                  'c.Nombre_Razon_Social',
+                  'c.Nombre_Cial',
+                  'c.DNI_CIF',
+                  'c.Email',
+                  'c.Telefono',
+                  'c.Movil',
+                  'c.CodigoPostal',
+                  'c.Poblacion',
+                  'c.Id_Provincia',
+                  'c.Id_TipoCliente'
+                ].join(',\n          ')
+              : 'c.*'
+          },
           p.Nombre as ProvinciaNombre,
           tc.Tipo as TipoClienteNombre,
           ${colComercial ? 'cial.Nombre as ComercialNombre' : 'NULL as ComercialNombre'},
@@ -1309,26 +1755,138 @@ class MySQLCRM {
       }
 
       // Búsqueda inteligente (servidor) por múltiples campos.
-      if (filters.q && typeof filters.q === 'string' && filters.q.trim().length >= 2) {
-        const termLower = filters.q.trim().toLowerCase();
-        const like = `%${termLower}%`;
-        whereConditions.push(`(
-          LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
-          OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-          OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
-          OR LOWER(IFNULL(c.Email,'')) LIKE ?
-          OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
-          OR LOWER(IFNULL(c.Movil,'')) LIKE ?
-          OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
-          OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
-          OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
-          OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
-          OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
-          OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
-          OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
-          OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
-        )`);
-        params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+      // Preferir FULLTEXT si existe (mucho más rápido) y hacer fallback a LIKE.
+      // Regla: a partir de 3 caracteres, excepto si es numérico (ID/CP) que se permite desde 1.
+      if (filters.q && typeof filters.q === 'string' && filters.q.trim().length >= 1) {
+        const raw = filters.q.trim();
+        const rawDigits = raw.replace(/\D/g, '');
+        const isOnlyDigits = rawDigits.length === raw.length;
+        const canTextSearch = !isOnlyDigits && raw.length >= 3;
+        // Cache: lista exacta de columnas del índice FULLTEXT (si existe) para evitar el error
+        // "Can't find FULLTEXT index matching the column list".
+        const ftCacheKey = compactSearch ? '__clientesFulltextCols_basic' : '__clientesFulltextCols';
+        const ftIndexName = compactSearch ? 'ft_clientes_busqueda_basica' : 'ft_clientes_busqueda';
+        if (this[ftCacheKey] === undefined) {
+          try {
+            const { tClientes } = await this._ensureClientesMeta();
+            const idx = await this.query(`SHOW INDEX FROM \`${tClientes}\``).catch(() => []);
+            const ft = (idx || [])
+              .filter(r => String(r.Key_name || r.key_name || '').trim() === ftIndexName)
+              .filter(r => String(r.Index_type || r.index_type || '').toUpperCase() === 'FULLTEXT')
+              .sort((a, b) => Number(a.Seq_in_index || a.seq_in_index || 0) - Number(b.Seq_in_index || b.seq_in_index || 0))
+              .map(r => String(r.Column_name || r.column_name || '').trim())
+              .filter(Boolean);
+            this[ftCacheKey] = ft.length ? ft : null;
+          } catch (_) {
+            this[ftCacheKey] = null;
+          }
+        }
+
+        const ftCols = Array.isArray(this[ftCacheKey]) ? this[ftCacheKey] : null;
+        const canUseFulltext = ftCols && ftCols.length >= 1;
+
+        // Atajo rápido: si el usuario escribe un número, intentar por ID/CP (usa índices normales).
+        // Importante: se combina con la búsqueda principal como OR, no como AND.
+        let numericClause = null;
+        let numericParams = null;
+        if (isOnlyDigits && rawDigits.length > 0) {
+          const n = Number(rawDigits);
+          if (Number.isFinite(n) && n > 0) {
+            numericClause = `(c.\`${pk}\` = ? OR c.CodigoPostal = ?)`;
+            numericParams = [n, rawDigits];
+          }
+        }
+
+        if (!canTextSearch) {
+          // Si no llegamos a 3 caracteres: solo aplicar búsqueda si es numérico (ID/CP).
+          // Evita scans caros y cumple la UX (arranca desde 3 caracteres).
+          if (numericClause) {
+            whereConditions.push(numericClause);
+            params.push(...numericParams);
+          }
+        } else if (canUseFulltext) {
+          const terms = raw
+            .split(/\s+/)
+            .map(t => t.trim())
+            .filter(Boolean)
+            .map(t => `${t.replace(/[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ._@+-]/g, '')}*`)
+            .filter(t => t !== '*')
+            .join(' ');
+
+          if (terms && terms.replace(/\*/g, '').length >= 3) {
+            const colsSql = ftCols.map(cn => `c.\`${cn}\``).join(', ');
+            whereConditions.push(
+              numericClause
+                ? `(${numericClause} OR (MATCH(${colsSql}) AGAINST (? IN BOOLEAN MODE)))`
+                : `(MATCH(${colsSql}) AGAINST (? IN BOOLEAN MODE))`
+            );
+            if (numericParams) params.push(...numericParams);
+            params.push(terms);
+          } else {
+            // término demasiado corto: fallback a LIKE
+            const termLower = raw.toLowerCase();
+            const like = `%${termLower}%`;
+            if (compactSearch) {
+              whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
+                LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+                OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
+                OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+              ${numericClause ? '))' : ')'}`);
+              if (numericParams) params.push(...numericParams);
+              params.push(like, like, like);
+            } else {
+              whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
+                LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+                OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
+                OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+                OR LOWER(IFNULL(c.Email,'')) LIKE ?
+                OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
+                OR LOWER(IFNULL(c.Movil,'')) LIKE ?
+                OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
+                OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
+                OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
+                OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
+                OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
+                OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
+                OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
+                OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+              ${numericClause ? '))' : ')'}`);
+              if (numericParams) params.push(...numericParams);
+              params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+            }
+          }
+        } else if (canTextSearch) {
+          const termLower = raw.toLowerCase();
+          const like = `%${termLower}%`;
+          if (compactSearch) {
+            whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
+              LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+              OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
+              OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+            ${numericClause ? '))' : ')'}`);
+            if (numericParams) params.push(...numericParams);
+            params.push(like, like, like);
+          } else {
+            whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
+              LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+              OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
+              OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+              OR LOWER(IFNULL(c.Email,'')) LIKE ?
+              OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
+              OR LOWER(IFNULL(c.Movil,'')) LIKE ?
+              OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
+              OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
+              OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
+              OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
+              OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
+              OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
+              OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
+              OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+            ${numericClause ? '))' : ')'}`);
+            if (numericParams) params.push(...numericParams);
+            params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+          }
+        }
       }
 
       if (whereConditions.length > 0) {
@@ -1341,12 +1899,12 @@ class MySQLCRM {
       // Orden:
       // - Si estamos en modo "conVentas" y no hay búsqueda, priorizar por último pedido (para que los "primeros 20" sean relevantes)
       // - Si hay búsqueda u otros filtros, ordenar estable por Id.
-      const hasSearch = !!(filters.q && String(filters.q).trim().length >= 2);
+      const hasSearch = !!(filters.q && String(filters.q).trim().length >= 3);
       const conVentas = (filters.conVentas === true || filters.conVentas === 'true' || filters.conVentas === '1');
       if (conVentas && !hasSearch && this.__pedidosFechaCol) {
-        sql += ` ORDER BY (SELECT MAX(p3.\`${this.__pedidosFechaCol}\`) FROM pedidos p3 WHERE p3.\`${this.__pedidosClienteCol}\` = c.\`${pk}\`) DESC, c.\`${pk}\` ASC LIMIT ${limit} OFFSET ${offset}`;
+        sql += ` ORDER BY (SELECT MAX(p3.\`${this.__pedidosFechaCol}\`) FROM pedidos p3 WHERE p3.\`${this.__pedidosClienteCol}\` = c.\`${pk}\`) DESC, c.\`${pk}\` ${order} LIMIT ${limit} OFFSET ${offset}`;
       } else {
-        sql += ` ORDER BY c.\`${pk}\` ASC LIMIT ${limit} OFFSET ${offset}`;
+        sql += ` ORDER BY c.\`${pk}\` ${order} LIMIT ${limit} OFFSET ${offset}`;
       }
 
       const rows = await this.query(sql, params);
@@ -1448,26 +2006,111 @@ class MySQLCRM {
         }
       }
 
-      if (filters.q && typeof filters.q === 'string' && filters.q.trim().length >= 2) {
-        const termLower = filters.q.trim().toLowerCase();
-        const like = `%${termLower}%`;
-        whereConditions.push(`(
-          LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
-          OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-          OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
-          OR LOWER(IFNULL(c.Email,'')) LIKE ?
-          OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
-          OR LOWER(IFNULL(c.Movil,'')) LIKE ?
-          OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
-          OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
-          OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
-          OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
-          OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
-          OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
-          OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
-          OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
-        )`);
-        params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+      // A partir de 3 caracteres (excepto numérico: ID/CP desde 1)
+      if (filters.q && typeof filters.q === 'string' && filters.q.trim().length >= 1) {
+        const raw = filters.q.trim();
+        const rawDigits = raw.replace(/\D/g, '');
+        const isOnlyDigits = rawDigits.length === raw.length;
+        const canTextSearch = !isOnlyDigits && raw.length >= 3;
+
+        // Reutilizar cache calculada en getClientesOptimizadoPaged (si aún no existe, calcularla).
+        if (this.__clientesFulltextCols === undefined) {
+          try {
+            const { tClientes } = await this._ensureClientesMeta();
+            const idx = await this.query(`SHOW INDEX FROM \`${tClientes}\``).catch(() => []);
+            const ft = (idx || [])
+              .filter(r => String(r.Key_name || r.key_name || '').trim() === 'ft_clientes_busqueda')
+              .filter(r => String(r.Index_type || r.index_type || '').toUpperCase() === 'FULLTEXT')
+              .sort((a, b) => Number(a.Seq_in_index || a.seq_in_index || 0) - Number(b.Seq_in_index || b.seq_in_index || 0))
+              .map(r => String(r.Column_name || r.column_name || '').trim())
+              .filter(Boolean);
+            this.__clientesFulltextCols = ft.length ? ft : null;
+          } catch (_) {
+            this.__clientesFulltextCols = null;
+          }
+        }
+
+        const ftCols = Array.isArray(this.__clientesFulltextCols) ? this.__clientesFulltextCols : null;
+        const canUseFulltext = ftCols && ftCols.length >= 1;
+
+        let numericClause = null;
+        let numericParams = null;
+        if (isOnlyDigits && rawDigits.length > 0) {
+          const n = Number(rawDigits);
+          if (Number.isFinite(n) && n > 0) {
+            numericClause = `(c.\`${pk}\` = ? OR c.CodigoPostal = ?)`;
+            numericParams = [n, rawDigits];
+          }
+        }
+
+        if (!canTextSearch) {
+          // Solo numérico corto (ID/CP): aplicar condición rápida si existe.
+          if (numericClause) {
+            whereConditions.push(numericClause);
+            params.push(...numericParams);
+          }
+        } else if (canUseFulltext) {
+          const terms = raw
+            .split(/\s+/)
+            .map(t => t.trim())
+            .filter(Boolean)
+            .map(t => `${t.replace(/[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ._@+-]/g, '')}*`)
+            .filter(t => t !== '*')
+            .join(' ');
+
+          if (terms && terms.replace(/\*/g, '').length >= 3) {
+            const colsSql = ftCols.map(cn => `c.\`${cn}\``).join(', ');
+            whereConditions.push(
+              numericClause
+                ? `(${numericClause} OR (MATCH(${colsSql}) AGAINST (? IN BOOLEAN MODE)))`
+                : `(MATCH(${colsSql}) AGAINST (? IN BOOLEAN MODE))`
+            );
+            if (numericParams) params.push(...numericParams);
+            params.push(terms);
+          } else {
+            const termLower = raw.toLowerCase();
+            const like = `%${termLower}%`;
+            whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
+              LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+              OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
+              OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+              OR LOWER(IFNULL(c.Email,'')) LIKE ?
+              OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
+              OR LOWER(IFNULL(c.Movil,'')) LIKE ?
+              OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
+              OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
+              OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
+              OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
+              OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
+              OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
+              OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
+              OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+            ${numericClause ? '))' : ')'}`);
+            if (numericParams) params.push(...numericParams);
+            params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+          }
+        } else if (canTextSearch) {
+          const termLower = raw.toLowerCase();
+          const like = `%${termLower}%`;
+          whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
+            LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+            OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
+            OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+            OR LOWER(IFNULL(c.Email,'')) LIKE ?
+            OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
+            OR LOWER(IFNULL(c.Movil,'')) LIKE ?
+            OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
+            OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
+            OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
+            OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
+            OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
+            OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
+            OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
+            OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+          ${numericClause ? '))' : ')'}`);
+          if (numericParams) params.push(...numericParams);
+          params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+        }
       }
 
       if (whereConditions.length > 0) {
@@ -3206,12 +3849,120 @@ class MySQLCRM {
     }
   }
 
+  /**
+   * Pedidos paginados y filtrables (evita devolver miles de filas).
+   * filters: { comercialId, clienteId, from, to, search }
+   * options: { limit, offset }
+   */
+  async getPedidosPaged(filters = {}, options = {}) {
+    const { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido } = await this._ensurePedidosMeta();
+    const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : 100;
+    const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
+
+    const where = [];
+    const params = [];
+
+    const comercialId = filters.comercialId ? Number(filters.comercialId) : null;
+    const clienteId = filters.clienteId ? Number(filters.clienteId) : null;
+    const from = filters.from ? String(filters.from).slice(0, 10) : null; // YYYY-MM-DD
+    const to = filters.to ? String(filters.to).slice(0, 10) : null; // YYYY-MM-DD
+    const search = filters.search ? String(filters.search).trim().toLowerCase() : '';
+
+    if (comercialId && colComercial) {
+      where.push(`p.\`${colComercial}\` = ?`);
+      params.push(comercialId);
+    }
+    if (clienteId && colCliente) {
+      where.push(`p.\`${colCliente}\` = ?`);
+      params.push(clienteId);
+    }
+    if (colFecha && (from || to)) {
+      if (from && to) {
+        where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
+        params.push(from, to);
+      } else if (from) {
+        where.push(`DATE(p.\`${colFecha}\`) >= ?`);
+        params.push(from);
+      } else if (to) {
+        where.push(`DATE(p.\`${colFecha}\`) <= ?`);
+        params.push(to);
+      }
+    }
+    if (search && colNumPedido) {
+      where.push(`LOWER(COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')) LIKE ?`);
+      params.push(`%${search}%`);
+    }
+
+    let sql = `SELECT p.* FROM \`${tPedidos}\` p`;
+    if (where.length) sql += ' WHERE ' + where.join(' AND ');
+
+    // Orden: por fecha si existe, sino por PK
+    if (colFecha) {
+      sql += ` ORDER BY p.\`${colFecha}\` DESC, p.\`${pk}\` DESC`;
+    } else {
+      sql += ` ORDER BY p.\`${pk}\` DESC`;
+    }
+    sql += ` LIMIT ${limit} OFFSET ${offset}`;
+
+    return await this.query(sql, params);
+  }
+
+  async countPedidos(filters = {}) {
+    try {
+      const { tPedidos, colComercial, colCliente, colFecha, colNumPedido } = await this._ensurePedidosMeta();
+      const where = [];
+      const params = [];
+
+      const comercialId = filters.comercialId ? Number(filters.comercialId) : null;
+      const clienteId = filters.clienteId ? Number(filters.clienteId) : null;
+      const from = filters.from ? String(filters.from).slice(0, 10) : null;
+      const to = filters.to ? String(filters.to).slice(0, 10) : null;
+      const search = filters.search ? String(filters.search).trim().toLowerCase() : '';
+
+      if (comercialId && colComercial) {
+        where.push(`p.\`${colComercial}\` = ?`);
+        params.push(comercialId);
+      }
+      if (clienteId && colCliente) {
+        where.push(`p.\`${colCliente}\` = ?`);
+        params.push(clienteId);
+      }
+      if (colFecha && (from || to)) {
+        if (from && to) {
+          where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
+          params.push(from, to);
+        } else if (from) {
+          where.push(`DATE(p.\`${colFecha}\`) >= ?`);
+          params.push(from);
+        } else if (to) {
+          where.push(`DATE(p.\`${colFecha}\`) <= ?`);
+          params.push(to);
+        }
+      }
+      if (search && colNumPedido) {
+        where.push(`LOWER(COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')) LIKE ?`);
+        params.push(`%${search}%`);
+      }
+
+      let sql = `SELECT COUNT(*) as total FROM \`${tPedidos}\` p`;
+      if (where.length) sql += ' WHERE ' + where.join(' AND ');
+
+      const rows = await this.query(sql, params);
+      return rows?.[0]?.total ? Number(rows[0].total) : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   async getPedidosByComercial(comercialId) {
     try {
-      // Usar Id_Cial que es el campo correcto en la tabla pedidos
+      const { tPedidos, pk, colComercial } = await this._ensurePedidosMeta();
+      if (colComercial) {
+        return await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? ORDER BY \`${pk}\` DESC`, [comercialId]);
+      }
+      // Fallback legacy
       const sql = 'SELECT * FROM pedidos WHERE Id_Cial = ? OR id_cial = ? OR Comercial_id = ? OR comercial_id = ? ORDER BY Id DESC';
-      const rows = await this.query(sql, [comercialId, comercialId, comercialId, comercialId]);
-      return rows;
+      return await this.query(sql, [comercialId, comercialId, comercialId, comercialId]);
     } catch (error) {
       console.error('❌ Error obteniendo pedidos por comercial:', error.message);
       return [];
@@ -3220,9 +3971,13 @@ class MySQLCRM {
 
   async getPedidosByCliente(clienteId) {
     try {
+      const { tPedidos, pk, colCliente } = await this._ensurePedidosMeta();
+      if (colCliente) {
+        return await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${colCliente}\` = ? ORDER BY \`${pk}\` DESC`, [clienteId]);
+      }
+      // Fallback legacy
       const sql = 'SELECT * FROM pedidos WHERE ClienteId = ? OR clienteId = ? ORDER BY Id DESC';
-      const rows = await this.query(sql, [clienteId, clienteId]);
-      return rows;
+      return await this.query(sql, [clienteId, clienteId]);
     } catch (error) {
       console.error('❌ Error obteniendo pedidos por cliente:', error.message);
       return [];
@@ -4074,12 +4829,105 @@ class MySQLCRM {
     }
   }
 
+  /**
+   * Visitas paginadas y filtrables.
+   * filters: { comercialId, clienteId, from, to }
+   * options: { limit, offset }
+   */
+  async getVisitasPaged(filters = {}, options = {}) {
+    const meta = await this._ensureVisitasMeta();
+    const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : 200;
+    const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
+
+    const where = [];
+    const params = [];
+
+    const comercialId = filters.comercialId ? Number(filters.comercialId) : null;
+    const clienteId = filters.clienteId ? Number(filters.clienteId) : null;
+    const from = filters.from ? String(filters.from).slice(0, 10) : null;
+    const to = filters.to ? String(filters.to).slice(0, 10) : null;
+
+    if (comercialId && meta.colComercial) {
+      where.push(`v.\`${meta.colComercial}\` = ?`);
+      params.push(comercialId);
+    }
+    if (clienteId && meta.colCliente) {
+      where.push(`v.\`${meta.colCliente}\` = ?`);
+      params.push(clienteId);
+    }
+    if (meta.colFecha && (from || to)) {
+      if (from && to) {
+        where.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
+        params.push(from, to);
+      } else if (from) {
+        where.push(`DATE(v.\`${meta.colFecha}\`) >= ?`);
+        params.push(from);
+      } else if (to) {
+        where.push(`DATE(v.\`${meta.colFecha}\`) <= ?`);
+        params.push(to);
+      }
+    }
+
+    let sql = `SELECT v.* FROM \`${meta.table}\` v`;
+    if (where.length) sql += ' WHERE ' + where.join(' AND ');
+    sql += ` ORDER BY ${meta.colFecha ? `v.\`${meta.colFecha}\`` : `v.\`${meta.pk}\``} DESC, v.\`${meta.pk}\` DESC`;
+    sql += ` LIMIT ${limit} OFFSET ${offset}`;
+    return await this.query(sql, params);
+  }
+
+  async countVisitas(filters = {}) {
+    try {
+      const meta = await this._ensureVisitasMeta();
+      const where = [];
+      const params = [];
+
+      const comercialId = filters.comercialId ? Number(filters.comercialId) : null;
+      const clienteId = filters.clienteId ? Number(filters.clienteId) : null;
+      const from = filters.from ? String(filters.from).slice(0, 10) : null;
+      const to = filters.to ? String(filters.to).slice(0, 10) : null;
+
+      if (comercialId && meta.colComercial) {
+        where.push(`v.\`${meta.colComercial}\` = ?`);
+        params.push(comercialId);
+      }
+      if (clienteId && meta.colCliente) {
+        where.push(`v.\`${meta.colCliente}\` = ?`);
+        params.push(clienteId);
+      }
+      if (meta.colFecha && (from || to)) {
+        if (from && to) {
+          where.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
+          params.push(from, to);
+        } else if (from) {
+          where.push(`DATE(v.\`${meta.colFecha}\`) >= ?`);
+          params.push(from);
+        } else if (to) {
+          where.push(`DATE(v.\`${meta.colFecha}\`) <= ?`);
+          params.push(to);
+        }
+      }
+
+      let sql = `SELECT COUNT(*) as total FROM \`${meta.table}\` v`;
+      if (where.length) sql += ' WHERE ' + where.join(' AND ');
+      const rows = await this.query(sql, params);
+      return rows?.[0]?.total ? Number(rows[0].total) : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   async getVisitasByComercial(comercialId) {
     try {
-      // Intentar con todos los posibles nombres de campo
+      const meta = await this._ensureVisitasMeta();
+      if (meta.colComercial) {
+        return await this.query(
+          `SELECT * FROM \`${meta.table}\` WHERE \`${meta.colComercial}\` = ? ORDER BY \`${meta.pk}\` DESC`,
+          [comercialId]
+        );
+      }
+      // Fallback legacy
       const sql = 'SELECT * FROM visitas WHERE Id_Cial = ? OR id_cial = ? OR ComercialId = ? OR comercialId = ? OR Comercial_id = ? OR comercial_id = ? ORDER BY Id DESC';
-      const rows = await this.query(sql, [comercialId, comercialId, comercialId, comercialId, comercialId, comercialId]);
-      return rows;
+      return await this.query(sql, [comercialId, comercialId, comercialId, comercialId, comercialId, comercialId]);
     } catch (error) {
       console.error('❌ Error obteniendo visitas por comercial:', error.message);
       return [];
@@ -4088,9 +4936,16 @@ class MySQLCRM {
 
   async getVisitasByCliente(clienteId) {
     try {
+      const meta = await this._ensureVisitasMeta();
+      if (meta.colCliente) {
+        return await this.query(
+          `SELECT * FROM \`${meta.table}\` WHERE \`${meta.colCliente}\` = ? ORDER BY \`${meta.pk}\` DESC`,
+          [clienteId]
+        );
+      }
+      // Fallback legacy
       const sql = 'SELECT * FROM visitas WHERE ClienteId = ? OR clienteId = ? OR FarmaciaClienteId = ? OR farmaciaClienteId = ? ORDER BY Id DESC';
-      const rows = await this.query(sql, [clienteId, clienteId, clienteId, clienteId]);
-      return rows;
+      return await this.query(sql, [clienteId, clienteId, clienteId, clienteId]);
     } catch (error) {
       console.error('❌ Error obteniendo visitas por cliente:', error.message);
       return [];

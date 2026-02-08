@@ -64,6 +64,9 @@ app.use(
 );
 
 function requireApiKeyIfConfigured(req, res, next) {
+  // Si el usuario está logueado por sesión, permitimos acceso a /api desde la propia app
+  // (p.ej. autocomplete/búsquedas internas). Para clientes externos seguirá requiriéndose API_KEY.
+  if (req.session?.user) return next();
   const configured = process.env.API_KEY;
   if (!configured) return next();
   const provided = req.header('x-api-key') || req.header('X-API-Key');
@@ -228,12 +231,15 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
     const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
     const page = Math.max(1, Number(req.query.page) || 1);
     const offset = (page - 1) * limit;
-    const filters = {};
+    const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search).trim() : '';
+    const admin = isAdminUser(res.locals.user);
+    const baseFilters = admin ? {} : { comercial: res.locals.user?.id };
+    const filters = q ? { ...baseFilters, q } : baseFilters;
     const [items, total] = await Promise.all([
       db.getClientesOptimizadoPaged(filters, { limit, offset }),
       db.countClientesOptimizado(filters)
     ]);
-    res.render('clientes', { items: items || [], paging: { page, limit, total: total || 0 } });
+    res.render('clientes', { items: items || [], q, paging: { page, limit, total: total || 0 } });
   } catch (e) {
     next(e);
   }

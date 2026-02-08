@@ -47,14 +47,30 @@
 
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cliente</span>
-        <input name="ClienteId" type="number" min="1" placeholder="ID cliente" value="<%= item.ClienteId || item[meta.colCliente] || '' %>" list="clientes-list" />
-        <datalist id="clientes-list">
-          <% (clientes || []).forEach((c) => { %>
-            <option value="<%= c.Id %>"><%= c.Nombre_Razon_Social %></option>
-          <% }) %>
-        </datalist>
-        <div style="font-size: 12px; color: var(--gv-muted);">
-          Consejo: escribe el ID del cliente o selecciona uno reciente.
+        <div class="gv-client-picker" data-client-picker>
+          <input
+            type="search"
+            class="gv-client-picker__q"
+            placeholder="Buscar cliente (nombre, CIF, email, teléfono, CP o ID...)"
+            autocomplete="off"
+          />
+          <div class="gv-client-picker__results" hidden></div>
+          <input name="ClienteId" type="hidden" class="gv-client-picker__id" value="<%= item.ClienteId || item[meta.colCliente] || '' %>" />
+          <div style="font-size: 12px; color: var(--gv-muted);">
+            Consejo: escribe al menos 3 letras (o un ID numérico) y selecciona un resultado.
+          </div>
+          <div class="gv-client-picker__recent" style="display:none;">
+            <div style="font-size: 12px; color: var(--gv-muted); font-weight: 700; margin-top: 6px;">
+              Recientes:
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top: 6px;">
+              <% (clientes || []).slice(0, 10).forEach((c) => { %>
+                <button class="btn secondary" type="button" data-client-pick="<%= c.Id %>" data-client-label="<%= c.Nombre_Razon_Social %>" style="padding: 6px 10px; border-radius: 999px;">
+                  <%= c.Id %> · <%= c.Nombre_Razon_Social %>
+                </button>
+              <% }) %>
+            </div>
+          </div>
         </div>
       </label>
 
