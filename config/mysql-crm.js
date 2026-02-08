@@ -5129,8 +5129,10 @@ class MySQLCRM {
 
   async getVisitaById(id) {
     try {
-      const sql = 'SELECT * FROM visitas WHERE Id = ? LIMIT 1';
-      const rows = await this.query(sql, [id]);
+      const meta = await this._ensureVisitasMeta();
+      const t = meta?.table ? `\`${meta.table}\`` : '`visitas`';
+      const pk = meta?.pk || 'Id';
+      const rows = await this.query(`SELECT * FROM ${t} WHERE \`${pk}\` = ? LIMIT 1`, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo visita por ID:', error.message);
@@ -5140,13 +5142,15 @@ class MySQLCRM {
 
   async createVisita(visitaData) {
     try {
+      const meta = await this._ensureVisitasMeta();
+      const t = meta?.table ? `\`${meta.table}\`` : '`visitas`';
       const fields = Object.keys(visitaData).map(key => `\`${key}\``).join(', ');
       const placeholders = Object.keys(visitaData).map(() => '?').join(', ');
       const values = Object.values(visitaData);
       
-      const sql = `INSERT INTO visitas (${fields}) VALUES (${placeholders})`;
+      const sql = `INSERT INTO ${t} (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
-      return { insertId: result.insertId || result.insertId };
+      return { insertId: result?.insertId || null };
     } catch (error) {
       console.error('❌ Error creando visita:', error.message);
       throw error;
@@ -5155,6 +5159,9 @@ class MySQLCRM {
 
   async updateVisita(visitaId, visitaData) {
     try {
+      const meta = await this._ensureVisitasMeta();
+      const t = meta?.table ? `\`${meta.table}\`` : '`visitas`';
+      const pk = meta?.pk || 'Id';
       const fields = [];
       const values = [];
       
@@ -5164,9 +5171,10 @@ class MySQLCRM {
       }
       
       values.push(visitaId);
-      const sql = `UPDATE visitas SET ${fields.join(', ')} WHERE Id = ?`;
-      await this.query(sql, values);
-      return { affectedRows: 1 };
+      const sql = `UPDATE ${t} SET ${fields.join(', ')} WHERE \`${pk}\` = ?`;
+      const result = await this.query(sql, values);
+      const affectedRows = result?.affectedRows ?? 0;
+      return { affectedRows };
     } catch (error) {
       console.error('❌ Error actualizando visita:', error.message);
       throw error;
@@ -5175,9 +5183,12 @@ class MySQLCRM {
 
   async deleteVisita(id) {
     try {
-      const sql = 'DELETE FROM visitas WHERE Id = ?';
+      const meta = await this._ensureVisitasMeta();
+      const t = meta?.table ? `\`${meta.table}\`` : '`visitas`';
+      const pk = meta?.pk || 'Id';
+      const sql = `DELETE FROM ${t} WHERE \`${pk}\` = ?`;
       const result = await this.query(sql, [id]);
-      return { affectedRows: result.affectedRows || 0 };
+      return { affectedRows: result?.affectedRows || 0 };
     } catch (error) {
       console.error('❌ Error eliminando visita:', error.message);
       throw error;
