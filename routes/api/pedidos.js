@@ -30,6 +30,26 @@ router.get(
   })
 );
 
+// Precio unitario (PVL) por tarifa para artículos (para formularios HTML)
+// Importante: este endpoint debe ir ANTES de '/:id' para no colisionar.
+router.get(
+  '/precios',
+  asyncHandler(async (req, res) => {
+    const tarifaId = toInt(req.query.tarifaId, 0);
+    const raw = String(req.query.articuloIds || req.query.articulos || '').trim();
+    const articuloIds = raw
+      ? raw
+          .split(',')
+          .map((s) => toInt(s, 0))
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .slice(0, 200)
+      : [];
+    if (!tarifaId || !articuloIds.length) return res.json({ ok: true, precios: {} });
+    const precios = await db.getPreciosArticulosParaTarifa(tarifaId, articuloIds).catch(() => ({}));
+    return res.json({ ok: true, tarifaId, precios });
+  })
+);
+
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {

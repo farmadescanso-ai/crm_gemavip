@@ -9,6 +9,9 @@
     <div class="kpi">
       <span class="pill">Fecha: <%= fmtDateES(item.FechaPedido ?? item.Fecha ?? '') %></span>
       <span class="pill">Cliente: <%= (cliente && (cliente.Nombre_Razon_Social || cliente.Nombre)) ? (cliente.Nombre_Razon_Social || cliente.Nombre) : (item.Id_Cliente ?? '') %></span>
+      <% if (item.NumPedidoCliente || item.Num_Pedido_Cliente) { %>
+        <span class="pill">Nº Pedido Cliente: <%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></span>
+      <% } %>
       <span class="pill">Comercial: <%= item.Id_Cial ?? '' %></span>
       <span class="pill">Tarifa: <%= item.Id_Tarifa ?? 0 %></span>
       <span class="pill">Base: <%= item.BaseImponible ?? '' %></span>

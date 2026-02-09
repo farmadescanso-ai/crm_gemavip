@@ -110,6 +110,8 @@
     const selectItem = (id, label) => {
       if (id !== undefined && id !== null && String(id).trim() !== '') idInput.value = String(id).trim();
       if (label) qInput.value = String(label);
+      // Notificar a formularios (p.ej. pedidos) que el cliente ha cambiado
+      try { idInput.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
       hideResults();
     };
 

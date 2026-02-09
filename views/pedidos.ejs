@@ -37,6 +37,7 @@
             <th>Acciones</th>
             <th>ID</th>
             <th>NumPedido</th>
+            <th>NumPedidoCliente</th>
             <th>Fecha</th>
             <th>Cliente</th>
             <th>Comercial</th>
@@ -78,6 +79,7 @@
               </td>
               <td><%= p.Id ?? p.id %></td>
               <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
+              <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
               <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
               <td><%= p.Id_Cliente ?? p.Cliente_id ?? p.ClienteId ?? '' %></td>
               <td><%= p.Id_Cial ?? p.ComercialId ?? '' %></td>

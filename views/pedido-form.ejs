@@ -1,42 +1,5 @@
 <%- include('partials/header', { title: mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' }) %>
 
-<style>
-  /* Estética tipo documento (pedido/factura) */
-  .gv-doc {
-    border: 1px solid rgba(15, 23, 42, 0.12);
-    border-radius: 14px;
-    background: #fff;
-    padding: 14px;
-  }
-  .gv-doc__title {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .gv-doc__title h2 {
-    margin: 0;
-    font-size: 16px;
-  }
-  .gv-doc__meta {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    font-weight: 800;
-    color: var(--gv-muted);
-    font-size: 12px;
-  }
-  .gv-doc__grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
-  }
-  @media (max-width: 920px) {
-    .gv-doc__grid { grid-template-columns: 1fr; }
-  }
-</style>
-
 <section class="card" style="max-width: 1100px; margin: 0 auto;">
   <div class="card-hd">
     <h1 class="card-title">
@@ -53,7 +16,12 @@
       <div style="height: 10px;"></div>
     <% } %>
 
-    <form method="post" action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id) + '/edit') : '/pedidos/new' %>" style="display:grid; gap: 12px;">
+    <form
+      id="pedidoForm"
+      method="post"
+      action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id) + '/edit') : '/pedidos/new' %>"
+      style="display:grid; gap: 12px;"
+    >
       <!-- Serie fija -->
       <input type="hidden" name="Serie" value="P" />
 
@@ -70,20 +38,21 @@
         <div style="height: 10px;"></div>
 
       <div class="gv-doc__grid">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial (Id_Cial) *</span>
-          <select name="Id_Cial" required>
+        <label class="gv-field">
+          <span class="gv-field__label">Comercial (Id_Cial) *</span>
+          <select name="Id_Cial" required class="gv-input" id="Id_Cial">
             <option value="">(selecciona)</option>
-            <% const curCial = Number(item.Id_Cial ?? 0) || 0; %>
+            <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
             <% (comerciales || []).forEach((c) => { %>
               <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
               <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
             <% }) %>
           </select>
+          <span class="gv-field__help">Se rellena por defecto según el cliente, pero puedes cambiarlo.</span>
         </label>
 
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cliente *</span>
+        <label class="gv-field">
+          <span class="gv-field__label">Cliente *</span>
           <div class="gv-client-picker" data-client-picker>
             <input
               type="search"
@@ -93,12 +62,10 @@
               value=""
             />
             <div class="gv-client-picker__results" hidden></div>
-            <input name="Id_Cliente" type="hidden" class="gv-client-picker__id" value="<%= item.Id_Cliente ?? '' %>" />
-            <div style="font-size: 12px; color: var(--gv-muted);">
-              Consejo: escribe al menos 3 letras (o un ID numérico) y selecciona un resultado.
-            </div>
+            <input id="Id_Cliente" name="Id_Cliente" type="hidden" class="gv-client-picker__id" value="<%= item.Id_Cliente ?? '' %>" />
+            <div class="gv-field__help">Consejo: escribe al menos 3 letras (o un ID numérico) y selecciona un resultado.</div>
             <div class="gv-client-picker__recent" style="display:none;">
-              <div style="font-size: 12px; color: var(--gv-muted); font-weight: 700; margin-top: 6px;">
+              <div class="gv-field__help" style="margin-top: 6px;">
                 Recientes:
               </div>
               <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top: 6px;">
@@ -112,9 +79,9 @@
           </div>
         </label>
 
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tarifa (Id_Tarifa)</span>
-          <select name="Id_Tarifa">
+        <label class="gv-field">
+          <span class="gv-field__label">Tarifa (Id_Tarifa)</span>
+          <select id="Id_Tarifa" name="Id_Tarifa" class="gv-input">
             <% const curTar = Number(item.Id_Tarifa ?? 0) || 0; %>
             <% (tarifas || []).forEach((t) => { %>
               <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
@@ -123,6 +90,12 @@
             <% }) %>
           </select>
         </label>
+
+        <label class="gv-field">
+          <span class="gv-field__label">Nº Pedido Cliente</span>
+          <input class="gv-input" name="NumPedidoCliente" value="<%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? '' %>" placeholder="Ej: PO-12345" />
+          <span class="gv-field__help">Referencia del pedido del cliente (si aplica).</span>
+        </label>
       </div>
       </div>
 
@@ -130,13 +103,13 @@
         <div class="gv-doc__title"><h2>Fechas y estado</h2></div>
         <div style="height: 10px;"></div>
       <div class="gv-doc__grid">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">EstadoPedido *</span>
-          <input name="EstadoPedido" required value="<%= item.EstadoPedido ?? 'Pendiente' %>" />
+        <label class="gv-field">
+          <span class="gv-field__label">EstadoPedido *</span>
+          <input name="EstadoPedido" required class="gv-input" value="<%= item.EstadoPedido ?? 'Pendiente' %>" />
         </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">FechaPedido</span>
-          <input name="FechaPedido" type="date" value="<%= fmtDateISO(item.FechaPedido ?? '') %>" />
+        <label class="gv-field">
+          <span class="gv-field__label">FechaPedido</span>
+          <input name="FechaPedido" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaPedido ?? '') %>" />
         </label>
       </div>
       </div>
@@ -145,14 +118,14 @@
         <div class="gv-doc__title"><h2>Pago y tipo</h2></div>
         <div style="height: 10px;"></div>
       <div class="gv-doc__grid">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">FechaEntrega</span>
-          <input name="FechaEntrega" type="date" value="<%= fmtDateISO(item.FechaEntrega ?? '') %>" />
+        <label class="gv-field">
+          <span class="gv-field__label">FechaEntrega</span>
+          <input name="FechaEntrega" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaEntrega ?? '') %>" />
         </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Forma de pago (Id_FormaPago)</span>
+        <label class="gv-field">
+          <span class="gv-field__label">Forma de pago (Id_FormaPago)</span>
           <% if ((formasPago || []).length) { %>
-            <select name="Id_FormaPago">
+            <select name="Id_FormaPago" class="gv-input">
               <% const curFP = Number(item.Id_FormaPago ?? 0) || 0; %>
               <option value="0" <%= curFP === 0 ? 'selected' : '' %>>(0) Sin especificar</option>
               <% (formasPago || []).forEach((fp) => { %>
@@ -161,19 +134,19 @@
               <% }) %>
             </select>
           <% } else { %>
-            <input name="Id_FormaPago" type="number" min="0" value="<%= item.Id_FormaPago ?? 0 %>" />
+            <input name="Id_FormaPago" type="number" min="0" class="gv-input" value="<%= item.Id_FormaPago ?? 0 %>" />
           <% } %>
         </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo pedido (Id_TipoPedido)</span>
-          <input name="Id_TipoPedido" type="number" min="0" value="<%= item.Id_TipoPedido ?? 0 %>" />
+        <label class="gv-field">
+          <span class="gv-field__label">Tipo pedido (Id_TipoPedido)</span>
+          <input name="Id_TipoPedido" type="number" min="0" class="gv-input" value="<%= item.Id_TipoPedido ?? 0 %>" />
         </label>
       </div>
       </div>
 
       <div class="gv-doc">
-      <label style="display:grid; gap: 6px; margin:0;">
-        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>
+      <label class="gv-field" style="margin:0;">
+        <span class="gv-field__label">Observaciones</span>
         <textarea name="Observaciones" rows="3"><%= item.Observaciones ?? '' %></textarea>
       </label>
       </div>
@@ -189,6 +162,7 @@
             <thead>
               <tr>
                 <th>Artículo</th>
+                <th style="width:120px;">PVL</th>
                 <th style="width:120px;">Cantidad</th>
                 <th style="width:120px;">Dto (%)</th>
                 <th style="width:70px;"></th>
@@ -203,12 +177,13 @@
                       <% const curA = String(l.Id_Articulo ?? ''); %>
                       <% (articulos || []).forEach((a) => { %>
                         <% const aid = String(a.Id ?? a.id ?? ''); %>
-                        <option value="<%= aid %>" <%= aid === curA ? 'selected' : '' %>><%= aid %> · <%= a.SKU ?? '' %> · <%= a.Nombre ?? '' %></option>
+                        <option value="<%= aid %>" data-pvl="<%= a.PVL ?? a.pvl ?? '' %>" <%= aid === curA ? 'selected' : '' %>><%= aid %> · <%= a.SKU ?? '' %> · <%= a.Nombre ?? '' %></option>
                       <% }) %>
                     </select>
                   </td>
+                  <td><input class="gv-line-pvl" name="lineas[<%= idx %>][PrecioUnitario]" type="number" min="0" step="0.01" value="<%= l.PrecioUnitario ?? l.Precio ?? '' %>" placeholder="auto" /></td>
                   <td><input name="lineas[<%= idx %>][Cantidad]" type="number" min="0" step="0.01" value="<%= l.Cantidad ?? 1 %>" /></td>
-                  <td><input name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" /></td>
+                  <td><input class="gv-line-dto" name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" placeholder="auto" /></td>
                   <td>
                     <button class="btn secondary danger" type="button" data-remove-linea>Quitar</button>
                   </td>
@@ -231,9 +206,101 @@
   (function () {
     var table = document.getElementById('lineasTable');
     var btn = document.getElementById('addLineaBtn');
+    var form = document.getElementById('pedidoForm');
+    var selTarifa = document.getElementById('Id_Tarifa');
+    var selCial = document.getElementById('Id_Cial');
+    var hidCliente = document.getElementById('Id_Cliente');
     if (!table || !btn) return;
     var firstSelect = table.querySelector('tbody select');
     var optionsHTML = firstSelect ? firstSelect.innerHTML : '<option value="">(selecciona)</option>';
+
+    var defaultDto = 0;
+    function clampPct(n){ n = Number(n); if (!isFinite(n)) n = 0; return Math.max(0, Math.min(100, n)); }
+    function getTarifaId(){ return selTarifa ? (parseInt(String(selTarifa.value||'0'),10) || 0) : 0; }
+
+    function markManual(el){
+      if (!el) return;
+      el.setAttribute('data-manual', '1');
+    }
+    function isManual(el){
+      return !!(el && String(el.getAttribute('data-manual') || '') === '1');
+    }
+
+    table.querySelectorAll('input.gv-line-pvl').forEach(function (i) { i.addEventListener('input', function(){ markManual(i); }); });
+    if (selCial) selCial.addEventListener('change', function(){ markManual(selCial); });
+    if (selTarifa) selTarifa.addEventListener('change', function(){ markManual(selTarifa); refreshPrecios(); });
+
+    function setIfNotManual(selectEl, value){
+      if (!selectEl) return;
+      if (isManual(selectEl)) return;
+      if (value === null || value === undefined || String(value).trim() === '') return;
+      // Solo aplicar si está vacío (no pisar selección existente al editar)
+      if (String(selectEl.value || '').trim() !== '') return;
+      selectEl.value = String(value);
+    }
+
+    async function loadClienteAndDefaults(clienteId){
+      var id = parseInt(String(clienteId || '').trim(), 10) || 0;
+      if (!id) return;
+      try {
+        var r = await fetch('/api/clientes/' + encodeURIComponent(String(id)), { headers: { Accept: 'application/json' } });
+        if (!r.ok) return;
+        var json = await r.json();
+        if (!json || json.ok !== true) return;
+        var c = json.item || null;
+        if (!c) return;
+        // Defaults: comercial + tarifa + dto (best-effort)
+        var cial = c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.Id_Comercial;
+        var tar = c.Id_Tarifa ?? c.id_tarifa ?? c.Tarifa ?? c.tarifa;
+        var dto = c.Dto ?? c.dto ?? c.Descuento ?? c.descuento;
+        setIfNotManual(selCial, cial);
+        setIfNotManual(selTarifa, tar);
+        if (dto !== undefined && dto !== null && String(dto).trim() !== '') defaultDto = clampPct(Number(String(dto).replace(',', '.')));
+        // Rellenar dto en líneas vacías
+        table.querySelectorAll('input.gv-line-dto').forEach(function (inp) {
+          if (String(inp.value || '').trim() === '') inp.value = String(defaultDto || 0);
+        });
+        refreshPrecios();
+      } catch (_e) {}
+    }
+
+    async function refreshPrecios(){
+      var tarifaId = getTarifaId();
+      if (!tarifaId) return;
+      var articuloIds = [];
+      table.querySelectorAll('tbody tr').forEach(function(tr){
+        var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
+        var pvl = tr.querySelector('input.gv-line-pvl');
+        if (!sel || !pvl) return;
+        var aid = parseInt(String(sel.value||''),10) || 0;
+        if (!aid) return;
+        articuloIds.push(aid);
+      });
+      if (!articuloIds.length) return;
+      try{
+        var url = '/api/pedidos/precios?tarifaId=' + encodeURIComponent(String(tarifaId)) + '&articuloIds=' + encodeURIComponent(articuloIds.join(','));
+        var r = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!r.ok) return;
+        var json = await r.json();
+        if (!json || json.ok !== true) return;
+        var precios = json.precios || {};
+        table.querySelectorAll('tbody tr').forEach(function(tr){
+          var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
+          var pvl = tr.querySelector('input.gv-line-pvl');
+          if (!sel || !pvl) return;
+          var aid = String(sel.value || '').trim();
+          if (!aid) return;
+          if (isManual(pvl) && String(pvl.value||'').trim() !== '') return;
+          if (precios[aid] !== undefined && precios[aid] !== null) pvl.value = String(precios[aid]);
+          else {
+            var opt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+            var op = opt ? opt.getAttribute('data-pvl') : '';
+            if (op && String(op).trim() !== '') pvl.value = String(op);
+          }
+        });
+      } catch(_e){}
+    }
+
     function renumber() {
       var rows = table.querySelectorAll('tbody tr');
       rows.forEach(function (tr, idx) {
@@ -241,7 +308,8 @@
           el.name = el.name
             .replace(/lineas\\[\\d+\\]\\[Id_Articulo\\]/, 'lineas[' + idx + '][Id_Articulo]')
             .replace(/lineas\\[\\d+\\]\\[Cantidad\\]/, 'lineas[' + idx + '][Cantidad]')
-            .replace(/lineas\\[\\d+\\]\\[Dto\\]/, 'lineas[' + idx + '][Dto]');
+            .replace(/lineas\\[\\d+\\]\\[Dto\\]/, 'lineas[' + idx + '][Dto]')
+            .replace(/lineas\\[\\d+\\]\\[PrecioUnitario\\]/, 'lineas[' + idx + '][PrecioUnitario]');
         });
       });
     }
@@ -264,10 +332,35 @@
         optionsHTML +
         '  </select>' +
         '</td>' +
+        '<td><input class=\"gv-line-pvl\" name=\"lineas[' + idx + '][PrecioUnitario]\" type=\"number\" min=\"0\" step=\"0.01\" value=\"\" placeholder=\"auto\" /></td>' +
         '<td><input name=\"lineas[' + idx + '][Cantidad]\" type=\"number\" min=\"0\" step=\"0.01\" value=\"1\" /></td>' +
-        '<td><input name=\"lineas[' + idx + '][Dto]\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" value=\"\" /></td>' +
+        '<td><input class=\"gv-line-dto\" name=\"lineas[' + idx + '][Dto]\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" value=\"\" placeholder=\"auto\" /></td>' +
         '<td><button class=\"btn secondary danger\" type=\"button\" data-remove-linea>Quitar</button></td>';
       tbody.appendChild(tr);
+
+      // Importante: que NO venga ningún artículo seleccionado por herencia del innerHTML
+      var s = tr.querySelector('select');
+      if (s) s.value = '';
+
+      var dto = tr.querySelector('input.gv-line-dto');
+      if (dto && String(dto.value || '').trim() === '') dto.value = String(defaultDto || 0);
+
+      var pvl = tr.querySelector('input.gv-line-pvl');
+      if (pvl) pvl.addEventListener('input', function(){ markManual(pvl); });
+      refreshPrecios();
+    });
+
+    // Si venimos con un cliente ya guardado (editar), cargar defaults
+    if (hidCliente) {
+      hidCliente.addEventListener('change', function(){
+        loadClienteAndDefaults(hidCliente.value);
+      });
+      if (String(hidCliente.value || '').trim()) loadClienteAndDefaults(hidCliente.value);
+    }
+
+    table.addEventListener('change', function(e){
+      var t = e.target;
+      if (t && t.matches('select[name*=\"[Id_Articulo]\"]')) refreshPrecios();
     });
   })();
 </script>

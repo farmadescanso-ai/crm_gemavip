@@ -620,10 +620,26 @@ function parseLineasFromBody(body) {
     const item = l && typeof l === 'object' ? l : {};
     const idArt = Number(item.Id_Articulo ?? item.id_articulo ?? item.ArticuloId ?? 0) || 0;
     const cantidad = Number(String(item.Cantidad ?? item.Unidades ?? 0).replace(',', '.')) || 0;
-    const dto = item.Dto !== undefined ? (Number(String(item.Dto).replace(',', '.')) || 0) : undefined;
+    let dto = undefined;
+    if (item.Dto !== undefined) {
+      const s = String(item.Dto ?? '').trim();
+      if (s !== '') {
+        const n = Number(String(s).replace(',', '.'));
+        if (Number.isFinite(n)) dto = n;
+      }
+    }
+    let precioUnit = undefined;
+    if (item.PrecioUnitario !== undefined || item.Precio !== undefined) {
+      const s = String(item.PrecioUnitario ?? item.Precio ?? '').trim();
+      if (s !== '') {
+        const n = Number(String(s).replace(',', '.'));
+        if (Number.isFinite(n)) precioUnit = n;
+      }
+    }
     if (!idArt || cantidad <= 0) continue;
     const clean = { Id_Articulo: idArt, Cantidad: cantidad };
     if (dto !== undefined) clean.Dto = dto;
+    if (precioUnit !== undefined) clean.PrecioUnitario = precioUnit;
     lineas.push(clean);
   }
   return lineas;
@@ -683,6 +699,7 @@ app.post('/pedidos/new', requireAdmin, async (req, res, next) => {
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
       // Serie fija para pedidos en este CRM
       Serie: 'P',
+      NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
       FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
       EstadoPedido: String(body.EstadoPedido || 'Pendiente').trim(),
@@ -778,6 +795,7 @@ app.post('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
       Serie: 'P',
+      NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
       FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
       EstadoPedido: String(body.EstadoPedido || '').trim(),

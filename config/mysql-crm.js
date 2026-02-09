@@ -41,6 +41,7 @@ class MySQLCRM {
     this._clientesIndexesEnsured = false;
     this._pedidosIndexesEnsured = false;
     this._pedidosArticulosIndexesEnsured = false;
+    this._pedidosSchemaEnsured = false;
     this._contactosIndexesEnsured = false;
     this._estadosVisitaEnsured = false;
     // Cache interno para metadatos de tablas/columnas (útil en serverless)
@@ -1259,6 +1260,7 @@ class MySQLCRM {
       // Catálogos (best-effort)
       await this.ensureEstadosVisitaCatalog();
       await this.ensureClientesIndexes();
+      await this.ensurePedidosSchema();
       await this.ensurePedidosIndexes();
       await this.ensurePedidosArticulosIndexes();
       await this.ensureContactosIndexes();
@@ -4661,6 +4663,106 @@ class MySQLCRM {
     }
   }
 
+  async ensurePedidosSchema() {
+    // Best-effort: añadir columnas que usa la UI si faltan (sin romper producción si no hay permisos).
+    if (this._pedidosSchemaEnsured) return;
+    this._pedidosSchemaEnsured = true;
+    try {
+      if (!this.connected || !this.pool) await this.connect();
+      const { tPedidos } = await this._ensurePedidosMeta();
+      const cols = await this._getColumns(tPedidos).catch(() => []);
+      const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+
+      // Nuevo: referencia del pedido del cliente
+      if (!colsLower.has('numpedidocliente') && !colsLower.has('num_pedido_cliente')) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`NumPedidoCliente\` VARCHAR(255) NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.NumPedidoCliente");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.NumPedidoCliente:', e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ [SCHEMA] No se pudo asegurar esquema de pedidos:', e?.message || e);
+    }
+  }
+
+  async getPreciosArticulosParaTarifa(tarifaId, articuloIds) {
+    // Devuelve { [Id_Articulo]: precioUnitario } con fallback a PVL.
+    const tId = Number.parseInt(String(tarifaId ?? '').trim(), 10);
+    const ids = (Array.isArray(articuloIds) ? articuloIds : [])
+      .map((x) => Number.parseInt(String(x ?? '').trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .slice(0, 200);
+    if (!Number.isFinite(tId) || tId <= 0 || ids.length === 0) return {};
+
+    if (!this.connected && !this.pool) await this.connect();
+
+    // 1) Tabla de precios por tarifa
+    let preciosTarifa = new Map();
+    let preciosPVL = new Map();
+    try {
+      const tTP = await this._resolveTableNameCaseInsensitive('tarifasClientes_precios');
+      const tpCols = await this._getColumns(tTP).catch(() => []);
+      const pickTP = (cands) => this._pickCIFromColumns(tpCols, cands);
+      const cTar = pickTP(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']) || 'Id_Tarifa';
+      const cArt = pickTP(['Id_Articulo', 'id_articulo', 'ArticuloId', 'articulo_id']) || 'Id_Articulo';
+      const cPrecio = pickTP(['Precio', 'precio', 'PrecioUnitario', 'precio_unitario', 'PVL', 'pvl']) || 'Precio';
+
+      const inPlaceholders = ids.map(() => '?').join(', ');
+      const sql = `
+        SELECT \`${cTar}\` AS Id_Tarifa, \`${cArt}\` AS Id_Articulo, \`${cPrecio}\` AS Precio
+        FROM \`${tTP}\`
+        WHERE \`${cTar}\` IN (?, 0) AND \`${cArt}\` IN (${inPlaceholders})
+      `;
+      const rows = await this.query(sql, [tId, ...ids]).catch(() => []);
+      for (const r of (rows || [])) {
+        const aid = Number.parseInt(String(r.Id_Articulo ?? '').trim(), 10);
+        const tid = Number.parseInt(String(r.Id_Tarifa ?? '').trim(), 10);
+        const precio = Number(String(r.Precio ?? '').replace(',', '.'));
+        if (!Number.isFinite(aid) || aid <= 0 || !Number.isFinite(precio)) continue;
+        if (tid === tId) preciosTarifa.set(aid, precio);
+        if (tid === 0) preciosPVL.set(aid, precio);
+      }
+    } catch (_) {
+      // ignorar
+    }
+
+    // 2) Fallback PVL de artículos
+    let articulosPVL = new Map();
+    try {
+      const tArt = await this._resolveTableNameCaseInsensitive('articulos');
+      const aCols = await this._getColumns(tArt).catch(() => []);
+      const pickA = (cands) => this._pickCIFromColumns(aCols, cands);
+      const aPk = pickA(['id', 'Id']) || 'id';
+      const cPVL = pickA(['PVL', 'pvl', 'Precio', 'precio']) || 'PVL';
+      const inPlaceholders = ids.map(() => '?').join(', ');
+      const rows = await this.query(
+        `SELECT \`${aPk}\` AS Id, \`${cPVL}\` AS PVL FROM \`${tArt}\` WHERE \`${aPk}\` IN (${inPlaceholders})`,
+        ids
+      ).catch(() => []);
+      for (const r of (rows || [])) {
+        const aid = Number.parseInt(String(r.Id ?? '').trim(), 10);
+        const pvl = Number(String(r.PVL ?? '').replace(',', '.'));
+        if (!Number.isFinite(aid) || aid <= 0) continue;
+        if (Number.isFinite(pvl)) articulosPVL.set(aid, pvl);
+      }
+    } catch (_) {
+      // ignorar
+    }
+
+    const out = {};
+    for (const aid of ids) {
+      const precio =
+        preciosTarifa.has(aid) ? preciosTarifa.get(aid)
+        : preciosPVL.has(aid) ? preciosPVL.get(aid)
+        : articulosPVL.has(aid) ? articulosPVL.get(aid)
+        : undefined;
+      if (precio !== undefined) out[String(aid)] = precio;
+    }
+    return out;
+  }
+
   async updatePedidoWithLineas(id, pedidoPayload, lineasPayload, options = {}) {
     // Actualiza cabecera + reemplaza líneas en una transacción, manteniendo el mismo ID.
     try {
@@ -4956,6 +5058,18 @@ class MySQLCRM {
                 null;
               if (nombre && String(nombre).trim()) mysqlData[colArticuloTxt] = String(nombre).trim();
               else if (artId) mysqlData[colArticuloTxt] = String(artId);
+            }
+          }
+
+          // Aceptar alias de precio desde formularios (PrecioUnitario vs Precio)
+          if (colPrecioUnit) {
+            const cur = mysqlData[colPrecioUnit];
+            const curStr = cur === null || cur === undefined ? '' : String(cur).trim();
+            if (!curStr) {
+              const raw =
+                linea.PrecioUnitario ?? linea.Precio ?? linea.precioUnitario ?? linea.precio ?? linea.PVL ?? linea.pvl;
+              const n = raw !== null && raw !== undefined && String(raw).trim() !== '' ? (Number(String(raw).replace(',', '.')) || 0) : null;
+              if (n !== null) mysqlData[colPrecioUnit] = n;
             }
           }
 

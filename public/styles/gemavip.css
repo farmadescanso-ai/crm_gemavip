@@ -363,6 +363,71 @@ th{
 }
 tr:hover td{ background: rgba(0,139,210,.04); }
 
+/* Documentos (Pedido / Factura / Albarán) */
+.gv-doc{
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+}
+.gv-doc__title{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.gv-doc__title h2{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--gv-ink);
+}
+.gv-doc__meta{
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 900;
+  color: var(--gv-muted);
+  font-size: 12px;
+}
+.gv-doc__grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 920px){
+  .gv-doc__grid{ grid-template-columns: 1fr; }
+}
+
+.gv-field{
+  display:grid;
+  gap: 6px;
+}
+.gv-field__label{
+  font-weight: 900;
+  color: var(--gv-ink);
+  font-size: 13px;
+}
+.gv-field__help{
+  font-size: 12px;
+  color: var(--gv-muted);
+  font-weight: 700;
+}
+
+.gv-input{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--gv-border);
+  background: #fff;
+  outline: none;
+}
+.gv-input:focus{
+  border-color: rgba(0,139,210,.55);
+  box-shadow: 0 0 0 4px rgba(0,139,210,.10);
+}
+
 /* Cliente: búsqueda inteligente (autocomplete) */
 .gv-client-picker{
   position: relative;
