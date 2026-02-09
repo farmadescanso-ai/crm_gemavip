@@ -1,113 +1,165 @@
 <%- include('partials/header', { title: 'Pedido' }) %>
 
-<section class="card" style="max-width: 1100px; margin: 0 auto;">
-  <div class="card-hd">
-    <h1 class="card-title">Pedido #<%= item.id ?? item.Id %> · <%= item.NumPedido ?? '' %></h1>
-    <p class="card-subtitle">Detalle del pedido.</p>
+<%
+  const toNum = (v, dflt = 0) => {
+    if (v === null || v === undefined) return dflt;
+    const s = String(v).trim();
+    if (!s) return dflt;
+    const n = Number(String(s).replace(',', '.'));
+    return Number.isFinite(n) ? n : dflt;
+  };
+  const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  const fmtNum = (n) => {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return '';
+    return x.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const fmtEur = (n) => {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return '';
+    return x.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+  };
+  const pedidoId = item?.id ?? item?.Id ?? '';
+  const numPedido = item?.NumPedido ?? '';
+  const fecha = fmtDateES(item.FechaPedido ?? item.Fecha ?? '');
+  const entrega = item?.FechaEntrega ? fmtDateES(item.FechaEntrega) : '';
+  const clienteNombre = (cliente && (cliente.Nombre_Razon_Social || cliente.Nombre)) ? (cliente.Nombre_Razon_Social || cliente.Nombre) : '';
+  const clienteCif = (cliente && (cliente.DNI_CIF || cliente.DniCif)) ? (cliente.DNI_CIF || cliente.DniCif) : '';
+  const clienteDir = cliente?.Direccion || '';
+  const clientePob = cliente?.Poblacion || '';
+  const clienteCp = cliente?.CodigoPostal || '';
+  const clienteEmail = cliente?.Email || '';
+  const clienteTel = cliente?.Telefono || cliente?.Movil || '';
+%>
+
+<div class="gv-doc-page">
+  <div class="gv-doc-top gv-no-print">
+    <a class="btn secondary" href="/pedidos">Volver</a>
+    <% if (admin) { %>
+      <a class="btn secondary" href="/pedidos/<%= pedidoId %>/edit">Editar</a>
+      <form method="post" action="/pedidos/<%= pedidoId %>/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar este pedido?');">
+        <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
+      </form>
+    <% } %>
+    <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
   </div>
-  <div class="card-bd">
-    <%
-      const toNum = (v, dflt = 0) => {
-        if (v === null || v === undefined) return dflt;
-        const s = String(v).trim();
-        if (!s) return dflt;
-        const n = Number(String(s).replace(',', '.'));
-        return Number.isFinite(n) ? n : dflt;
-      };
-      const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-      const fmtNum = (n) => {
-        const x = Number(n);
-        if (!Number.isFinite(x)) return '';
-        return x.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      };
-    %>
-    <div class="kpi">
-      <span class="pill">Fecha: <%= fmtDateES(item.FechaPedido ?? item.Fecha ?? '') %></span>
-      <span class="pill">Cliente: <%= (cliente && (cliente.Nombre_Razon_Social || cliente.Nombre)) ? (cliente.Nombre_Razon_Social || cliente.Nombre) : (item.Id_Cliente ?? '') %></span>
-      <% if (item.NumPedidoCliente || item.Num_Pedido_Cliente) { %>
-        <span class="pill">Nº Pedido Cliente: <%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></span>
-      <% } %>
-      <span class="pill">Comercial: <%= item.Id_Cial ?? '' %></span>
-      <span class="pill">Tarifa: <%= item.Id_Tarifa ?? 0 %></span>
-      <span class="pill">Base: <%= item.BaseImponible ?? '' %></span>
-      <span class="pill">IVA: <%= item.TotalIva ?? '' %></span>
-      <span class="pill">Total: <%= item.TotalPedido ?? '' %></span>
+
+  <div class="gv-doc-head">
+    <div class="gv-doc-company">
+      GEMAVIP ESPAÑA SL.
+      <small>B19427004</small>
+      <small>CALLE DE LA SEÑA 2</small>
+      <small>CARTAGENA (30201), Murcia, España</small>
+      <small>pedidosespana@gemavip.com · +34 686 48 36 84</small>
     </div>
-
-    <div style="margin-top: 14px;" class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Artículo</th>
-            <th>Cantidad</th>
-            <th>PVL</th>
-            <th>Dto</th>
-            <th>Base</th>
-            <th>IVA</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% let sumBase = 0, sumIva = 0, sumTotal = 0; %>
-          <% (lineas || []).forEach((l) => { %>
-            <%
-              const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
-              const pvl = Math.max(0, toNum(l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
-              const dto = Math.max(0, Math.min(100, toNum(l.Dto ?? 0, 0)));
-
-              const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
-              const baseCalc = round2(qty * pvl * (1 - dto / 100));
-              const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
-
-              // IVA: preferir importe si existe; si no, calcular desde % (best-effort)
-              const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
-              let ivaPct = toNum(l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? l.IVA ?? 0, 0);
-              // Heurística: si IVA viene como importe (p.ej. > 100), no usarlo como %
-              if (ivaPct > 100) ivaPct = 0;
-              const ivaImpCalc = round2(base * ivaPct / 100);
-              const ivaImp = Number.isFinite(ivaImpStored) ? round2(ivaImpStored) : ivaImpCalc;
-
-              const totalStored = toNum(l.Total ?? l.TotalLinea ?? l.ImporteTotal ?? l.total_linea ?? NaN, NaN);
-              const totalCalc = round2(base + ivaImp);
-              const total = Number.isFinite(totalStored) ? round2(totalStored) : totalCalc;
-
-              sumBase += base;
-              sumIva += ivaImp;
-              sumTotal += total;
-            %>
-            <tr>
-              <td><%= l.Nombre ?? l.SKU ?? (l.Id_Articulo ?? '') %></td>
-              <td><%= qty ? fmtNum(qty) : '' %></td>
-              <td><%= pvl ? fmtNum(pvl) : '' %></td>
-              <td><%= dto ? fmtNum(dto) : '0,00' %></td>
-              <td><%= fmtNum(base) %></td>
-              <td><%= fmtNum(ivaImp) %></td>
-              <td><%= fmtNum(total) %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="4" style="text-align:right; font-weight:900;">Totales</td>
-            <td style="font-weight:900;"><%= fmtNum(round2(sumBase)) %></td>
-            <td style="font-weight:900;"><%= fmtNum(round2(sumIva)) %></td>
-            <td style="font-weight:900;"><%= fmtNum(round2(sumTotal)) %></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-
-    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top: 12px;">
-      <a class="btn secondary" href="/pedidos">Volver</a>
-      <% if (admin) { %>
-        <a class="btn secondary" href="/pedidos/<%= item.id ?? item.Id %>/edit">Editar</a>
-        <form method="post" action="/pedidos/<%= item.id ?? item.Id %>/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar este pedido?');">
-          <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
-        </form>
-      <% } %>
+    <div class="gv-doc-meta">
+      <div class="gv-doc-title">PEDIDO #<%= numPedido || pedidoId %></div>
+      <div class="gv-doc-kv">
+        <div><span>Fecha</span><b><%= fecha %></b></div>
+        <% if (entrega) { %>
+          <div><span>Entrega</span><b><%= entrega %></b></div>
+        <% } %>
+        <% if (item.NumPedidoCliente || item.Num_Pedido_Cliente) { %>
+          <div><span>Nº Pedido Cliente</span><b><%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></b></div>
+        <% } %>
+        <div><span>Tarifa</span><b><%= item.Id_Tarifa ?? 0 %></b></div>
+      </div>
     </div>
   </div>
-</section>
+
+  <div class="gv-doc-parties">
+    <div class="gv-doc-box">
+      <h3>Cliente</h3>
+      <div class="gv-doc-lines">
+        <div><%= clienteNombre || (item.Id_Cliente ?? '') %></div>
+        <% if (clienteCif) { %><small><%= clienteCif %></small><% } %>
+        <% if (clienteDir) { %><small><%= clienteDir %></small><% } %>
+        <% if (clienteCp || clientePob) { %><small><%= [clienteCp, clientePob].filter(Boolean).join(' ') %></small><% } %>
+        <% if (clienteEmail || clienteTel) { %><small><%= [clienteEmail, clienteTel].filter(Boolean).join(' · ') %></small><% } %>
+      </div>
+    </div>
+
+    <div class="gv-doc-box">
+      <h3>Dirección de envío</h3>
+      <div class="gv-doc-lines">
+        <div><%= clienteNombre || '—' %></div>
+        <small>(si necesitas direcciones múltiples, lo conectamos a `Id_DireccionEnvio`)</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="gv-doc-table-wrap">
+    <table class="gv-doc-table">
+      <thead>
+        <tr>
+          <th>CÓDIGO</th>
+          <th>CONCEPTO</th>
+          <th class="is-right">PVL</th>
+          <th class="is-right">UNIDADES</th>
+          <th class="is-right">SUBTOTAL</th>
+          <th class="is-right">IVA</th>
+          <th class="is-right">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% let sumBase = 0, sumIva = 0, sumTotal = 0; %>
+        <% (lineas || []).forEach((l) => { %>
+          <%
+            const codigo = (l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').toString();
+            const concepto = (l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').toString();
+            const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+            const pvl = Math.max(0, toNum(l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
+            const dto = Math.max(0, Math.min(100, toNum(l.Dto ?? 0, 0)));
+
+            const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
+            const baseCalc = round2(qty * pvl * (1 - dto / 100));
+            const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
+
+            const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
+            let ivaPct = toNum(l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? l.IVA ?? 0, 0);
+            if (ivaPct > 100) ivaPct = 0;
+            const ivaImpCalc = round2(base * ivaPct / 100);
+            const ivaImp = Number.isFinite(ivaImpStored) ? round2(ivaImpStored) : ivaImpCalc;
+
+            const totalStored = toNum(l.Total ?? l.TotalLinea ?? l.ImporteTotal ?? l.total_linea ?? NaN, NaN);
+            const totalCalc = round2(base + ivaImp);
+            const total = Number.isFinite(totalStored) ? round2(totalStored) : totalCalc;
+
+            sumBase += base;
+            sumIva += ivaImp;
+            sumTotal += total;
+          %>
+          <tr>
+            <td><%= codigo %></td>
+            <td class="is-wrap"><%= concepto || (codigo ? `Artículo ${codigo}` : '—') %></td>
+            <td class="is-right"><%= fmtEur(pvl) %></td>
+            <td class="is-right"><%= qty ? fmtNum(qty) : '' %></td>
+            <td class="is-right"><%= fmtEur(base) %></td>
+            <td class="is-right"><%= ivaPct ? `${fmtNum(ivaPct)}%` : '—' %></td>
+            <td class="is-right"><%= fmtEur(total) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="gv-doc-summary">
+    <table>
+      <tr>
+        <td>BASE IMPONIBLE</td>
+        <td><%= fmtEur(round2(sumBase)) %></td>
+      </tr>
+      <tr>
+        <td>IMPUESTO</td>
+        <td><%= fmtEur(round2(sumIva)) %></td>
+      </tr>
+      <tr>
+        <td class="gv-doc-grand">TOTAL</td>
+        <td class="gv-doc-grand"><%= fmtEur(round2(sumTotal)) %></td>
+      </tr>
+    </table>
+  </div>
+</div>
 
 <%- include('partials/footer') %>
 

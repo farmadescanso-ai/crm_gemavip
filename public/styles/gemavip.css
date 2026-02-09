@@ -363,6 +363,199 @@ th{
 }
 tr:hover td{ background: rgba(0,139,210,.04); }
 
+/* ===========================
+   Documento (Factura/Pedido)
+   Inspirado en PDF de factura
+   =========================== */
+.gv-doc-page{
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  box-shadow: var(--gv-shadow);
+  padding: 22px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+.gv-doc-top{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  flex-wrap:wrap;
+  margin-bottom: 12px;
+}
+.gv-doc-head{
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 18px;
+  align-items:start;
+}
+@media (max-width: 900px){
+  .gv-doc-head{ grid-template-columns: 1fr; }
+}
+.gv-doc-company{
+  font-weight: 800;
+  color: var(--gv-ink);
+  line-height: 1.25;
+}
+.gv-doc-company small{
+  display:block;
+  color: var(--gv-muted);
+  font-weight: 700;
+}
+.gv-doc-meta{
+  text-align:right;
+}
+@media (max-width: 900px){
+  .gv-doc-meta{ text-align:left; }
+}
+.gv-doc-title{
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--gv-ink);
+  letter-spacing: .2px;
+}
+.gv-doc-kv{
+  margin-top: 8px;
+  display:grid;
+  gap: 6px;
+  color: var(--gv-text);
+  font-weight: 700;
+}
+.gv-doc-kv div{
+  display:flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed rgba(15, 23, 42, 0.12);
+  padding-bottom: 6px;
+}
+.gv-doc-kv span{
+  color: var(--gv-muted);
+  font-weight: 800;
+}
+.gv-doc-kv b{
+  color: var(--gv-ink);
+  font-weight: 900;
+}
+
+.gv-doc-parties{
+  margin-top: 16px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 900px){
+  .gv-doc-parties{ grid-template-columns: 1fr; }
+}
+.gv-doc-box{
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+.gv-doc-box h3{
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+  color: var(--gv-muted);
+  font-weight: 900;
+}
+.gv-doc-lines{
+  display:grid;
+  gap: 2px;
+  color: var(--gv-ink);
+  font-weight: 800;
+  line-height: 1.25;
+}
+.gv-doc-lines small{
+  color: var(--gv-muted);
+  font-weight: 700;
+}
+
+.gv-doc-table-wrap{
+  margin-top: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  overflow:auto;
+}
+.gv-doc-table{
+  width:100%;
+  border-collapse: collapse;
+  background:#fff;
+}
+.gv-doc-table th,
+.gv-doc-table td{
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  white-space: nowrap;
+}
+.gv-doc-table th{
+  position: sticky;
+  top: 0;
+  background: #fbfdff;
+  font-size: 11px;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+  font-weight: 900;
+  color: var(--gv-ink);
+}
+.gv-doc-table td{
+  font-weight: 700;
+  color: var(--gv-text);
+}
+.gv-doc-table td.is-right,
+.gv-doc-table th.is-right{
+  text-align:right;
+}
+.gv-doc-table td.is-wrap{
+  white-space: normal;
+  min-width: 260px;
+}
+
+.gv-doc-summary{
+  margin-top: 14px;
+  display:flex;
+  justify-content:flex-end;
+}
+.gv-doc-summary table{
+  width: min(520px, 100%);
+  border-collapse: collapse;
+  background:#fff;
+}
+.gv-doc-summary td{
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.10);
+  font-weight: 800;
+}
+.gv-doc-summary td:last-child{
+  text-align:right;
+  font-weight: 900;
+  color: var(--gv-ink);
+}
+.gv-doc-grand{
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* Impresión: formato A4 y ocultar navegación/acciones */
+@media print{
+  body{ background:#fff !important; }
+  .topbar, footer, .gv-no-print{ display:none !important; }
+  main.container{ padding-top: 0 !important; }
+  .gv-doc-page{
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+  @page{
+    size: A4;
+    margin: 12mm;
+  }
+}
+
 /* Documentos (Pedido / Factura / Albarán) */
 .gv-doc{
   border: 1px solid rgba(15, 23, 42, 0.12);
