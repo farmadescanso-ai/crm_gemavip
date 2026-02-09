@@ -9,16 +9,26 @@
     return Number.isFinite(n) ? n : dflt;
   };
   const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-  const fmtNum = (n) => {
-    const x = Number(n);
+  // Formato fijo ES: miles con "." y decimales con ","
+  const fmtNumES = (value, decimals = 2) => {
+    const x = Number(value);
     if (!Number.isFinite(x)) return '';
-    return x.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const d = Math.max(0, Math.min(6, Number(decimals) || 0));
+    const sign = x < 0 ? '-' : '';
+    const abs = Math.abs(x);
+    const factor = Math.pow(10, d);
+    const rounded = Math.round((abs + Number.EPSILON) * factor) / factor;
+    const parts = rounded.toFixed(d).split('.');
+    const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const decPart = d ? (',' + (parts[1] || '').padEnd(d, '0')) : '';
+    return sign + intPart + decPart;
   };
   const fmtEur = (n) => {
     const x = Number(n);
     if (!Number.isFinite(x)) return '';
-    return x.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+    return `${fmtNumES(x, 2)}€`;
   };
+  const fmtQty = (n) => fmtNumES(n, 2);
   const pedidoId = item?.id ?? item?.Id ?? '';
   const numPedido = item?.NumPedido ?? '';
   const fecha = fmtDateES(item.FechaPedido ?? item.Fecha ?? '');
@@ -30,6 +40,7 @@
   const clienteCp = cliente?.CodigoPostal || '';
   const clienteEmail = cliente?.Email || '';
   const clienteTel = cliente?.Telefono || cliente?.Movil || '';
+  const dir = direccionEnvio || null;
 %>
 
 <div class="gv-doc-page">
@@ -82,8 +93,19 @@
     <div class="gv-doc-box">
       <h3>Dirección de envío</h3>
       <div class="gv-doc-lines">
-        <div><%= clienteNombre || '—' %></div>
-        <small>(si necesitas direcciones múltiples, lo conectamos a `Id_DireccionEnvio`)</small>
+        <% if (dir) { %>
+          <div><%= dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—' %></div>
+          <% if (dir.Nombre_Destinatario && dir.Alias) { %><small><%= dir.Nombre_Destinatario %></small><% } %>
+          <% if (dir.Direccion) { %><small><%= dir.Direccion %></small><% } %>
+          <% if (dir.Direccion2) { %><small><%= dir.Direccion2 %></small><% } %>
+          <% if (dir.CodigoPostal || dir.Poblacion) { %><small><%= [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' ') %></small><% } %>
+          <% if (dir.Pais) { %><small><%= dir.Pais %></small><% } %>
+          <% if (dir.Email || dir.Telefono || dir.Movil) { %><small><%= [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · ') %></small><% } %>
+          <% if (dir.Observaciones) { %><small><%= dir.Observaciones %></small><% } %>
+        <% } else { %>
+          <div><%= clienteNombre || '—' %></div>
+          <small>(Sin dirección de envío: asigna `Id_DireccionEnvio` en el pedido)</small>
+        <% } %>
       </div>
     </div>
   </div>
@@ -133,9 +155,9 @@
             <td><%= codigo %></td>
             <td class="is-wrap"><%= concepto || (codigo ? `Artículo ${codigo}` : '—') %></td>
             <td class="is-right"><%= fmtEur(pvl) %></td>
-            <td class="is-right"><%= qty ? fmtNum(qty) : '' %></td>
+            <td class="is-right"><%= qty ? fmtQty(qty) : '' %></td>
             <td class="is-right"><%= fmtEur(base) %></td>
-            <td class="is-right"><%= ivaPct ? `${fmtNum(ivaPct)}%` : '—' %></td>
+            <td class="is-right"><%= ivaPct ? `${fmtNumES(ivaPct, 2)}%` : '—' %></td>
             <td class="is-right"><%= fmtEur(total) %></td>
           </tr>
         <% }) %>

@@ -740,8 +740,11 @@ app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
     if (!item) return res.status(404).send('No encontrado');
     const lineas = await db.getArticulosByPedido(id);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const direccionEnvio = item?.Id_DireccionEnvio
+      ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
+      : null;
     const admin = isAdminUser(res.locals.user);
-    res.render('pedido', { item, lineas: lineas || [], cliente, admin });
+    res.render('pedido', { item, lineas: lineas || [], cliente, direccionEnvio, admin });
   } catch (e) {
     next(e);
   }
