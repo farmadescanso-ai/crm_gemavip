@@ -6,6 +6,21 @@
     <p class="card-subtitle">Detalle del pedido.</p>
   </div>
   <div class="card-bd">
+    <%
+      const toNum = (v, dflt = 0) => {
+        if (v === null || v === undefined) return dflt;
+        const s = String(v).trim();
+        if (!s) return dflt;
+        const n = Number(String(s).replace(',', '.'));
+        return Number.isFinite(n) ? n : dflt;
+      };
+      const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+      const fmtNum = (n) => {
+        const x = Number(n);
+        if (!Number.isFinite(x)) return '';
+        return x.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      };
+    %>
     <div class="kpi">
       <span class="pill">Fecha: <%= fmtDateES(item.FechaPedido ?? item.Fecha ?? '') %></span>
       <span class="pill">Cliente: <%= (cliente && (cliente.Nombre_Razon_Social || cliente.Nombre)) ? (cliente.Nombre_Razon_Social || cliente.Nombre) : (item.Id_Cliente ?? '') %></span>
@@ -25,7 +40,7 @@
           <tr>
             <th>Artículo</th>
             <th>Cantidad</th>
-            <th>Precio</th>
+            <th>PVL</th>
             <th>Dto</th>
             <th>Base</th>
             <th>IVA</th>
@@ -33,18 +48,52 @@
           </tr>
         </thead>
         <tbody>
+          <% let sumBase = 0, sumIva = 0, sumTotal = 0; %>
           <% (lineas || []).forEach((l) => { %>
+            <%
+              const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+              const pvl = Math.max(0, toNum(l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
+              const dto = Math.max(0, Math.min(100, toNum(l.Dto ?? 0, 0)));
+
+              const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
+              const baseCalc = round2(qty * pvl * (1 - dto / 100));
+              const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
+
+              // IVA: preferir importe si existe; si no, calcular desde % (best-effort)
+              const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
+              let ivaPct = toNum(l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? l.IVA ?? 0, 0);
+              // Heurística: si IVA viene como importe (p.ej. > 100), no usarlo como %
+              if (ivaPct > 100) ivaPct = 0;
+              const ivaImpCalc = round2(base * ivaPct / 100);
+              const ivaImp = Number.isFinite(ivaImpStored) ? round2(ivaImpStored) : ivaImpCalc;
+
+              const totalStored = toNum(l.Total ?? l.TotalLinea ?? l.ImporteTotal ?? l.total_linea ?? NaN, NaN);
+              const totalCalc = round2(base + ivaImp);
+              const total = Number.isFinite(totalStored) ? round2(totalStored) : totalCalc;
+
+              sumBase += base;
+              sumIva += ivaImp;
+              sumTotal += total;
+            %>
             <tr>
               <td><%= l.Nombre ?? l.SKU ?? (l.Id_Articulo ?? '') %></td>
-              <td><%= l.Cantidad ?? l.Unidades ?? '' %></td>
-              <td><%= l.Precio ?? l.PrecioUnitario ?? '' %></td>
-              <td><%= l.Dto ?? '' %></td>
-              <td><%= l.Base ?? l.BaseImponible ?? '' %></td>
-              <td><%= l.ImporteIVA ?? l.TotalIVA ?? '' %></td>
-              <td><%= l.Total ?? l.TotalLinea ?? '' %></td>
+              <td><%= qty ? fmtNum(qty) : '' %></td>
+              <td><%= pvl ? fmtNum(pvl) : '' %></td>
+              <td><%= dto ? fmtNum(dto) : '0,00' %></td>
+              <td><%= fmtNum(base) %></td>
+              <td><%= fmtNum(ivaImp) %></td>
+              <td><%= fmtNum(total) %></td>
             </tr>
           <% }) %>
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align:right; font-weight:900;">Totales</td>
+            <td style="font-weight:900;"><%= fmtNum(round2(sumBase)) %></td>
+            <td style="font-weight:900;"><%= fmtNum(round2(sumIva)) %></td>
+            <td style="font-weight:900;"><%= fmtNum(round2(sumTotal)) %></td>
+          </tr>
+        </tfoot>
       </table>
     </div>
 
