@@ -4509,8 +4509,14 @@ class MySQLCRM {
 
   async getPedidoById(id) {
     try {
-      // En algunas instalaciones la PK se referencia como Id (mayúscula) aunque se use "id" en el código.
-      // Además, a veces se intenta acceder por NumPedido (P25xxxx). Hacemos lookup robusto.
+      // Lookup robusto por PK (numérica) o por NumPedido (string).
+      // Importante: NO referenciar columnas que no existen (p.ej. Id vs id),
+      // o MySQL fallará con "Unknown column" y acabaríamos devolviendo null.
+      const meta = await this._ensurePedidosMeta().catch(() => null);
+      const tPedidos = meta?.tPedidos || 'pedidos';
+      const pk = meta?.pk || 'id';
+      const colNumPedido = meta?.colNumPedido || null;
+
       const raw = id;
       const asNum = Number(raw);
       const isNum = Number.isFinite(asNum) && asNum > 0;
@@ -4518,40 +4524,28 @@ class MySQLCRM {
 
       // 1) Buscar por ID numérico (Id/id)
       if (isNum) {
-        const sql = 'SELECT * FROM pedidos WHERE Id = ? OR id = ? LIMIT 1';
-        const rows = await this.query(sql, [asNum, asNum]);
+        const rows = await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`, [asNum]);
         if (rows && rows.length > 0) return rows[0];
       }
 
       // 1.1) Fallback (cuando el parámetro es un número "humano" de pedido):
       // Ejemplo: /pedidos/7 puede referirse a NumPedido = P250007 (no al ID interno).
       // Probamos con prefijos de los últimos años (PYY0007).
-      if (isNum) {
+      if (isNum && colNumPedido) {
         const sec = String(asNum).padStart(4, '0');
         const nowYear = new Date().getFullYear();
         const yearsToTry = [0, 1, 2, 3, 4, 5].map(d => nowYear - d);
         for (const y of yearsToTry) {
           const yy = String(y).slice(-2);
           const numPedido = `P${yy}${sec}`;
-          const rowsByNum = await this.query(
-            'SELECT * FROM pedidos WHERE NumPedido = ? OR Numero_Pedido = ? OR `Número_Pedido` = ? OR `Número Pedido` = ? LIMIT 1',
-            [numPedido, numPedido, numPedido, numPedido]
-          );
+          const rowsByNum = await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${colNumPedido}\` = ? LIMIT 1`, [numPedido]);
           if (rowsByNum && rowsByNum.length > 0) return rowsByNum[0];
         }
       }
 
       // 2) Fallback: buscar por NumPedido si el parámetro parece un número de pedido
-      if (asStr) {
-        const sqlNumPedido = `
-          SELECT * FROM pedidos
-          WHERE NumPedido = ?
-             OR Numero_Pedido = ?
-             OR \`Número_Pedido\` = ?
-             OR \`Número Pedido\` = ?
-          LIMIT 1
-        `;
-        const rowsNum = await this.query(sqlNumPedido, [asStr, asStr, asStr, asStr]);
+      if (asStr && colNumPedido) {
+        const rowsNum = await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${colNumPedido}\` = ? LIMIT 1`, [asStr]);
         if (rowsNum && rowsNum.length > 0) return rowsNum[0];
       }
 
