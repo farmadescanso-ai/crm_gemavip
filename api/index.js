@@ -638,6 +638,9 @@ app.get('/pedidos/new', requireAdmin, async (_req, res, next) => {
     ]);
     // Nota: artículos puede ser grande; lo usamos para selector simple (mejorable con búsqueda más adelante).
     const articulos = await db.getArticulos({}).catch(() => []);
+    const clientesRecent = await db
+      .getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
+      .catch(() => []);
     res.render('pedido-form', {
       mode: 'create',
       comerciales: Array.isArray(comerciales) ? comerciales : [],
@@ -647,13 +650,14 @@ app.get('/pedidos/new', requireAdmin, async (_req, res, next) => {
       item: {
         Id_Cial: res.locals.user?.id ?? null,
         Id_Tarifa: 0,
-        Serie: 'WEB',
+        Serie: 'P',
         EstadoPedido: 'Pendiente',
         Id_FormaPago: null,
         Id_TipoPedido: null,
         Observaciones: ''
       },
       lineas: [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
+      clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
       error: null
     });
   } catch (e) {
@@ -677,7 +681,8 @@ app.post('/pedidos/new', requireAdmin, async (req, res, next) => {
       Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
-      Serie: String(body.Serie || 'WEB').trim(),
+      // Serie fija para pedidos en este CRM
+      Serie: 'P',
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
       FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
       EstadoPedido: String(body.EstadoPedido || 'Pendiente').trim(),
@@ -697,8 +702,8 @@ app.post('/pedidos/new', requireAdmin, async (req, res, next) => {
         error: 'Id_Cial e Id_Cliente son obligatorios'
       });
     }
-    if (!pedidoPayload.Serie || !pedidoPayload.EstadoPedido) {
-      return res.status(400).render('pedido-form', { mode: 'create', comerciales, tarifas, formasPago, articulos, item: pedidoPayload, lineas, error: 'Serie y EstadoPedido son obligatorios' });
+    if (!pedidoPayload.EstadoPedido) {
+      return res.status(400).render('pedido-form', { mode: 'create', comerciales, tarifas, formasPago, articulos, item: pedidoPayload, lineas, error: 'EstadoPedido es obligatorio' });
     }
 
     const created = await db.createPedido(pedidoPayload);
@@ -717,8 +722,9 @@ app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
     const item = await db.getPedidoById(id);
     if (!item) return res.status(404).send('No encontrado');
     const lineas = await db.getArticulosByPedido(id);
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
     const admin = isAdminUser(res.locals.user);
-    res.render('pedido', { item, lineas: lineas || [], admin });
+    res.render('pedido', { item, lineas: lineas || [], cliente, admin });
   } catch (e) {
     next(e);
   }
@@ -736,11 +742,14 @@ app.get('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const articulos = await db.getArticulos({}).catch(() => []);
+    const clientesRecent = await db
+      .getClientesOptimizadoPaged({ comercial: item?.Id_Cial ?? res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
+      .catch(() => []);
     const lineasRaw = await db.getArticulosByPedido(id);
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
       ? lineasRaw.map((l) => ({ Id_Articulo: l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? '', Cantidad: l.Cantidad ?? l.Unidades ?? 1, Dto: l.Dto ?? '' }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
-    res.render('pedido-form', { mode: 'edit', item, lineas, tarifas, formasPago, comerciales, articulos, error: null });
+    res.render('pedido-form', { mode: 'edit', item, lineas, tarifas, formasPago, comerciales, articulos, clientes: Array.isArray(clientesRecent) ? clientesRecent : [], error: null });
   } catch (e) {
     next(e);
   }
@@ -768,7 +777,7 @@ app.post('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
       Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
-      Serie: String(body.Serie || 'WEB').trim(),
+      Serie: 'P',
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
       FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
       EstadoPedido: String(body.EstadoPedido || '').trim(),

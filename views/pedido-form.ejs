@@ -1,8 +1,50 @@
 <%- include('partials/header', { title: mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' }) %>
 
+<style>
+  /* Estética tipo documento (pedido/factura) */
+  .gv-doc {
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 14px;
+    background: #fff;
+    padding: 14px;
+  }
+  .gv-doc__title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .gv-doc__title h2 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .gv-doc__meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-weight: 800;
+    color: var(--gv-muted);
+    font-size: 12px;
+  }
+  .gv-doc__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 920px) {
+    .gv-doc__grid { grid-template-columns: 1fr; }
+  }
+</style>
+
 <section class="card" style="max-width: 1100px; margin: 0 auto;">
   <div class="card-hd">
-    <h1 class="card-title"><%= mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' %></h1>
+    <h1 class="card-title">
+      <%= mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' %>
+      <% if (mode === 'edit') { %>
+        · <span style="font-weight:900;"><%= item.NumPedido ?? '' %></span>
+      <% } %>
+    </h1>
     <p class="card-subtitle">Cabecera + líneas. Al guardar, recalculamos base/IVA/total con la tarifa.</p>
   </div>
   <div class="card-bd">
@@ -12,7 +54,22 @@
     <% } %>
 
     <form method="post" action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id) + '/edit') : '/pedidos/new' %>" style="display:grid; gap: 12px;">
-      <div class="grid cols-3" style="gap: 12px;">
+      <!-- Serie fija -->
+      <input type="hidden" name="Serie" value="P" />
+
+      <div class="gv-doc">
+        <div class="gv-doc__title">
+          <h2>Cabecera</h2>
+          <div class="gv-doc__meta">
+            <% if (mode === 'edit') { %>
+              <span>Nº <%= item.NumPedido ?? '' %></span>
+            <% } %>
+            <span>Serie P</span>
+          </div>
+        </div>
+        <div style="height: 10px;"></div>
+
+      <div class="gv-doc__grid">
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial (Id_Cial) *</span>
           <select name="Id_Cial" required>
@@ -26,9 +83,33 @@
         </label>
 
         <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cliente (Id_Cliente) *</span>
-          <input name="Id_Cliente" type="number" min="1" required value="<%= item.Id_Cliente ?? '' %>" />
-          <span style="font-size: 12px; color: var(--gv-muted);">Por ahora es ID numérico (podemos añadir picker igual que en visitas).</span>
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cliente *</span>
+          <div class="gv-client-picker" data-client-picker>
+            <input
+              type="search"
+              class="gv-client-picker__q"
+              placeholder="Buscar cliente (nombre, CIF, email, teléfono, CP o ID...)"
+              autocomplete="off"
+              value=""
+            />
+            <div class="gv-client-picker__results" hidden></div>
+            <input name="Id_Cliente" type="hidden" class="gv-client-picker__id" value="<%= item.Id_Cliente ?? '' %>" />
+            <div style="font-size: 12px; color: var(--gv-muted);">
+              Consejo: escribe al menos 3 letras (o un ID numérico) y selecciona un resultado.
+            </div>
+            <div class="gv-client-picker__recent" style="display:none;">
+              <div style="font-size: 12px; color: var(--gv-muted); font-weight: 700; margin-top: 6px;">
+                Recientes:
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top: 6px;">
+                <% (clientes || []).slice(0, 10).forEach((c) => { %>
+                  <button class="btn secondary" type="button" data-client-pick="<%= c.Id %>" data-client-label="<%= c.Nombre_Razon_Social %>" style="padding: 6px 10px; border-radius: 999px;">
+                    <%= c.Id %> · <%= c.Nombre_Razon_Social %>
+                  </button>
+                <% }) %>
+              </div>
+            </div>
+          </div>
         </label>
 
         <label style="display:grid; gap: 6px;">
@@ -43,12 +124,12 @@
           </select>
         </label>
       </div>
+      </div>
 
-      <div class="grid cols-3" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Serie *</span>
-          <input name="Serie" required value="<%= item.Serie ?? 'WEB' %>" />
-        </label>
+      <div class="gv-doc">
+        <div class="gv-doc__title"><h2>Fechas y estado</h2></div>
+        <div style="height: 10px;"></div>
+      <div class="gv-doc__grid">
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">EstadoPedido *</span>
           <input name="EstadoPedido" required value="<%= item.EstadoPedido ?? 'Pendiente' %>" />
@@ -58,8 +139,12 @@
           <input name="FechaPedido" type="date" value="<%= fmtDateISO(item.FechaPedido ?? '') %>" />
         </label>
       </div>
+      </div>
 
-      <div class="grid cols-3" style="gap: 12px;">
+      <div class="gv-doc">
+        <div class="gv-doc__title"><h2>Pago y tipo</h2></div>
+        <div style="height: 10px;"></div>
+      <div class="gv-doc__grid">
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">FechaEntrega</span>
           <input name="FechaEntrega" type="date" value="<%= fmtDateISO(item.FechaEntrega ?? '') %>" />
@@ -84,11 +169,14 @@
           <input name="Id_TipoPedido" type="number" min="0" value="<%= item.Id_TipoPedido ?? 0 %>" />
         </label>
       </div>
+      </div>
 
-      <label style="display:grid; gap: 6px;">
+      <div class="gv-doc">
+      <label style="display:grid; gap: 6px; margin:0;">
         <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>
         <textarea name="Observaciones" rows="3"><%= item.Observaciones ?? '' %></textarea>
       </label>
+      </div>
 
       <div class="card" style="padding: 12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap:wrap;">
