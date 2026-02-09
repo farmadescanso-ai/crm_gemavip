@@ -4576,17 +4576,57 @@ class MySQLCRM {
 
   async getArticulosByPedido(pedidoId) {
     try {
-      // Primero obtener el número de pedido desde el ID
-      const pedido = await this.query('SELECT NumPedido FROM pedidos WHERE Id = ? OR id = ? LIMIT 1', [pedidoId, pedidoId]);
-      if (!pedido || pedido.length === 0) {
-        return [];
+      const idNum = Number(pedidoId);
+      if (!Number.isFinite(idNum) || idNum <= 0) return [];
+
+      // Resolver pedido (para recuperar NumPedido si existe)
+      const pedido = await this.getPedidoById(idNum);
+      if (!pedido) return [];
+
+      const pedidosMeta = await this._ensurePedidosMeta();
+      const paMeta = await this._ensurePedidosArticulosMeta();
+      const tPA = paMeta.table;
+
+      const tArt = await this._resolveTableNameCaseInsensitive('articulos').catch(() => null);
+      const aCols = tArt ? await this._getColumns(tArt).catch(() => []) : [];
+      const aPk = this._pickCIFromColumns(aCols, ['Id', 'id']) || 'Id';
+
+      const where = [];
+      const params = [];
+
+      // Enlace por ID de pedido (según la instalación)
+      if (paMeta.colPedidoId) {
+        where.push(`pa.\`${paMeta.colPedidoId}\` = ?`);
+        params.push(idNum);
       }
-      const numPedido = pedido[0].NumPedido;
-      
-      // La tabla pedidos_articulos usa NumPedido (varchar) y Id_Articulo (int)
-      const sql = 'SELECT pa.*, a.* FROM pedidos_articulos pa LEFT JOIN articulos a ON pa.Id_Articulo = a.Id WHERE pa.NumPedido = ? ORDER BY pa.id ASC';
-      const rows = await this.query(sql, [numPedido]);
-      return rows;
+      if (paMeta.colPedidoIdNum) {
+        where.push(`pa.\`${paMeta.colPedidoIdNum}\` = ?`);
+        params.push(idNum);
+      }
+
+      // Enlace por NumPedido si existe en ambas tablas
+      const colNumPedidoPedido = pedidosMeta.colNumPedido;
+      const colNumPedidoLinea = paMeta.colNumPedido;
+      const numPedido = colNumPedidoPedido ? (pedido[colNumPedidoPedido] ?? pedido.NumPedido ?? pedido.Numero_Pedido ?? null) : null;
+      if (numPedido && colNumPedidoLinea) {
+        where.push(`pa.\`${colNumPedidoLinea}\` = ?`);
+        params.push(String(numPedido).trim());
+      }
+
+      if (!where.length) return [];
+
+      const joinArticulo = (tArt && paMeta.colArticulo)
+        ? `LEFT JOIN \`${tArt}\` a ON pa.\`${paMeta.colArticulo}\` = a.\`${aPk}\``
+        : '';
+
+      const sql = `
+        SELECT pa.*${joinArticulo ? ', a.*' : ''}
+        FROM \`${tPA}\` pa
+        ${joinArticulo}
+        WHERE (${where.join(' OR ')})
+        ORDER BY pa.\`${paMeta.pk}\` ASC
+      `;
+      return await this.query(sql, params);
     } catch (error) {
       console.error('❌ Error obteniendo artículos por pedido:', error.message);
       return [];
@@ -4595,30 +4635,428 @@ class MySQLCRM {
 
   async updatePedido(id, payload) {
     try {
-      const fields = [];
-      const values = [];
-      
-      for (const [key, value] of Object.entries(payload)) {
-        fields.push(`\`${key}\` = ?`);
-        values.push(value);
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+      if (!payload || typeof payload !== 'object') throw new Error('Payload no válido');
+
+      if (!this.connected && !this.pool) await this.connect();
+
+      const { tPedidos, pk } = await this._ensurePedidosMeta();
+      const cols = await this._getColumns(tPedidos).catch(() => []);
+      const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
+
+      const filtered = {};
+      for (const [k, v] of Object.entries(payload)) {
+        const real = colsLower.get(String(k).toLowerCase());
+        if (real && String(real).toLowerCase() !== String(pk).toLowerCase()) filtered[real] = v;
       }
-      
-      values.push(id);
-      // Usar 'id' (minúscula) en lugar de 'Id' (mayúscula) según la estructura de la base de datos
-      const sql = `UPDATE pedidos SET ${fields.join(', ')} WHERE id = ?`;
-      await this.query(sql, values);
-      return { affectedRows: 1 };
+
+      const keys = Object.keys(filtered);
+      if (!keys.length) return { affectedRows: 0 };
+
+      const fields = keys.map((k) => `\`${k}\` = ?`).join(', ');
+      const values = keys.map((k) => filtered[k]);
+      values.push(idNum);
+
+      const sql = `UPDATE \`${tPedidos}\` SET ${fields} WHERE \`${pk}\` = ?`;
+      const [result] = await this.pool.execute(sql, values);
+      return { affectedRows: result?.affectedRows || 0, changedRows: result?.changedRows || 0 };
     } catch (error) {
       console.error('❌ Error actualizando pedido:', error.message);
       throw error;
     }
   }
 
+  async updatePedidoWithLineas(id, pedidoPayload, lineasPayload, options = {}) {
+    // Actualiza cabecera + reemplaza líneas en una transacción, manteniendo el mismo ID.
+    try {
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+      if (!Array.isArray(lineasPayload)) throw new Error('Lineas no válidas (debe ser array)');
+      if (pedidoPayload && typeof pedidoPayload !== 'object') throw new Error('Pedido no válido');
+
+      if (!this.connected && !this.pool) await this.connect();
+
+      const pedidosMeta = await this._ensurePedidosMeta();
+      const paMeta = await this._ensurePedidosArticulosMeta();
+
+      const tPedidos = pedidosMeta.tPedidos;
+      const pk = pedidosMeta.pk;
+      const colNumPedido = pedidosMeta.colNumPedido;
+
+      const pedidosCols = await this._getColumns(tPedidos).catch(() => []);
+      const pedidosColsLower = new Map((pedidosCols || []).map((c) => [String(c).toLowerCase(), c]));
+      const pickPedidoCol = (cands) => this._pickCIFromColumns(pedidosCols, cands);
+      const colTarifaId = pickPedidoCol(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
+      const colTarifaLegacy = pickPedidoCol(['Tarifa', 'tarifa']);
+      const colDtoPedido = pickPedidoCol(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
+
+      const colTotalPedido = pickPedidoCol(['TotalPedido', 'Total_Pedido', 'total_pedido', 'Total', 'total', 'ImporteTotal', 'importe_total', 'Importe', 'importe']);
+      const colBasePedido = pickPedidoCol(['BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Neto', 'neto', 'ImporteNeto', 'importe_neto']);
+      const colIvaPedido = pickPedidoCol(['TotalIva', 'total_iva', 'TotalIVA', 'IvaTotal', 'iva_total', 'ImporteIVA', 'importe_iva']);
+      const colDescuentoPedido = pickPedidoCol(['TotalDescuento', 'total_descuento', 'DescuentoTotal', 'descuento_total', 'ImporteDescuento', 'importe_descuento']);
+
+      const paCols = await this._getColumns(paMeta.table).catch(() => []);
+      const paColsLower = new Map((paCols || []).map((c) => [String(c).toLowerCase(), c]));
+      const pickPaCol = (cands) => this._pickCIFromColumns(paCols, cands);
+
+      const colQty = pickPaCol(['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']);
+      const colPrecioUnit = pickPaCol(['PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl', 'PCP', 'pcp']);
+      const colDtoLinea = pickPaCol(['Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
+      const colIvaPctLinea = pickPaCol(['PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'IVA', 'iva', 'TipoIVA', 'tipo_iva']);
+      const colBaseLinea = pickPaCol(['Base', 'base', 'BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Importe', 'importe', 'Neto', 'neto']);
+      const colIvaImporteLinea = pickPaCol(['ImporteIVA', 'importe_iva', 'IvaImporte', 'iva_importe', 'TotalIVA', 'total_iva']);
+      const colTotalLinea = pickPaCol(['Total', 'total', 'TotalLinea', 'total_linea', 'ImporteTotal', 'importe_total', 'Bruto', 'bruto']);
+
+      // Preparar update cabecera filtrado
+      const filteredPedido = {};
+      const pedidoInput = pedidoPayload && typeof pedidoPayload === 'object' ? pedidoPayload : {};
+      for (const [k, v] of Object.entries(pedidoInput)) {
+        const real = pedidosColsLower.get(String(k).toLowerCase());
+        if (real && String(real).toLowerCase() !== String(pk).toLowerCase()) filteredPedido[real] = v;
+      }
+
+      // Calcular NumPedido final (si aplica) para enlazar líneas por número cuando exista
+      const numPedidoFromPayload =
+        colNumPedido && Object.prototype.hasOwnProperty.call(filteredPedido, colNumPedido) && String(filteredPedido[colNumPedido] ?? '').trim()
+          ? String(filteredPedido[colNumPedido]).trim()
+          : null;
+
+      const conn = await this.pool.getConnection();
+      try {
+        try { await conn.query("SET time_zone = 'Europe/Madrid'"); } catch (_) {}
+        await conn.beginTransaction();
+
+        // Leer pedido actual (dentro de la transacción)
+        const selectCols = Array.from(new Set([pk, colNumPedido, colTarifaId, colTarifaLegacy, colDtoPedido].filter(Boolean)));
+        const selectSql = `SELECT ${selectCols.map((c) => `\`${c}\``).join(', ')} FROM \`${tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`;
+        const [rows] = await conn.execute(selectSql, [idNum]);
+        if (!rows || rows.length === 0) throw new Error('Pedido no encontrado');
+        const current = rows[0];
+
+        const finalNumPedido = numPedidoFromPayload || (colNumPedido ? (current[colNumPedido] ? String(current[colNumPedido]).trim() : null) : null);
+
+        const tarifaIdRaw =
+          (colTarifaId && Object.prototype.hasOwnProperty.call(filteredPedido, colTarifaId)) ? filteredPedido[colTarifaId]
+          : (colTarifaLegacy && Object.prototype.hasOwnProperty.call(filteredPedido, colTarifaLegacy)) ? filteredPedido[colTarifaLegacy]
+          : (colTarifaId ? current[colTarifaId] : (colTarifaLegacy ? current[colTarifaLegacy] : null));
+        const tarifaId = Number.parseInt(String(tarifaIdRaw ?? '').trim(), 10);
+        const hasTarifaId = Number.isFinite(tarifaId) && tarifaId > 0;
+
+        const dtoPedidoRaw =
+          (colDtoPedido && Object.prototype.hasOwnProperty.call(filteredPedido, colDtoPedido)) ? filteredPedido[colDtoPedido]
+          : (colDtoPedido ? current[colDtoPedido] : null);
+        const dtoPedido = Number.isFinite(Number(dtoPedidoRaw)) ? Number(dtoPedidoRaw) : (dtoPedidoRaw !== null && dtoPedidoRaw !== undefined ? (Number.parseFloat(String(dtoPedidoRaw).replace(',', '.')) || 0) : 0);
+
+        // Resolver tarifa activa (tarifasClientes) + vigencia (best-effort).
+        // Si no está activa o está fuera de rango, hacemos fallback a PVL (Id=0).
+        let effectiveTarifaId = 0;
+        let tarifaInfo = null;
+        if (hasTarifaId) {
+          try {
+            const tTar = await this._resolveTableNameCaseInsensitive('tarifasClientes');
+            const tarCols = await this._getColumns(tTar).catch(() => []);
+            const pickTar = (cands) => this._pickCIFromColumns(tarCols, cands);
+            const tarPk = pickTar(['Id', 'id']) || 'Id';
+            const colActiva = pickTar(['Activa', 'activa']);
+            const colInicio = pickTar(['FechaInicio', 'fecha_inicio', 'Fecha_Inicio', 'inicio']);
+            const colFin = pickTar(['FechaFin', 'fecha_fin', 'Fecha_Fin', 'fin']);
+
+            const [tRows] = await conn.execute(`SELECT * FROM \`${tTar}\` WHERE \`${tarPk}\` = ? LIMIT 1`, [tarifaId]);
+            const row = (tRows && tRows[0]) ? tRows[0] : null;
+            if (row) {
+              const activaRaw = colActiva ? row[colActiva] : 1;
+              const activa =
+                activaRaw === 1 || activaRaw === '1' || activaRaw === true ||
+                (typeof activaRaw === 'string' && ['ok', 'si', 'sí', 'true'].includes(activaRaw.trim().toLowerCase()));
+
+              const now = new Date();
+              const start = colInicio && row[colInicio] ? new Date(row[colInicio]) : null;
+              const end = colFin && row[colFin] ? new Date(row[colFin]) : null;
+              const inRange = (!start || now >= start) && (!end || now <= end);
+
+              if (activa && inRange) {
+                effectiveTarifaId = tarifaId;
+                tarifaInfo = row;
+              }
+            }
+          } catch (_) {
+            effectiveTarifaId = 0;
+            tarifaInfo = null;
+          }
+        }
+
+        // Prefetch artículos necesarios (best-effort)
+        const articuloIds = new Set();
+        for (const lineaRaw of lineasPayload) {
+          const linea = lineaRaw && typeof lineaRaw === 'object' ? lineaRaw : {};
+          const idArt =
+            (paMeta.colArticulo && linea[paMeta.colArticulo] !== undefined) ? linea[paMeta.colArticulo]
+            : (linea.Id_Articulo ?? linea.id_articulo ?? linea.ArticuloId ?? linea.articuloId);
+          const n = Number.parseInt(String(idArt ?? '').trim(), 10);
+          if (Number.isFinite(n) && n > 0) articuloIds.add(n);
+        }
+        let articulosById = new Map();
+        let artPk = 'id';
+        let tArt = null;
+        try {
+          if (paMeta.colArticulo && articuloIds.size > 0) {
+            tArt = await this._resolveTableNameCaseInsensitive('articulos');
+            const artCols = await this._getColumns(tArt).catch(() => []);
+            artPk = this._pickCIFromColumns(artCols, ['id', 'Id']) || 'id';
+            const idsArr = Array.from(articuloIds);
+            const ph = idsArr.map(() => '?').join(', ');
+            const [aRows] = await conn.execute(`SELECT * FROM \`${tArt}\` WHERE \`${artPk}\` IN (${ph})`, idsArr);
+            articulosById = new Map((aRows || []).map((a) => [Number(a[artPk]), a]));
+          }
+        } catch (_) {
+          articulosById = new Map();
+        }
+
+        const getNum = (v, d = 0) => {
+          const n = (typeof v === 'number') ? v : Number.parseFloat(String(v ?? '').replace(',', '.'));
+          return Number.isFinite(n) ? n : d;
+        };
+        const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+        const clampPct = (n) => Math.max(0, Math.min(100, Number(n) || 0));
+
+        // Prefetch precios por tarifa/Artículo desde `tarifasClientes_precios`
+        const preciosTarifa = new Map(); // Id_Articulo -> Precio para la tarifa efectiva
+        const preciosPVL = new Map(); // Id_Articulo -> Precio PVL (Id_Tarifa=0)
+        try {
+          if (articuloIds.size > 0) {
+            const tTP = await this._resolveTableNameCaseInsensitive('tarifasClientes_precios');
+            const tpCols = await this._getColumns(tTP).catch(() => []);
+            const pickTP = (cands) => this._pickCIFromColumns(tpCols, cands);
+            const cTar = pickTP(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']) || 'Id_Tarifa';
+            const cArt = pickTP(['Id_Articulo', 'id_articulo', 'ArticuloId', 'articulo_id']) || 'Id_Articulo';
+            const cPrecio = pickTP(['Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl']) || 'Precio';
+
+            const idsArr = Array.from(articuloIds);
+            const ph = idsArr.map(() => '?').join(', ');
+
+            if (effectiveTarifaId && effectiveTarifaId !== 0) {
+              const [rowsP] = await conn.execute(
+                `SELECT \`${cTar}\` AS Id_Tarifa, \`${cArt}\` AS Id_Articulo, \`${cPrecio}\` AS Precio
+                 FROM \`${tTP}\`
+                 WHERE \`${cTar}\` IN (?, 0) AND \`${cArt}\` IN (${ph})`,
+                [effectiveTarifaId, ...idsArr]
+              );
+              for (const r of (rowsP || [])) {
+                const tid = Number.parseInt(String(r.Id_Tarifa ?? '').trim(), 10);
+                const aid = Number.parseInt(String(r.Id_Articulo ?? '').trim(), 10);
+                const pr = getNum(r.Precio, NaN);
+                if (!Number.isFinite(aid) || aid <= 0) continue;
+                if (!Number.isFinite(pr) || pr < 0) continue;
+                if (tid === 0) preciosPVL.set(aid, pr);
+                if (tid === effectiveTarifaId) preciosTarifa.set(aid, pr);
+              }
+            } else {
+              const [rowsP] = await conn.execute(
+                `SELECT \`${cArt}\` AS Id_Articulo, \`${cPrecio}\` AS Precio
+                 FROM \`${tTP}\`
+                 WHERE \`${cTar}\` = 0 AND \`${cArt}\` IN (${ph})`,
+                idsArr
+              );
+              for (const r of (rowsP || [])) {
+                const aid = Number.parseInt(String(r.Id_Articulo ?? '').trim(), 10);
+                const pr = getNum(r.Precio, NaN);
+                if (!Number.isFinite(aid) || aid <= 0) continue;
+                if (!Number.isFinite(pr) || pr < 0) continue;
+                preciosPVL.set(aid, pr);
+              }
+            }
+          }
+        } catch (_) {
+          // ignore (best-effort)
+        }
+
+        const getPrecioFromTarifa = (art, artId) => {
+          if (!art || typeof art !== 'object') return 0;
+          const pvlArticulo = getNum(art.PVL ?? art.pvl ?? 0, 0);
+          const pvl = (artId && preciosPVL.has(artId)) ? preciosPVL.get(artId) : pvlArticulo;
+          if (effectiveTarifaId && effectiveTarifaId !== 0 && artId && preciosTarifa.has(artId)) {
+            return preciosTarifa.get(artId);
+          }
+          return pvl;
+        };
+
+        // 1) Update cabecera (si hay campos)
+        const pedidoKeys = Object.keys(filteredPedido);
+        let updatedPedido = { affectedRows: 0, changedRows: 0 };
+        if (pedidoKeys.length) {
+          const fields = pedidoKeys.map((c) => `\`${c}\` = ?`).join(', ');
+          const values = pedidoKeys.map((c) => filteredPedido[c]);
+          values.push(idNum);
+          const updSql = `UPDATE \`${tPedidos}\` SET ${fields} WHERE \`${pk}\` = ?`;
+          const [updRes] = await conn.execute(updSql, values);
+          updatedPedido = { affectedRows: updRes?.affectedRows || 0, changedRows: updRes?.changedRows || 0 };
+        }
+
+        // 2) Borrar líneas actuales (por las columnas de enlace que existan)
+        const where = [];
+        const params = [];
+        if (paMeta.colPedidoId) {
+          where.push(`\`${paMeta.colPedidoId}\` = ?`);
+          params.push(idNum);
+        }
+        if (paMeta.colPedidoIdNum) {
+          where.push(`\`${paMeta.colPedidoIdNum}\` = ?`);
+          params.push(idNum);
+        }
+        if (paMeta.colNumPedido && finalNumPedido) {
+          where.push(`\`${paMeta.colNumPedido}\` = ?`);
+          params.push(finalNumPedido);
+        }
+        if (!where.length) throw new Error('No se pudo determinar cómo enlazar líneas con el pedido (faltan columnas)');
+
+        const [delRes] = await conn.execute(`DELETE FROM \`${paMeta.table}\` WHERE (${where.join(' OR ')})`, params);
+        const deletedLineas = delRes?.affectedRows || 0;
+
+        // 3) Insertar nuevas líneas
+        const insertedIds = [];
+        let sumBase = 0;
+        let sumIva = 0;
+        let sumTotal = 0;
+        let sumDescuento = 0;
+        for (const lineaRaw of lineasPayload) {
+          const linea = lineaRaw && typeof lineaRaw === 'object' ? lineaRaw : {};
+
+          const mysqlData = {};
+          for (const [k, v] of Object.entries(linea)) {
+            const real = paColsLower.get(String(k).toLowerCase());
+            if (!real) continue;
+            if (String(real).toLowerCase() === String(paMeta.pk).toLowerCase()) continue;
+            if (Array.isArray(v) && v.length > 0 && v[0]?.Id) mysqlData[real] = v[0].Id;
+            else mysqlData[real] = v === undefined ? null : v;
+          }
+
+          // Forzar relación con el pedido (solo si existe la columna)
+          if (paMeta.colPedidoId && !Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colPedidoId)) mysqlData[paMeta.colPedidoId] = idNum;
+          if (paMeta.colPedidoIdNum && !Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colPedidoIdNum)) mysqlData[paMeta.colPedidoIdNum] = idNum;
+          if (paMeta.colNumPedido && finalNumPedido && !Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colNumPedido)) mysqlData[paMeta.colNumPedido] = finalNumPedido;
+
+          // --- Cálculos best-effort (tarifa + dto + iva) ---
+          let articulo = null;
+          let artId = null;
+          if (paMeta.colArticulo) {
+            const rawArtId =
+              Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colArticulo) ? mysqlData[paMeta.colArticulo]
+              : (linea.Id_Articulo ?? linea.id_articulo ?? linea.ArticuloId ?? linea.articuloId);
+            const n = Number.parseInt(String(rawArtId ?? '').trim(), 10);
+            if (Number.isFinite(n) && n > 0) {
+              artId = n;
+              articulo = articulosById.get(n) || null;
+            }
+          }
+
+          const qty = colQty ? Math.max(0, getNum(mysqlData[colQty], 0)) : Math.max(0, getNum(linea.Cantidad ?? linea.Unidades ?? 0, 0));
+
+          let precioUnit = 0;
+          if (colPrecioUnit && mysqlData[colPrecioUnit] !== null && mysqlData[colPrecioUnit] !== undefined && String(mysqlData[colPrecioUnit]).trim() !== '') {
+            precioUnit = Math.max(0, getNum(mysqlData[colPrecioUnit], 0));
+          } else if (articulo) {
+            precioUnit = Math.max(0, getPrecioFromTarifa(articulo, artId));
+          }
+
+          const dtoLinea = colDtoLinea ? clampPct(getNum(mysqlData[colDtoLinea], dtoPedido)) : clampPct(getNum(linea.Dto ?? linea.Descuento ?? dtoPedido, dtoPedido));
+          const bruto = round2(qty * precioUnit);
+          const base = round2(bruto * (1 - dtoLinea / 100));
+
+          // IVA porcentaje (prioridad: línea explícita -> artículo -> 0)
+          let ivaPct = 0;
+          if (colIvaPctLinea && mysqlData[colIvaPctLinea] !== null && mysqlData[colIvaPctLinea] !== undefined && String(mysqlData[colIvaPctLinea]).trim() !== '') {
+            ivaPct = clampPct(getNum(mysqlData[colIvaPctLinea], 0));
+          } else if (articulo) {
+            ivaPct = clampPct(getNum(articulo.IVA ?? articulo.iva ?? 0, 0));
+          }
+          const ivaImporte = round2(base * ivaPct / 100);
+          const total = round2(base + ivaImporte);
+          const descuento = round2(bruto - base);
+
+          sumBase += base;
+          sumIva += ivaImporte;
+          sumTotal += total;
+          sumDescuento += descuento;
+
+          // Guardar campos calculados si existen (sin pisar si ya vienen en payload)
+          if (colPrecioUnit && (mysqlData[colPrecioUnit] === null || mysqlData[colPrecioUnit] === undefined || String(mysqlData[colPrecioUnit]).trim() === '')) {
+            mysqlData[colPrecioUnit] = precioUnit;
+          }
+          if (colDtoLinea && (mysqlData[colDtoLinea] === null || mysqlData[colDtoLinea] === undefined || String(mysqlData[colDtoLinea]).trim() === '')) {
+            mysqlData[colDtoLinea] = dtoLinea;
+          }
+          if (colIvaPctLinea && (mysqlData[colIvaPctLinea] === null || mysqlData[colIvaPctLinea] === undefined || String(mysqlData[colIvaPctLinea]).trim() === '')) {
+            mysqlData[colIvaPctLinea] = ivaPct;
+          }
+          if (colBaseLinea && (mysqlData[colBaseLinea] === null || mysqlData[colBaseLinea] === undefined || String(mysqlData[colBaseLinea]).trim() === '')) {
+            mysqlData[colBaseLinea] = base;
+          }
+          if (colIvaImporteLinea && (mysqlData[colIvaImporteLinea] === null || mysqlData[colIvaImporteLinea] === undefined || String(mysqlData[colIvaImporteLinea]).trim() === '')) {
+            mysqlData[colIvaImporteLinea] = ivaImporte;
+          }
+          if (colTotalLinea && (mysqlData[colTotalLinea] === null || mysqlData[colTotalLinea] === undefined || String(mysqlData[colTotalLinea]).trim() === '')) {
+            mysqlData[colTotalLinea] = total;
+          }
+
+          // Si tras filtrar no queda nada útil, saltar (evita inserts vacíos)
+          const keys = Object.keys(mysqlData);
+          if (!keys.length) continue;
+
+          const fields = keys.map((c) => `\`${c}\``).join(', ');
+          const placeholders = keys.map(() => '?').join(', ');
+          const values = keys.map((c) => mysqlData[c]);
+
+          const insSql = `INSERT INTO \`${paMeta.table}\` (${fields}) VALUES (${placeholders})`;
+          const [insRes] = await conn.execute(insSql, values);
+          if (insRes?.insertId) insertedIds.push(insRes.insertId);
+        }
+
+        // 4) Actualizar totales del pedido (best-effort, sólo columnas existentes)
+        const totalsUpdate = {};
+        if (colTotalPedido) totalsUpdate[colTotalPedido] = round2(sumTotal);
+        if (colBasePedido) totalsUpdate[colBasePedido] = round2(sumBase);
+        if (colIvaPedido) totalsUpdate[colIvaPedido] = round2(sumIva);
+        if (colDescuentoPedido) totalsUpdate[colDescuentoPedido] = round2(sumDescuento);
+        const totalKeys = Object.keys(totalsUpdate);
+        if (totalKeys.length) {
+          const fields = totalKeys.map((c) => `\`${c}\` = ?`).join(', ');
+          const values = totalKeys.map((c) => totalsUpdate[c]);
+          values.push(idNum);
+          await conn.execute(`UPDATE \`${tPedidos}\` SET ${fields} WHERE \`${pk}\` = ?`, values);
+        }
+
+        await conn.commit();
+        return {
+          pedido: updatedPedido,
+          deletedLineas,
+          insertedLineas: insertedIds.length,
+          insertedIds,
+          numPedido: finalNumPedido,
+          totals: { base: round2(sumBase), iva: round2(sumIva), total: round2(sumTotal), descuento: round2(sumDescuento) },
+          tarifa: { Id_Tarifa: effectiveTarifaId, info: tarifaInfo || null }
+        };
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        throw e;
+      } finally {
+        conn.release();
+      }
+    } catch (error) {
+      console.error('❌ Error actualizando pedido con líneas:', error.message);
+      throw error;
+    }
+  }
+
   async deletePedidoLinea(id) {
     try {
-      const sql = 'DELETE FROM pedidos_articulos WHERE Id = ?';
-      const result = await this.query(sql, [id]);
-      return { affectedRows: result.affectedRows || 0 };
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+
+      const meta = await this._ensurePedidosArticulosMeta();
+      const sql = `DELETE FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ?`;
+      const result = await this.query(sql, [idNum]);
+      return { affectedRows: result?.affectedRows || 0 };
     } catch (error) {
       console.error('❌ Error eliminando línea de pedido:', error.message);
       throw error;
@@ -4627,11 +5065,61 @@ class MySQLCRM {
 
   async deletePedido(id) {
     try {
-      // Primero eliminar las líneas
-      await this.query('DELETE FROM pedidos_articulos WHERE PedidoId = ?', [id]);
-      // Luego el pedido
-      const result = await this.query('DELETE FROM pedidos WHERE Id = ?', [id]);
-      return { affectedRows: result.affectedRows || 0 };
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+
+      if (!this.connected && !this.pool) await this.connect();
+
+      const pedido = await this.getPedidoById(idNum);
+      if (!pedido) return { affectedRows: 0, deletedLineas: 0 };
+
+      const pedidosMeta = await this._ensurePedidosMeta();
+      const paMeta = await this._ensurePedidosArticulosMeta();
+
+      const colNumPedidoPedido = pedidosMeta.colNumPedido;
+      const numPedido = colNumPedidoPedido ? (pedido[colNumPedidoPedido] ?? pedido.NumPedido ?? pedido.Numero_Pedido ?? null) : null;
+
+      const where = [];
+      const params = [];
+      if (paMeta.colPedidoId) {
+        where.push(`\`${paMeta.colPedidoId}\` = ?`);
+        params.push(idNum);
+      }
+      if (paMeta.colPedidoIdNum) {
+        where.push(`\`${paMeta.colPedidoIdNum}\` = ?`);
+        params.push(idNum);
+      }
+      if (paMeta.colNumPedido && numPedido) {
+        where.push(`\`${paMeta.colNumPedido}\` = ?`);
+        params.push(String(numPedido).trim());
+      }
+
+      const conn = await this.pool.getConnection();
+      try {
+        try { await conn.query("SET time_zone = 'Europe/Madrid'"); } catch (_) {}
+        await conn.beginTransaction();
+
+        let deletedLineas = 0;
+        if (where.length) {
+          const [delLineasRes] = await conn.execute(
+            `DELETE FROM \`${paMeta.table}\` WHERE (${where.join(' OR ')})`,
+            params
+          );
+          deletedLineas = delLineasRes?.affectedRows || 0;
+        }
+
+        const [delPedidoRes] = await conn.execute(
+          `DELETE FROM \`${pedidosMeta.tPedidos}\` WHERE \`${pedidosMeta.pk}\` = ?`,
+          [idNum]
+        );
+        await conn.commit();
+        return { affectedRows: delPedidoRes?.affectedRows || 0, deletedLineas };
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        throw e;
+      } finally {
+        conn.release();
+      }
     } catch (error) {
       console.error('❌ Error eliminando pedido:', error.message);
       throw error;
@@ -4656,26 +5144,73 @@ class MySQLCRM {
         await this.connect();
       }
 
-      // Convertir formato NocoDB a MySQL
+      const { tPedidos, pk, colCliente, colFecha, colNumPedido } = await this._ensurePedidosMeta();
+      const cols = await this._getColumns(tPedidos).catch(() => []);
+      const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
+      const pick = (cands) => this._pickCIFromColumns(cols, cands);
+
+      const colTarifaId = pick(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
+      const colTarifaLegacy = pick(['Tarifa', 'tarifa']);
+      const colDtoPedido = pick(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
+
+      // Convertir formato NocoDB a MySQL + filtrar columnas válidas
       const mysqlData = {};
-      for (const [key, value] of Object.entries(pedidoData)) {
-        // Si el valor es un array con formato NocoDB [{ Id: ... }], extraer el ID
-        if (Array.isArray(value) && value.length > 0 && value[0].Id) {
-          mysqlData[key] = value[0].Id;
+      const input = pedidoData && typeof pedidoData === 'object' ? pedidoData : {};
+      for (const [key, value] of Object.entries(input)) {
+        const real = colsLower.get(String(key).toLowerCase());
+        if (!real) continue;
+        if (String(real).toLowerCase() === String(pk).toLowerCase()) continue;
+
+        if (Array.isArray(value) && value.length > 0 && value[0]?.Id) {
+          mysqlData[real] = value[0].Id;
         } else if (value === null || value === undefined || value === '') {
-          // No agregar campos con valores null/undefined/vacíos para evitar errores de "no default value"
-          // Solo agregar si el campo existe y tiene un valor válido
+          // no enviar vacíos por defecto
           continue;
         } else {
-          mysqlData[key] = value;
+          mysqlData[real] = value;
         }
+      }
+
+      // Defaults: NumPedido y Fecha si existen y no vienen
+      if (colNumPedido && (mysqlData[colNumPedido] === undefined || mysqlData[colNumPedido] === null || String(mysqlData[colNumPedido]).trim() === '')) {
+        mysqlData[colNumPedido] = await this.getNextNumeroPedido();
+      }
+      if (colFecha && mysqlData[colFecha] === undefined) {
+        mysqlData[colFecha] = new Date();
+      }
+
+      // Default Tarifa/Dto desde cliente si procede
+      try {
+        const clienteId = colCliente ? Number(mysqlData[colCliente] ?? input[colCliente] ?? input.Id_Cliente ?? input.ClienteId) : NaN;
+        const hasTarifa = (colTarifaId && mysqlData[colTarifaId] !== undefined) || (colTarifaLegacy && mysqlData[colTarifaLegacy] !== undefined);
+        const hasDto = colDtoPedido && mysqlData[colDtoPedido] !== undefined;
+        if (colCliente && Number.isFinite(clienteId) && clienteId > 0 && (!hasTarifa || !hasDto)) {
+          const cliente = await this.getClienteById(clienteId);
+          if (cliente) {
+            const tarifaCliente = cliente.Tarifa ?? cliente.tarifa ?? 0;
+            const dtoCliente = cliente.Dto ?? cliente.dto ?? null;
+            if (!hasTarifa) {
+              if (colTarifaId) mysqlData[colTarifaId] = Number.isFinite(Number(tarifaCliente)) ? Number(tarifaCliente) : 0;
+              else if (colTarifaLegacy) mysqlData[colTarifaLegacy] = Number.isFinite(Number(tarifaCliente)) ? Number(tarifaCliente) : 0;
+            }
+            if (!hasDto && colDtoPedido && dtoCliente !== null && dtoCliente !== undefined && dtoCliente !== '') {
+              mysqlData[colDtoPedido] = Number(dtoCliente) || 0;
+            }
+          }
+        }
+      } catch (_) {
+        // best-effort
+      }
+
+      if (Object.keys(mysqlData).length === 0) {
+        throw new Error('No hay campos válidos para crear el pedido');
       }
 
       const buildInsert = (dataObj) => {
         const fields = Object.keys(dataObj).map(key => `\`${key}\``).join(', ');
         const placeholders = Object.keys(dataObj).map(() => '?').join(', ');
         const values = Object.values(dataObj);
-        const sql = `INSERT INTO pedidos (${fields}) VALUES (${placeholders})`;
+        const sql = `INSERT INTO \`${tPedidos}\` (${fields}) VALUES (${placeholders})`;
         return { sql, values, fields };
       };
 
@@ -4728,25 +5263,35 @@ class MySQLCRM {
         await this.connect();
       }
 
-      // Convertir formato NocoDB a MySQL
+      const meta = await this._ensurePedidosArticulosMeta();
+      const cols = await this._getColumns(meta.table).catch(() => []);
+      const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
+
+      // Convertir formato NocoDB a MySQL + filtrar columnas válidas
       const mysqlData = {};
-      for (const [key, value] of Object.entries(payload)) {
-        // Si el valor es un array con formato NocoDB [{ Id: ... }], extraer el ID
-        if (Array.isArray(value) && value.length > 0 && value[0].Id) {
-          mysqlData[key] = value[0].Id;
+      const input = payload && typeof payload === 'object' ? payload : {};
+      for (const [key, value] of Object.entries(input)) {
+        const real = colsLower.get(String(key).toLowerCase());
+        if (!real) continue;
+        if (String(real).toLowerCase() === String(meta.pk).toLowerCase()) continue;
+        if (Array.isArray(value) && value.length > 0 && value[0]?.Id) {
+          mysqlData[real] = value[0].Id;
         } else if (value === null || value === undefined) {
-          mysqlData[key] = null;
+          mysqlData[real] = null;
         } else {
-          mysqlData[key] = value;
+          mysqlData[real] = value;
         }
       }
 
-      const fields = Object.keys(mysqlData).map(key => `\`${key}\``).join(', ');
+      if (Object.keys(mysqlData).length === 0) {
+        throw new Error('No hay campos válidos para crear la línea de pedido');
+      }
+
+      const fields = Object.keys(mysqlData).map((k) => `\`${k}\``).join(', ');
       const placeholders = Object.keys(mysqlData).map(() => '?').join(', ');
       const values = Object.values(mysqlData);
-      
-      const sql = `INSERT INTO pedidos_articulos (${fields}) VALUES (${placeholders})`;
-      // Usar pool.execute directamente para obtener el ResultSetHeader con insertId
+
+      const sql = `INSERT INTO \`${meta.table}\` (${fields}) VALUES (${placeholders})`;
       const [result] = await this.pool.execute(sql, values);
       const insertId = result.insertId;
       
@@ -4761,6 +5306,63 @@ class MySQLCRM {
       console.error('❌ Error creando línea de pedido:', error.message);
       console.error('❌ Datos que fallaron:', JSON.stringify(payload, null, 2));
       throw error;
+    }
+  }
+
+  async updatePedidoLinea(id, payload) {
+    try {
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+      if (!payload || typeof payload !== 'object') throw new Error('Payload no válido');
+
+      if (!this.connected && !this.pool) await this.connect();
+
+      const meta = await this._ensurePedidosArticulosMeta();
+      const cols = await this._getColumns(meta.table).catch(() => []);
+      const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
+
+      const filtered = {};
+      for (const [k, v] of Object.entries(payload)) {
+        const real = colsLower.get(String(k).toLowerCase());
+        if (real && String(real).toLowerCase() !== String(meta.pk).toLowerCase()) filtered[real] = v;
+      }
+      const keys = Object.keys(filtered);
+      if (!keys.length) return { affectedRows: 0 };
+
+      const fields = keys.map((k) => `\`${k}\` = ?`).join(', ');
+      const values = keys.map((k) => filtered[k]);
+      values.push(idNum);
+
+      const sql = `UPDATE \`${meta.table}\` SET ${fields} WHERE \`${meta.pk}\` = ?`;
+      const [result] = await this.pool.execute(sql, values);
+      return { affectedRows: result?.affectedRows || 0, changedRows: result?.changedRows || 0 };
+    } catch (error) {
+      console.error('❌ Error actualizando línea de pedido:', error.message);
+      throw error;
+    }
+  }
+
+  async getTarifas() {
+    // Best-effort:
+    // - Preferir `tarifasClientes`
+    // - Fallback a `tarifas` (legacy)
+    // - Si no existe nada, devolver PVL (0)
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('tarifasClientes');
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['Id', 'id']) || 'Id';
+      const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
+      return Array.isArray(rows) ? rows : [];
+    } catch (_) {
+      try {
+        const t = await this._resolveTableNameCaseInsensitive('tarifas');
+        const cols = await this._getColumns(t).catch(() => []);
+        const pk = this._pickCIFromColumns(cols, ['Id', 'id']) || 'id';
+        const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
+        return Array.isArray(rows) ? rows : [];
+      } catch (_) {
+        return [{ Id: 0, NombreTarifa: 'PVL', Activa: 1 }];
+      }
     }
   }
 
