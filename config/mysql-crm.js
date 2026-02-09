@@ -4697,6 +4697,8 @@ class MySQLCRM {
       const colQty = pickPaCol(['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']);
       const colPrecioUnit = pickPaCol(['PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl', 'PCP', 'pcp']);
       const colDtoLinea = pickPaCol(['Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
+      // Algunas instalaciones guardan además el nombre del artículo en texto (NOT NULL)
+      const colArticuloTxt = pickPaCol(['Articulo', 'articulo', 'NombreArticulo', 'nombre_articulo']);
       const colIvaPctLinea = pickPaCol(['PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'IVA', 'iva', 'TipoIVA', 'tipo_iva']);
       const colBaseLinea = pickPaCol(['Base', 'base', 'BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Importe', 'importe', 'Neto', 'neto']);
       const colIvaImporteLinea = pickPaCol(['ImporteIVA', 'importe_iva', 'IvaImporte', 'iva_importe', 'TotalIVA', 'total_iva']);
@@ -4941,6 +4943,19 @@ class MySQLCRM {
             if (Number.isFinite(n) && n > 0) {
               artId = n;
               articulo = articulosById.get(n) || null;
+            }
+          }
+
+          // Si existe columna Articulo (texto) y no viene informada, rellenar con el nombre/SKU
+          if (colArticuloTxt) {
+            const cur = mysqlData[colArticuloTxt];
+            const curStr = cur === null || cur === undefined ? '' : String(cur).trim();
+            if (!curStr) {
+              const nombre =
+                (articulo && (articulo.Nombre ?? articulo.nombre ?? articulo.Descripcion ?? articulo.descripcion ?? articulo.SKU ?? articulo.sku)) ??
+                null;
+              if (nombre && String(nombre).trim()) mysqlData[colArticuloTxt] = String(nombre).trim();
+              else if (artId) mysqlData[colArticuloTxt] = String(artId);
             }
           }
 
