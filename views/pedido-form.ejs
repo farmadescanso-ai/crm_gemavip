@@ -40,15 +40,16 @@
       <div class="gv-doc__grid">
         <label class="gv-field">
           <span class="gv-field__label">Comercial (Id_Cial) *</span>
-          <select name="Id_Cial" required class="gv-input" id="Id_Cial">
+          <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
+          <input type="hidden" name="Id_Cial" id="Id_Cial" value="<%= curCial || '' %>" />
+          <select disabled class="gv-input" id="Id_Cial__display">
             <option value="">(selecciona)</option>
-            <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
             <% (comerciales || []).forEach((c) => { %>
               <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
               <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
             <% }) %>
           </select>
-          <span class="gv-field__help">Se rellena por defecto según el cliente, pero puedes cambiarlo.</span>
+          <span class="gv-field__help">Se asigna automáticamente según el cliente seleccionado.</span>
         </label>
 
         <label class="gv-field">
@@ -64,6 +65,7 @@
             <div class="gv-client-picker__results" hidden></div>
             <input id="Id_Cliente" name="Id_Cliente" type="hidden" class="gv-client-picker__id" value="<%= item.Id_Cliente ?? '' %>" />
             <div class="gv-field__help">Consejo: escribe al menos 3 letras (o un ID numérico) y selecciona un resultado.</div>
+            <div id="pedidoAutosave" class="gv-field__help" style="display:none;"></div>
             <div class="gv-client-picker__recent" style="display:none;">
               <div class="gv-field__help" style="margin-top: 6px;">
                 Recientes:
@@ -208,8 +210,10 @@
     var btn = document.getElementById('addLineaBtn');
     var form = document.getElementById('pedidoForm');
     var selTarifa = document.getElementById('Id_Tarifa');
-    var selCial = document.getElementById('Id_Cial');
+    var hidCial = document.getElementById('Id_Cial');
+    var selCialDisplay = document.getElementById('Id_Cial__display');
     var hidCliente = document.getElementById('Id_Cliente');
+    var autosaveEl = document.getElementById('pedidoAutosave');
     if (!table || !btn) return;
     var firstSelect = table.querySelector('tbody select');
     var optionsHTML = firstSelect ? firstSelect.innerHTML : '<option value="">(selecciona)</option>';
@@ -227,7 +231,6 @@
     }
 
     table.querySelectorAll('input.gv-line-pvl').forEach(function (i) { i.addEventListener('input', function(){ markManual(i); }); });
-    if (selCial) selCial.addEventListener('change', function(){ markManual(selCial); });
     if (selTarifa) selTarifa.addEventListener('change', function(){ markManual(selTarifa); refreshPrecios(); });
 
     function setIfNotManual(selectEl, value){
@@ -237,6 +240,47 @@
       // Solo aplicar si está vacío (no pisar selección existente al editar)
       if (String(selectEl.value || '').trim() !== '') return;
       selectEl.value = String(value);
+    }
+
+    function setCial(value){
+      if (value === null || value === undefined || String(value).trim() === '') return;
+      if (hidCial) hidCial.value = String(value);
+      if (selCialDisplay) selCialDisplay.value = String(value);
+    }
+
+    function setAutosave(msg, isError){
+      if (!autosaveEl) return;
+      autosaveEl.style.display = msg ? '' : 'none';
+      autosaveEl.style.color = isError ? 'rgba(185,28,28,.95)' : 'var(--gv-muted)';
+      autosaveEl.textContent = msg || '';
+    }
+
+    function getPedidoId(){
+      try{
+        var path = String(window.location && window.location.pathname ? window.location.pathname : '');
+        var m = path.match(/\/pedidos\/(\d+)\/edit/i);
+        if (m && m[1]) return parseInt(m[1], 10) || 0;
+      } catch(_e){}
+      return 0;
+    }
+
+    async function autosaveCabecera(pedidoId, payload){
+      if (!pedidoId) return;
+      try{
+        setAutosave('Actualizando cabecera…');
+        var r = await fetch('/api/pedidos/' + encodeURIComponent(String(pedidoId)), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload || {})
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var json = await r.json().catch(function(){ return null; });
+        if (!json || json.ok !== true) throw new Error('Respuesta no válida');
+        setAutosave('Cabecera actualizada.');
+        setTimeout(function(){ setAutosave(''); }, 1800);
+      } catch(_e){
+        setAutosave('No se pudo actualizar la cabecera (reintenta al guardar).', true);
+      }
     }
 
     async function loadClienteAndDefaults(clienteId){
@@ -253,14 +297,22 @@
         var cial = c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.Id_Comercial;
         var tar = c.Id_Tarifa ?? c.id_tarifa ?? c.Tarifa ?? c.tarifa;
         var dto = c.Dto ?? c.dto ?? c.Descuento ?? c.descuento;
-        setIfNotManual(selCial, cial);
-        setIfNotManual(selTarifa, tar);
+        // Requisito: el comercial SIEMPRE se toma del cliente seleccionado
+        setCial(cial);
+        // Tarifa: actualizar al cambiar cliente (sin tocar si el cliente no trae tarifa)
+        if (selTarifa && tar !== undefined && tar !== null && String(tar).trim() !== '') selTarifa.value = String(tar);
         if (dto !== undefined && dto !== null && String(dto).trim() !== '') defaultDto = clampPct(Number(String(dto).replace(',', '.')));
         // Rellenar dto en líneas vacías
         table.querySelectorAll('input.gv-line-dto').forEach(function (inp) {
           if (String(inp.value || '').trim() === '') inp.value = String(defaultDto || 0);
         });
         refreshPrecios();
+
+        // Si estamos editando un pedido existente: actualizar cabecera al vuelo y seguir editando
+        var pedidoId = getPedidoId();
+        if (pedidoId) {
+          await autosaveCabecera(pedidoId, { Id_Cliente: id, Id_Cial: (Number(cial) || 0), Id_Tarifa: (Number(getTarifaId()) || 0) });
+        }
       } catch (_e) {}
     }
 
