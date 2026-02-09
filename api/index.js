@@ -767,7 +767,13 @@ app.get('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
       .catch(() => []);
     const lineasRaw = await db.getArticulosByPedido(id);
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
-      ? lineasRaw.map((l) => ({ Id_Articulo: l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? '', Cantidad: l.Cantidad ?? l.Unidades ?? 1, Dto: l.Dto ?? '' }))
+      ? lineasRaw.map((l) => ({
+          Id_Articulo: l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? '',
+          Cantidad: l.Cantidad ?? l.Unidades ?? 1,
+          Dto: l.Dto ?? '',
+          // Mostrar PVL en edición: si viene guardado en línea, precargarlo (si no, el JS lo calcula por tarifa)
+          PrecioUnitario: l.PrecioUnitario ?? l.Precio ?? l.PVL ?? l.pvl ?? ''
+        }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
     res.render('pedido-form', { mode: 'edit', item, lineas, tarifas, formasPago, comerciales, articulos, clientes: Array.isArray(clientesRecent) ? clientesRecent : [], error: null });
   } catch (e) {

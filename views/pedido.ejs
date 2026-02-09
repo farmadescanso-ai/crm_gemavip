@@ -118,6 +118,7 @@
           <th>CONCEPTO</th>
           <th class="is-right">PVL</th>
           <th class="is-right">UNIDADES</th>
+          <th class="is-right">DTO</th>
           <th class="is-right">SUBTOTAL</th>
           <th class="is-right">IVA</th>
           <th class="is-right">TOTAL</th>
@@ -156,6 +157,7 @@
             <td class="is-wrap"><%= concepto || (codigo ? `Artículo ${codigo}` : '—') %></td>
             <td class="is-right"><%= fmtEur(pvl) %></td>
             <td class="is-right"><%= qty ? fmtQty(qty) : '' %></td>
+            <td class="is-right"><%= dto ? `${fmtNumES(dto, 2)}%` : '—' %></td>
             <td class="is-right"><%= fmtEur(base) %></td>
             <td class="is-right"><%= ivaPct ? `${fmtNumES(ivaPct, 2)}%` : '—' %></td>
             <td class="is-right"><%= fmtEur(total) %></td>
