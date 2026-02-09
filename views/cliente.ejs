@@ -1,0 +1,44 @@
+<%- include('partials/header', { title: 'Cliente' }) %>
+
+<section class="card" style="max-width: 980px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Cliente #<%= item.Id ?? item.id %></h1>
+    <p class="card-subtitle"><%= item.Nombre_Razon_Social ?? item.Nombre ?? 'Detalle de cliente' %></p>
+  </div>
+  <div class="card-bd">
+    <div class="kpi">
+      <span class="pill">Tarifa: <%= item.Tarifa ?? item.Id_Tarifa ?? 0 %></span>
+      <span class="pill">Dto: <%= item.Dto ?? 0 %>%</span>
+      <span class="pill">Estado: <%= item.OK_KO ?? '' %></span>
+    </div>
+
+    <div style="margin-top: 14px;" class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Campo</th><th>Valor</th></tr>
+        </thead>
+        <tbody>
+          <% Object.keys(item || {}).forEach((k) => { %>
+            <tr>
+              <td style="font-weight:700;"><%= k %></td>
+              <td><%= (item[k] === null || item[k] === undefined) ? '' : String(item[k]) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top: 12px;">
+      <a class="btn secondary" href="/clientes">Volver</a>
+      <% if (admin) { %>
+        <a class="btn secondary" href="/clientes/<%= item.Id ?? item.id %>/edit">Editar</a>
+        <form method="post" action="/clientes/<%= item.Id ?? item.id %>/delete" style="display:inline;" onsubmit="return confirm('¿Mover este cliente a la papelera?');">
+          <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Papelera</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

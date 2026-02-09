@@ -271,6 +271,57 @@ app.use((req, res, next) => {
   const roles = res.locals.user?.roles || [];
   res.locals.navLinks = res.locals.user ? getCommonNavLinksForRoles(roles) : [];
   res.locals.roleNavLinks = res.locals.user ? getRoleNavLinksForRoles(roles) : [];
+
+  // Helpers globales para EJS (formatos ES)
+  res.locals.fmtDateES = (val) => {
+    if (!val) return '';
+    try {
+      // yyyy-mm-dd (o yyyy-mm-ddTHH...)
+      const s = String(val);
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+
+      const d = (val instanceof Date) ? val : new Date(val);
+      if (!Number.isFinite(d.getTime())) return s;
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yy = String(d.getFullYear());
+      return `${dd}/${mm}/${yy}`;
+    } catch (_) {
+      return String(val);
+    }
+  };
+  res.locals.fmtDateISO = (val) => {
+    // Para <input type="date"> y para FullCalendar: YYYY-MM-DD
+    if (!val) return '';
+    try {
+      const s = String(val);
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+
+      const d = (val instanceof Date) ? val : new Date(val);
+      if (!Number.isFinite(d.getTime())) return '';
+      const yy = String(d.getFullYear());
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yy}-${mm}-${dd}`;
+    } catch (_) {
+      return '';
+    }
+  };
+  res.locals.fmtTimeHM = (val) => {
+    if (!val) return '';
+    try {
+      if (val instanceof Date) return val.toISOString().slice(11, 16);
+      const s = String(val);
+      const m = s.match(/(\d{2}):(\d{2})/);
+      if (m) return `${m[1]}:${m[2]}`;
+      return s.slice(0, 5);
+    } catch (_) {
+      return String(val).slice(0, 5);
+    }
+  };
+
   next();
 });
 
@@ -370,7 +421,137 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
       db.getClientesOptimizadoPaged(filters, { limit, offset }),
       db.countClientesOptimizado(filters)
     ]);
-    res.render('clientes', { items: items || [], q, paging: { page, limit, total: total || 0 } });
+    res.render('clientes', { items: items || [], q, admin, paging: { page, limit, total: total || 0 } });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ===========================
+// CLIENTES (HTML) - Admin CRUD
+// ===========================
+app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
+  try {
+    const [comerciales, tarifas] = await Promise.all([db.getComerciales().catch(() => []), db.getTarifas().catch(() => [])]);
+    res.render('cliente-form', {
+      mode: 'create',
+      comerciales: Array.isArray(comerciales) ? comerciales : [],
+      tarifas: Array.isArray(tarifas) ? tarifas : [],
+      item: { OK_KO: 1, Tarifa: 0, Dto: 0 },
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/clientes/new', requireAdmin, async (req, res, next) => {
+  try {
+    const comerciales = await db.getComerciales().catch(() => []);
+    const tarifas = await db.getTarifas().catch(() => []);
+    const body = req.body || {};
+    const payload = {
+      Id_Cial: body.Id_Cial ? Number(body.Id_Cial) || null : null,
+      Nombre_Razon_Social: String(body.Nombre_Razon_Social || '').trim(),
+      Nombre_Cial: String(body.Nombre_Cial || '').trim() || null,
+      DNI_CIF: String(body.DNI_CIF || '').trim() || null,
+      Direccion: String(body.Direccion || '').trim() || null,
+      Poblacion: String(body.Poblacion || '').trim() || null,
+      CodigoPostal: String(body.CodigoPostal || '').trim() || null,
+      Telefono: String(body.Telefono || '').trim() || null,
+      Movil: String(body.Movil || '').trim() || null,
+      Email: String(body.Email || '').trim() || null,
+      Tarifa: body.Tarifa !== undefined ? (Number(body.Tarifa) || 0) : 0,
+      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
+      OK_KO: String(body.OK_KO || '1') === '1' ? 1 : 0,
+      Observaciones: String(body.Observaciones || '').trim() || null
+    };
+
+    if (!payload.Nombre_Razon_Social) {
+      return res.status(400).render('cliente-form', { mode: 'create', comerciales, tarifas, item: payload, error: 'Nombre/Razón Social es obligatorio' });
+    }
+
+    await db.createCliente(payload);
+    return res.redirect('/clientes');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/clientes/:id', requireLogin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getClienteById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    const admin = isAdminUser(res.locals.user);
+    res.render('cliente', { item, admin });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/clientes/:id/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const [item, comerciales, tarifas] = await Promise.all([
+      db.getClienteById(id),
+      db.getComerciales().catch(() => []),
+      db.getTarifas().catch(() => [])
+    ]);
+    if (!item) return res.status(404).send('No encontrado');
+    res.render('cliente-form', { mode: 'edit', item, comerciales, tarifas, error: null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/clientes/:id/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getClienteById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    const comerciales = await db.getComerciales().catch(() => []);
+    const tarifas = await db.getTarifas().catch(() => []);
+    const body = req.body || {};
+
+    const payload = {
+      Id_Cial: body.Id_Cial ? Number(body.Id_Cial) || null : null,
+      Nombre_Razon_Social: body.Nombre_Razon_Social !== undefined ? String(body.Nombre_Razon_Social || '').trim() : undefined,
+      Nombre_Cial: body.Nombre_Cial !== undefined ? (String(body.Nombre_Cial || '').trim() || null) : undefined,
+      DNI_CIF: body.DNI_CIF !== undefined ? (String(body.DNI_CIF || '').trim() || null) : undefined,
+      Direccion: body.Direccion !== undefined ? (String(body.Direccion || '').trim() || null) : undefined,
+      Poblacion: body.Poblacion !== undefined ? (String(body.Poblacion || '').trim() || null) : undefined,
+      CodigoPostal: body.CodigoPostal !== undefined ? (String(body.CodigoPostal || '').trim() || null) : undefined,
+      Telefono: body.Telefono !== undefined ? (String(body.Telefono || '').trim() || null) : undefined,
+      Movil: body.Movil !== undefined ? (String(body.Movil || '').trim() || null) : undefined,
+      Email: body.Email !== undefined ? (String(body.Email || '').trim() || null) : undefined,
+      Tarifa: body.Tarifa !== undefined ? (Number(body.Tarifa) || 0) : undefined,
+      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
+      OK_KO: body.OK_KO !== undefined ? (String(body.OK_KO || '1') === '1' ? 1 : 0) : undefined,
+      Observaciones: body.Observaciones !== undefined ? (String(body.Observaciones || '').trim() || null) : undefined
+    };
+
+    if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) {
+      return res.status(400).render('cliente-form', { mode: 'edit', item: { ...item, ...payload }, comerciales, tarifas, error: 'Nombre/Razón Social es obligatorio' });
+    }
+
+    await db.updateCliente(id, payload);
+    return res.redirect(`/clientes/${id}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/clientes/:id/delete', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    // Preferimos papelera (histórico) en vez de borrado duro
+    await db.moverClienteAPapelera(id, res.locals.user?.email || res.locals.user?.id || 'admin');
+    return res.redirect('/clientes');
   } catch (e) {
     next(e);
   }
@@ -420,8 +601,207 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       years,
       selectedYear,
       marcas: Array.isArray(marcas) ? marcas : [],
-      selectedMarcaId
+      selectedMarcaId,
+      admin: isAdminUser(res.locals.user)
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ===========================
+// PEDIDOS (HTML) - Admin CRUD
+// ===========================
+function parseLineasFromBody(body) {
+  const raw = body?.lineas ?? body?.Lineas ?? [];
+  const arr = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? Object.values(raw) : []);
+  const lineas = [];
+  for (const l of (arr || [])) {
+    const item = l && typeof l === 'object' ? l : {};
+    const idArt = Number(item.Id_Articulo ?? item.id_articulo ?? item.ArticuloId ?? 0) || 0;
+    const cantidad = Number(String(item.Cantidad ?? item.Unidades ?? 0).replace(',', '.')) || 0;
+    const dto = item.Dto !== undefined ? (Number(String(item.Dto).replace(',', '.')) || 0) : undefined;
+    if (!idArt || cantidad <= 0) continue;
+    const clean = { Id_Articulo: idArt, Cantidad: cantidad };
+    if (dto !== undefined) clean.Dto = dto;
+    lineas.push(clean);
+  }
+  return lineas;
+}
+
+app.get('/pedidos/new', requireAdmin, async (_req, res, next) => {
+  try {
+    const [comerciales, tarifas, formasPago] = await Promise.all([
+      db.getComerciales().catch(() => []),
+      db.getTarifas().catch(() => []),
+      db.getFormasPago().catch(() => [])
+    ]);
+    // Nota: artículos puede ser grande; lo usamos para selector simple (mejorable con búsqueda más adelante).
+    const articulos = await db.getArticulos({}).catch(() => []);
+    res.render('pedido-form', {
+      mode: 'create',
+      comerciales: Array.isArray(comerciales) ? comerciales : [],
+      tarifas: Array.isArray(tarifas) ? tarifas : [],
+      formasPago: Array.isArray(formasPago) ? formasPago : [],
+      articulos: Array.isArray(articulos) ? articulos : [],
+      item: {
+        Id_Cial: res.locals.user?.id ?? null,
+        Id_Tarifa: 0,
+        Serie: 'WEB',
+        EstadoPedido: 'Pendiente',
+        Id_FormaPago: null,
+        Id_TipoPedido: null,
+        Observaciones: ''
+      },
+      lineas: [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/pedidos/new', requireAdmin, async (req, res, next) => {
+  try {
+    const [comerciales, tarifas, formasPago] = await Promise.all([
+      db.getComerciales().catch(() => []),
+      db.getTarifas().catch(() => []),
+      db.getFormasPago().catch(() => [])
+    ]);
+    const articulos = await db.getArticulos({}).catch(() => []);
+    const body = req.body || {};
+    const pedidoPayload = {
+      Id_Cial: Number(body.Id_Cial) || 0,
+      Id_Cliente: Number(body.Id_Cliente) || 0,
+      Id_DireccionEnvio: body.Id_DireccionEnvio ? (Number(body.Id_DireccionEnvio) || null) : null,
+      Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
+      Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
+      Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
+      Serie: String(body.Serie || 'WEB').trim(),
+      FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
+      FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
+      EstadoPedido: String(body.EstadoPedido || 'Pendiente').trim(),
+      Observaciones: String(body.Observaciones || '').trim() || null
+    };
+    const lineas = parseLineasFromBody(body);
+
+    if (!pedidoPayload.Id_Cial || !pedidoPayload.Id_Cliente) {
+      return res.status(400).render('pedido-form', {
+        mode: 'create',
+        comerciales,
+        tarifas,
+        formasPago,
+        articulos,
+        item: pedidoPayload,
+        lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
+        error: 'Id_Cial e Id_Cliente son obligatorios'
+      });
+    }
+    if (!pedidoPayload.Serie || !pedidoPayload.EstadoPedido) {
+      return res.status(400).render('pedido-form', { mode: 'create', comerciales, tarifas, formasPago, articulos, item: pedidoPayload, lineas, error: 'Serie y EstadoPedido son obligatorios' });
+    }
+
+    const created = await db.createPedido(pedidoPayload);
+    const pedidoId = created?.insertId ?? created?.Id ?? created?.id;
+    const result = await db.updatePedidoWithLineas(pedidoId, {}, lineas);
+    return res.redirect(`/pedidos/${pedidoId}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getPedidoById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    const lineas = await db.getArticulosByPedido(id);
+    const admin = isAdminUser(res.locals.user);
+    res.render('pedido', { item, lineas: lineas || [], admin });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const [item, tarifas, formasPago, comerciales] = await Promise.all([
+      db.getPedidoById(id),
+      db.getTarifas().catch(() => []),
+      db.getFormasPago().catch(() => []),
+      db.getComerciales().catch(() => [])
+    ]);
+    if (!item) return res.status(404).send('No encontrado');
+    const articulos = await db.getArticulos({}).catch(() => []);
+    const lineasRaw = await db.getArticulosByPedido(id);
+    const lineas = Array.isArray(lineasRaw) && lineasRaw.length
+      ? lineasRaw.map((l) => ({ Id_Articulo: l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? '', Cantidad: l.Cantidad ?? l.Unidades ?? 1, Dto: l.Dto ?? '' }))
+      : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
+    res.render('pedido-form', { mode: 'edit', item, lineas, tarifas, formasPago, comerciales, articulos, error: null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const existing = await db.getPedidoById(id);
+    if (!existing) return res.status(404).send('No encontrado');
+
+    const [tarifas, formasPago, comerciales] = await Promise.all([
+      db.getTarifas().catch(() => []),
+      db.getFormasPago().catch(() => []),
+      db.getComerciales().catch(() => [])
+    ]);
+    const articulos = await db.getArticulos({}).catch(() => []);
+
+    const body = req.body || {};
+    const pedidoPayload = {
+      Id_Cial: Number(body.Id_Cial) || 0,
+      Id_Cliente: Number(body.Id_Cliente) || 0,
+      Id_DireccionEnvio: body.Id_DireccionEnvio ? (Number(body.Id_DireccionEnvio) || null) : null,
+      Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
+      Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
+      Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
+      Serie: String(body.Serie || 'WEB').trim(),
+      FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
+      FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
+      EstadoPedido: String(body.EstadoPedido || '').trim(),
+      Observaciones: String(body.Observaciones || '').trim() || null
+    };
+    const lineas = parseLineasFromBody(body);
+
+    if (!pedidoPayload.Id_Cial || !pedidoPayload.Id_Cliente) {
+      return res.status(400).render('pedido-form', {
+        mode: 'edit',
+        item: { ...existing, ...pedidoPayload },
+        lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
+        tarifas,
+        formasPago,
+        comerciales,
+        articulos,
+        error: 'Id_Cial e Id_Cliente son obligatorios'
+      });
+    }
+
+    await db.updatePedidoWithLineas(id, pedidoPayload, lineas);
+    return res.redirect(`/pedidos/${id}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/pedidos/:id/delete', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    await db.deletePedido(id);
+    return res.redirect('/pedidos');
   } catch (e) {
     next(e);
   }

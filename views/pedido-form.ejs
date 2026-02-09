@@ -1,0 +1,190 @@
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' }) %>
+
+<section class="card" style="max-width: 1100px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' %></h1>
+    <p class="card-subtitle">Cabecera + líneas. Al guardar, recalculamos base/IVA/total con la tarifa.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form method="post" action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id) + '/edit') : '/pedidos/new' %>" style="display:grid; gap: 12px;">
+      <div class="grid cols-3" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial (Id_Cial) *</span>
+          <select name="Id_Cial" required>
+            <option value="">(selecciona)</option>
+            <% const curCial = Number(item.Id_Cial ?? 0) || 0; %>
+            <% (comerciales || []).forEach((c) => { %>
+              <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
+              <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+            <% }) %>
+          </select>
+        </label>
+
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cliente (Id_Cliente) *</span>
+          <input name="Id_Cliente" type="number" min="1" required value="<%= item.Id_Cliente ?? '' %>" />
+          <span style="font-size: 12px; color: var(--gv-muted);">Por ahora es ID numérico (podemos añadir picker igual que en visitas).</span>
+        </label>
+
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tarifa (Id_Tarifa)</span>
+          <select name="Id_Tarifa">
+            <% const curTar = Number(item.Id_Tarifa ?? 0) || 0; %>
+            <% (tarifas || []).forEach((t) => { %>
+              <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
+              <% const label = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
+              <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= label %></option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+
+      <div class="grid cols-3" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Serie *</span>
+          <input name="Serie" required value="<%= item.Serie ?? 'WEB' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">EstadoPedido *</span>
+          <input name="EstadoPedido" required value="<%= item.EstadoPedido ?? 'Pendiente' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">FechaPedido</span>
+          <input name="FechaPedido" type="date" value="<%= fmtDateISO(item.FechaPedido ?? '') %>" />
+        </label>
+      </div>
+
+      <div class="grid cols-3" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">FechaEntrega</span>
+          <input name="FechaEntrega" type="date" value="<%= fmtDateISO(item.FechaEntrega ?? '') %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Forma de pago (Id_FormaPago)</span>
+          <% if ((formasPago || []).length) { %>
+            <select name="Id_FormaPago">
+              <% const curFP = Number(item.Id_FormaPago ?? 0) || 0; %>
+              <option value="0" <%= curFP === 0 ? 'selected' : '' %>>(0) Sin especificar</option>
+              <% (formasPago || []).forEach((fp) => { %>
+                <% const fid = Number(fp.id ?? fp.Id ?? 0) || 0; %>
+                <option value="<%= fid %>" <%= fid === curFP ? 'selected' : '' %>><%= fid %> · <%= fp.Nombre ?? fp.FormaPago ?? '' %></option>
+              <% }) %>
+            </select>
+          <% } else { %>
+            <input name="Id_FormaPago" type="number" min="0" value="<%= item.Id_FormaPago ?? 0 %>" />
+          <% } %>
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo pedido (Id_TipoPedido)</span>
+          <input name="Id_TipoPedido" type="number" min="0" value="<%= item.Id_TipoPedido ?? 0 %>" />
+        </label>
+      </div>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>
+        <textarea name="Observaciones" rows="3"><%= item.Observaciones ?? '' %></textarea>
+      </label>
+
+      <div class="card" style="padding: 12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap:wrap;">
+          <div style="font-weight: 900;">Líneas</div>
+          <button class="btn secondary" type="button" id="addLineaBtn">Añadir línea</button>
+        </div>
+        <div style="height: 10px;"></div>
+        <div class="table-wrap">
+          <table id="lineasTable">
+            <thead>
+              <tr>
+                <th>Artículo</th>
+                <th style="width:120px;">Cantidad</th>
+                <th style="width:120px;">Dto (%)</th>
+                <th style="width:70px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% (lineas || []).forEach((l, idx) => { %>
+                <tr>
+                  <td>
+                    <select name="lineas[<%= idx %>][Id_Articulo]" required>
+                      <option value="">(selecciona)</option>
+                      <% const curA = String(l.Id_Articulo ?? ''); %>
+                      <% (articulos || []).forEach((a) => { %>
+                        <% const aid = String(a.Id ?? a.id ?? ''); %>
+                        <option value="<%= aid %>" <%= aid === curA ? 'selected' : '' %>><%= aid %> · <%= a.SKU ?? '' %> · <%= a.Nombre ?? '' %></option>
+                      <% }) %>
+                    </select>
+                  </td>
+                  <td><input name="lineas[<%= idx %>][Cantidad]" type="number" min="0" step="0.01" value="<%= l.Cantidad ?? 1 %>" /></td>
+                  <td><input name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" /></td>
+                  <td>
+                    <button class="btn secondary danger" type="button" data-remove-linea>Quitar</button>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+        <a class="btn secondary" href="/pedidos">Cancelar</a>
+        <button class="btn" type="submit"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  (function () {
+    var table = document.getElementById('lineasTable');
+    var btn = document.getElementById('addLineaBtn');
+    if (!table || !btn) return;
+    function renumber() {
+      var rows = table.querySelectorAll('tbody tr');
+      rows.forEach(function (tr, idx) {
+        tr.querySelectorAll('select[name], input[name]').forEach(function (el) {
+          el.name = el.name
+            .replace(/lineas\\[\\d+\\]\\[Id_Articulo\\]/, 'lineas[' + idx + '][Id_Articulo]')
+            .replace(/lineas\\[\\d+\\]\\[Cantidad\\]/, 'lineas[' + idx + '][Cantidad]')
+            .replace(/lineas\\[\\d+\\]\\[Dto\\]/, 'lineas[' + idx + '][Dto]');
+        });
+      });
+    }
+    table.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.matches('[data-remove-linea]')) {
+        var tr = t.closest('tr');
+        if (tr) tr.remove();
+        renumber();
+      }
+    });
+    btn.addEventListener('click', function () {
+      var tbody = table.querySelector('tbody');
+      if (!tbody) return;
+      var idx = tbody.querySelectorAll('tr').length;
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' +
+        '  <select name=\"lineas[' + idx + '][Id_Articulo]\" required>' +
+        '    <option value=\"\">(selecciona)</option>' +
+        <% /* Pintamos opciones como string para clonación rápida */ %>
+        '<% (articulos || []).forEach((a) => { const aid = String(a.Id ?? a.id ?? \"\"); const label = `${aid} · ${a.SKU ?? \"\"} · ${a.Nombre ?? \"\"}`.replace(/\"/g, \"'\"); %>' +
+        '    <option value=\"<%= aid %>\"><%= label %></option>' +
+        '<% }) %>' +
+        '  </select>' +
+        '</td>' +
+        '<td><input name=\"lineas[' + idx + '][Cantidad]\" type=\"number\" min=\"0\" step=\"0.01\" value=\"1\" /></td>' +
+        '<td><input name=\"lineas[' + idx + '][Dto]\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" value=\"\" /></td>' +
+        '<td><button class=\"btn secondary danger\" type=\"button\" data-remove-linea>Quitar</button></td>';
+      tbody.appendChild(tr);
+    });
+  })();
+</script>
+
+<%- include('partials/footer') %>
+

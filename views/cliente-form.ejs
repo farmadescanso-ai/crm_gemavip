@@ -1,0 +1,114 @@
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' }) %>
+
+<section class="card" style="max-width: 980px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' %></h1>
+    <p class="card-subtitle">Completa la información básica del cliente.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form method="post" action="<%= mode === 'edit' ? ('/clientes/' + (item.Id || item.id) + '/edit') : '/clientes/new' %>" style="display:grid; gap: 12px;">
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre / Razón Social *</span>
+          <input name="Nombre_Razon_Social" required value="<%= item.Nombre_Razon_Social ?? item.Nombre ?? '' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre comercial</span>
+          <input name="Nombre_Cial" value="<%= item.Nombre_Cial ?? '' %>" />
+        </label>
+      </div>
+
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">DNI/CIF</span>
+          <input name="DNI_CIF" value="<%= item.DNI_CIF ?? '' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Email</span>
+          <input type="email" name="Email" value="<%= item.Email ?? '' %>" />
+        </label>
+      </div>
+
+      <div class="grid cols-3" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Teléfono</span>
+          <input name="Telefono" value="<%= item.Telefono ?? '' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Móvil</span>
+          <input name="Movil" value="<%= item.Movil ?? '' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Estado</span>
+          <select name="OK_KO">
+            <option value="1" <%= String(item.OK_KO ?? '1') === '1' ? 'selected' : '' %>>Activo</option>
+            <option value="0" <%= String(item.OK_KO ?? '1') === '0' ? 'selected' : '' %>>Inactivo</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Dirección</span>
+          <input name="Direccion" value="<%= item.Direccion ?? '' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Población</span>
+          <input name="Poblacion" value="<%= item.Poblacion ?? '' %>" />
+        </label>
+      </div>
+
+      <div class="grid cols-3" style="gap: 12px;">
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Código Postal</span>
+          <input name="CodigoPostal" value="<%= item.CodigoPostal ?? '' %>" />
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tarifa</span>
+          <select name="Tarifa">
+            <% const curTar = Number(item.Tarifa ?? item.Id_Tarifa ?? 0) || 0; %>
+            <% (tarifas || []).forEach((t) => { %>
+              <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
+              <% const label = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
+              <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= label %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label style="display:grid; gap: 6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Dto (%)</span>
+          <input type="number" step="0.01" min="0" max="100" name="Dto" value="<%= item.Dto ?? 0 %>" />
+        </label>
+      </div>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial (Id_Cial)</span>
+        <select name="Id_Cial">
+          <option value="">(sin asignar)</option>
+          <% const curCial = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? 0) || 0; %>
+          <% (comerciales || []).forEach((c) => { %>
+            <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
+            <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+          <% }) %>
+        </select>
+      </label>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>
+        <textarea name="Observaciones" rows="4"><%= item.Observaciones ?? '' %></textarea>
+      </label>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+        <a class="btn secondary" href="/clientes">Cancelar</a>
+        <button class="btn" type="submit"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

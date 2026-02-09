@@ -1,7 +1,7 @@
 <%- include('partials/header', { title: 'Visitas' }) %>
 
 <% const safeMonth = (typeof month !== 'undefined' && month) ? String(month) : ''; %>
-<% const safeInitialDate = (typeof initialDate !== 'undefined' && initialDate) ? String(initialDate) : ''; %>
+<% const safeInitialDate = (typeof initialDate !== 'undefined' && initialDate) ? initialDate : ''; %>
 <% const safeTotalMes = (typeof totalMes !== 'undefined' && totalMes !== null) ? Number(totalMes) : 0; %>
 
 <section class="card">
@@ -23,7 +23,7 @@
     </div>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" />
-    <div id="gv-visitas-calendar" data-initial-date="<%= safeInitialDate.toString().slice(0,10) %>" style="min-height: 560px;"></div>
+    <div id="gv-visitas-calendar" data-initial-date="<%= fmtDateISO(safeInitialDate) %>" style="min-height: 560px;"></div>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script defer src="/assets/scripts/visitas-calendar.js"></script>
   </div>

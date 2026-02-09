@@ -112,7 +112,7 @@
               <tr>
                 <td><%= p.Id ?? p.id %></td>
                 <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
-                <td><%= (p.FechaPedido ?? p.Fecha ?? '').toString().slice(0,10) %></td>
+                <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
                 <td><%= p.TotalPedido ?? p.Total ?? '' %></td>
                 <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
               </tr>
@@ -149,7 +149,7 @@
           <% (latest.visitas || []).forEach((v) => { %>
             <tr>
               <td><%= v.Id ?? v.id %></td>
-              <td><%= (v.Fecha ?? v.FechaVisita ?? '').toString().slice(0,10) %></td>
+              <td><%= fmtDateES(v.Fecha ?? v.FechaVisita ?? '') %></td>
               <td><%= v.TipoVisita ?? '' %></td>
               <td><%= v.ClienteId ?? v.FarmaciaClienteId ?? '' %></td>
               <td><%= v.Id_Cial ?? v.ComercialId ?? '' %></td>

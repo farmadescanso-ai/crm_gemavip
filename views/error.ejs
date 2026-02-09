@@ -45,7 +45,7 @@
 
         <div class="gv-error-meta">
           <span class="gv-pill"><strong>ID</strong> <code><%= requestId || '—' %></code></span>
-          <span class="gv-pill"><strong>Fecha</strong> <%= when || new Date().toISOString() %></span>
+          <span class="gv-pill"><strong>Fecha</strong> <%= fmtDateES(when || new Date()) %></span>
         </div>
 
         <div class="gv-copy">

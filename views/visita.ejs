@@ -7,8 +7,8 @@
   </div>
   <div class="card-bd">
     <div class="kpi">
-      <span class="pill">Fecha: <%= (item[meta.colFecha] || item.Fecha || '').toString().slice(0,10) %></span>
-      <span class="pill">Hora: <%= (item[meta.colHora] || item.Hora || '').toString().slice(0,5) %></span>
+      <span class="pill">Fecha: <%= fmtDateES(item[meta.colFecha] || item.Fecha || '') %></span>
+      <span class="pill">Hora: <%= fmtTimeHM(item[meta.colHora] || item.Hora || '') %></span>
       <span class="pill">Tipo: <%= item[meta.colTipo] || item.TipoVisita || '—' %></span>
       <span class="pill">Estado: <%= item[meta.colEstado] || item.Estado || '—' %></span>
     </div>

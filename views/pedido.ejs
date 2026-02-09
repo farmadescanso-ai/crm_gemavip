@@ -1,0 +1,61 @@
+<%- include('partials/header', { title: 'Pedido' }) %>
+
+<section class="card" style="max-width: 1100px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Pedido #<%= item.id ?? item.Id %> · <%= item.NumPedido ?? '' %></h1>
+    <p class="card-subtitle">Detalle del pedido.</p>
+  </div>
+  <div class="card-bd">
+    <div class="kpi">
+      <span class="pill">Fecha: <%= fmtDateES(item.FechaPedido ?? item.Fecha ?? '') %></span>
+      <span class="pill">Cliente: <%= item.Id_Cliente ?? '' %></span>
+      <span class="pill">Comercial: <%= item.Id_Cial ?? '' %></span>
+      <span class="pill">Tarifa: <%= item.Id_Tarifa ?? 0 %></span>
+      <span class="pill">Base: <%= item.BaseImponible ?? '' %></span>
+      <span class="pill">IVA: <%= item.TotalIva ?? '' %></span>
+      <span class="pill">Total: <%= item.TotalPedido ?? '' %></span>
+    </div>
+
+    <div style="margin-top: 14px;" class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Artículo</th>
+            <th>Cantidad</th>
+            <th>Precio</th>
+            <th>Dto</th>
+            <th>Base</th>
+            <th>IVA</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (lineas || []).forEach((l) => { %>
+            <tr>
+              <td><%= l.Nombre ?? l.SKU ?? (l.Id_Articulo ?? '') %></td>
+              <td><%= l.Cantidad ?? l.Unidades ?? '' %></td>
+              <td><%= l.Precio ?? l.PrecioUnitario ?? '' %></td>
+              <td><%= l.Dto ?? '' %></td>
+              <td><%= l.Base ?? l.BaseImponible ?? '' %></td>
+              <td><%= l.ImporteIVA ?? l.TotalIVA ?? '' %></td>
+              <td><%= l.Total ?? l.TotalLinea ?? '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top: 12px;">
+      <a class="btn secondary" href="/pedidos">Volver</a>
+      <% if (admin) { %>
+        <a class="btn secondary" href="/pedidos/<%= item.id ?? item.Id %>/edit">Editar</a>
+        <form method="post" action="/pedidos/<%= item.id ?? item.Id %>/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar este pedido?');">
+          <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
