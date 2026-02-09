@@ -144,6 +144,8 @@
     var table = document.getElementById('lineasTable');
     var btn = document.getElementById('addLineaBtn');
     if (!table || !btn) return;
+    var firstSelect = table.querySelector('tbody select');
+    var optionsHTML = firstSelect ? firstSelect.innerHTML : '<option value="">(selecciona)</option>';
     function renumber() {
       var rows = table.querySelectorAll('tbody tr');
       rows.forEach(function (tr, idx) {
@@ -171,11 +173,7 @@
       tr.innerHTML =
         '<td>' +
         '  <select name=\"lineas[' + idx + '][Id_Articulo]\" required>' +
-        '    <option value=\"\">(selecciona)</option>' +
-        <% /* Pintamos opciones como string para clonación rápida */ %>
-        '<% (articulos || []).forEach((a) => { const aid = String(a.Id ?? a.id ?? \"\"); const label = `${aid} · ${a.SKU ?? \"\"} · ${a.Nombre ?? \"\"}`.replace(/\"/g, \"'\"); %>' +
-        '    <option value=\"<%= aid %>\"><%= label %></option>' +
-        '<% }) %>' +
+        optionsHTML +
         '  </select>' +
         '</td>' +
         '<td><input name=\"lineas[' + idx + '][Cantidad]\" type=\"number\" min=\"0\" step=\"0.01\" value=\"1\" /></td>' +
