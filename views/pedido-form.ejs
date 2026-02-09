@@ -287,6 +287,9 @@
       var id = parseInt(String(clienteId || '').trim(), 10) || 0;
       if (!id) return;
       try {
+        var userId = parseInt('<%= Number(user?.id ?? 0) %>', 10) || 0;
+        var isAdmin = String('<%= (user?.roles || []).some(r => String(r).toLowerCase().includes("admin")) ? "1" : "0" %>') === '1';
+
         var r = await fetch('/api/clientes/' + encodeURIComponent(String(id)), { headers: { Accept: 'application/json' } });
         if (!r.ok) return;
         var json = await r.json();
@@ -294,11 +297,31 @@
         var c = json.item || null;
         if (!c) return;
         // Defaults: comercial + tarifa + dto (best-effort)
-        var cial = c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.Id_Comercial;
+        var cial = c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial;
         var tar = c.Id_Tarifa ?? c.id_tarifa ?? c.Tarifa ?? c.tarifa;
         var dto = c.Dto ?? c.dto ?? c.Descuento ?? c.descuento;
-        // Requisito: el comercial SIEMPRE se toma del cliente seleccionado
-        setCial(cial);
+
+        // Regla:
+        // - Siempre coger el comercial del cliente.
+        // - EXCEPCIÓN (sesión comercial): si el cliente no está asignado o está en pool (Id_Cial=1),
+        //   al pasar un pedido se puede asignar (reclamar) al comercial actual.
+        var cialNum = parseInt(String(cial || '').trim(), 10) || 0;
+        var canClaim = !isAdmin && userId > 0 && userId !== 1 && (cialNum <= 0 || cialNum === 1);
+        if (canClaim) {
+          try {
+            // Reclamar en BD (API) y reflejar en cabecera
+            await fetch('/api/clientes/' + encodeURIComponent(String(id)), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ Id_Cial: userId })
+            });
+            cialNum = userId;
+          } catch (_e) {}
+        }
+
+        // Requisito: el comercial SIEMPRE se toma del cliente seleccionado (ya con posible claim)
+        setCial(cialNum || cial);
+
         // Tarifa: actualizar al cambiar cliente (sin tocar si el cliente no trae tarifa)
         if (selTarifa && tar !== undefined && tar !== null && String(tar).trim() !== '') selTarifa.value = String(tar);
         if (dto !== undefined && dto !== null && String(dto).trim() !== '') defaultDto = clampPct(Number(String(dto).replace(',', '.')));
@@ -311,7 +334,7 @@
         // Si estamos editando un pedido existente: actualizar cabecera al vuelo y seguir editando
         var pedidoId = getPedidoId();
         if (pedidoId) {
-          await autosaveCabecera(pedidoId, { Id_Cliente: id, Id_Cial: (Number(cial) || 0), Id_Tarifa: (Number(getTarifaId()) || 0) });
+          await autosaveCabecera(pedidoId, { Id_Cliente: id, Id_Cial: (Number(cialNum || cial) || 0), Id_Tarifa: (Number(getTarifaId()) || 0) });
         }
       } catch (_e) {}
     }

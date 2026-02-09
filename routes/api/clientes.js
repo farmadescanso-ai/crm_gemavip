@@ -111,6 +111,40 @@ router.put(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminSessionUser(sessionUser);
+
+    // Seguridad:
+    // - Admin: puede actualizar cualquier campo
+    // - Comercial: solo puede "reclamar" el cliente (Id_Cial) si está libre o en pool (Id_Cial=1),
+    //             y solo para asignárselo a sí mismo.
+    if (sessionUser && !isAdmin) {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const keys = Object.keys(body || {});
+      if (keys.length !== 1 || !Object.prototype.hasOwnProperty.call(body, 'Id_Cial')) {
+        return res.status(403).json({ ok: false, error: 'Solo permitido asignar Id_Cial desde sesión comercial' });
+      }
+      const requested = toInt(body.Id_Cial, 0);
+      const selfId = toInt(sessionUser.id, 0);
+      if (!selfId || requested !== selfId) {
+        return res.status(403).json({ ok: false, error: 'Solo puedes asignarte el cliente a ti mismo' });
+      }
+
+      const current = await db.getClienteById(id);
+      if (!current) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const currentCialRaw =
+        current.Id_Cial ?? current.id_cial ?? current.ComercialId ?? current.comercialId ?? current.Id_Comercial ?? current.id_comercial ?? null;
+      const currentCial = toInt(currentCialRaw, 0) ?? 0;
+
+      // Permitido: sin asignar (0/null) o pool (1) o ya asignado a mí
+      if (currentCial && currentCial !== 1 && currentCial !== selfId) {
+        return res.status(403).json({ ok: false, error: 'Cliente ya asignado a otro comercial' });
+      }
+
+      const result = await db.updateCliente(id, { Id_Cial: selfId });
+      return res.json({ ok: true, result, claimed: true, Id_Cial: selfId });
+    }
+
     const result = await db.updateCliente(id, req.body || {});
     res.json({ ok: true, result });
   })
