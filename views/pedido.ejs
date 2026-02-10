@@ -79,8 +79,8 @@
   </div>
 
   <div class="gv-print-body">
-  <div class="gv-doc-addresses">
-    <div class="gv-doc-address gv-doc-address--left">
+  <div class="gv-doc-parties">
+    <div class="gv-doc-box">
       <h3>Cliente</h3>
       <div class="gv-doc-lines">
         <div><%= clienteNombre || (item.Id_Cliente ?? '') %></div>
@@ -91,7 +91,7 @@
       </div>
     </div>
 
-    <div class="gv-doc-address gv-doc-address--right">
+    <div class="gv-doc-box">
       <h3>Dirección de envío</h3>
       <div class="gv-doc-lines">
         <% if (dir) { %>
@@ -128,7 +128,7 @@
           <th>CÓDIGO</th>
           <th>CONCEPTO</th>
           <th class="is-right">PVL</th>
-          <th class="is-right">UNIDADES</th>
+          <th class="is-right">UNDS</th>
           <th class="is-right">DTO</th>
           <th class="is-right">SUBTOTAL</th>
           <th class="is-right">IVA</th>

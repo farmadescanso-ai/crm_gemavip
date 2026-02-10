@@ -403,7 +403,7 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   font-weight: 700;
 }
 .gv-doc-meta{
-  text-align:right;
+  text-align:left;
 }
 @media (max-width: 900px){
   .gv-doc-meta{ text-align:left; }
@@ -422,48 +422,41 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   font-weight: 700;
 }
 .gv-doc-kv div{
-  display:grid;
-  grid-template-columns: 1fr auto;
+  display:flex;
+  justify-content:flex-start;
   align-items: baseline;
-  gap: 12px;
+  gap: 10px;
   border-bottom: 1px dashed rgba(15, 23, 42, 0.12);
   padding-bottom: 6px;
 }
 .gv-doc-kv span{
   color: var(--gv-muted);
   font-weight: 800;
+  min-width: 110px;
 }
 .gv-doc-kv b{
   color: var(--gv-ink);
   font-weight: 900;
 }
 
-/* Direcciones: una franja con dos columnas */
-.gv-doc-addresses{
+/* Direcciones: dos cajas contiguas (cliente / envío) */
+.gv-doc-parties{
   margin-top: 16px;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  gap: 14px;
+  align-items: stretch;
+}
+@media (max-width: 900px){
+  .gv-doc-parties{ grid-template-columns: 1fr; }
+}
+.gv-doc-box{
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 14px;
   padding: 14px;
+  background: #fff;
 }
-@media (max-width: 900px){
-  .gv-doc-addresses{ grid-template-columns: 1fr; }
-}
-.gv-doc-address--right{
-  border-left: 1px solid rgba(15, 23, 42, 0.10);
-  padding-left: 14px;
-}
-@media (max-width: 900px){
-  .gv-doc-address--right{
-    border-left: 0;
-    padding-left: 0;
-    border-top: 1px solid rgba(15, 23, 42, 0.10);
-    padding-top: 12px;
-  }
-}
-.gv-doc-address h3{
+.gv-doc-box h3{
   margin: 0 0 8px 0;
   font-size: 12px;
   letter-spacing: .35px;
@@ -564,7 +557,7 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   /* A4 vertical (más profesional) */
   @page{
     size: A4;
-    margin: 9mm;
+    margin: 8mm;
   }
 
   /* Cabecera repetida en todas las páginas (Chrome/Edge) */
@@ -575,19 +568,20 @@ tr:hover td{ background: rgba(0,139,210,.04); }
     right: 0;
     background: #fff;
     padding-bottom: 6mm;
-    height: 42mm;        /* cabecera más grande y con aire */
+    height: 44mm;        /* cabecera más legible */
     overflow: hidden;    /* nunca pisa el contenido */
   }
   .gv-print-body{
-    padding-top: 48mm; /* reservar espacio para la cabecera fija */
+    padding-top: 50mm; /* reservar espacio para la cabecera fija */
   }
 
-  /* Compactar espacio y bajar fuente */
-  .gv-doc-title{ font-size: 17px; font-weight: 900; }
-  .gv-doc-company{ font-size: 11px; font-weight: 900; }
-  .gv-doc-company small{ font-size: 10px; font-weight: 500; }
+  /* Mejor legibilidad sin salir de A4 */
+  .gv-doc-meta{ text-align: left !important; }
+  .gv-doc-title{ font-size: 19px; font-weight: 900; }
+  .gv-doc-company{ font-size: 12px; font-weight: 900; }
+  .gv-doc-company small{ font-size: 11px; font-weight: 600; }
 
-  .gv-doc-kv{ margin-top: 6px; gap: 4px; font-size: 10px; }
+  .gv-doc-kv{ margin-top: 6px; gap: 4px; font-size: 11px; }
   .gv-doc-kv div{ padding-bottom: 2px; border-bottom: 0; }
   /* Solo cabeceras en negrita: etiquetas sí, valores no */
   .gv-doc-kv span{ font-weight: 900; }
@@ -595,16 +589,15 @@ tr:hover td{ background: rgba(0,139,210,.04); }
 
   /* Más espacio entre bloques */
   .gv-doc-parties{ margin-top: 12px; gap: 12px; }
-  .gv-doc-addresses{ margin-top: 12px; gap: 12px; padding: 10px; }
-  .gv-doc-address--right{ padding-left: 10px; }
-  .gv-doc-address h3{ font-size: 10px; font-weight: 900; margin-bottom: 6px; }
-  .gv-doc-lines{ font-size: 10px; font-weight: 500; line-height: 1.2; }
+  .gv-doc-box{ padding: 11px; border-radius: 12px; }
+  .gv-doc-box h3{ font-size: 11px; font-weight: 900; margin-bottom: 6px; }
+  .gv-doc-lines{ font-size: 11px; font-weight: 500; line-height: 1.2; }
   .gv-doc-lines small{ font-size: 10px; font-weight: 400; line-height: 1.2; }
 
   /* Tabla: reducir alto y quepan columnas en vertical */
   .gv-doc-table{ table-layout: fixed; }
-  .gv-doc-table th{ font-size: 9px; font-weight: 900; line-height: 1.1; }
-  .gv-doc-table td{ font-size: 10px; font-weight: 400; color: #111827; line-height: 1.15; }
+  .gv-doc-table th{ font-size: 10px; font-weight: 900; line-height: 1.1; }
+  .gv-doc-table td{ font-size: 11px; font-weight: 400; color: #111827; line-height: 1.15; }
   .gv-doc-table th, .gv-doc-table td{ padding: 4px 5px; }
   .gv-doc-table td.is-wrap{ white-space: normal; word-break: break-word; }
   .gv-doc-concept{
@@ -616,9 +609,9 @@ tr:hover td{ background: rgba(0,139,210,.04); }
 
   .gv-doc-table-wrap{ margin-top: 12px; }
   .gv-doc-summary{ margin-top: 12px; }
-  .gv-doc-summary td{ padding: 5px 6px; font-size: 10px; font-weight: 700; }
+  .gv-doc-summary td{ padding: 5px 6px; font-size: 11px; font-weight: 700; }
   .gv-doc-summary td:last-child{ font-weight: 500; }
-  .gv-doc-grand{ font-size: 12px; font-weight: 900; }
+  .gv-doc-grand{ font-size: 14px; font-weight: 900; }
 
   /* Repetir cabecera de tabla cuando haya varias páginas */
   .gv-doc-table thead{ display: table-header-group; }
