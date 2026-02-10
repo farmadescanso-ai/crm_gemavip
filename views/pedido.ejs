@@ -132,7 +132,7 @@
             const concepto = (l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').toString();
             const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
             const pvl = Math.max(0, toNum(l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
-            const dto = Math.max(0, Math.min(100, toNum(l.Dto ?? 0, 0)));
+            const dto = Math.max(0, Math.min(100, toNum(l.Dto ?? l.dto ?? l.Descuento ?? l.descuento ?? 0, 0)));
 
             const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
             const baseCalc = round2(qty * pvl * (1 - dto / 100));

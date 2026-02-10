@@ -4,6 +4,39 @@ const { asyncHandler, toInt } = require('./_utils');
 
 const router = express.Router();
 
+function isAdminSessionUser(user) {
+  const roles = user?.roles || [];
+  return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
+}
+
+function normEstado(val) {
+  const s = String(val ?? '').trim().toLowerCase();
+  return s || 'pendiente';
+}
+
+async function assertPedidoAccess(req, pedidoId, { write = false } = {}) {
+  const sessionUser = req.session?.user || null;
+  if (!sessionUser) return { ok: true, sessionUser: null, admin: false, item: null };
+  const admin = isAdminSessionUser(sessionUser);
+
+  const item = await db.getPedidoById(pedidoId);
+  if (!item) return { ok: false, status: 404, error: 'No encontrado' };
+
+  if (!admin) {
+    const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+    if (owner !== Number(sessionUser.id)) return { ok: false, status: 404, error: 'No encontrado' };
+    if (write) {
+      const estado = normEstado(item.EstadoPedido ?? item.Estado);
+      if (estado !== 'pendiente') return { ok: false, status: 403, error: 'Solo editable en estado Pendiente' };
+    }
+  } else if (write) {
+    const estado = normEstado(item.EstadoPedido ?? item.Estado);
+    if (estado === 'pagado') return { ok: false, status: 403, error: 'No editable en estado Pagado' };
+  }
+
+  return { ok: true, sessionUser, admin, item };
+}
+
 /**
  * @openapi
  * /api/pedidos:
@@ -13,8 +46,17 @@ const router = express.Router();
 router.get(
   '/',
   asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminSessionUser(sessionUser);
     const comercialId = toInt(req.query.comercialId, null);
     const clienteId = toInt(req.query.clienteId, null);
+
+    // Si hay sesión y NO es admin: siempre acotar al comercial logueado
+    if (sessionUser && !isAdmin) {
+      const itemsRaw = await db.getPedidosByComercial(sessionUser.id);
+      const items = clienteId ? (itemsRaw || []).filter((p) => Number(p.Id_Cliente ?? p.ClienteId ?? 0) === Number(clienteId)) : (itemsRaw || []);
+      return res.json({ ok: true, items });
+    }
 
     if (clienteId) {
       const items = await db.getPedidosByCliente(clienteId);
@@ -53,7 +95,9 @@ router.get(
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    const item = await db.getPedidoById(req.params.id);
+    const access = await assertPedidoAccess(req, req.params.id, { write: false });
+    if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
+    const item = access.item || await db.getPedidoById(req.params.id);
     if (!item) return res.status(404).json({ ok: false, error: 'No encontrado' });
     const includeLineas =
       String(req.query.includeLineas || req.query.include_lineas || req.query.include || '').toLowerCase().includes('lineas') ||
@@ -71,6 +115,8 @@ router.get(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    const access = await assertPedidoAccess(req, id, { write: false });
+    if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
     const items = await db.getArticulosByPedido(id);
     res.json({ ok: true, items });
   })
@@ -79,12 +125,15 @@ router.get(
 router.post(
   '/',
   asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminSessionUser(sessionUser);
     // Compatibilidad:
     // - Legacy: body es el pedido "plano"
     // - Nuevo: { pedido: {...}, lineas: [...] }
     const body = req.body || {};
     if (body && typeof body === 'object' && (Array.isArray(body.lineas) || Array.isArray(body.Lineas)) && (body.pedido || body.Pedido)) {
       const pedidoPayload = body.pedido || body.Pedido || {};
+      if (sessionUser && !isAdmin) pedidoPayload.Id_Cial = sessionUser.id;
       const lineasPayload = body.lineas || body.Lineas || [];
       // Crear cabecera y luego reemplazar líneas con recálculo de totales (tarifa/IVA) en transacción.
       const created = await db.createPedido(pedidoPayload);
@@ -92,7 +141,9 @@ router.post(
       const result = await db.updatePedidoWithLineas(pedidoId, {}, lineasPayload);
       return res.status(201).json({ ok: true, created, result });
     }
-    const result = await db.createPedido(req.body || {});
+    const payload = req.body || {};
+    if (sessionUser && !isAdmin) payload.Id_Cial = sessionUser.id;
+    const result = await db.createPedido(payload);
     res.status(201).json({ ok: true, result });
   })
 );
@@ -102,6 +153,8 @@ router.put(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    const access = await assertPedidoAccess(req, id, { write: true });
+    if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
     const body = req.body || {};
     // Opcional: { pedido: {...}, lineas: [...] , replaceLineas: true }
     const hasWrapper = body && typeof body === 'object' && (body.pedido || body.Pedido || Array.isArray(body.lineas) || Array.isArray(body.Lineas));
@@ -124,6 +177,8 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    const access = await assertPedidoAccess(req, id, { write: true });
+    if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
     const result = await db.deletePedido(id);
     res.json({ ok: true, result });
   })
@@ -132,6 +187,8 @@ router.delete(
 router.post(
   '/:id/lineas',
   asyncHandler(async (req, res) => {
+    const access = await assertPedidoAccess(req, req.params.id, { write: true });
+    if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
     // El método createPedidoLinea no necesita el ID en la URL, pero lo dejamos para ergonomía
     const payload = { ...(req.body || {}), PedidoId: toInt(req.params.id, undefined) ?? (req.body || {}).PedidoId };
     const result = await db.createPedidoLinea(payload);
@@ -144,6 +201,13 @@ router.put(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    // Best-effort: si hay sesión, no permitir editar líneas si el pedido no es editable.
+    // Nota: sin PedidoId en payload no podemos comprobar ownership con total certeza, pero evitamos el caso común.
+    const pedidoId = toInt(req.body?.PedidoId ?? req.body?.Id_NumPedido ?? req.body?.pedidoId ?? req.body?.Pedido_id, 0);
+    if (pedidoId) {
+      const access = await assertPedidoAccess(req, pedidoId, { write: true });
+      if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
+    }
     const result = await db.updatePedidoLinea(id, req.body || {});
     res.json({ ok: true, result });
   })
@@ -154,6 +218,11 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    const pedidoId = toInt(req.query?.PedidoId ?? req.query?.Id_NumPedido ?? req.query?.pedidoId, 0);
+    if (pedidoId) {
+      const access = await assertPedidoAccess(req, pedidoId, { write: true });
+      if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
+    }
     const result = await db.deletePedidoLinea(id);
     res.json({ ok: true, result });
   })

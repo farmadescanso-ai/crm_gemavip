@@ -821,6 +821,34 @@ app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
       const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
       if (owner !== userId) return res.status(404).send('No encontrado');
     }
+
+    const estadoNorm = String(item.EstadoPedido ?? item.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
+    const canEdit = admin ? (estadoNorm !== 'pagado') : (estadoNorm === 'pendiente');
+    if (!canEdit) {
+      return renderErrorPage(req, res, {
+        status: 403,
+        heading: 'No permitido',
+        summary: admin
+          ? 'Un pedido en estado "Pagado" no se puede modificar.'
+          : 'Solo puedes modificar pedidos en estado "Pendiente".',
+        publicMessage: `Estado actual: ${String(item.EstadoPedido ?? item.Estado ?? '—')}`
+      });
+    }
+
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const clienteLabel = cliente
+      ? (() => {
+          const idc = cliente.Id ?? cliente.id ?? item.Id_Cliente ?? '';
+          const rs = cliente.Nombre_Razon_Social ?? cliente.Nombre ?? '';
+          const nc = cliente.Nombre_Cial ?? '';
+          const cif = cliente.DNI_CIF ?? '';
+          const pob = cliente.Poblacion ?? '';
+          const cp = cliente.CodigoPostal ?? '';
+          const parts = [rs, nc].filter(Boolean).join(' / ');
+          const extra = [cif, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+          return `${idc} · ${parts || 'Sin nombre'}${extra ? ` · ${extra}` : ''}`.trim();
+        })()
+      : '';
     const articulos = await db.getArticulos({}).catch(() => []);
     const clientesRecent = await db
       .getClientesOptimizadoPaged({ comercial: item?.Id_Cial ?? res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
@@ -830,12 +858,25 @@ app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
       ? lineasRaw.map((l) => ({
           Id_Articulo: l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? '',
           Cantidad: l.Cantidad ?? l.Unidades ?? 1,
-          Dto: l.Dto ?? '',
+          Dto: l.Dto ?? l.dto ?? l.Descuento ?? l.descuento ?? '',
           // Mostrar PVL en edición: si viene guardado en línea, precargarlo (si no, el JS lo calcula por tarifa)
           PrecioUnitario: l.PrecioUnitario ?? l.Precio ?? l.PVL ?? l.pvl ?? ''
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
-    res.render('pedido-form', { mode: 'edit', item, lineas, tarifas, formasPago, comerciales, articulos, clientes: Array.isArray(clientesRecent) ? clientesRecent : [], error: null });
+    res.render('pedido-form', {
+      mode: 'edit',
+      item,
+      lineas,
+      tarifas,
+      formasPago,
+      comerciales,
+      articulos,
+      clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
+      cliente,
+      clienteLabel,
+      canEdit,
+      error: null
+    });
   } catch (e) {
     next(e);
   }
@@ -853,6 +894,19 @@ app.post('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
     if (!admin && Number.isFinite(userId) && userId > 0) {
       const owner = Number(existing.Id_Cial ?? existing.id_cial ?? existing.ComercialId ?? existing.comercialId ?? 0) || 0;
       if (owner !== userId) return res.status(404).send('No encontrado');
+    }
+
+    const estadoNorm = String(existing.EstadoPedido ?? existing.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
+    const canEdit = admin ? (estadoNorm !== 'pagado') : (estadoNorm === 'pendiente');
+    if (!canEdit) {
+      return renderErrorPage(req, res, {
+        status: 403,
+        heading: 'No permitido',
+        summary: admin
+          ? 'Un pedido en estado "Pagado" no se puede modificar.'
+          : 'Solo puedes modificar pedidos en estado "Pendiente".',
+        publicMessage: `Estado actual: ${String(existing.EstadoPedido ?? existing.Estado ?? '—')}`
+      });
     }
 
     const [tarifas, formasPago, comerciales] = await Promise.all([

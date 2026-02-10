@@ -60,7 +60,7 @@
               class="gv-client-picker__q"
               placeholder="Buscar cliente (nombre, CIF, email, teléfono, CP o ID...)"
               autocomplete="off"
-              value=""
+              value="<%= (typeof clienteLabel === 'string' ? clienteLabel : '') %>"
             />
             <div class="gv-client-picker__results" hidden></div>
             <input id="Id_Cliente" name="Id_Cliente" type="hidden" class="gv-client-picker__id" value="<%= item.Id_Cliente ?? '' %>" />
@@ -217,6 +217,7 @@
     if (!table || !btn) return;
     var firstSelect = table.querySelector('tbody select');
     var optionsHTML = firstSelect ? firstSelect.innerHTML : '<option value="">(selecciona)</option>';
+    var canEdit = String('<%= (typeof canEdit !== "undefined" && canEdit) ? "1" : "0" %>') === '1';
 
     var defaultDto = 0;
     function clampPct(n){ n = Number(n); if (!isFinite(n)) n = 0; return Math.max(0, Math.min(100, n)); }
@@ -284,6 +285,7 @@
     }
 
     async function loadClienteAndDefaults(clienteId){
+      if (!canEdit) return;
       var id = parseInt(String(clienteId || '').trim(), 10) || 0;
       if (!id) return;
       try {
