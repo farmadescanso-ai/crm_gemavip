@@ -564,36 +564,44 @@ tr:hover td{ background: rgba(0,139,210,.04); }
     right: 0;
     background: #fff;
     padding-bottom: 4mm;
+    height: 34mm;        /* altura estable para evitar solapes */
+    overflow: hidden;    /* nunca pisa el contenido */
   }
   .gv-print-body{
-    padding-top: 30mm; /* reservar espacio para la cabecera fija */
+    padding-top: 38mm; /* reservar espacio para la cabecera fija */
   }
 
   /* Compactar espacio y bajar fuente */
-  .gv-doc-title{ font-size: 15px; font-weight: 900; }
-  .gv-doc-company{ font-size: 10px; font-weight: 900; }
-  .gv-doc-company small{ font-size: 9px; font-weight: 500; }
+  .gv-doc-title{ font-size: 16px; font-weight: 900; }
+  .gv-doc-company{ font-size: 11px; font-weight: 900; }
+  .gv-doc-company small{ font-size: 10px; font-weight: 500; }
 
-  .gv-doc-kv{ margin-top: 3px; gap: 3px; font-size: 9px; }
-  .gv-doc-kv div{ padding-bottom: 3px; }
+  .gv-doc-kv{ margin-top: 2px; gap: 2px; font-size: 10px; }
+  .gv-doc-kv div{ padding-bottom: 0; border-bottom: 0; }
   /* Solo cabeceras en negrita: etiquetas sí, valores no */
   .gv-doc-kv span{ font-weight: 900; }
   .gv-doc-kv b{ font-weight: 500; color: var(--gv-ink); }
 
   .gv-doc-parties{ margin-top: 8px; gap: 8px; }
   .gv-doc-box{ padding: 9px; }
-  .gv-doc-box h3{ font-size: 10px; font-weight: 900; }
-  .gv-doc-lines{ font-size: 9px; font-weight: 500; }
-  .gv-doc-lines small{ font-size: 9px; font-weight: 400; }
+  .gv-doc-box h3{ font-size: 10px; font-weight: 900; margin-bottom: 6px; }
+  .gv-doc-lines{ font-size: 10px; font-weight: 500; line-height: 1.2; }
+  .gv-doc-lines small{ font-size: 10px; font-weight: 400; line-height: 1.2; }
 
   /* Tabla: reducir alto y quepan columnas en vertical */
   .gv-doc-table{ table-layout: fixed; }
-  .gv-doc-table th{ font-size: 9px; font-weight: 900; }
-  .gv-doc-table td{ font-size: 9px; font-weight: 400; color: #111827; }
-  .gv-doc-table th, .gv-doc-table td{ padding: 5px 5px; }
-  .gv-doc-table td.is-wrap{ white-space: normal; min-width: 160px; }
+  .gv-doc-table th{ font-size: 9px; font-weight: 900; line-height: 1.1; }
+  .gv-doc-table td{ font-size: 10px; font-weight: 400; color: #111827; line-height: 1.15; }
+  .gv-doc-table th, .gv-doc-table td{ padding: 4px 5px; }
+  .gv-doc-table td.is-wrap{ white-space: normal; word-break: break-word; }
+  .gv-doc-concept{
+    display:block;
+    line-height: 1.15;
+    max-height: 2.35em; /* ~2 líneas */
+    overflow: hidden;
+  }
 
-  .gv-doc-summary td{ padding: 5px 6px; font-size: 9px; font-weight: 700; }
+  .gv-doc-summary td{ padding: 4px 6px; font-size: 10px; font-weight: 700; }
   .gv-doc-summary td:last-child{ font-weight: 500; }
   .gv-doc-grand{ font-size: 12px; font-weight: 900; }
 
