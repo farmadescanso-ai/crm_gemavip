@@ -868,8 +868,19 @@ app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
 
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
       ? lineasRaw.map((l) => ({
-          Id_Articulo: pickRowCI(l, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloid', 'Articulo_Id', 'articulo_id']) ?? '',
-          Cantidad: l.Cantidad ?? l.Unidades ?? 1,
+          Id_Articulo:
+            pickRowCI(l, [
+              'Id_Articulo',
+              'id_articulo',
+              'ArticuloId',
+              'articuloid',
+              'Articulo_Id',
+              'articulo_id',
+              'IdArticulo',
+              'idArticulo'
+            ]) ?? '',
+          Cantidad:
+            pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']) ?? 1,
           // DTO puede llamarse Dto/DTO/Descuento/PorcentajeDescuento...
           Dto:
             pickRowCI(l, ['Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento', 'DtoLinea', 'dto_linea']) ?? '',
