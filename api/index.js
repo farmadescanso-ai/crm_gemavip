@@ -854,13 +854,28 @@ app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
       .getClientesOptimizadoPaged({ comercial: item?.Id_Cial ?? res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
     const lineasRaw = await db.getArticulosByPedido(id);
+
+    // Helper: leer valores de columnas con nombres variables (case-insensitive)
+    const pickRowCI = (row, cands) => {
+      const obj = row && typeof row === 'object' ? row : {};
+      const map = new Map(Object.keys(obj).map((k) => [String(k).toLowerCase(), k]));
+      for (const cand of (cands || [])) {
+        const real = map.get(String(cand).toLowerCase());
+        if (real && obj[real] !== undefined) return obj[real];
+      }
+      return undefined;
+    };
+
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
       ? lineasRaw.map((l) => ({
-          Id_Articulo: l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? '',
+          Id_Articulo: pickRowCI(l, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloid', 'Articulo_Id', 'articulo_id']) ?? '',
           Cantidad: l.Cantidad ?? l.Unidades ?? 1,
-          Dto: l.Dto ?? l.dto ?? l.Descuento ?? l.descuento ?? '',
+          // DTO puede llamarse Dto/DTO/Descuento/PorcentajeDescuento...
+          Dto:
+            pickRowCI(l, ['Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento', 'DtoLinea', 'dto_linea']) ?? '',
           // Mostrar PVL en edición: si viene guardado en línea, precargarlo (si no, el JS lo calcula por tarifa)
-          PrecioUnitario: l.PrecioUnitario ?? l.Precio ?? l.PVL ?? l.pvl ?? ''
+          PrecioUnitario:
+            pickRowCI(l, ['PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl', 'PVP', 'pvp']) ?? ''
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
     res.render('pedido-form', {

@@ -167,6 +167,7 @@
                 <th style="width:120px;">PVL</th>
                 <th style="width:120px;">Cantidad</th>
                 <th style="width:120px;">Dto (%)</th>
+                <th style="width:140px; text-align:right;">Total línea</th>
                 <th style="width:70px;"></th>
               </tr>
             </thead>
@@ -179,19 +180,27 @@
                       <% const curA = String(l.Id_Articulo ?? ''); %>
                       <% (articulos || []).forEach((a) => { %>
                         <% const aid = String(a.Id ?? a.id ?? ''); %>
-                        <option value="<%= aid %>" data-pvl="<%= a.PVL ?? a.pvl ?? '' %>" <%= aid === curA ? 'selected' : '' %>><%= aid %> · <%= a.SKU ?? '' %> · <%= a.Nombre ?? '' %></option>
+                        <option value="<%= aid %>" data-pvl="<%= a.PVL ?? a.pvl ?? '' %>" data-iva="<%= a.IVA ?? a.iva ?? '' %>" <%= aid === curA ? 'selected' : '' %>><%= aid %> · <%= a.SKU ?? '' %> · <%= a.Nombre ?? '' %></option>
                       <% }) %>
                     </select>
                   </td>
                   <td><input class="gv-line-pvl" name="lineas[<%= idx %>][PrecioUnitario]" type="number" min="0" step="0.01" value="<%= l.PrecioUnitario ?? l.Precio ?? '' %>" placeholder="auto" /></td>
                   <td><input name="lineas[<%= idx %>][Cantidad]" type="number" min="0" step="0.01" value="<%= l.Cantidad ?? 1 %>" /></td>
                   <td><input class="gv-line-dto" name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" placeholder="auto" /></td>
+                  <td style="text-align:right; font-weight:900;" class="gv-line-total">—</td>
                   <td>
                     <button class="btn secondary danger" type="button" data-remove-linea>Quitar</button>
                   </td>
                 </tr>
               <% }) %>
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" style="text-align:right; font-weight:900;">Total pedido</td>
+                <td style="text-align:right; font-weight:900;" id="totalGeneralCell">—</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -378,6 +387,59 @@
       } catch(_e){}
     }
 
+    function fmtNumES(n, d){
+      var x = Number(n);
+      if (!isFinite(x)) return '';
+      var dec = Math.max(0, Math.min(6, Number(d || 0) || 0));
+      var sign = x < 0 ? '-' : '';
+      var abs = Math.abs(x);
+      var factor = Math.pow(10, dec);
+      var rounded = Math.round((abs + Number.EPSILON) * factor) / factor;
+      var parts = rounded.toFixed(dec).split('.');
+      var intPart = String(parts[0] || '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      var decPart = dec ? (',' + String(parts[1] || '').padEnd(dec, '0')) : '';
+      return sign + intPart + decPart;
+    }
+    function fmtEurES(n){ var s = fmtNumES(n, 2); return s ? (s + '€') : ''; }
+
+    function getIvaPctForSelect(sel){
+      if (!sel) return 0;
+      var opt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+      var raw = opt ? opt.getAttribute('data-iva') : '';
+      var x = Number(String(raw || '').replace(',', '.'));
+      return isFinite(x) ? Math.max(0, Math.min(100, x)) : 0;
+    }
+
+    function recalcTotals(){
+      var sum = 0;
+      table.querySelectorAll('tbody tr').forEach(function(tr){
+        var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
+        var pvlEl = tr.querySelector('input.gv-line-pvl');
+        var qtyEl = tr.querySelector('input[name*=\"[Cantidad]\"]');
+        var dtoEl = tr.querySelector('input.gv-line-dto');
+        var out = tr.querySelector('.gv-line-total');
+        if (!out) return;
+        var pvl = Number(String(pvlEl && pvlEl.value ? pvlEl.value : '').replace(',', '.'));
+        var qty = Number(String(qtyEl && qtyEl.value ? qtyEl.value : '').replace(',', '.'));
+        var dto = Number(String(dtoEl && dtoEl.value ? dtoEl.value : '').replace(',', '.'));
+        if (!isFinite(pvl)) pvl = 0;
+        if (!isFinite(qty)) qty = 0;
+        if (!isFinite(dto)) dto = 0;
+        dto = Math.max(0, Math.min(100, dto));
+        var base = qty * pvl * (1 - dto / 100);
+        var ivaPct = getIvaPctForSelect(sel);
+        var total = base + (base * ivaPct / 100);
+        // redondeo 2 decimales
+        total = Math.round((total + Number.EPSILON) * 100) / 100;
+        if (qty <= 0 || pvl <= 0) out.textContent = '—';
+        else out.textContent = fmtEurES(total);
+        if (isFinite(total)) sum += total;
+      });
+      sum = Math.round((sum + Number.EPSILON) * 100) / 100;
+      var tg = document.getElementById('totalGeneralCell');
+      if (tg) tg.textContent = sum ? fmtEurES(sum) : '—';
+    }
+
     function renumber() {
       var rows = table.querySelectorAll('tbody tr');
       rows.forEach(function (tr, idx) {
@@ -412,6 +474,7 @@
         '<td><input class=\"gv-line-pvl\" name=\"lineas[' + idx + '][PrecioUnitario]\" type=\"number\" min=\"0\" step=\"0.01\" value=\"\" placeholder=\"auto\" /></td>' +
         '<td><input name=\"lineas[' + idx + '][Cantidad]\" type=\"number\" min=\"0\" step=\"0.01\" value=\"1\" /></td>' +
         '<td><input class=\"gv-line-dto\" name=\"lineas[' + idx + '][Dto]\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" value=\"\" placeholder=\"auto\" /></td>' +
+        '<td style=\"text-align:right; font-weight:900;\" class=\"gv-line-total\">—</td>' +
         '<td><button class=\"btn secondary danger\" type=\"button\" data-remove-linea>Quitar</button></td>';
       tbody.appendChild(tr);
 
@@ -425,6 +488,7 @@
       var pvl = tr.querySelector('input.gv-line-pvl');
       if (pvl) pvl.addEventListener('input', function(){ markManual(pvl); });
       refreshPrecios();
+      recalcTotals();
     });
 
     // Si venimos con un cliente ya guardado (editar), cargar defaults
@@ -437,8 +501,19 @@
 
     table.addEventListener('change', function(e){
       var t = e.target;
-      if (t && t.matches('select[name*=\"[Id_Articulo]\"]')) refreshPrecios();
+      if (t && t.matches('select[name*=\"[Id_Articulo]\"]')) { refreshPrecios(); recalcTotals(); }
     });
+
+    table.addEventListener('input', function(e){
+      var t = e.target;
+      if (!t) return;
+      if (t.matches('input.gv-line-pvl') || t.matches('input[name*=\"[Cantidad]\"]') || t.matches('input.gv-line-dto')) {
+        recalcTotals();
+      }
+    });
+
+    // Inicial
+    recalcTotals();
   })();
 </script>
 
