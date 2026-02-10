@@ -8,11 +8,9 @@
     </p>
   </div>
   <div class="card-bd">
-    <% if (admin) { %>
-      <div style="display:flex; justify-content:flex-end; margin-bottom: 10px;">
-        <a class="btn" href="/pedidos/new">Nuevo pedido</a>
-      </div>
-    <% } %>
+    <div style="display:flex; justify-content:flex-end; margin-bottom: 10px;">
+      <a class="btn" href="/pedidos/new">Nuevo pedido</a>
+    </div>
     <form method="get" action="/pedidos" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 0 0 12px 0;">
       <label for="year" style="font-weight:700; color: var(--gv-ink);">Año</label>
       <select id="year" name="year" class="gv-client-picker__q" style="width:auto; min-width: 140px;">
@@ -35,36 +33,37 @@
         <thead>
           <tr>
             <th>Acciones</th>
-            <th>ID</th>
-            <th>NumPedido</th>
-            <th>NumPedidoCliente</th>
             <th>Fecha</th>
+            <th>PEDIDO</th>
             <th>Cliente</th>
-            <th>Comercial</th>
+            <th>PEDIDO CLIENTE</th>
             <th>Total</th>
             <th>Estado</th>
           </tr>
         </thead>
         <tbody>
           <% items.forEach((p) => { %>
+            <% const pid = p.Id ?? p.id; %>
+            <% const owner = Number(p.Id_Cial ?? p.id_cial ?? p.ComercialId ?? p.comercialId ?? 0) || 0; %>
+            <% const canWrite = admin || (userId && Number(userId) === owner); %>
             <tr>
               <td>
                 <div class="gv-actions">
-                  <a class="btn secondary icon" href="/pedidos/<%= p.Id ?? p.id %>" title="Ver" aria-label="Ver pedido <%= p.Id ?? p.id %>">
+                  <a class="btn secondary icon" href="/pedidos/<%= pid %>" title="Ver" aria-label="Ver pedido <%= pid %>">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
                       <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                   </a>
-                  <% if (admin) { %>
-                    <a class="btn secondary icon" href="/pedidos/<%= p.Id ?? p.id %>/edit" title="Editar" aria-label="Editar pedido <%= p.Id ?? p.id %>">
+                  <% if (canWrite) { %>
+                    <a class="btn secondary icon" href="/pedidos/<%= pid %>/edit" title="Editar" aria-label="Editar pedido <%= pid %>">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 20h9"></path>
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
                       </svg>
                     </a>
-                    <form method="post" action="/pedidos/<%= p.Id ?? p.id %>/delete" onsubmit="return confirm('¿Eliminar este pedido?');">
-                      <button class="btn secondary icon danger" type="submit" title="Borrar" aria-label="Borrar pedido <%= p.Id ?? p.id %>">
+                    <form method="post" action="/pedidos/<%= pid %>/delete" onsubmit="return confirm('¿Eliminar este pedido?');">
+                      <button class="btn secondary icon danger" type="submit" title="Borrar" aria-label="Borrar pedido <%= pid %>">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <path d="M3 6h18"></path>
                           <path d="M8 6V4h8v2"></path>
@@ -77,13 +76,11 @@
                   <% } %>
                 </div>
               </td>
-              <td><%= p.Id ?? p.id %></td>
-              <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
-              <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
               <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-              <td><%= p.Id_Cliente ?? p.Cliente_id ?? p.ClienteId ?? '' %></td>
-              <td><%= p.Id_Cial ?? p.ComercialId ?? '' %></td>
-              <td><%= p.TotalPedido ?? p.Total ?? '' %></td>
+              <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
+              <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+              <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
+              <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? 0) %></td>
               <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
             </tr>
           <% }) %>

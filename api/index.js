@@ -322,6 +322,26 @@ app.use((req, res, next) => {
     }
   };
 
+  // Formato numérico ES fijo: miles "." y decimales "," (sin depender del locale del runtime)
+  res.locals.fmtNumES = (value, decimals = 2) => {
+    const x = Number(value);
+    if (!Number.isFinite(x)) return '';
+    const d = Math.max(0, Math.min(6, Number(decimals) || 0));
+    const sign = x < 0 ? '-' : '';
+    const abs = Math.abs(x);
+    const factor = Math.pow(10, d);
+    const rounded = Math.round((abs + Number.EPSILON) * factor) / factor;
+    const parts = rounded.toFixed(d).split('.');
+    const intPart = String(parts[0] || '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const decPart = d ? (',' + String(parts[1] || '').padEnd(d, '0')) : '';
+    return sign + intPart + decPart;
+  };
+  res.locals.fmtEurES = (value) => {
+    const x = Number(value);
+    if (!Number.isFinite(x)) return '';
+    return `${res.locals.fmtNumES(x, 2)}€`;
+  };
+
   next();
 });
 
@@ -559,6 +579,10 @@ app.post('/clientes/:id/delete', requireAdmin, async (req, res, next) => {
 
 app.get('/pedidos', requireLogin, async (req, res, next) => {
   try {
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    const scopeUserId = !admin && Number.isFinite(userId) && userId > 0 ? userId : null;
+
     const startYear = 2025;
     const currentYear = new Date().getFullYear();
     const years = [];
@@ -580,20 +604,38 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
     if (selectedMarcaId) {
       items = await db.query(
         `
-          SELECT DISTINCT p.*
+          SELECT DISTINCT p.*,
+            c.Nombre_Razon_Social AS ClienteNombre,
+            c.Nombre_Cial AS ClienteNombreCial
           FROM pedidos p
+          LEFT JOIN clientes c ON (c.Id = p.Id_Cliente OR c.id = p.Id_Cliente)
           INNER JOIN pedidos_articulos pa ON pa.Id_NumPedido = p.id
           INNER JOIN articulos a ON a.id = pa.Id_Articulo
-          WHERE YEAR(p.FechaPedido) = ? AND a.Id_Marca = ?
+          WHERE YEAR(p.FechaPedido) = ?
+            AND a.Id_Marca = ?
+            ${scopeUserId ? 'AND (p.Id_Cial = ? OR p.id_cial = ? OR p.ComercialId = ? OR p.comercialId = ?)' : ''}
           ORDER BY p.id DESC
           LIMIT 200
         `,
-        [selectedYear, selectedMarcaId]
+        scopeUserId
+          ? [selectedYear, selectedMarcaId, scopeUserId, scopeUserId, scopeUserId, scopeUserId]
+          : [selectedYear, selectedMarcaId]
       );
     } else {
-      items = await db.query('SELECT * FROM pedidos WHERE YEAR(FechaPedido) = ? ORDER BY id DESC LIMIT 200', [
-        selectedYear
-      ]);
+      items = await db.query(
+        `
+          SELECT p.*,
+            c.Nombre_Razon_Social AS ClienteNombre,
+            c.Nombre_Cial AS ClienteNombreCial
+          FROM pedidos p
+          LEFT JOIN clientes c ON (c.Id = p.Id_Cliente OR c.id = p.Id_Cliente)
+          WHERE YEAR(p.FechaPedido) = ?
+            ${scopeUserId ? 'AND (p.Id_Cial = ? OR p.id_cial = ? OR p.ComercialId = ? OR p.comercialId = ?)' : ''}
+          ORDER BY p.id DESC
+          LIMIT 200
+        `,
+        scopeUserId ? [selectedYear, scopeUserId, scopeUserId, scopeUserId, scopeUserId] : [selectedYear]
+      );
     }
 
     res.render('pedidos', {
@@ -602,7 +644,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       selectedYear,
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
-      admin: isAdminUser(res.locals.user)
+      admin,
+      userId: res.locals.user?.id ?? null
     });
   } catch (e) {
     next(e);
@@ -645,7 +688,7 @@ function parseLineasFromBody(body) {
   return lineas;
 }
 
-app.get('/pedidos/new', requireAdmin, async (_req, res, next) => {
+app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
   try {
     const [comerciales, tarifas, formasPago] = await Promise.all([
       db.getComerciales().catch(() => []),
@@ -681,7 +724,7 @@ app.get('/pedidos/new', requireAdmin, async (_req, res, next) => {
   }
 });
 
-app.post('/pedidos/new', requireAdmin, async (req, res, next) => {
+app.post('/pedidos/new', requireLogin, async (req, res, next) => {
   try {
     const [comerciales, tarifas, formasPago] = await Promise.all([
       db.getComerciales().catch(() => []),
@@ -690,8 +733,9 @@ app.post('/pedidos/new', requireAdmin, async (req, res, next) => {
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
     const body = req.body || {};
+    const admin = isAdminUser(res.locals.user);
     const pedidoPayload = {
-      Id_Cial: Number(body.Id_Cial) || 0,
+      Id_Cial: admin ? (Number(body.Id_Cial) || 0) : (Number(res.locals.user?.id) || 0),
       Id_Cliente: Number(body.Id_Cliente) || 0,
       Id_DireccionEnvio: body.Id_DireccionEnvio ? (Number(body.Id_DireccionEnvio) || null) : null,
       Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
@@ -738,19 +782,24 @@ app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const item = await db.getPedidoById(id);
     if (!item) return res.status(404).send('No encontrado');
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+      if (owner !== userId) return res.status(404).send('No encontrado');
+    }
     const lineas = await db.getArticulosByPedido(id);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
     const direccionEnvio = item?.Id_DireccionEnvio
       ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
       : null;
-    const admin = isAdminUser(res.locals.user);
     res.render('pedido', { item, lineas: lineas || [], cliente, direccionEnvio, admin });
   } catch (e) {
     next(e);
   }
 });
 
-app.get('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
+app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -761,6 +810,12 @@ app.get('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
       db.getComerciales().catch(() => [])
     ]);
     if (!item) return res.status(404).send('No encontrado');
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+      if (owner !== userId) return res.status(404).send('No encontrado');
+    }
     const articulos = await db.getArticulos({}).catch(() => []);
     const clientesRecent = await db
       .getClientesOptimizadoPaged({ comercial: item?.Id_Cial ?? res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
@@ -781,12 +836,19 @@ app.get('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
   }
 });
 
-app.post('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
+app.post('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const existing = await db.getPedidoById(id);
     if (!existing) return res.status(404).send('No encontrado');
+
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(existing.Id_Cial ?? existing.id_cial ?? existing.ComercialId ?? existing.comercialId ?? 0) || 0;
+      if (owner !== userId) return res.status(404).send('No encontrado');
+    }
 
     const [tarifas, formasPago, comerciales] = await Promise.all([
       db.getTarifas().catch(() => []),
@@ -797,7 +859,7 @@ app.post('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
 
     const body = req.body || {};
     const pedidoPayload = {
-      Id_Cial: Number(body.Id_Cial) || 0,
+      Id_Cial: admin ? (Number(body.Id_Cial) || 0) : (Number(res.locals.user?.id) || 0),
       Id_Cliente: Number(body.Id_Cliente) || 0,
       Id_DireccionEnvio: body.Id_DireccionEnvio ? (Number(body.Id_DireccionEnvio) || null) : null,
       Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
@@ -832,10 +894,18 @@ app.post('/pedidos/:id/edit', requireAdmin, async (req, res, next) => {
   }
 });
 
-app.post('/pedidos/:id/delete', requireAdmin, async (req, res, next) => {
+app.post('/pedidos/:id/delete', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getPedidoById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+      if (owner !== userId) return res.status(404).send('No encontrado');
+    }
     await db.deletePedido(id);
     return res.redirect('/pedidos');
   } catch (e) {
