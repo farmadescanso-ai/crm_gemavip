@@ -4615,8 +4615,20 @@ class MySQLCRM {
         ? `LEFT JOIN \`${tArt}\` a ON pa.\`${paMeta.colArticulo}\` = a.\`${aPk}\``
         : '';
 
+      // Evitar colisiones de nombres entre pa.* y a.* (p.ej. IVA) añadiendo alias explícitos (best-effort)
+      const paCols = await this._getColumns(tPA).catch(() => []);
+      const pickPaCol = (cands) => this._pickCIFromColumns(paCols, cands);
+      const colPvp = pickPaCol(['PVP', 'pvp', 'PVPUnit', 'Precio', 'precio', 'PrecioUnitario', 'precio_unitario']);
+      const colDto = pickPaCol(['DtoLinea', 'dto_linea', 'dtoLinea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
+      const colIva = pickPaCol(['IVA', 'iva', 'PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'TipoIVA', 'tipo_iva']);
+      const extraSelect = [
+        colPvp ? `pa.\`${colPvp}\` AS Linea_PVP` : null,
+        colDto ? `pa.\`${colDto}\` AS Linea_Dto` : null,
+        colIva ? `pa.\`${colIva}\` AS Linea_IVA` : null
+      ].filter(Boolean).join(', ');
+
       const sql = `
-        SELECT pa.*${joinArticulo ? ', a.*' : ''}
+        SELECT pa.*${extraSelect ? `, ${extraSelect}` : ''}${joinArticulo ? ', a.*' : ''}
         FROM \`${tPA}\` pa
         ${joinArticulo}
         WHERE (${where.join(' OR ')})
@@ -4798,7 +4810,7 @@ class MySQLCRM {
 
       const colQty = pickPaCol(['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']);
       const colPrecioUnit = pickPaCol(['PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl', 'PCP', 'pcp']);
-      const colDtoLinea = pickPaCol(['Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
+      const colDtoLinea = pickPaCol(['DtoLinea', 'dtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
       // Algunas instalaciones guardan además el nombre del artículo en texto (NOT NULL)
       const colArticuloTxt = pickPaCol(['Articulo', 'articulo', 'NombreArticulo', 'nombre_articulo']);
       const colIvaPctLinea = pickPaCol(['PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'IVA', 'iva', 'TipoIVA', 'tipo_iva']);

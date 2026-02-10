@@ -883,10 +883,10 @@ app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
             pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']) ?? 1,
           // DTO puede llamarse Dto/DTO/Descuento/PorcentajeDescuento...
           Dto:
-            pickRowCI(l, ['Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento', 'DtoLinea', 'dto_linea']) ?? '',
+            pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento', 'DtoLinea', 'dto_linea']) ?? '',
           // Mostrar PVL en edición: si viene guardado en línea, precargarlo (si no, el JS lo calcula por tarifa)
           PrecioUnitario:
-            pickRowCI(l, ['PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl', 'PVP', 'pvp']) ?? ''
+            pickRowCI(l, ['Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']) ?? ''
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
     res.render('pedido-form', {
