@@ -42,14 +42,14 @@
           <span class="gv-field__label">Comercial (Id_Cial) *</span>
           <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
           <input type="hidden" name="Id_Cial" id="Id_Cial" value="<%= curCial || '' %>" />
-          <select disabled class="gv-input" id="Id_Cial__display">
+          <select <%= admin ? '' : 'disabled' %> class="gv-input" id="Id_Cial__display">
             <option value="">(selecciona)</option>
             <% (comerciales || []).forEach((c) => { %>
               <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
               <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
             <% }) %>
           </select>
-          <span class="gv-field__help">Se asigna automáticamente según el cliente seleccionado.</span>
+          <span class="gv-field__help"><%= admin ? 'Puedes cambiar el comercial del pedido manualmente.' : 'Se asigna automáticamente según el cliente seleccionado.' %></span>
         </label>
 
         <label class="gv-field">
@@ -245,6 +245,7 @@
     var optionsHTML = firstSelect ? firstSelect.innerHTML : '<option value="">(selecciona)</option>';
     var canEdit = String('<%= (typeof canEdit !== "undefined" && canEdit) ? "1" : "0" %>') === '1';
     var isEditMode = String('<%= mode === "edit" ? "1" : "0" %>') === '1';
+    var isAdmin = String('<%= (user?.roles || []).some(r => String(r).toLowerCase().includes("admin")) ? "1" : "0" %>') === '1';
 
     var defaultDto = 0;
     function clampPct(n){ n = Number(n); if (!isFinite(n)) n = 0; return Math.max(0, Math.min(100, n)); }
@@ -272,6 +273,8 @@
 
     function setCial(value){
       if (value === null || value === undefined || String(value).trim() === '') return;
+      // Si el admin ha seleccionado manualmente, no pisar su elección al cambiar cliente.
+      if (isAdmin && selCialDisplay && isManual(selCialDisplay)) return;
       if (hidCial) hidCial.value = String(value);
       if (selCialDisplay) selCialDisplay.value = String(value);
     }
@@ -344,7 +347,6 @@
       if (!id) return;
       try {
         var userId = parseInt('<%= Number(user?.id ?? 0) %>', 10) || 0;
-        var isAdmin = String('<%= (user?.roles || []).some(r => String(r).toLowerCase().includes("admin")) ? "1" : "0" %>') === '1';
 
         var r = await fetch('/api/clientes/' + encodeURIComponent(String(id)), { headers: { Accept: 'application/json' } });
         if (!r.ok) return;
@@ -548,6 +550,14 @@
         loadDireccionesEnvio(hidCliente.value);
         loadClienteAndDefaults(hidCliente.value);
       }
+    }
+
+    // Admin: permitir cambiar comercial manualmente
+    if (selCialDisplay && isAdmin) {
+      selCialDisplay.addEventListener('change', function(){
+        markManual(selCialDisplay);
+        if (hidCial) hidCial.value = String(selCialDisplay.value || '');
+      });
     }
 
     table.addEventListener('change', function(e){
