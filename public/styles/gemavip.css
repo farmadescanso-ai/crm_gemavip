@@ -563,26 +563,27 @@ tr:hover td{ background: rgba(0,139,210,.04); }
     left: 0;
     right: 0;
     background: #fff;
-    padding-bottom: 4mm;
-    height: 34mm;        /* altura estable para evitar solapes */
+    padding-bottom: 6mm;
+    height: 42mm;        /* cabecera más grande y con aire */
     overflow: hidden;    /* nunca pisa el contenido */
   }
   .gv-print-body{
-    padding-top: 38mm; /* reservar espacio para la cabecera fija */
+    padding-top: 48mm; /* reservar espacio para la cabecera fija */
   }
 
   /* Compactar espacio y bajar fuente */
-  .gv-doc-title{ font-size: 16px; font-weight: 900; }
+  .gv-doc-title{ font-size: 17px; font-weight: 900; }
   .gv-doc-company{ font-size: 11px; font-weight: 900; }
   .gv-doc-company small{ font-size: 10px; font-weight: 500; }
 
-  .gv-doc-kv{ margin-top: 2px; gap: 2px; font-size: 10px; }
-  .gv-doc-kv div{ padding-bottom: 0; border-bottom: 0; }
+  .gv-doc-kv{ margin-top: 6px; gap: 4px; font-size: 10px; }
+  .gv-doc-kv div{ padding-bottom: 2px; border-bottom: 0; }
   /* Solo cabeceras en negrita: etiquetas sí, valores no */
   .gv-doc-kv span{ font-weight: 900; }
   .gv-doc-kv b{ font-weight: 500; color: var(--gv-ink); }
 
-  .gv-doc-parties{ margin-top: 8px; gap: 8px; }
+  /* Más espacio entre bloques */
+  .gv-doc-parties{ margin-top: 12px; gap: 12px; }
   .gv-doc-box{ padding: 9px; }
   .gv-doc-box h3{ font-size: 10px; font-weight: 900; margin-bottom: 6px; }
   .gv-doc-lines{ font-size: 10px; font-weight: 500; line-height: 1.2; }
@@ -601,7 +602,9 @@ tr:hover td{ background: rgba(0,139,210,.04); }
     overflow: hidden;
   }
 
-  .gv-doc-summary td{ padding: 4px 6px; font-size: 10px; font-weight: 700; }
+  .gv-doc-table-wrap{ margin-top: 12px; }
+  .gv-doc-summary{ margin-top: 12px; }
+  .gv-doc-summary td{ padding: 5px 6px; font-size: 10px; font-weight: 700; }
   .gv-doc-summary td:last-child{ font-weight: 500; }
   .gv-doc-grand{ font-size: 12px; font-weight: 900; }
 
