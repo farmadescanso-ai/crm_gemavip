@@ -56,7 +56,7 @@
     <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
   </div>
 
-  <div class="gv-doc-head">
+  <div class="gv-doc-head gv-print-header">
     <div class="gv-doc-company">
       GEMAVIP ESPAÑA SL.
       <small>B19427004</small>
@@ -74,11 +74,11 @@
         <% if (item.NumPedidoCliente || item.Num_Pedido_Cliente) { %>
           <div><span>Nº Pedido Cliente</span><b><%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></b></div>
         <% } %>
-        <div><span>Tarifa</span><b><%= item.Id_Tarifa ?? 0 %></b></div>
       </div>
     </div>
   </div>
 
+  <div class="gv-print-body">
   <div class="gv-doc-parties">
     <div class="gv-doc-box">
       <h3>Cliente</h3>
@@ -200,6 +200,7 @@
         <td class="gv-doc-grand"><%= fmtEur(round2(sumTotal)) %></td>
       </tr>
     </table>
+  </div>
   </div>
 </div>
 

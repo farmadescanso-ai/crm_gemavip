@@ -550,10 +550,38 @@ tr:hover td{ background: rgba(0,139,210,.04); }
     max-width: none !important;
     margin: 0 !important;
   }
+  /* A4 apaisado para que quepan todas las columnas */
   @page{
-    size: A4;
-    margin: 12mm;
+    size: A4 landscape;
+    margin: 10mm;
   }
+
+  /* Cabecera repetida en todas las páginas (Chrome/Edge) */
+  .gv-print-header{
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    padding-bottom: 6mm;
+  }
+  .gv-print-body{
+    padding-top: 38mm; /* reservar espacio para la cabecera fija */
+  }
+
+  /* Compactar para 1 página si es posible */
+  .gv-doc-title{ font-size: 16px; }
+  .gv-doc-company{ font-size: 11px; }
+  .gv-doc-company small{ font-size: 10px; }
+  .gv-doc-kv{ margin-top: 4px; gap: 4px; }
+  .gv-doc-kv div{ padding-bottom: 4px; }
+  .gv-doc-parties{ margin-top: 10px; gap: 10px; }
+  .gv-doc-box{ padding: 10px; }
+  .gv-doc-table th, .gv-doc-table td{ padding: 7px 7px; font-size: 10px; }
+  .gv-doc-summary td{ padding: 6px 7px; font-size: 10px; }
+
+  /* Repetir cabecera de tabla cuando haya varias páginas */
+  .gv-doc-table thead{ display: table-header-group; }
 }
 
 /* Documentos (Pedido / Factura / Albarán) */

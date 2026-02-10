@@ -104,6 +104,14 @@
           <input class="gv-input" name="NumPedidoCliente" value="<%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? '' %>" placeholder="Ej: PO-12345" />
           <span class="gv-field__help">Referencia del pedido del cliente (si aplica).</span>
         </label>
+
+        <label class="gv-field">
+          <span class="gv-field__label">Dirección de envío</span>
+          <select class="gv-input" name="Id_DireccionEnvio" id="Id_DireccionEnvio" data-existing="<%= item.Id_DireccionEnvio ?? '' %>">
+            <option value="">(por defecto)</option>
+          </select>
+          <span class="gv-field__help" id="Id_DireccionEnvioHelp">Si el cliente tiene más de una, selecciona una.</span>
+        </label>
       </div>
       </div>
 
@@ -226,6 +234,8 @@
     var form = document.getElementById('pedidoForm');
     var selTarifa = document.getElementById('Id_Tarifa');
     var dtoPedidoEl = form ? form.querySelector('input[name=\"Dto\"]') : null;
+    var selDirEnvio = document.getElementById('Id_DireccionEnvio');
+    var helpDirEnvio = document.getElementById('Id_DireccionEnvioHelp');
     var hidCial = document.getElementById('Id_Cial');
     var selCialDisplay = document.getElementById('Id_Cial__display');
     var hidCliente = document.getElementById('Id_Cliente');
@@ -284,6 +294,46 @@
 
     // Importante: NO auto-guardar cabecera en modo edición para que "Cancelar" no modifique datos.
 
+    async function loadDireccionesEnvio(clienteId){
+      if (!selDirEnvio) return;
+      var cid = parseInt(String(clienteId || '').trim(), 10) || 0;
+      selDirEnvio.innerHTML = '<option value="">(por defecto)</option>';
+      if (helpDirEnvio) helpDirEnvio.textContent = 'Si el cliente tiene más de una, selecciona una.';
+      if (!cid) return;
+      try{
+        var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/direcciones-envio', { headers: { Accept: 'application/json' } });
+        if (!r.ok) return;
+        var json = await r.json().catch(function(){ return null; });
+        if (!json || json.ok !== true) return;
+        var items = Array.isArray(json.items) ? json.items : [];
+        items.forEach(function(d){
+          var id = d.id ?? d.Id ?? '';
+          if (!id) return;
+          var alias = d.Alias ?? '';
+          var dest = d.Nombre_Destinatario ?? '';
+          var dir = d.Direccion ?? '';
+          var pob = d.Poblacion ?? '';
+          var cp = d.CodigoPostal ?? '';
+          var label = [alias || dest, dir, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+          var opt = document.createElement('option');
+          opt.value = String(id);
+          opt.textContent = label || ('Dirección ' + String(id));
+          selDirEnvio.appendChild(opt);
+        });
+
+        var existing = String(selDirEnvio.getAttribute('data-existing') || '').trim();
+        if (existing) {
+          selDirEnvio.value = existing;
+        } else if (items.length === 1) {
+          const onlyId = String(items[0].id ?? items[0].Id ?? '');
+          if (onlyId) selDirEnvio.value = onlyId;
+        }
+        if (helpDirEnvio) {
+          helpDirEnvio.textContent = items.length > 1 ? 'Selecciona una dirección de envío.' : (items.length === 1 ? 'Dirección asignada automáticamente.' : 'No hay direcciones de envío.');
+        }
+      } catch(_e){}
+    }
+
     async function loadClienteAndDefaults(clienteId){
       if (!canEdit) return;
       var id = parseInt(String(clienteId || '').trim(), 10) || 0;
@@ -332,6 +382,7 @@
           if (String(inp.value || '').trim() === '') inp.value = String(defaultDto || 0);
         });
         refreshPrecios();
+        loadDireccionesEnvio(id);
 
         // En edición, los cambios de cabecera se aplican solo al pulsar "Guardar".
       } catch (_e) {}

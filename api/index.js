@@ -796,9 +796,14 @@ app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
     }
     const lineas = await db.getArticulosByPedido(id);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
-    const direccionEnvio = item?.Id_DireccionEnvio
+    let direccionEnvio = item?.Id_DireccionEnvio
       ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
       : null;
+    // Si el pedido no trae dirección de envío pero el cliente solo tiene 1, usarla por defecto para mostrar/imprimir.
+    if (!direccionEnvio && cliente?.Id) {
+      const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id)).catch(() => []);
+      if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
+    }
     res.render('pedido', { item, lineas: lineas || [], cliente, direccionEnvio, admin });
   } catch (e) {
     next(e);
