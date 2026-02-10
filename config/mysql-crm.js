@@ -43,6 +43,7 @@ class MySQLCRM {
     this._pedidosArticulosIndexesEnsured = false;
     this._pedidosSchemaEnsured = false;
     this._contactosIndexesEnsured = false;
+    this._direccionesEnvioIndexesEnsured = false;
     this._estadosVisitaEnsured = false;
     // Cache interno para metadatos de tablas/columnas (útil en serverless)
     this._metaCache = {};
@@ -670,6 +671,43 @@ class MySQLCRM {
     return meta;
   }
 
+  async _ensureDireccionesEnvioMeta() {
+    if (this._metaCache?.direccionesEnvioMeta) return this._metaCache.direccionesEnvioMeta;
+
+    const candidates = [
+      'direccionesEnvio',
+      'direcciones_envio',
+      'direcciones_envios',
+      'direccionesDeEnvio',
+      'direcciones_de_envio',
+      'clientes_direcciones_envio',
+      'clientes_direccionesEnvio'
+    ];
+
+    let t = null;
+    let cols = [];
+    for (const base of candidates) {
+      const tt = await this._resolveTableNameCaseInsensitive(base);
+      const cc = await this._getColumns(tt);
+      if (Array.isArray(cc) && cc.length) {
+        t = tt;
+        cols = cc;
+        break;
+      }
+    }
+
+    const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+    const pk = pickCI(['id', 'Id']) || 'id';
+    const colCliente = pickCI(['Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
+    const colActiva = pickCI(['Activa', 'activa', 'Activo', 'activo']);
+    const colPrincipal = pickCI(['Es_Principal', 'es_principal', 'EsPrincipal', 'esPrincipal', 'Principal', 'principal']);
+    const colContacto = pickCI(['Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
+
+    const meta = { table: t, pk, colCliente, colActiva, colPrincipal, colContacto, _cols: cols };
+    this._metaCache.direccionesEnvioMeta = meta;
+    return meta;
+  }
+
   async ensureClientesIndexes() {
     if (this._clientesIndexesEnsured) return;
     this._clientesIndexesEnsured = true;
@@ -842,6 +880,46 @@ class MySQLCRM {
       await createIfMissing('ft_contactos_busqueda', ['Nombre', 'Apellidos', 'Empresa', 'Email', 'Movil', 'Telefono'], 'FULLTEXT');
     } catch (e) {
       console.warn('⚠️ [INDEX] No se pudieron asegurar índices en contactos:', e?.message || e);
+    }
+  }
+
+  async ensureDireccionesEnvioIndexes() {
+    if (this._direccionesEnvioIndexesEnsured) return;
+    this._direccionesEnvioIndexesEnsured = true;
+
+    try {
+      if (!this.pool) return;
+      const meta = await this._ensureDireccionesEnvioMeta();
+      if (!meta?.table) return;
+
+      const t = meta.table;
+      const cols = await this._getColumns(t);
+      const colsSet = new Set(cols);
+      const hasCol = (c) => c && colsSet.has(c);
+
+      const idxRows = await this.query(`SHOW INDEX FROM \`${t}\``).catch(() => []);
+      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+
+      const createIfMissing = async (name, colsToUse) => {
+        if (!name || existing.has(name)) return;
+        const cleanCols = (colsToUse || []).filter(hasCol);
+        if (!cleanCols.length) return;
+        const colsSql = cleanCols.map(c => `\`${c}\``).join(', ');
+        await this.query(`CREATE INDEX \`${name}\` ON \`${t}\` (${colsSql})`);
+        existing.add(name);
+        console.log(`✅ [INDEX] Creado ${name} en ${t} (${colsSql})`);
+      };
+
+      // Lecturas típicas: por cliente + filtros Activa/Principal
+      await createIfMissing('idx_direnvio_cliente', [meta.colCliente]);
+      await createIfMissing('idx_direnvio_cliente_activa', [meta.colCliente, meta.colActiva]);
+      await createIfMissing('idx_direnvio_cliente_activa_principal', [meta.colCliente, meta.colActiva, meta.colPrincipal]);
+
+      if (hasCol(meta.pk)) {
+        await createIfMissing('idx_direnvio_pk', [meta.pk]);
+      }
+    } catch (e) {
+      console.warn('⚠️ [INDEX] No se pudieron asegurar índices en direcciones de envío:', e?.message || e);
     }
   }
 
@@ -1264,6 +1342,7 @@ class MySQLCRM {
       await this.ensurePedidosIndexes();
       await this.ensurePedidosArticulosIndexes();
       await this.ensureContactosIndexes();
+      await this.ensureDireccionesEnvioIndexes();
       return true;
     } catch (error) {
       console.error('❌ Error conectando a MySQL:', error.message);
@@ -4807,6 +4886,7 @@ class MySQLCRM {
 
       const tPedidos = pedidosMeta.tPedidos;
       const pk = pedidosMeta.pk;
+      const colClientePedido = pedidosMeta.colCliente;
       const colNumPedido = pedidosMeta.colNumPedido;
 
       const pedidosCols = await this._getColumns(tPedidos).catch(() => []);
@@ -4815,6 +4895,15 @@ class MySQLCRM {
       const colTarifaId = pickPedidoCol(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
       const colTarifaLegacy = pickPedidoCol(['Tarifa', 'tarifa']);
       const colDtoPedido = pickPedidoCol(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
+      const colDirEnvio = pickPedidoCol([
+        'Id_DireccionEnvio',
+        'id_direccionenvio',
+        'id_direccion_envio',
+        'DireccionEnvioId',
+        'direccion_envio_id',
+        'IdDireccionEnvio',
+        'idDireccionEnvio'
+      ]);
 
       const colTotalPedido = pickPedidoCol(['TotalPedido', 'Total_Pedido', 'total_pedido', 'Total', 'total', 'ImporteTotal', 'importe_total', 'Importe', 'importe']);
       const colBasePedido = pickPedidoCol(['BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Neto', 'neto', 'ImporteNeto', 'importe_neto']);
@@ -4855,13 +4944,46 @@ class MySQLCRM {
         await conn.beginTransaction();
 
         // Leer pedido actual (dentro de la transacción)
-        const selectCols = Array.from(new Set([pk, colNumPedido, colTarifaId, colTarifaLegacy, colDtoPedido].filter(Boolean)));
+        const selectCols = Array.from(
+          new Set([pk, colNumPedido, colClientePedido, colDirEnvio, colTarifaId, colTarifaLegacy, colDtoPedido].filter(Boolean))
+        );
         const selectSql = `SELECT ${selectCols.map((c) => `\`${c}\``).join(', ')} FROM \`${tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`;
         const [rows] = await conn.execute(selectSql, [idNum]);
         if (!rows || rows.length === 0) throw new Error('Pedido no encontrado');
         const current = rows[0];
 
         const finalNumPedido = numPedidoFromPayload || (colNumPedido ? (current[colNumPedido] ? String(current[colNumPedido]).trim() : null) : null);
+
+        // Integridad: si el pedido tiene Id_DireccionEnvio, debe pertenecer al Id_Cliente final.
+        const finalClienteId =
+          (colClientePedido && Object.prototype.hasOwnProperty.call(filteredPedido, colClientePedido))
+            ? Number(filteredPedido[colClientePedido] || 0)
+            : (colClientePedido ? Number(current[colClientePedido] || 0) : 0);
+
+        if (colDirEnvio) {
+          const dirRaw =
+            Object.prototype.hasOwnProperty.call(filteredPedido, colDirEnvio) ? filteredPedido[colDirEnvio] : (current[colDirEnvio] ?? null);
+          const dirId = Number.parseInt(String(dirRaw ?? '').trim(), 10);
+          const hasDir = Number.isFinite(dirId) && dirId > 0;
+          const hasCliente = Number.isFinite(finalClienteId) && finalClienteId > 0;
+          if (hasDir && hasCliente) {
+            const dMeta = await this._ensureDireccionesEnvioMeta().catch(() => null);
+            if (dMeta?.table && dMeta?.colCliente) {
+              const where = [`\`${dMeta.pk}\` = ?`, `\`${dMeta.colCliente}\` = ?`];
+              const params = [dirId, finalClienteId];
+              if (dMeta.colActiva) {
+                where.push(`\`${dMeta.colActiva}\` = 1`);
+              }
+              const [dRows] = await conn.execute(
+                `SELECT \`${dMeta.pk}\` AS id FROM \`${dMeta.table}\` WHERE ${where.join(' AND ')} LIMIT 1`,
+                params
+              );
+              if (!dRows || dRows.length === 0) {
+                throw new Error('La dirección de envío no pertenece al cliente seleccionado (o está inactiva).');
+              }
+            }
+          }
+        }
 
         const tarifaIdRaw =
           (colTarifaId && Object.prototype.hasOwnProperty.call(filteredPedido, colTarifaId)) ? filteredPedido[colTarifaId]
@@ -5841,27 +5963,56 @@ class MySQLCRM {
   async getDireccionesEnvioByCliente(clienteId, options = {}) {
     try {
       const includeInactivas = Boolean(options.includeInactivas);
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
-      const tContactos = await this._resolveTableNameCaseInsensitive('contactos');
+      const compact = Boolean(options.compact);
+      const meta = await this._ensureDireccionesEnvioMeta();
+      if (!meta?.table || !meta?.colCliente) return [];
 
-      let sql = `
-        SELECT
-          d.*,
-          c.Nombre AS Contacto_Nombre,
-          c.Apellidos AS Contacto_Apellidos,
-          c.Email AS Contacto_Email,
-          c.Movil AS Contacto_Movil
-        FROM \`${tDirecciones}\` d
-        LEFT JOIN \`${tContactos}\` c ON c.Id = d.Id_Contacto
-        WHERE d.Id_Cliente = ?
-      `;
+      const cols = Array.isArray(meta?._cols) ? meta._cols : [];
+      const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+
+      const colAlias = pickCI(['Alias', 'alias']);
+      const colDest = pickCI(['Nombre_Destinatario', 'nombre_destinatario', 'Destinatario', 'destinatario', 'Nombre', 'nombre']);
+      const colDir1 = pickCI(['Direccion', 'direccion', 'Dirección']);
+      const colDir2 = pickCI(['Direccion2', 'direccion2', 'Dirección2']);
+      const colPob = pickCI(['Poblacion', 'poblacion']);
+      const colCP = pickCI(['CodigoPostal', 'codigo_postal', 'CP', 'cp']);
+      const colPais = pickCI(['Pais', 'pais']);
+      const colEmail = pickCI(['Email', 'email']);
+      const colTel = pickCI(['Telefono', 'telefono', 'Tel', 'tel']);
+      const colMov = pickCI(['Movil', 'movil', 'Móvil']);
+      const colObs = pickCI(['Observaciones', 'observaciones', 'Notas', 'notas']);
+
+      const select = [];
+      select.push(`d.\`${meta.pk}\` AS id`);
+      select.push(`d.\`${meta.colCliente}\` AS Id_Cliente`);
+      if (colAlias) select.push(`d.\`${colAlias}\` AS Alias`);
+      if (colDest) select.push(`d.\`${colDest}\` AS Nombre_Destinatario`);
+      if (colDir1) select.push(`d.\`${colDir1}\` AS Direccion`);
+      if (colDir2) select.push(`d.\`${colDir2}\` AS Direccion2`);
+      if (colPob) select.push(`d.\`${colPob}\` AS Poblacion`);
+      if (colCP) select.push(`d.\`${colCP}\` AS CodigoPostal`);
+      if (colPais) select.push(`d.\`${colPais}\` AS Pais`);
+      if (!compact) {
+        if (colEmail) select.push(`d.\`${colEmail}\` AS Email`);
+        if (colTel) select.push(`d.\`${colTel}\` AS Telefono`);
+        if (colMov) select.push(`d.\`${colMov}\` AS Movil`);
+        if (colObs) select.push(`d.\`${colObs}\` AS Observaciones`);
+      }
+      if (meta.colActiva) select.push(`d.\`${meta.colActiva}\` AS Activa`);
+      if (meta.colPrincipal) select.push(`d.\`${meta.colPrincipal}\` AS Es_Principal`);
+
+      let sql = `SELECT ${select.join(', ')} FROM \`${meta.table}\` d WHERE d.\`${meta.colCliente}\` = ?`;
       const params = [clienteId];
 
-      if (!includeInactivas) {
-        sql += ' AND d.Activa = 1';
+      if (!includeInactivas && meta.colActiva) {
+        sql += ` AND d.\`${meta.colActiva}\` = 1`;
       }
 
-      sql += ' ORDER BY d.Activa DESC, d.Es_Principal DESC, d.id DESC';
+      const order = [];
+      if (meta.colActiva) order.push(`d.\`${meta.colActiva}\` DESC`);
+      if (meta.colPrincipal) order.push(`d.\`${meta.colPrincipal}\` DESC`);
+      order.push(`d.\`${meta.pk}\` DESC`);
+      sql += ` ORDER BY ${order.join(', ')}`;
 
       return await this.query(sql, params);
     } catch (error) {
@@ -5877,8 +6028,12 @@ class MySQLCRM {
 
   async getDireccionEnvioById(id) {
     try {
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
-      const rows = await this.query(`SELECT * FROM \`${tDirecciones}\` WHERE id = ? LIMIT 1`, [id]);
+      const meta = await this._ensureDireccionesEnvioMeta();
+      if (!meta?.table) return null;
+      const rows = await this.query(
+        `SELECT * FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`,
+        [id]
+      );
       return rows && rows.length > 0 ? rows[0] : null;
     } catch (error) {
       const msg = String(error?.sqlMessage || error?.message || '');

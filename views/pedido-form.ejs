@@ -301,7 +301,7 @@
       if (helpDirEnvio) helpDirEnvio.textContent = 'Si el cliente tiene más de una, selecciona una.';
       if (!cid) return;
       try{
-        var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/direcciones-envio', { headers: { Accept: 'application/json' } });
+        var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/direcciones-envio?compact=1', { headers: { Accept: 'application/json' } });
         if (!r.ok) return;
         var json = await r.json().catch(function(){ return null; });
         if (!json || json.ok !== true) return;
@@ -309,12 +309,16 @@
         items.forEach(function(d){
           var id = d.id ?? d.Id ?? '';
           if (!id) return;
-          var alias = d.Alias ?? '';
-          var dest = d.Nombre_Destinatario ?? '';
-          var dir = d.Direccion ?? '';
-          var pob = d.Poblacion ?? '';
-          var cp = d.CodigoPostal ?? '';
-          var label = [alias || dest, dir, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+          // Si viene compactado: {id,label}. Si no, calculamos label.
+          var label = d.label ?? d.Label ?? '';
+          if (!label) {
+            var alias = d.Alias ?? '';
+            var dest = d.Nombre_Destinatario ?? '';
+            var dir = d.Direccion ?? '';
+            var pob = d.Poblacion ?? '';
+            var cp = d.CodigoPostal ?? '';
+            label = [alias || dest, dir, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+          }
           var opt = document.createElement('option');
           opt.value = String(id);
           opt.textContent = label || ('Dirección ' + String(id));
@@ -537,9 +541,13 @@
     // Si venimos con un cliente ya guardado (editar), cargar defaults
     if (hidCliente) {
       hidCliente.addEventListener('change', function(){
+        loadDireccionesEnvio(hidCliente.value);
         loadClienteAndDefaults(hidCliente.value);
       });
-      if (String(hidCliente.value || '').trim()) loadClienteAndDefaults(hidCliente.value);
+      if (String(hidCliente.value || '').trim()) {
+        loadDireccionesEnvio(hidCliente.value);
+        loadClienteAndDefaults(hidCliente.value);
+      }
     }
 
     table.addEventListener('change', function(e){

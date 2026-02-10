@@ -104,8 +104,30 @@ router.get(
       if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
     }
 
-    const items = await db.getDireccionesEnvioByCliente(id).catch(() => []);
-    return res.json({ ok: true, items: Array.isArray(items) ? items : [] });
+    const compact = toBool(req.query.compact, false) || String(req.query.format || '').toLowerCase() === 'compact';
+    const items = await db.getDireccionesEnvioByCliente(id, { compact }).catch(() => []);
+    const arr = Array.isArray(items) ? items : [];
+
+    // Respuesta compacta (más rápida para selects): [{id,label}]
+    if (compact) {
+      res.setHeader('Cache-Control', 'private, max-age=60');
+      const out = arr
+        .map((d) => {
+          const did = d?.id ?? d?.Id ?? null;
+          if (!did) return null;
+          const alias = d?.Alias ?? '';
+          const dest = d?.Nombre_Destinatario ?? '';
+          const dir = d?.Direccion ?? '';
+          const pob = d?.Poblacion ?? '';
+          const cp = d?.CodigoPostal ?? '';
+          const label = [alias || dest, dir, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+          return { id: did, label: label || `Dirección ${did}` };
+        })
+        .filter(Boolean);
+      return res.json({ ok: true, items: out });
+    }
+
+    return res.json({ ok: true, items: arr });
   })
 );
 
