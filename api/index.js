@@ -783,7 +783,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
+app.get('/pedidos/:id(\\d+)', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -811,7 +811,7 @@ app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/pedidos/:id.xlsx', requireLogin, async (req, res, next) => {
+app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -1095,7 +1095,7 @@ app.get('/pedidos/:id.xlsx', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
+app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -1199,7 +1199,7 @@ app.get('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-app.post('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
+app.post('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -1271,7 +1271,7 @@ app.post('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-app.post('/pedidos/:id/delete', requireLogin, async (req, res, next) => {
+app.post('/pedidos/:id(\\d+)/delete', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
