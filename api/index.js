@@ -583,6 +583,11 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
     const userId = Number(res.locals.user?.id);
     const scopeUserId = !admin && Number.isFinite(userId) && userId > 0 ? userId : null;
 
+    // Resolver columnas reales de pedidos (evita errores tipo "Unknown column p.ComercialId")
+    const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+    const colFecha = pedidosMeta?.colFecha || 'FechaPedido';
+    const colComercial = pedidosMeta?.colComercial || 'Id_Cial';
+
     const startYear = 2025;
     const currentYear = new Date().getFullYear();
     const years = [];
@@ -611,14 +616,14 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
           LEFT JOIN clientes c ON (c.Id = p.Id_Cliente OR c.id = p.Id_Cliente)
           INNER JOIN pedidos_articulos pa ON pa.Id_NumPedido = p.id
           INNER JOIN articulos a ON a.id = pa.Id_Articulo
-          WHERE YEAR(p.FechaPedido) = ?
+          WHERE YEAR(p.\`${colFecha}\`) = ?
             AND a.Id_Marca = ?
-            ${scopeUserId ? 'AND (p.Id_Cial = ? OR p.id_cial = ? OR p.ComercialId = ? OR p.comercialId = ?)' : ''}
+            ${scopeUserId ? `AND p.\`${colComercial}\` = ?` : ''}
           ORDER BY p.id DESC
           LIMIT 200
         `,
         scopeUserId
-          ? [selectedYear, selectedMarcaId, scopeUserId, scopeUserId, scopeUserId, scopeUserId]
+          ? [selectedYear, selectedMarcaId, scopeUserId]
           : [selectedYear, selectedMarcaId]
       );
     } else {
@@ -629,12 +634,12 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
             c.Nombre_Cial AS ClienteNombreCial
           FROM pedidos p
           LEFT JOIN clientes c ON (c.Id = p.Id_Cliente OR c.id = p.Id_Cliente)
-          WHERE YEAR(p.FechaPedido) = ?
-            ${scopeUserId ? 'AND (p.Id_Cial = ? OR p.id_cial = ? OR p.ComercialId = ? OR p.comercialId = ?)' : ''}
+          WHERE YEAR(p.\`${colFecha}\`) = ?
+            ${scopeUserId ? `AND p.\`${colComercial}\` = ?` : ''}
           ORDER BY p.id DESC
           LIMIT 200
         `,
-        scopeUserId ? [selectedYear, scopeUserId, scopeUserId, scopeUserId, scopeUserId] : [selectedYear]
+        scopeUserId ? [selectedYear, scopeUserId] : [selectedYear]
       );
     }
 
