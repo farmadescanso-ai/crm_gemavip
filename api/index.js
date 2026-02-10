@@ -6,6 +6,7 @@ const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const MySQLStoreFactory = require('express-mysql-session');
+const ExcelJS = require('exceljs');
 
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
@@ -805,6 +806,290 @@ app.get('/pedidos/:id', requireLogin, async (req, res, next) => {
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
     res.render('pedido', { item, lineas: lineas || [], cliente, direccionEnvio, admin });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/pedidos/:id.xlsx', requireLogin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getPedidoById(id);
+    if (!item) return res.status(404).send('No encontrado');
+
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+      if (owner !== userId) return res.status(404).send('No encontrado');
+    }
+
+    const [lineas, cliente] = await Promise.all([
+      db.getArticulosByPedido(id).catch(() => []),
+      item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : Promise.resolve(null)
+    ]);
+
+    let direccionEnvio = item?.Id_DireccionEnvio
+      ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
+      : null;
+    if (!direccionEnvio && cliente?.Id) {
+      const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
+      if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
+    }
+
+    const toNum = (v, dflt = 0) => {
+      if (v === null || v === undefined) return dflt;
+      const s = String(v).trim();
+      if (!s) return dflt;
+      const n = Number(String(s).replace(',', '.'));
+      return Number.isFinite(n) ? n : dflt;
+    };
+    const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+    const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.Dto ?? item.Descuento ?? 0, 0)));
+
+    const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+    const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CRM Gemavip';
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet('Pedido', {
+      pageSetup: {
+        paperSize: 9, // A4
+        orientation: 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.31, right: 0.31, top: 0.35, bottom: 0.35, header: 0.2, footer: 0.2 }
+      }
+    });
+
+    // Columnas: A-H (tabla de líneas)
+    ws.columns = [
+      { key: 'codigo', width: 12 },
+      { key: 'concepto', width: 42 },
+      { key: 'pvl', width: 11 },
+      { key: 'unds', width: 9 },
+      { key: 'dto', width: 9 },
+      { key: 'subtotal', width: 13 },
+      { key: 'iva', width: 9 },
+      { key: 'total', width: 13 }
+    ];
+
+    const thin = { style: 'thin', color: { argb: 'FFD1D5DB' } };
+    const boxBorder = { top: thin, left: thin, bottom: thin, right: thin };
+    const titleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+
+    // Cabecera (empresa / meta)
+    ws.mergeCells('A1:D5');
+    ws.mergeCells('E1:H5');
+    const cLeft = ws.getCell('A1');
+    cLeft.value = 'GEMAVIP ESPAÑA SL.\nB19427004\nCALLE DE LA SEÑA 2\nCARTAGENA (30201), Murcia, España\npedidosespana@gemavip.com · +34 686 48 36 84';
+    cLeft.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+    cLeft.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+
+    const cRight = ws.getCell('E1');
+    const fecha = res.locals.fmtDateES ? res.locals.fmtDateES(item.FechaPedido ?? item.Fecha ?? '') : '';
+    const entrega = item?.FechaEntrega && res.locals.fmtDateES ? res.locals.fmtDateES(item.FechaEntrega) : '';
+    const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
+    cRight.value =
+      `PEDIDO #${numPedido || id}\n` +
+      `Fecha: ${fecha || ''}\n` +
+      (entrega ? `Entrega: ${entrega}\n` : '') +
+      (numPedidoCliente ? `Nº Pedido Cliente: ${numPedidoCliente}\n` : '');
+    cRight.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+    cRight.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0F172A' } };
+
+    ws.getRow(6).height = 6;
+
+    // Direcciones: 50% + 50%
+    ws.mergeCells('A7:D12');
+    ws.mergeCells('E7:H12');
+    const clienteNombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
+    const clienteCif = cliente?.DNI_CIF || cliente?.DniCif || '';
+    const clienteDir = cliente?.Direccion || '';
+    const clientePob = cliente?.Poblacion || '';
+    const clienteCp = cliente?.CodigoPostal || '';
+    const clienteEmail = cliente?.Email || '';
+    const clienteTel = cliente?.Telefono || cliente?.Movil || '';
+
+    const a1 = ws.getCell('A7');
+    a1.value =
+      `CLIENTE\n` +
+      `${clienteNombre || item?.Id_Cliente || ''}\n` +
+      (clienteCif ? `${clienteCif}\n` : '') +
+      (clienteDir ? `${clienteDir}\n` : '') +
+      ([clienteCp, clientePob].filter(Boolean).join(' ') ? `${[clienteCp, clientePob].filter(Boolean).join(' ')}\n` : '') +
+      ([clienteEmail, clienteTel].filter(Boolean).join(' · ') ? `${[clienteEmail, clienteTel].filter(Boolean).join(' · ')}` : '');
+    a1.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+    a1.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+
+    const b1 = ws.getCell('E7');
+    const dir = direccionEnvio || null;
+    const envioTitle = 'DIRECCIÓN DE ENVÍO';
+    b1.value =
+      `${envioTitle}\n` +
+      (dir
+        ? [
+            dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—',
+            dir.Nombre_Destinatario && dir.Alias ? dir.Nombre_Destinatario : '',
+            dir.Direccion || '',
+            dir.Direccion2 || '',
+            [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' '),
+            dir.Pais || '',
+            [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · '),
+            dir.Observaciones || ''
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : `${clienteNombre || '—'}\n(Sin dirección de envío)` );
+    b1.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+    b1.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+
+    // Bordes cajas
+    for (const addr of ['A7', 'E7']) {
+      ws.getCell(addr).border = boxBorder;
+      ws.getCell(addr).fill = titleFill;
+    }
+    // Excel aplica borde solo a la celda superior izquierda en merged; dibujamos perímetro por rango
+    const boxRanges = [
+      { r1: 7, c1: 1, r2: 12, c2: 4 },
+      { r1: 7, c1: 5, r2: 12, c2: 8 }
+    ];
+    for (const rg of boxRanges) {
+      for (let r = rg.r1; r <= rg.r2; r++) {
+        for (let c = rg.c1; c <= rg.c2; c++) {
+          const cell = ws.getCell(r, c);
+          const b = {};
+          if (r === rg.r1) b.top = thin;
+          if (r === rg.r2) b.bottom = thin;
+          if (c === rg.c1) b.left = thin;
+          if (c === rg.c2) b.right = thin;
+          cell.border = { ...(cell.border || {}), ...b };
+        }
+      }
+    }
+
+    ws.getRow(13).height = 6;
+
+    // Tabla líneas
+    const headerRowNum = 14;
+    const header = ws.getRow(headerRowNum);
+    header.values = ['CÓDIGO', 'CONCEPTO', 'PVL', 'UNDS', 'DTO', 'SUBTOTAL', 'IVA', 'TOTAL'];
+    header.height = 18;
+    header.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+      cell.fill = titleFill;
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = boxBorder;
+    });
+    header.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
+    header.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+    header.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+    header.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+    header.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+    header.getCell(8).alignment = { vertical: 'middle', horizontal: 'right' };
+
+    let rowNum = headerRowNum + 1;
+    let sumBase = 0;
+    let sumIva = 0;
+    let sumTotal = 0;
+
+    const moneyFmt = '#,##0.00"€"';
+    const pctFmt = '0.00"%"';
+
+    (Array.isArray(lineas) ? lineas : []).forEach((l) => {
+      const codigo = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
+      const concepto = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
+      const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+      const pvl = Math.max(0, toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
+      const dto = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+      let ivaPct = toNum(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+      if (ivaPct > 100) ivaPct = 0;
+
+      const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
+      const ivaCalc = round2(baseCalc * ivaPct / 100);
+      const totalCalc = round2(baseCalc + ivaCalc);
+
+      sumBase += baseCalc;
+      sumIva += ivaCalc;
+      sumTotal += totalCalc;
+
+      const r = ws.getRow(rowNum++);
+      r.getCell(1).value = codigo || '';
+      r.getCell(2).value = concepto || '';
+      r.getCell(3).value = pvl || null;
+      r.getCell(4).value = qty || null;
+      r.getCell(5).value = dto || null;
+      r.getCell(6).value = baseCalc || null;
+      r.getCell(7).value = ivaPct || null;
+      r.getCell(8).value = totalCalc || null;
+
+      r.getCell(2).alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      for (const c of [1, 3, 4, 5, 6, 7, 8]) {
+        r.getCell(c).alignment = { vertical: 'top', horizontal: c === 1 ? 'left' : 'right', wrapText: false };
+      }
+      r.eachCell((cell) => {
+        cell.font = { name: 'Calibri', size: 11, color: { argb: 'FF111827' } };
+        cell.border = boxBorder;
+      });
+      r.getCell(3).numFmt = moneyFmt;
+      r.getCell(6).numFmt = moneyFmt;
+      r.getCell(8).numFmt = moneyFmt;
+      r.getCell(5).numFmt = pctFmt;
+      r.getCell(7).numFmt = pctFmt;
+    });
+
+    // Totales
+    const totalsStart = rowNum + 1;
+    ws.getRow(totalsStart).height = 6;
+    const tRow1 = ws.getRow(totalsStart + 1);
+    tRow1.getCell(6).value = 'BASE IMPONIBLE';
+    tRow1.getCell(8).value = round2(sumBase);
+    tRow1.getCell(8).numFmt = moneyFmt;
+    const tRow2 = ws.getRow(totalsStart + 2);
+    tRow2.getCell(6).value = 'IVA';
+    tRow2.getCell(8).value = round2(sumIva);
+    tRow2.getCell(8).numFmt = moneyFmt;
+    const tRow3 = ws.getRow(totalsStart + 3);
+    tRow3.getCell(6).value = 'TOTAL';
+    tRow3.getCell(8).value = round2(sumTotal);
+    tRow3.getCell(8).numFmt = moneyFmt;
+
+    const styleTotals = (r) => {
+      [6, 7, 8].forEach((c) => {
+        const cell = r.getCell(c);
+        cell.font = { name: 'Calibri', size: 12, bold: c !== 8 ? true : true, color: { argb: 'FF0F172A' } };
+        cell.alignment = { vertical: 'middle', horizontal: c === 6 ? 'right' : 'right' };
+      });
+      r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+      r.getCell(8).font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0F172A' } };
+    };
+    styleTotals(tRow1);
+    styleTotals(tRow2);
+    styleTotals(tRow3);
+
+    if (dtoPedidoPct) {
+      const tRow0 = ws.getRow(totalsStart);
+      tRow0.getCell(6).value = 'DTO PEDIDO';
+      tRow0.getCell(8).value = dtoPedidoPct;
+      tRow0.getCell(8).numFmt = pctFmt;
+      styleTotals(tRow0);
+      tRow0.getCell(8).font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+    }
+
+    const endRow = totalsStart + 3;
+    ws.pageSetup.printArea = `A1:H${endRow}`;
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_${safeNum}.xlsx"`);
+    const buf = await wb.xlsx.writeBuffer();
+    return res.end(Buffer.from(buf));
   } catch (e) {
     next(e);
   }
