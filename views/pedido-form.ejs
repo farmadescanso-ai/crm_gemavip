@@ -94,6 +94,12 @@
         </label>
 
         <label class="gv-field">
+          <span class="gv-field__label">Dto pedido (%)</span>
+          <input class="gv-input" name="Dto" type="number" min="0" max="100" step="0.01" value="<%= item.Dto ?? item.Descuento ?? 0 %>" />
+          <span class="gv-field__help">Se aplica sobre la base (después de dto de línea) antes del IVA.</span>
+        </label>
+
+        <label class="gv-field">
           <span class="gv-field__label">Nº Pedido Cliente</span>
           <input class="gv-input" name="NumPedidoCliente" value="<%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? '' %>" placeholder="Ej: PO-12345" />
           <span class="gv-field__help">Referencia del pedido del cliente (si aplica).</span>
@@ -219,6 +225,7 @@
     var btn = document.getElementById('addLineaBtn');
     var form = document.getElementById('pedidoForm');
     var selTarifa = document.getElementById('Id_Tarifa');
+    var dtoPedidoEl = form ? form.querySelector('input[name=\"Dto\"]') : null;
     var hidCial = document.getElementById('Id_Cial');
     var selCialDisplay = document.getElementById('Id_Cial__display');
     var hidCliente = document.getElementById('Id_Cliente');
@@ -391,6 +398,11 @@
     }
 
     function recalcTotals(){
+      var dtoPedido = 0;
+      if (dtoPedidoEl) {
+        var dp = Number(String(dtoPedidoEl.value || '').replace(',', '.'));
+        if (isFinite(dp)) dtoPedido = Math.max(0, Math.min(100, dp));
+      }
       var sum = 0;
       table.querySelectorAll('tbody tr').forEach(function(tr){
         var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
@@ -406,7 +418,7 @@
         if (!isFinite(qty)) qty = 0;
         if (!isFinite(dto)) dto = 0;
         dto = Math.max(0, Math.min(100, dto));
-        var base = qty * pvl * (1 - dto / 100);
+        var base = qty * pvl * (1 - dto / 100) * (1 - dtoPedido / 100);
         var ivaPct = getIvaPctForSelect(sel);
         var total = base + (base * ivaPct / 100);
         // redondeo 2 decimales
@@ -491,6 +503,9 @@
         recalcTotals();
       }
     });
+    if (dtoPedidoEl) {
+      dtoPedidoEl.addEventListener('input', function(){ recalcTotals(); });
+    }
 
     // Inicial
     recalcTotals();

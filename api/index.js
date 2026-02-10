@@ -748,6 +748,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
       // Serie fija para pedidos en este CRM
       Serie: 'P',
+      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
       NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
       FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
@@ -951,6 +952,7 @@ app.post('/pedidos/:id/edit', requireLogin, async (req, res, next) => {
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
       Serie: 'P',
+      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
       NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
       FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,

@@ -41,6 +41,7 @@
   const clienteEmail = cliente?.Email || '';
   const clienteTel = cliente?.Telefono || cliente?.Movil || '';
   const dir = direccionEnvio || null;
+  const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.Dto ?? item.Descuento ?? 0, 0)));
 %>
 
 <div class="gv-doc-page">
@@ -146,7 +147,7 @@
             );
 
             const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
-            const baseCalc = round2(qty * pvl * (1 - dto / 100));
+            const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
             const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
 
             const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
@@ -180,6 +181,12 @@
 
   <div class="gv-doc-summary">
     <table>
+      <% if (dtoPedidoPct) { %>
+        <tr>
+          <td>DTO PEDIDO</td>
+          <td><%= `${fmtNumES(dtoPedidoPct, 2)}%` %></td>
+        </tr>
+      <% } %>
       <tr>
         <td>BASE IMPONIBLE</td>
         <td><%= fmtEur(round2(sumBase)) %></td>

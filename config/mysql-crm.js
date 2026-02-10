@@ -4694,6 +4694,23 @@ class MySQLCRM {
           console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.NumPedidoCliente:', e.message);
         }
       }
+
+      // Nuevo: descuento general del pedido (porcentaje) aplicado sobre la base antes del IVA.
+      // Usamos `Dto` porque el motor ya lo detecta por metadatos y lo usa en cálculos.
+      const hasDto =
+        colsLower.has('dto') ||
+        colsLower.has('descuento') ||
+        colsLower.has('descuentopedido') ||
+        colsLower.has('porcentajedescuento') ||
+        colsLower.has('porcentaje_descuento');
+      if (!hasDto) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`Dto\` DECIMAL(5,2) NULL DEFAULT 0`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.Dto");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.Dto:', e.message);
+        }
+      }
     } catch (e) {
       console.warn('⚠️ [SCHEMA] No se pudo asegurar esquema de pedidos:', e?.message || e);
     }
@@ -5094,9 +5111,17 @@ class MySQLCRM {
             precioUnit = Math.max(0, getPrecioFromTarifa(articulo, artId));
           }
 
-          const dtoLinea = colDtoLinea ? clampPct(getNum(mysqlData[colDtoLinea], dtoPedido)) : clampPct(getNum(linea.Dto ?? linea.Descuento ?? dtoPedido, dtoPedido));
+          // DTO de pedido (general) y DTO de línea (específico) se aplican acumulativamente:
+          // base = bruto * (1 - dtoLinea) * (1 - dtoPedido)
+          const dtoPedidoPct = clampPct(getNum(dtoPedido, 0));
+          const dtoLineaPct = clampPct(
+            colDtoLinea
+              ? getNum(mysqlData[colDtoLinea], (linea.Dto ?? linea.Descuento ?? 0))
+              : getNum(linea.Dto ?? linea.Descuento ?? 0, 0)
+          );
+
           const bruto = round2(qty * precioUnit);
-          const base = round2(bruto * (1 - dtoLinea / 100));
+          const base = round2(bruto * (1 - dtoLineaPct / 100) * (1 - dtoPedidoPct / 100));
 
           // IVA porcentaje (prioridad: línea explícita -> artículo -> 0)
           let ivaPct = 0;
@@ -5119,7 +5144,8 @@ class MySQLCRM {
             mysqlData[colPrecioUnit] = precioUnit;
           }
           if (colDtoLinea && (mysqlData[colDtoLinea] === null || mysqlData[colDtoLinea] === undefined || String(mysqlData[colDtoLinea]).trim() === '')) {
-            mysqlData[colDtoLinea] = dtoLinea;
+            // Guardar SOLO el dto de línea (no el de pedido)
+            mysqlData[colDtoLinea] = dtoLineaPct;
           }
           if (colIvaPctLinea && (mysqlData[colIvaPctLinea] === null || mysqlData[colIvaPctLinea] === undefined || String(mysqlData[colIvaPctLinea]).trim() === '')) {
             mysqlData[colIvaPctLinea] = ivaPct;
