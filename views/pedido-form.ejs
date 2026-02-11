@@ -40,7 +40,7 @@
 
       <div class="gv-doc__grid gv-doc__grid--cabecera">
         <label class="gv-field">
-          <span class="gv-field__label">Comercial (Id_Cial) * <button type="button" class="gv-field-info" aria-label="Información" data-info="<%= isAdminForm ? 'Puedes cambiar el comercial del pedido manualmente.' : 'Se asigna automáticamente según el cliente seleccionado.' %>"></button></span>
+          <span class="gv-field__label">Comercial * <button type="button" class="gv-field-info" aria-label="Información" data-info="<%= isAdminForm ? 'Puedes cambiar el comercial del pedido manualmente.' : 'Se asigna automáticamente según el cliente seleccionado.' %>"></button></span>
           <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
           <input type="hidden" name="Id_Cial" id="Id_Cial" value="<%= curCial || '' %>" />
           <select <%= isAdminForm ? '' : 'disabled' %> class="gv-input" id="Id_Cial__display">
@@ -84,7 +84,7 @@
         </label>
 
         <label class="gv-field">
-          <span class="gv-field__label">Tarifa (Id_Tarifa) <button type="button" class="gv-field-info" aria-label="Información" data-info="Si la tarifa o el tipo de pedido incluye &quot;Transfer&quot;, el pedido no se valora: PVL=0 y dto línea 5% por defecto (informativo, editable)."></button></span>
+          <span class="gv-field__label">Tarifa <button type="button" class="gv-field-info" aria-label="Información" data-info="Si la tarifa o el tipo de pedido incluye &quot;Transfer&quot;, el pedido no se valora: PVL=0 y dto línea 5% por defecto (informativo, editable)."></button></span>
           <select id="Id_Tarifa" name="Id_Tarifa" class="gv-input">
             <% const curTar = Number(item.Id_Tarifa ?? 0) || 0; %>
             <% (tarifas || []).forEach((t) => { %>
@@ -115,11 +115,11 @@
         <div style="height: 10px;"></div>
       <div class="gv-doc__grid">
         <label class="gv-field">
-          <span class="gv-field__label">EstadoPedido *</span>
+          <span class="gv-field__label">Estado del pedido *</span>
           <input name="EstadoPedido" required class="gv-input" value="<%= item.EstadoPedido ?? 'Pendiente' %>" />
         </label>
         <label class="gv-field">
-          <span class="gv-field__label">FechaPedido</span>
+          <span class="gv-field__label">Fecha del pedido</span>
           <input name="FechaPedido" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaPedido ?? '') %>" />
         </label>
       </div>
