@@ -825,6 +825,39 @@ main.container .gv-pedido-form{
 .gv-pedido-form table{
   background: var(--gv-surface);
 }
+/* Líneas: columnas PVL, Cantidad, Dto (%) iguales y compactas; sin scroll horizontal */
+.gv-pedido-form #lineasTable{
+  table-layout: fixed;
+  width: 100%;
+}
+.gv-pedido-form .gv-lineas-col-num{
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+}
+.gv-pedido-form .gv-lineas-col-btn{
+  width: 70px;
+  min-width: 70px;
+}
+.gv-pedido-form #lineasTable .gv-line-pvl,
+.gv-pedido-form #lineasTable input[name*="[Cantidad]"],
+.gv-pedido-form #lineasTable .gv-line-dto{
+  width: 100%;
+  max-width: 72px;
+  box-sizing: border-box;
+}
+.gv-pedido-form .gv-line-total,
+.gv-pedido-form #subtotalCell,
+.gv-pedido-form #totalGeneralCell,
+.gv-pedido-form #dtoPedidoAmountCell{
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+  min-width: 0;
+}
+.gv-pedido-form .table-wrap{
+  overflow-x: auto;
+  min-width: 0;
+}
 .gv-pedido-form .gv-doc{
   padding: 12px;
 }
@@ -832,18 +865,127 @@ main.container .gv-pedido-form{
   grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 10px;
 }
+.gv-pedido-form .gv-doc__grid--cabecera{
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.gv-pedido-form .gv-field--full{
+  grid-column: 1 / -1;
+}
 @media (max-width: 1100px){
   .gv-pedido-form .gv-doc__grid{ grid-template-columns: 1fr 1fr; }
+  .gv-pedido-form .gv-doc__grid--cabecera{ grid-template-columns: 1fr; }
 }
 @media (max-width: 720px){
   .gv-pedido-form .gv-doc__grid{ grid-template-columns: 1fr; }
 }
+/* Nota informativa: icono (i) y bocadillo al pinchar (formulario pedido) */
+.gv-pedido-form .gv-field__label{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gv-pedido-form .gv-field-info{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--gv-muted);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.gv-pedido-form .gv-field-info:hover{
+  background: var(--gv-primary);
+}
+.gv-pedido-form .gv-field-info::before{
+  content: "i";
+  font-style: italic;
+  font-family: serif;
+}
+.gv-field__help--hidden{
+  display: none !important;
+}
+.gv-field-info__bubble{
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  padding: 12px 14px;
+  background: var(--gv-ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.25);
+  pointer-events: none;
+}
+.gv-field-info__bubble::before{
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 16px;
+  border: 6px solid transparent;
+  border-bottom-color: var(--gv-ink);
+}
+/* Interruptor clientes recientes */
+.gv-recent-toggle{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gv-muted);
+}
+.gv-recent-toggle input{
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.gv-recent-toggle__slider{
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  background: var(--gv-border);
+  border-radius: 999px;
+  transition: background .2s;
+}
+.gv-recent-toggle__slider::after{
+  content: "";
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0 2px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  transition: transform .2s;
+}
+.gv-recent-toggle input:checked + .gv-recent-toggle__slider{
+  background: var(--gv-primary);
+}
+.gv-recent-toggle input:checked + .gv-recent-toggle__slider::after{
+  transform: translateX(16px);
+}
+.gv-recent-toggle__label{
+  user-select: none;
+}
 .gv-pedido-form th, .gv-pedido-form td{
-  padding: 10px 10px;
+  padding: 8px 6px;
 }
 .gv-pedido-form table select,
 .gv-pedido-form table input{
-  padding: 8px 10px;
+  padding: 6px 8px;
+  min-height: 36px;
 }
 .gv-pedido-form .gv-dto-pedido-input{
   width: 80px;

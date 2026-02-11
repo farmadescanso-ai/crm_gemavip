@@ -117,7 +117,9 @@
 
     const showRecent = (on) => {
       if (!recent) return;
-      recent.style.display = on ? '' : 'none';
+      const toggle = document.getElementById('showRecentToggle');
+      const show = on && (!toggle || toggle.checked);
+      recent.style.display = show ? '' : 'none';
     };
 
     // Recientes (botones)
@@ -203,8 +205,9 @@
       }
     });
 
-    // Mostrar recientes al inicio
     showRecent(true);
+    const toggle = document.getElementById('showRecentToggle');
+    if (toggle) toggle.addEventListener('change', () => showRecent(true));
 
     // Si venimos con un ClienteId ya guardado (editar), intentar cargar etiqueta
     const existingId = String(idInput.value || '').trim();
