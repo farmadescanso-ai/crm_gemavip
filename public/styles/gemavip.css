@@ -295,6 +295,29 @@ main.container{
   .grid.cols-2{ grid-template-columns: 1.2fr .8fr; }
 }
 
+/* Dashboard: dos bloques que caben en el contenedor sin desbordar */
+.dash-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 768px){
+  .dash-grid{
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+.dash-card{
+  min-width: 0;
+}
+.dash-grid .table-wrap{
+  min-width: 0;
+  max-width: 100%;
+}
+.dash-card-visitas .table-wrap{
+  min-width: 0;
+  max-width: 100%;
+}
+
 .btn{
   display:inline-flex;
   align-items:center;
