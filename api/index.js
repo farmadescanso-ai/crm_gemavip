@@ -1183,7 +1183,6 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
             pickRowCI(l, ['Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']) ?? ''
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
-    const admin = isAdminUser(res.locals.user);
     res.render('pedido-form', {
       mode: 'edit',
       admin,
