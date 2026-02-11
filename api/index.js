@@ -790,6 +790,53 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
   }
 });
 
+app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getPedidoById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+      if (owner !== userId) return res.status(404).send('No encontrado');
+    }
+    const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+    const pk = pedidosMeta?.pk || 'id';
+    const colNum = pedidosMeta?.colNumPedido || 'NumPedido';
+    const cabecera = { ...item };
+    delete cabecera[pk];
+    delete cabecera.Id;
+    delete cabecera.id;
+    if (colNum) cabecera[colNum] = '';
+    const lineasRaw = await db.getArticulosByPedido(id);
+    const pickRowCI = (row, cands) => {
+      const obj = row && typeof row === 'object' ? row : {};
+      const map = new Map(Object.keys(obj).map((k) => [String(k).toLowerCase(), k]));
+      for (const cand of cands || []) {
+        const real = map.get(String(cand).toLowerCase());
+        if (real && obj[real] !== undefined) return obj[real];
+      }
+      return undefined;
+    };
+    const lineas = Array.isArray(lineasRaw) && lineasRaw.length
+      ? lineasRaw.map((l) => ({
+          Id_Articulo: pickRowCI(l, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'Articulo_Id']) ?? '',
+          Cantidad: pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'Uds']) ?? 1,
+          Dto: pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'Dto', 'dto', 'Descuento']) ?? '',
+          PrecioUnitario: pickRowCI(l, ['Linea_PVP', 'PVP', 'PrecioUnitario', 'Precio', 'PVL']) ?? ''
+        }))
+      : [];
+    const created = await db.createPedido(cabecera);
+    const newId = created?.insertId ?? created?.Id ?? created?.id;
+    if (lineas.length) await db.updatePedidoWithLineas(newId, {}, lineas);
+    return res.redirect(`/pedidos/${newId}/edit`);
+  } catch (e) {
+    next(e);
+  }
+});
+
 app.get('/pedidos/:id(\\d+)', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);

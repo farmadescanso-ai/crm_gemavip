@@ -52,10 +52,10 @@
     </div>
     <div class="card-bd">
       <div class="table-wrap">
-        <table>
+        <table class="dash-table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th class="dash-th-actions">Acciones</th>
               <th>Nombre</th>
               <th>Población</th>
               <th>CP</th>
@@ -64,9 +64,19 @@
           </thead>
           <tbody>
             <% (latest.clientes || []).forEach((c) => { %>
+              <% const cid = c.Id ?? c.id; %>
               <tr>
-                <td><%= c.Id ?? c.id %></td>
-                <td><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
+                <td class="dash-td-actions">
+                  <div class="gv-actions">
+                    <a class="btn secondary icon" href="/clientes/<%= cid %>" title="Ver ficha" aria-label="Ver cliente <%= cid %>">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </a>
+                    <a class="btn secondary icon" href="/clientes/<%= cid %>/edit" title="Editar ficha" aria-label="Editar cliente <%= cid %>">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
+                    </a>
+                  </div>
+                </td>
+                <td><%= c.Nombre_Razon_Social ?? '' %></td>
                 <td><%= c.Poblacion ?? '' %></td>
                 <td><%= c.CodigoPostal ?? '' %></td>
                 <td>
@@ -97,10 +107,10 @@
     </div>
     <div class="card-bd">
       <div class="table-wrap">
-        <table>
+        <table class="dash-table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th class="dash-th-actions">Acciones</th>
               <th>NumPedido</th>
               <th>Fecha</th>
               <th>Total</th>
@@ -109,8 +119,18 @@
           </thead>
           <tbody>
             <% (latest.pedidos || []).forEach((p) => { %>
+              <% const pid = p.Id ?? p.id; %>
               <tr>
-                <td><%= p.Id ?? p.id %></td>
+                <td class="dash-td-actions">
+                  <div class="gv-actions">
+                    <a class="btn secondary icon" href="/pedidos/<%= pid %>" title="Ver pedido" aria-label="Ver pedido <%= pid %>">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </a>
+                    <a class="btn secondary icon" href="/pedidos/<%= pid %>/duplicate" title="Duplicar pedido" aria-label="Duplicar pedido <%= pid %>">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </a>
+                  </div>
+                </td>
                 <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
                 <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
                 <td><%= p.TotalPedido ?? p.Total ?? '' %></td>
@@ -135,10 +155,10 @@
   </div>
   <div class="card-bd">
     <div class="table-wrap">
-      <table>
+      <table class="dash-table">
         <thead>
           <tr>
-            <th>ID</th>
+            <th class="dash-th-actions">Acciones</th>
             <th>Fecha</th>
             <th>Tipo</th>
             <th>Cliente</th>
@@ -148,8 +168,18 @@
         </thead>
         <tbody>
           <% (latest.visitas || []).forEach((v) => { %>
+            <% const vid = v.Id ?? v.id; %>
             <tr>
-              <td><%= v.Id ?? v.id %></td>
+              <td class="dash-td-actions">
+                <div class="gv-actions">
+                  <a class="btn secondary icon" href="/visitas/<%= vid %>" title="Ver" aria-label="Ver visita <%= vid %>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </a>
+                  <a class="btn secondary icon" href="/visitas/<%= vid %>/edit" title="Editar" aria-label="Editar visita <%= vid %>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
+                  </a>
+                </div>
+              </td>
               <td><%= fmtDateES(v.Fecha ?? v.FechaVisita ?? '') %></td>
               <td><%= v.TipoVisita ?? '' %></td>
               <td><%= v.ClienteNombre ?? v.ClienteId ?? v.FarmaciaClienteId ?? '' %></td>
