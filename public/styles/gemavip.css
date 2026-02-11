@@ -770,31 +770,42 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   box-shadow: 0 0 0 4px rgba(0,139,210,.10);
 }
 
-/* Pedido form: mismo ancho que el resto de bloques (container) y acciones dentro del card */
+/* Pedido form: mismo ancho que el resto de bloques; todo el contenido sobre fondo blanco */
 .gv-pedido-form{
   width: 100%;
   max-width: 100%;
 }
 .gv-pedido-form .card-bd{
   padding: 12px 18px 0;
+  background: var(--gv-surface);
 }
-/* Franja de acciones con el mismo fondo que el card, sin hueco al fondo de página */
+/* Formulario y huecos entre bloques (Cabecera, Observaciones, Líneas) con el mismo fondo */
+.gv-pedido-form #pedidoForm{
+  background: var(--gv-surface);
+}
+/* Franja de acciones: fondo blanco en todo el ancho para Cancelar y Guardar */
 .gv-pedido-form__actions{
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
   margin-top: 18px;
-  padding: 16px 18px 18px;
-  border-top: 1px solid var(--gv-border);
-  background: var(--gv-surface);
-}
-.gv-pedido-form .card-bd .gv-pedido-form__actions{
   margin-left: -18px;
   margin-right: -18px;
   margin-bottom: 0;
-  padding-left: 18px;
-  padding-right: 18px;
+  padding: 16px 18px 18px;
+  border-top: 1px solid var(--gv-border);
+  background: var(--gv-surface);
+  width: 100%;
+  box-sizing: border-box;
+}
+/* Espacios entre filas de la tabla Líneas y bloque Líneas: mismo fondo */
+.gv-pedido-form .card-bd .card{
+  background: var(--gv-surface);
+}
+.gv-pedido-form .table-wrap,
+.gv-pedido-form table{
+  background: var(--gv-surface);
 }
 .gv-pedido-form .gv-doc{
   padding: 12px;
