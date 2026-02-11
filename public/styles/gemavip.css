@@ -845,6 +845,13 @@ main.container .gv-pedido-form{
 .gv-pedido-form table input{
   padding: 8px 10px;
 }
+.gv-pedido-form .gv-dto-pedido-input{
+  width: 80px;
+  text-align: right;
+}
+.gv-pedido-form .gv-totals-dto-row td{
+  vertical-align: middle;
+}
 
 /* Cliente: búsqueda inteligente (autocomplete) */
 .gv-client-picker{

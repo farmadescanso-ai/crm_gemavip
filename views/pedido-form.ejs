@@ -96,12 +96,6 @@
         </label>
 
         <label class="gv-field">
-          <span class="gv-field__label">Dto pedido (%)</span>
-          <input class="gv-input" name="Dto" type="number" min="0" max="100" step="0.01" value="<%= item.Dto ?? item.Descuento ?? 0 %>" />
-          <span class="gv-field__help">Se aplica sobre la base (después de dto de línea) antes del IVA. En pedidos Transfer es informativo y editable.</span>
-        </label>
-
-        <label class="gv-field">
           <span class="gv-field__label">Nº Pedido Cliente</span>
           <input class="gv-input" name="NumPedidoCliente" value="<%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? '' %>" placeholder="Ej: PO-12345" />
           <span class="gv-field__help">Referencia del pedido del cliente (si aplica).</span>
@@ -212,6 +206,18 @@
             </tbody>
             <tfoot>
               <tr>
+                <td colspan="4" style="text-align:right; font-weight:900;">Subtotal</td>
+                <td style="text-align:right; font-weight:900;" id="subtotalCell">—</td>
+                <td></td>
+              </tr>
+              <tr class="gv-totals-dto-row">
+                <td colspan="4" style="text-align:right; font-weight:900;">Dto pedido (%)</td>
+                <td style="text-align:right;">
+                  <input type="number" name="Dto" id="DtoPedidoInput" class="gv-input gv-dto-pedido-input" min="0" max="100" step="0.01" value="<%= item.Dto ?? item.Descuento ?? 0 %>" title="Se aplica sobre el Subtotal" />
+                </td>
+                <td></td>
+              </tr>
+              <tr>
                 <td colspan="4" style="text-align:right; font-weight:900;">Total pedido</td>
                 <td style="text-align:right; font-weight:900;" id="totalGeneralCell">—</td>
                 <td></td>
@@ -235,7 +241,7 @@
     var btn = document.getElementById('addLineaBtn');
     var form = document.getElementById('pedidoForm');
     var selTarifa = document.getElementById('Id_Tarifa');
-    var dtoPedidoEl = form ? form.querySelector('input[name=\"Dto\"]') : null;
+    var dtoPedidoEl = document.getElementById('DtoPedidoInput') || (form ? form.querySelector('input[name=\"Dto\"]') : null);
     var selDirEnvio = document.getElementById('Id_DireccionEnvio');
     var helpDirEnvio = document.getElementById('Id_DireccionEnvioHelp');
     var hidCial = document.getElementById('Id_Cial');
@@ -462,7 +468,7 @@
         var dp = Number(String(dtoPedidoEl.value || '').replace(',', '.'));
         if (isFinite(dp)) dtoPedido = Math.max(0, Math.min(100, dp));
       }
-      var sum = 0;
+      var subtotal = 0;
       table.querySelectorAll('tbody tr').forEach(function(tr){
         var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
         var pvlEl = tr.querySelector('input.gv-line-pvl');
@@ -477,18 +483,22 @@
         if (!isFinite(qty)) qty = 0;
         if (!isFinite(dto)) dto = 0;
         dto = Math.max(0, Math.min(100, dto));
-        var base = qty * pvl * (1 - dto / 100) * (1 - dtoPedido / 100);
+        // Total línea = base (sin dto pedido) + IVA; el dto pedido se aplica sobre el Subtotal
+        var base = qty * pvl * (1 - dto / 100);
         var ivaPct = getIvaPctForSelect(sel);
-        var total = base + (base * ivaPct / 100);
-        // redondeo 2 decimales
-        total = Math.round((total + Number.EPSILON) * 100) / 100;
+        var totalLinea = base + (base * ivaPct / 100);
+        totalLinea = Math.round((totalLinea + Number.EPSILON) * 100) / 100;
         if (qty <= 0 || pvl <= 0) out.textContent = '—';
-        else out.textContent = fmtEurES(total);
-        if (isFinite(total)) sum += total;
+        else out.textContent = fmtEurES(totalLinea);
+        if (isFinite(totalLinea)) subtotal += totalLinea;
       });
-      sum = Math.round((sum + Number.EPSILON) * 100) / 100;
+      subtotal = Math.round((subtotal + Number.EPSILON) * 100) / 100;
+      var subCell = document.getElementById('subtotalCell');
+      if (subCell) subCell.textContent = subtotal ? fmtEurES(subtotal) : '—';
+      var totalFinal = subtotal * (1 - dtoPedido / 100);
+      totalFinal = Math.round((totalFinal + Number.EPSILON) * 100) / 100;
       var tg = document.getElementById('totalGeneralCell');
-      if (tg) tg.textContent = sum ? fmtEurES(sum) : '—';
+      if (tg) tg.textContent = (subtotal || dtoPedido) ? fmtEurES(totalFinal) : '—';
     }
 
     function renumber() {
