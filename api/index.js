@@ -696,10 +696,11 @@ function parseLineasFromBody(body) {
 
 app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      db.getFormasPago().catch(() => [])
+      db.getFormasPago().catch(() => []),
+      db.getTiposPedido().catch(() => [])
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
@@ -717,6 +718,7 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       comerciales: Array.isArray(comerciales) ? comerciales : [],
       tarifas: Array.isArray(tarifas) ? tarifas : [],
       formasPago: Array.isArray(formasPago) ? formasPago : [],
+      tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
       articulos: Array.isArray(articulos) ? articulos : [],
       item: {
         Id_Cial: res.locals.user?.id ?? null,
@@ -738,10 +740,11 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
 
 app.post('/pedidos/new', requireLogin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      db.getFormasPago().catch(() => [])
+      db.getFormasPago().catch(() => []),
+      db.getTiposPedido().catch(() => [])
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
     const body = req.body || {};
@@ -771,6 +774,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         comerciales,
         tarifas,
         formasPago,
+        tiposPedido: tiposPedido || [],
         articulos,
         item: pedidoPayload,
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
@@ -778,7 +782,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
       });
     }
     if (!pedidoPayload.EstadoPedido) {
-      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, articulos, item: pedidoPayload, lineas, error: 'EstadoPedido es obligatorio' });
+      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, error: 'EstadoPedido es obligatorio' });
     }
 
     const created = await db.createPedido(pedidoPayload);
@@ -1153,11 +1157,12 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const [item, tarifas, formasPago, comerciales] = await Promise.all([
+    const [item, tarifas, formasPago, comerciales, tiposPedido] = await Promise.all([
       db.getPedidoById(id),
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
-      db.getComerciales().catch(() => [])
+      db.getComerciales().catch(() => []),
+      db.getTiposPedido().catch(() => [])
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
@@ -1245,6 +1250,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
       lineas,
       tarifas,
       formasPago,
+      tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
       comerciales,
       articulos,
       clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
@@ -1285,10 +1291,11 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
       });
     }
 
-    const [tarifas, formasPago, comerciales] = await Promise.all([
+    const [tarifas, formasPago, comerciales, tiposPedido] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
-      db.getComerciales().catch(() => [])
+      db.getComerciales().catch(() => []),
+      db.getTiposPedido().catch(() => [])
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
 
@@ -1318,6 +1325,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
         tarifas,
         formasPago,
+        tiposPedido: tiposPedido || [],
         comerciales,
         articulos,
         error: 'Id_Cial e Id_Cliente son obligatorios'

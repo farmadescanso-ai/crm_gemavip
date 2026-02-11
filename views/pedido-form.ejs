@@ -130,18 +130,18 @@
         <div style="height: 10px;"></div>
       <div class="gv-doc__grid">
         <label class="gv-field">
-          <span class="gv-field__label">FechaEntrega</span>
+          <span class="gv-field__label">Fecha de entrega</span>
           <input name="FechaEntrega" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaEntrega ?? '') %>" />
         </label>
         <label class="gv-field">
-          <span class="gv-field__label">Forma de pago (Id_FormaPago)</span>
+          <span class="gv-field__label">Forma de pago</span>
           <% if ((formasPago || []).length) { %>
             <select name="Id_FormaPago" class="gv-input">
               <% const curFP = Number(item.Id_FormaPago ?? 0) || 0; %>
-              <option value="0" <%= curFP === 0 ? 'selected' : '' %>>(0) Sin especificar</option>
+              <option value="0" <%= curFP === 0 ? 'selected' : '' %>>Sin especificar</option>
               <% (formasPago || []).forEach((fp) => { %>
                 <% const fid = Number(fp.id ?? fp.Id ?? 0) || 0; %>
-                <option value="<%= fid %>" <%= fid === curFP ? 'selected' : '' %>><%= fid %> · <%= fp.Nombre ?? fp.FormaPago ?? '' %></option>
+                <option value="<%= fid %>" <%= fid === curFP ? 'selected' : '' %>><%= fp.Nombre ?? fp.FormaPago ?? fp.nombre ?? '' %></option>
               <% }) %>
             </select>
           <% } else { %>
@@ -149,8 +149,19 @@
           <% } %>
         </label>
         <label class="gv-field">
-          <span class="gv-field__label">Tipo pedido (Id_TipoPedido)</span>
-          <input name="Id_TipoPedido" type="number" min="0" class="gv-input" value="<%= item.Id_TipoPedido ?? 0 %>" />
+          <span class="gv-field__label">Tipo de pedido</span>
+          <% if ((tiposPedido || []).length) { %>
+            <select name="Id_TipoPedido" class="gv-input">
+              <% const curTP = Number(item.Id_TipoPedido ?? 0) || 0; %>
+              <option value="0" <%= curTP === 0 ? 'selected' : '' %>>Sin especificar</option>
+              <% (tiposPedido || []).forEach((tp) => { %>
+                <% const tid = Number(tp.id ?? tp.Id ?? 0) || 0; %>
+                <option value="<%= tid %>" <%= tid === curTP ? 'selected' : '' %>><%= tp.Nombre ?? tp.Tipo ?? tp.nombre ?? tp.tipo ?? '' %></option>
+              <% }) %>
+            </select>
+          <% } else { %>
+            <input name="Id_TipoPedido" type="number" min="0" class="gv-input" value="<%= item.Id_TipoPedido ?? 0 %>" />
+          <% } %>
         </label>
       </div>
       </div>

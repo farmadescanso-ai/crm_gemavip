@@ -4013,6 +4013,31 @@ class MySQLCRM {
     }
   }
 
+  async getTiposPedido() {
+    try {
+      const table = await this._resolveTableNameCaseInsensitive('tipos_pedidos').catch(() => null)
+        || await this._resolveTableNameCaseInsensitive('tipos_pedido').catch(() => null);
+      if (!table) return [];
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['id', 'Id']) || 'id';
+      const colNombre = this._pickCIFromColumns(cols, ['Tipo', 'tipo', 'Nombre', 'nombre']) || 'Tipo';
+      let rows = [];
+      try {
+        rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY \`${pk}\` ASC`);
+      } catch (e1) {
+        rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY Id ASC`).catch(() => []);
+      }
+      return (rows || []).map((r) => ({
+        ...r,
+        id: r?.id ?? r?.Id ?? r?.ID ?? null,
+        Nombre: r?.[colNombre] ?? r?.Tipo ?? r?.tipo ?? r?.Nombre ?? r?.nombre ?? ''
+      }));
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de pedido:', error.message);
+      return [];
+    }
+  }
+
   // ESPECIALIDADES
   async getEspecialidades() {
     try {

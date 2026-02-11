@@ -832,7 +832,15 @@ main.container .gv-pedido-form{
 }
 .gv-pedido-form .gv-lineas-col-art{
   width: 38%;
+  min-width: 320px;
+}
+.gv-pedido-form #lineasTable td:first-child{
+  overflow: visible;
+}
+.gv-pedido-form #lineasTable td:first-child select{
+  width: 100%;
   min-width: 0;
+  max-width: none;
 }
 .gv-pedido-form .gv-lineas-col-num{
   width: 11ch;
@@ -851,12 +859,29 @@ main.container .gv-pedido-form{
   padding-left: 4px;
   padding-right: 4px;
 }
+/* Mismo espacio entre Artículo, PVL y Cantidad */
+.gv-pedido-form #lineasTable th:nth-child(1),
+.gv-pedido-form #lineasTable th:nth-child(2),
+.gv-pedido-form #lineasTable th:nth-child(3),
+.gv-pedido-form #lineasTable td:nth-child(1),
+.gv-pedido-form #lineasTable td:nth-child(2),
+.gv-pedido-form #lineasTable td:nth-child(3){
+  padding-left: 8px;
+  padding-right: 8px;
+}
+/* Columna Dto (%) y caja descuento pedido alineadas: mismo padding y ancho de input */
+.gv-pedido-form #lineasTable th:nth-child(4),
 .gv-pedido-form #lineasTable td:nth-child(4){
-  padding-right: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.gv-pedido-form #lineasTable .gv-totals-dto-row td:nth-child(2){
+  padding-left: 8px;
+  padding-right: 8px;
 }
 .gv-pedido-form #lineasTable td:nth-child(5){
-  padding-left: 4px;
-  padding-right: 4px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 .gv-pedido-form #lineasTable .gv-line-pvl,
 .gv-pedido-form #lineasTable input[name*="[Cantidad]"],
@@ -1026,7 +1051,9 @@ main.container .gv-pedido-form{
   min-height: 36px;
 }
 .gv-pedido-form .gv-dto-pedido-input{
-  width: 80px;
+  width: 100%;
+  max-width: 11ch;
+  box-sizing: border-box;
   text-align: right;
 }
 .gv-pedido-form .gv-totals-dto-row td{
