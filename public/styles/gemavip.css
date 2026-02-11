@@ -787,9 +787,19 @@ main.container .gv-pedido-form{
   padding: 12px 18px 0;
   background: var(--gv-surface);
 }
-/* Formulario y huecos entre bloques (Cabecera, Observaciones, Líneas) con el mismo fondo */
+/* Formulario: un solo bloque de fondo; espacio entre tarjetas con margen (no gap) para que no se vean huecos */
+.gv-pedido-form__form,
 .gv-pedido-form #pedidoForm{
+  display: block;
   background: var(--gv-surface);
+}
+.gv-pedido-form__form > *,
+.gv-pedido-form #pedidoForm > *{
+  margin-bottom: 12px;
+}
+.gv-pedido-form__form > *:last-child,
+.gv-pedido-form #pedidoForm > *:last-child{
+  margin-bottom: 0;
 }
 /* Franja de acciones: fondo blanco en todo el ancho para Cancelar y Guardar */
 .gv-pedido-form__actions{

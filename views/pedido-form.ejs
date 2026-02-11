@@ -21,7 +21,7 @@
       id="pedidoForm"
       method="post"
       action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id) + '/edit') : '/pedidos/new' %>"
-      style="display:grid; gap: 12px;"
+      class="gv-pedido-form__form"
     >
       <!-- Serie fija -->
       <input type="hidden" name="Serie" value="P" />
