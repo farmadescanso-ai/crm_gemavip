@@ -770,9 +770,22 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   box-shadow: 0 0 0 4px rgba(0,139,210,.10);
 }
 
-/* Pedido form: compactar para que quepa más contenido */
+/* Pedido form: mismo ancho que el resto de bloques (container) y acciones dentro del card */
+.gv-pedido-form{
+  width: 100%;
+  max-width: 100%;
+}
 .gv-pedido-form .card-bd{
-  padding: 12px;
+  padding: 12px 18px 18px;
+}
+.gv-pedido-form__actions{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gv-border);
 }
 .gv-pedido-form .gv-doc{
   padding: 12px;

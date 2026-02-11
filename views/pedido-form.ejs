@@ -1,7 +1,7 @@
 <%- include('partials/header', { title: mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' }) %>
 <% var isAdminForm = !!(typeof user !== 'undefined' && user && (user.roles || []).some(function(r){ return String(r).toLowerCase().indexOf('admin') !== -1; })); %>
 
-<section class="card gv-pedido-form" style="max-width: 1100px; margin: 0 auto;">
+<section class="card gv-pedido-form">
   <div class="card-hd">
     <h1 class="card-title">
       <%= mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' %>
@@ -221,7 +221,7 @@
         </div>
       </div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+      <div class="gv-pedido-form__actions">
         <a class="btn secondary" href="/pedidos">Cancelar</a>
         <button class="btn" type="submit"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
       </div>

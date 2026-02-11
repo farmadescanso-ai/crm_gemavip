@@ -810,7 +810,7 @@ app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, async (req, res, next) => 
     delete cabecera.Id;
     delete cabecera.id;
     if (colNum) cabecera[colNum] = '';
-    const lineasRaw = await db.getArticulosByPedido(id);
+    const lineasRaw = await db.getArticulosByPedido(id).catch(() => []);
     const pickRowCI = (row, cands) => {
       const obj = row && typeof row === 'object' ? row : {};
       const map = new Map(Object.keys(obj).map((k) => [String(k).toLowerCase(), k]));
@@ -849,7 +849,7 @@ app.get('/pedidos/:id(\\d+)', requireLogin, async (req, res, next) => {
       const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
       if (owner !== userId) return res.status(404).send('No encontrado');
     }
-    const lineas = await db.getArticulosByPedido(id);
+    const lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
     let direccionEnvio = item?.Id_DireccionEnvio
       ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
@@ -1202,7 +1202,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
     const clientesRecent = await db
       .getClientesOptimizadoPaged({ comercial: item?.Id_Cial ?? res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
-    const lineasRaw = await db.getArticulosByPedido(id);
+    const lineasRaw = await db.getArticulosByPedido(id).catch(() => []);
 
     // Helper: leer valores de columnas con nombres variables (case-insensitive)
     const pickRowCI = (row, cands) => {

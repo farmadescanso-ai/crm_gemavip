@@ -662,8 +662,8 @@ class MySQLCRM {
 
     const pk = pickCI(['Id', 'id']) || 'Id';
     const colNumPedido = pickCI(['NumPedido', 'numPedido', 'NumeroPedido', 'numeroPedido', 'Numero_Pedido', 'Número_Pedido', 'Número Pedido']);
-    const colPedidoId = pickCI(['PedidoId', 'pedidoId', 'Id_Pedido', 'id_pedido', 'pedido_id']);
-    const colPedidoIdNum = pickCI(['Id_NumPedido', 'id_numpedido', 'id_num_pedido', 'PedidoIdNum', 'pedidoIdNum']);
+    const colPedidoId = pickCI(['PedidoId', 'pedidoId', 'Id_Pedido', 'id_pedido', 'pedido_id', 'IdPedido', 'idPedido']);
+    const colPedidoIdNum = pickCI(['Id_NumPedido', 'id_numpedido', 'id_num_pedido', 'PedidoIdNum', 'pedidoIdNum', 'IdNumPedido', 'idNumPedido']);
     const colArticulo = pickCI(['Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloId', 'IdArticulo', 'idArticulo']);
 
     const meta = { table: t, pk, colNumPedido, colPedidoId, colPedidoIdNum, colArticulo };
@@ -4661,6 +4661,7 @@ class MySQLCRM {
       const pedidosMeta = await this._ensurePedidosMeta();
       const paMeta = await this._ensurePedidosArticulosMeta();
       const tPA = paMeta.table;
+      const paCols = await this._getColumns(tPA).catch(() => []);
 
       const tArt = await this._resolveTableNameCaseInsensitive('articulos').catch(() => null);
       const aCols = tArt ? await this._getColumns(tArt).catch(() => []) : [];
@@ -4688,6 +4689,29 @@ class MySQLCRM {
         params.push(String(numPedido).trim());
       }
 
+      // Fallback: si la meta no detectó columnas de enlace, buscar por nombre en la tabla real
+      if (!where.length && Array.isArray(paCols) && paCols.length) {
+        const colLower = (c) => String(c).toLowerCase();
+        const idLink = paCols.find((c) => {
+          const l = colLower(c);
+          return /id_numpedido|id_num_pedido|pedido_id|id_pedido|pedidoid|idpedido/.test(l);
+        });
+        if (idLink) {
+          where.push(`pa.\`${idLink}\` = ?`);
+          params.push(idNum);
+        }
+        if (!where.length && numPedido) {
+          const numLink = paCols.find((c) => {
+            const l = colLower(c);
+            return /numpedido|numero_pedido|num_pedido|numeropedido/.test(l);
+          });
+          if (numLink) {
+            where.push(`pa.\`${numLink}\` = ?`);
+            params.push(String(numPedido).trim());
+          }
+        }
+      }
+
       if (!where.length) return [];
 
       const joinArticulo = (tArt && paMeta.colArticulo)
@@ -4695,7 +4719,6 @@ class MySQLCRM {
         : '';
 
       // Evitar colisiones de nombres entre pa.* y a.* (p.ej. IVA) añadiendo alias explícitos (best-effort)
-      const paCols = await this._getColumns(tPA).catch(() => []);
       const pickPaCol = (cands) => this._pickCIFromColumns(paCols, cands);
       const colPvp = pickPaCol(['PVP', 'pvp', 'PVPUnit', 'Precio', 'precio', 'PrecioUnitario', 'precio_unitario']);
       const colDto = pickPaCol(['DtoLinea', 'dto_linea', 'dtoLinea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
