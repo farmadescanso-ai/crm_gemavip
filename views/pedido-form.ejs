@@ -89,15 +89,16 @@
             <% (tarifas || []).forEach((t) => { %>
               <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
               <% const label = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
-              <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= label %></option>
+              <option value="<%= tid %>" data-label="<%= label %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= label %></option>
             <% }) %>
           </select>
+          <span class="gv-field__help">Si la tarifa o el tipo de pedido incluye "Transfer", el pedido no se valora: PVL=0 y dto línea 5% por defecto (informativo, editable).</span>
         </label>
 
         <label class="gv-field">
           <span class="gv-field__label">Dto pedido (%)</span>
           <input class="gv-input" name="Dto" type="number" min="0" max="100" step="0.01" value="<%= item.Dto ?? item.Descuento ?? 0 %>" />
-          <span class="gv-field__help">Se aplica sobre la base (después de dto de línea) antes del IVA.</span>
+          <span class="gv-field__help">Se aplica sobre la base (después de dto de línea) antes del IVA. En pedidos Transfer es informativo y editable.</span>
         </label>
 
         <label class="gv-field">

@@ -202,7 +202,6 @@ router.put(
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
     // Best-effort: si hay sesión, no permitir editar líneas si el pedido no es editable.
-    // Nota: sin PedidoId en payload no podemos comprobar ownership con total certeza, pero evitamos el caso común.
     const pedidoId = toInt(req.body?.PedidoId ?? req.body?.Id_NumPedido ?? req.body?.pedidoId ?? req.body?.Pedido_id, 0);
     if (pedidoId) {
       const access = await assertPedidoAccess(req, pedidoId, { write: true });

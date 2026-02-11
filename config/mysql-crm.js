@@ -4904,6 +4904,7 @@ class MySQLCRM {
         'IdDireccionEnvio',
         'idDireccionEnvio'
       ]);
+      const colTipoPedido = pickPedidoCol(['Id_TipoPedido', 'id_tipo_pedido', 'TipoPedidoId']);
 
       const colTotalPedido = pickPedidoCol(['TotalPedido', 'Total_Pedido', 'total_pedido', 'Total', 'total', 'ImporteTotal', 'importe_total', 'Importe', 'importe']);
       const colBasePedido = pickPedidoCol(['BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Neto', 'neto', 'ImporteNeto', 'importe_neto']);
@@ -4945,7 +4946,7 @@ class MySQLCRM {
 
         // Leer pedido actual (dentro de la transacción)
         const selectCols = Array.from(
-          new Set([pk, colNumPedido, colClientePedido, colDirEnvio, colTarifaId, colTarifaLegacy, colDtoPedido].filter(Boolean))
+          new Set([pk, colNumPedido, colClientePedido, colDirEnvio, colTarifaId, colTarifaLegacy, colDtoPedido, colTipoPedido].filter(Boolean))
         );
         const selectSql = `SELECT ${selectCols.map((c) => `\`${c}\``).join(', ')} FROM \`${tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`;
         const [rows] = await conn.execute(selectSql, [idNum]);
@@ -5032,6 +5033,30 @@ class MySQLCRM {
           } catch (_) {
             effectiveTarifaId = 0;
             tarifaInfo = null;
+          }
+        }
+
+        // ¿Pedido Transfer? (no se valora: PVL=0, dto informativo 5% por defecto)
+        let isTransfer = false;
+        const tarifaNombre = (tarifaInfo && String(tarifaInfo.NombreTarifa ?? tarifaInfo.Nombre ?? tarifaInfo.nombre ?? '').trim()) || '';
+        if (tarifaNombre.toLowerCase().includes('transfer')) isTransfer = true;
+        if (!isTransfer && colTipoPedido) {
+          const idTipoPedido =
+            Number(filteredPedido[colTipoPedido] ?? current[colTipoPedido] ?? 0) ||
+            Number(pedidoInput.Id_TipoPedido ?? pedidoInput.id_tipo_pedido ?? 0);
+          if (Number.isFinite(idTipoPedido) && idTipoPedido > 0) {
+            try {
+              const tTipos = await this._resolveTableNameCaseInsensitive('tipos_pedidos').catch(() => null)
+                || await this._resolveTableNameCaseInsensitive('tipos_pedido').catch(() => null);
+              if (tTipos) {
+                const tipCols = await this._getColumns(tTipos).catch(() => []);
+                const tipPk = this._pickCIFromColumns(tipCols, ['id', 'Id']) || 'id';
+                const tipNombre = this._pickCIFromColumns(tipCols, ['Tipo', 'tipo', 'Nombre', 'nombre']);
+                const [tipoRows] = await conn.execute(`SELECT \`${tipNombre || 'Tipo'}\` AS Tipo FROM \`${tTipos}\` WHERE \`${tipPk}\` = ? LIMIT 1`, [idTipoPedido]);
+                const tipoNombre = tipoRows?.[0]?.Tipo ?? '';
+                if (String(tipoNombre).toLowerCase().includes('transfer')) isTransfer = true;
+              }
+            } catch (_) {}
           }
         }
 
@@ -5232,14 +5257,20 @@ class MySQLCRM {
           } else if (articulo) {
             precioUnit = Math.max(0, getPrecioFromTarifa(articulo, artId));
           }
+          if (isTransfer) {
+            precioUnit = 0;
+            if (colPrecioUnit) mysqlData[colPrecioUnit] = 0;
+          }
 
           // DTO de pedido (general) y DTO de línea (específico) se aplican acumulativamente:
           // base = bruto * (1 - dtoLinea) * (1 - dtoPedido)
+          // Transfer: dto línea por defecto 5% (informativo, editable)
           const dtoPedidoPct = clampPct(getNum(dtoPedido, 0));
+          const defaultDtoLinea = isTransfer ? 5 : (linea.Dto ?? linea.Descuento ?? 0);
           const dtoLineaPct = clampPct(
             colDtoLinea
-              ? getNum(mysqlData[colDtoLinea], (linea.Dto ?? linea.Descuento ?? 0))
-              : getNum(linea.Dto ?? linea.Descuento ?? 0, 0)
+              ? getNum(mysqlData[colDtoLinea], defaultDtoLinea)
+              : getNum(linea.Dto ?? linea.Descuento ?? defaultDtoLinea, defaultDtoLinea)
           );
 
           const bruto = round2(qty * precioUnit);
@@ -5646,6 +5677,65 @@ class MySQLCRM {
       } catch (_) {
         return [{ Id: 0, NombreTarifa: 'PVL', Activa: 1 }];
       }
+    }
+  }
+
+  /**
+   * Asegura que exista la tarifa "Transfer" (para pedidos no valorados).
+   * Si no existe, la crea. Devuelve la tarifa encontrada o creada, o null si no se pudo.
+   */
+  async ensureTarifaTransfer() {
+    try {
+      const list = await this.getTarifas();
+      const transfer = (list || []).find(
+        (r) => String((r.NombreTarifa ?? r.Nombre ?? r.nombre ?? '').toLowerCase()).includes('transfer')
+      );
+      if (transfer) return transfer;
+      const t = await this._resolveTableNameCaseInsensitive('tarifasClientes').catch(() => null);
+      if (!t) return null;
+      const cols = await this._getColumns(t).catch(() => []);
+      const colNombre = this._pickCIFromColumns(cols, ['NombreTarifa', 'Nombre', 'nombre', 'nombre_tarifa']);
+      const colActiva = this._pickCIFromColumns(cols, ['Activa', 'activa']);
+      if (!colNombre) return null;
+      const insertCols = [colNombre];
+      const insertVals = ['Transfer'];
+      if (colActiva) {
+        insertCols.push(colActiva);
+        insertVals.push(1);
+      }
+      const sql = `INSERT INTO \`${t}\` (\`${insertCols.join('`, `')}\`) VALUES (${insertCols.map(() => '?').join(', ')})`;
+      const res = await this.query(sql, insertVals);
+      const id = res?.insertId ?? res?.insertId;
+      return { Id: id, [colNombre]: 'Transfer', NombreTarifa: 'Transfer', Activa: 1 };
+    } catch (e) {
+      console.warn('⚠️ [ensureTarifaTransfer]', e?.message || e);
+      return null;
+    }
+  }
+
+  /**
+   * Asegura que exista la forma de pago "Transfer".
+   * Si no existe, la crea. Devuelve la forma de pago encontrada o creada, o null.
+   */
+  async ensureFormaPagoTransfer() {
+    try {
+      const existing = await this.getFormaPagoByNombre('Transfer');
+      if (existing) return existing;
+      const table = await this._getFormasPagoTableName();
+      if (!table) return null;
+      const cols = await this.query(`SHOW COLUMNS FROM ${table}`).catch(() => []);
+      const colNames = (cols || []).map((c) => c.Field || c.field || '').filter(Boolean);
+      const hasFormaPago = colNames.some((c) => c.toLowerCase() === 'formapago' || c.toLowerCase() === 'forma_pago');
+      const hasNombre = colNames.some((c) => c.toLowerCase() === 'nombre');
+      const payload = {};
+      if (hasFormaPago) payload.FormaPago = 'Transfer';
+      if (hasNombre) payload.Nombre = 'Transfer';
+      if (!Object.keys(payload).length) payload.FormaPago = 'Transfer';
+      await this.createFormaPago(payload);
+      return await this.getFormaPagoByNombre('Transfer');
+    } catch (e) {
+      console.warn('⚠️ [ensureFormaPagoTransfer]', e?.message || e);
+      return null;
     }
   }
 

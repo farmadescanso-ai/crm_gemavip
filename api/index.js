@@ -701,6 +701,10 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => [])
     ]);
+    const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
+    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
+    const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
+    if (formaPagoTransfer && (formaPagoTransfer.id ?? formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(f.id ?? f.Id) === Number(formaPagoTransfer.id ?? formaPagoTransfer.Id))) formasPago.push(formaPagoTransfer);
     // Nota: artículos puede ser grande; lo usamos para selector simple (mejorable con búsqueda más adelante).
     const articulos = await db.getArticulos({}).catch(() => []);
     const clientesRecent = await db
@@ -1108,6 +1112,10 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => [])
     ]);
+    const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
+    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
+    const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
+    if (formaPagoTransfer && (formaPagoTransfer.id ?? formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(f.id ?? f.Id) === Number(formaPagoTransfer.id ?? formaPagoTransfer.Id))) formasPago.push(formaPagoTransfer);
     if (!item) return res.status(404).send('No encontrado');
     const admin = isAdminUser(res.locals.user);
     const userId = Number(res.locals.user?.id);
@@ -1909,49 +1917,90 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
     const stats = { clientes, pedidos, visitas, comerciales };
 
     const latest = { clientes: [], pedidos: [], visitas: [] };
+    const limitLatest = 8;
 
-    try {
-      latest.clientes = await db.query(
-        'SELECT Id, Nombre_Razon_Social, Poblacion, CodigoPostal, OK_KO FROM clientes ORDER BY Id DESC LIMIT 8'
-      );
-    } catch (_) {
-      latest.clientes = [];
-    }
-    try {
-      latest.pedidos = await db.query(
-        'SELECT Id, NumPedido, FechaPedido, TotalPedido, EstadoPedido FROM pedidos ORDER BY Id DESC LIMIT 8'
-      );
-    } catch (_) {
-      latest.pedidos = [];
-    }
-    try {
-      if (!metaVisitas?.table) throw new Error('Sin meta visitas');
-
-      const clientesMeta = await db._ensureClientesMeta().catch(() => null);
-      const comercialesMeta = await db._ensureComercialesMeta().catch(() => null);
-      const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
-      const pkClientes = clientesMeta?.pk || 'Id';
-      const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
-      const pkComerciales = comercialesMeta?.pk || 'id';
-
-      const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
-      const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
-      const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
-      const selectComercialNombre = metaVisitas.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
-
-      const where = [];
-      const params = [];
-      if (!admin) {
-        const uIdNum = Number(res.locals.user?.id);
-        if (metaVisitas.colComercial && Number.isFinite(uIdNum) && uIdNum > 0) {
-          where.push(`v.\`${metaVisitas.colComercial}\` = ?`);
-          params.push(uIdNum);
-        }
+    if (admin) {
+      // Admin: últimos clientes que tengan pedidos (cualquier comercial); mismos 8 últimos pedidos (todos).
+      try {
+        const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+        const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+        const tClientes = clientesMeta?.tClientes || 'clientes';
+        const pkClientes = clientesMeta?.pk || 'Id';
+        const colClientePedido = pedidosMeta?.colCliente || 'Id_Cliente';
+        const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+        latest.clientes = await db.query(
+          `SELECT c.\`${pkClientes}\` AS Id, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO
+           FROM \`${tClientes}\` c
+           INNER JOIN \`${tPedidos}\` p ON p.\`${colClientePedido}\` = c.\`${pkClientes}\`
+           GROUP BY c.\`${pkClientes}\`, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO
+           ORDER BY c.\`${pkClientes}\` DESC
+           LIMIT ?`,
+          [limitLatest]
+        );
+      } catch (_) {
+        latest.clientes = [];
       }
-      const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      try {
+        const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+        const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+        const pk = pedidosMeta?.pk || 'id';
+        const colNum = pedidosMeta?.colNumPedido || 'NumPedido';
+        const colFecha = pedidosMeta?.colFecha || 'FechaPedido';
+        latest.pedidos = await db.query(
+          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, TotalPedido, EstadoPedido FROM \`${tPedidos}\` ORDER BY \`${pk}\` DESC LIMIT ?`,
+          [limitLatest]
+        );
+      } catch (_) {
+        latest.pedidos = [];
+      }
+    } else {
+      // Comercial: solo sus últimos clientes y sus últimos pedidos.
+      try {
+        const list = await db.getClientesOptimizadoPaged(
+          { comercial: userId },
+          { limit: limitLatest, offset: 0, order: 'desc', compact: true }
+        );
+        latest.clientes = Array.isArray(list) ? list : [];
+      } catch (_) {
+        latest.clientes = [];
+      }
+      try {
+        const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+        const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+        const colComercial = pedidosMeta?.colComercial || 'Id_Cial';
+        const pk = pedidosMeta?.pk || 'id';
+        const colNum = pedidosMeta?.colNumPedido || 'NumPedido';
+        const colFecha = pedidosMeta?.colFecha || 'FechaPedido';
+        if (hasUserId) {
+          latest.pedidos = await db.query(
+            `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, TotalPedido, EstadoPedido FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? ORDER BY \`${pk}\` DESC LIMIT ?`,
+            [userId, limitLatest]
+          );
+        } else {
+          latest.pedidos = [];
+        }
+      } catch (_) {
+        latest.pedidos = [];
+      }
+    }
+    if (admin) {
+      try {
+        if (!metaVisitas?.table) throw new Error('Sin meta visitas');
 
-      latest.visitas = await db.query(
-        `
+        const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+        const comercialesMeta = await db._ensureComercialesMeta().catch(() => null);
+        const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
+        const pkClientes = clientesMeta?.pk || 'Id';
+        const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
+        const pkComerciales = comercialesMeta?.pk || 'id';
+
+        const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
+        const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
+        const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
+        const selectComercialNombre = metaVisitas.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
+
+        latest.visitas = await db.query(
+          `
           SELECT
             v.\`${metaVisitas.pk}\` as Id,
             ${metaVisitas.colFecha ? `v.\`${metaVisitas.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
@@ -1964,14 +2013,14 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
           FROM \`${metaVisitas.table}\` v
           ${joinCliente}
           ${joinComercial}
-          ${whereSql}
           ORDER BY v.\`${metaVisitas.pk}\` DESC
           LIMIT 10
         `,
-        params
-      );
-    } catch (_) {
-      latest.visitas = [];
+          []
+        );
+      } catch (_) {
+        latest.visitas = [];
+      }
     }
 
     res.render('dashboard', { stats, latest });

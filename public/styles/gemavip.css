@@ -507,7 +507,7 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   color: var(--gv-ink);
 }
 .gv-doc-table td{
-  font-weight: 700;
+  font-weight: 400;
   color: var(--gv-text);
 }
 .gv-doc-table td.is-right,
