@@ -28,7 +28,7 @@
     if (!Number.isFinite(x)) return '';
     return `${fmtNumES(x, 2)}€`;
   };
-  const fmtQty = (n) => fmtNumES(n, 2);
+  const fmtQty = (n) => fmtNumES(n, 0);
   const pedidoId = item?.id ?? item?.Id ?? '';
   const numPedido = item?.NumPedido ?? '';
   const fecha = fmtDateES(item.FechaPedido ?? item.Fecha ?? '');
@@ -137,14 +137,12 @@
         </tr>
       </thead>
       <tbody>
-        <% let sumBase = 0, sumIva = 0, sumTotal = 0; %>
+        <% let sumBase = 0, sumIva = 0, sumTotal = 0; const ivaByPct = {}; %>
         <% (lineas || []).forEach((l) => { %>
           <%
             const codigo = (l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').toString();
             const concepto = (l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').toString();
             const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
-            // En pedidos_articulos los campos reales suelen ser PVP y DtoLinea.
-            // Además, getArticulosByPedido añade alias Linea_PVP / Linea_Dto para evitar colisiones.
             const pvl = Math.max(
               0,
               toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0)
@@ -174,6 +172,11 @@
             sumBase += base;
             sumIva += ivaImp;
             sumTotal += total;
+            if (ivaPct > 0) {
+              const pctKey = String(round2(ivaPct));
+              if (!ivaByPct[pctKey]) ivaByPct[pctKey] = { pct: ivaPct, sum: 0 };
+              ivaByPct[pctKey].sum += ivaImp;
+            }
           %>
           <tr>
             <td><%= codigo %></td>
@@ -197,20 +200,45 @@
       <% if (dtoPedidoPct) { %>
         <tr>
           <td>DTO PEDIDO</td>
-          <td><%= `${fmtNumES(dtoPedidoPct, 2)}%` %></td>
+          <td class="is-right"><%= `${fmtNumES(dtoPedidoPct, 2)}%` %></td>
         </tr>
       <% } %>
       <tr>
         <td>BASE IMPONIBLE</td>
-        <td><%= fmtEur(round2(sumBase)) %></td>
+        <td class="is-right"><%= fmtEur(round2(sumBase)) %></td>
       </tr>
-      <tr>
-        <td>IMPUESTO</td>
-        <td><%= fmtEur(round2(sumIva)) %></td>
-      </tr>
+      <% Object.keys(ivaByPct || {}).sort((a, b) => Number(a) - Number(b)).forEach((key) => { %>
+        <% const iva = ivaByPct[key]; if (iva && iva.sum) { %>
+          <tr>
+            <td>IMPUESTO (<%= fmtNumES(iva.pct, 2) %>%)</td>
+            <td class="is-right"><%= fmtEur(round2(iva.sum)) %></td>
+          </tr>
+        <% } %>
+      <% }) %>
+      <%
+        const retencionPct = cliente && (Number(cliente.IRPF ?? cliente.Retencion ?? cliente.retencion ?? '') || 0);
+        const importeRetencion = toNum(item.ImporteRetencion ?? item.importe_retencion ?? NaN, NaN);
+        const retenciones = [];
+        if (retencionPct > 0) {
+          const imp = Number.isFinite(importeRetencion) ? round2(importeRetencion) : round2(sumBase * retencionPct / 100);
+          retenciones.push({ pct: retencionPct, importe: imp });
+        }
+        if (cliente && Array.isArray(cliente.Retenciones) && cliente.Retenciones.length) {
+          cliente.Retenciones.forEach((r) => {
+            const p = toNum(r.porcentaje ?? r.Porcentaje ?? r.pct ?? 0, 0);
+            if (p > 0) retenciones.push({ pct: p, importe: round2((r.importe != null ? toNum(r.importe, NaN) : sumBase * p / 100)) });
+          });
+        }
+      %>
+      <% retenciones.forEach((r) => { %>
+        <tr>
+          <td>RETENCIÓN (<%= fmtNumES(r.pct, 2) %>%)</td>
+          <td class="is-right">−<%= fmtEur(r.importe) %></td>
+        </tr>
+      <% }) %>
       <tr>
         <td class="gv-doc-grand">TOTAL</td>
-        <td class="gv-doc-grand"><%= fmtEur(round2(sumTotal)) %></td>
+        <td class="gv-doc-grand is-right"><%= fmtEur(round2(round2(sumTotal) - retenciones.reduce((s, r) => s + r.importe, 0))) %></td>
       </tr>
     </table>
   </div>
