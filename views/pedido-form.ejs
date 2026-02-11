@@ -42,14 +42,14 @@
           <span class="gv-field__label">Comercial (Id_Cial) *</span>
           <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
           <input type="hidden" name="Id_Cial" id="Id_Cial" value="<%= curCial || '' %>" />
-          <select <%= admin ? '' : 'disabled' %> class="gv-input" id="Id_Cial__display">
+          <select <%= (typeof admin !== 'undefined' && admin) ? '' : 'disabled' %> class="gv-input" id="Id_Cial__display">
             <option value="">(selecciona)</option>
             <% (comerciales || []).forEach((c) => { %>
               <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
               <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
             <% }) %>
           </select>
-          <span class="gv-field__help"><%= admin ? 'Puedes cambiar el comercial del pedido manualmente.' : 'Se asigna automáticamente según el cliente seleccionado.' %></span>
+          <span class="gv-field__help"><%= (typeof admin !== 'undefined' && admin) ? 'Puedes cambiar el comercial del pedido manualmente.' : 'Se asigna automáticamente según el cliente seleccionado.' %></span>
         </label>
 
         <label class="gv-field">

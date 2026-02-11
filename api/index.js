@@ -706,8 +706,10 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
     const clientesRecent = await db
       .getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
+    const admin = isAdminUser(res.locals.user);
     res.render('pedido-form', {
       mode: 'create',
+      admin,
       comerciales: Array.isArray(comerciales) ? comerciales : [],
       tarifas: Array.isArray(tarifas) ? tarifas : [],
       formasPago: Array.isArray(formasPago) ? formasPago : [],
@@ -761,6 +763,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
     if (!pedidoPayload.Id_Cial || !pedidoPayload.Id_Cliente) {
       return res.status(400).render('pedido-form', {
         mode: 'create',
+        admin,
         comerciales,
         tarifas,
         formasPago,
@@ -771,7 +774,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
       });
     }
     if (!pedidoPayload.EstadoPedido) {
-      return res.status(400).render('pedido-form', { mode: 'create', comerciales, tarifas, formasPago, articulos, item: pedidoPayload, lineas, error: 'EstadoPedido es obligatorio' });
+      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, articulos, item: pedidoPayload, lineas, error: 'EstadoPedido es obligatorio' });
     }
 
     const created = await db.createPedido(pedidoPayload);
@@ -1180,8 +1183,10 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
             pickRowCI(l, ['Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']) ?? ''
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
+    const admin = isAdminUser(res.locals.user);
     res.render('pedido-form', {
       mode: 'edit',
+      admin,
       item,
       lineas,
       tarifas,
@@ -1254,6 +1259,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
     if (!pedidoPayload.Id_Cial || !pedidoPayload.Id_Cliente) {
       return res.status(400).render('pedido-form', {
         mode: 'edit',
+        admin,
         item: { ...existing, ...pedidoPayload },
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
         tarifas,
