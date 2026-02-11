@@ -172,11 +172,11 @@
           <table id="lineasTable">
             <thead>
               <tr>
-                <th>Artículo</th>
+                <th class="gv-lineas-col-art">Artículo</th>
                 <th class="gv-lineas-col-num">PVL</th>
                 <th class="gv-lineas-col-num">Cantidad</th>
                 <th class="gv-lineas-col-num">Dto (%)</th>
-                <th style="text-align:right;">Total línea</th>
+                <th class="gv-lineas-col-total">Total línea</th>
                 <th class="gv-lineas-col-btn"></th>
               </tr>
             </thead>
@@ -198,7 +198,9 @@
                   <td><input class="gv-line-dto" name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" placeholder="auto" /></td>
                   <td style="text-align:right; font-weight:900;" class="gv-line-total">—</td>
                   <td>
-                    <button class="btn secondary danger" type="button" data-remove-linea>Quitar</button>
+                    <button class="btn icon gv-btn-trash" type="button" data-remove-linea title="Quitar línea" aria-label="Quitar línea">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
                   </td>
                 </tr>
               <% }) %>
@@ -569,7 +571,7 @@
         '<td><input name=\"lineas[' + idx + '][Cantidad]\" type=\"number\" min=\"0\" step=\"0.01\" value=\"1\" /></td>' +
         '<td><input class=\"gv-line-dto\" name=\"lineas[' + idx + '][Dto]\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" value=\"\" placeholder=\"auto\" /></td>' +
         '<td style=\"text-align:right; font-weight:900;\" class=\"gv-line-total\">—</td>' +
-        '<td><button class=\"btn secondary danger\" type=\"button\" data-remove-linea>Quitar</button></td>';
+        '<td><button class=\"btn icon gv-btn-trash\" type=\"button\" data-remove-linea title=\"Quitar línea\" aria-label=\"Quitar línea\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"></path><line x1=\"10\" y1=\"11\" x2=\"10\" y2=\"17\"></line><line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\"></line></svg></button></td>';
       tbody.appendChild(tr);
 
       // Importante: que NO venga ningún artículo seleccionado por herencia del innerHTML

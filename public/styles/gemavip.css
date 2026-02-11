@@ -825,25 +825,44 @@ main.container .gv-pedido-form{
 .gv-pedido-form table{
   background: var(--gv-surface);
 }
-/* Líneas: columnas PVL, Cantidad, Dto (%) iguales y compactas; sin scroll horizontal */
+/* Líneas: Artículo +30% ancho; PVL/Cantidad/Dto para 6 dígitos + separador; totales alineados sin scroll */
 .gv-pedido-form #lineasTable{
   table-layout: fixed;
   width: 100%;
 }
+.gv-pedido-form .gv-lineas-col-art{
+  width: 38%;
+  min-width: 0;
+}
 .gv-pedido-form .gv-lineas-col-num{
-  width: 72px;
-  min-width: 72px;
-  max-width: 72px;
+  width: 11ch;
+  min-width: 11ch;
+  max-width: 11ch;
+}
+.gv-pedido-form .gv-lineas-col-total{
+  width: 10ch;
+  min-width: 10ch;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 .gv-pedido-form .gv-lineas-col-btn{
-  width: 70px;
-  min-width: 70px;
+  width: 44px;
+  min-width: 44px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.gv-pedido-form #lineasTable td:nth-child(4){
+  padding-right: 4px;
+}
+.gv-pedido-form #lineasTable td:nth-child(5){
+  padding-left: 4px;
+  padding-right: 4px;
 }
 .gv-pedido-form #lineasTable .gv-line-pvl,
 .gv-pedido-form #lineasTable input[name*="[Cantidad]"],
 .gv-pedido-form #lineasTable .gv-line-dto{
   width: 100%;
-  max-width: 72px;
+  max-width: 11ch;
   box-sizing: border-box;
 }
 .gv-pedido-form .gv-line-total,
@@ -857,6 +876,25 @@ main.container .gv-pedido-form{
 .gv-pedido-form .table-wrap{
   overflow-x: auto;
   min-width: 0;
+}
+.gv-pedido-form .gv-btn-trash{
+  color: var(--gv-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  padding: 6px 8px;
+  min-width: 32px;
+  min-height: 32px;
+}
+.gv-pedido-form .gv-btn-trash:hover{
+  background: rgba(0,139,210,.1);
+  border-color: rgba(0,139,210,.3);
+  color: var(--gv-primary-hover);
+}
+.gv-pedido-form .gv-btn-trash svg{
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 .gv-pedido-form .gv-doc{
   padding: 12px;
