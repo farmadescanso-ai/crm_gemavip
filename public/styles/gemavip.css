@@ -770,10 +770,18 @@ tr:hover td{ background: rgba(0,139,210,.04); }
   box-shadow: 0 0 0 4px rgba(0,139,210,.10);
 }
 
-/* Pedido form: mismo ancho que el resto de bloques; todo el contenido sobre fondo blanco */
+/* Pedido form: contenedor al 100% del ancho disponible; todo con el mismo fondo */
 .gv-pedido-form{
   width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
+}
+/* Ampliar el card hasta los bordes del main (zona de la flecha cubierta); márgenes internos se mantienen */
+main.container .gv-pedido-form{
+  margin-left: -18px;
+  margin-right: -18px;
+  width: calc(100% + 36px);
+  box-sizing: border-box;
 }
 .gv-pedido-form .card-bd{
   padding: 12px 18px 0;
