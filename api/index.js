@@ -1236,13 +1236,14 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
       const cantidad = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
       const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
       const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-      const descuento = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+      const descuentoPct = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+      const descuentoExcel = descuentoPct / 100;
 
       try {
         ws.getRow(row).getCell(2).value = cantidad;
         ws.getRow(row).getCell(3).value = cn;
         ws.getRow(row).getCell(4).value = descripcion;
-        ws.getRow(row).getCell(5).value = descuento;
+        ws.getRow(row).getCell(5).value = descuentoExcel;
       } catch (e) {
         console.warn('Hefame Excel: error escribiendo línea', row, e?.message);
       }
