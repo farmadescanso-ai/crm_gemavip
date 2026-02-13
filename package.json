@@ -9,6 +9,7 @@
     "build": "echo \"no build step\"",
     "purge:youbelle:preview": "node tools/purge-youbelle.js --term \"Youbelle\"",
     "purge:youbelle:apply": "node tools/purge-youbelle.js --term \"Youbelle\" --apply",
+    "copy-tarifa-mirafarma-to-pvl": "node tools/copy-tarifa-mirafarma-to-pvl.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

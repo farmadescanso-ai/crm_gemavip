@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs').promises;
 const mysql = require('mysql2/promise');
 const swaggerUi = require('swagger-ui-express');
 const crypto = require('crypto');
@@ -910,11 +911,149 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
     const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
     const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
 
-    const wb = new ExcelJS.Workbook();
-    wb.creator = 'CRM Gemavip';
-    wb.created = new Date();
+    const templatePath =
+      process.env.PEDIDO_EXCEL_TEMPLATE_PATH ||
+      path.join(__dirname, '..', 'templates', 'PLANTILLA TRANSFER DIRECTO CRM.xlsx');
 
-    const ws = wb.addWorksheet('Pedido', {
+    let wb;
+    let usedTemplate = false;
+    try {
+      await fs.access(templatePath);
+      wb = new ExcelJS.Workbook();
+      await wb.xlsx.readFile(templatePath);
+      usedTemplate = true;
+    } catch (_) {
+      wb = null;
+    }
+
+    if (usedTemplate && wb && wb.worksheets && wb.worksheets.length > 0) {
+      const ws = wb.worksheets[0];
+      const fmtDate = res.locals.fmtDateES ? res.locals.fmtDateES.bind(res.locals) : (d) => (d ? String(d).slice(0, 10) : '');
+      const fecha = fmtDate(item.FechaPedido ?? item.Fecha ?? '');
+      const entrega = item?.FechaEntrega ? fmtDate(item.FechaEntrega) : '';
+      const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
+      const numAsociadoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
+
+      const pedidoInfo =
+        `PEDIDO #${numPedido || id}\n` +
+        `Fecha: ${fecha || ''}\n` +
+        (entrega ? `Entrega: ${entrega}\n` : '') +
+        (numPedidoCliente ? `Nº Pedido Cliente: ${numPedidoCliente}\n` : '') +
+        (numAsociadoHefame ? `Nº asociado Hefame: ${numAsociadoHefame}\n` : '');
+      const clienteTexto =
+        `CLIENTE\n` +
+        `${cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || ''}\n` +
+        (cliente?.DNI_CIF || cliente?.DniCif ? `${cliente.DNI_CIF || cliente.DniCif}\n` : '') +
+        (cliente?.Direccion ? `${cliente.Direccion}\n` : '') +
+        ([cliente?.CodigoPostal, cliente?.Poblacion].filter(Boolean).join(' ') ? `${[cliente?.CodigoPostal, cliente?.Poblacion].filter(Boolean).join(' ')}\n` : '') +
+        ([cliente?.Email, cliente?.Telefono || cliente?.Movil].filter(Boolean).join(' · ') || '');
+      const dir = direccionEnvio || null;
+      const direccionTexto =
+        'DIRECCIÓN DE ENVÍO\n' +
+        (dir
+          ? [
+              dir.Alias || dir.Nombre_Destinatario || cliente?.Nombre_Razon_Social || '—',
+              dir.Nombre_Destinatario && dir.Alias ? dir.Nombre_Destinatario : '',
+              dir.Direccion || '',
+              dir.Direccion2 || '',
+              [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' '),
+              dir.Pais || '',
+              [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · '),
+              dir.Observaciones || ''
+            ]
+              .filter(Boolean)
+              .join('\n')
+          : `${cliente?.Nombre_Razon_Social || '—'}\n(Sin dirección de envío)`);
+
+      const pedidoCell = process.env.PEDIDO_TEMPLATE_PEDIDO_CELL || 'E1';
+      const clienteCell = process.env.PEDIDO_TEMPLATE_CLIENTE_CELL || 'A7';
+      const direccionCell = process.env.PEDIDO_TEMPLATE_DIRECCION_CELL || 'E7';
+      const tableDataStartRow = Number(process.env.PEDIDO_TEMPLATE_TABLA_FILA_INICIO) || 15;
+      const tableDataStartCol = 1;
+
+      try {
+        ws.getCell(pedidoCell).value = pedidoInfo;
+        ws.getCell(clienteCell).value = clienteTexto;
+        ws.getCell(direccionCell).value = direccionTexto;
+      } catch (e) {
+        console.warn('Plantilla Excel: no se pudo escribir en alguna celda de cabecera', e?.message);
+      }
+
+      const lineasArr = Array.isArray(lineas) ? lineas : [];
+      let sumBase = 0;
+      let sumIva = 0;
+      let sumTotal = 0;
+      const moneyFmt = '#,##0.00"€"';
+      const pctFmt = '0.00"%"';
+
+      lineasArr.forEach((l, idx) => {
+        const codigo = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
+        const concepto = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
+        const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+        const pvl = Math.max(0, toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
+        const dto = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+        let ivaPct = toNum(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+        if (ivaPct > 100) ivaPct = 0;
+        const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
+        const ivaCalc = round2(baseCalc * ivaPct / 100);
+        const totalCalc = round2(baseCalc + ivaCalc);
+        sumBase += baseCalc;
+        sumIva += ivaCalc;
+        sumTotal += totalCalc;
+
+        const rowNum = tableDataStartRow + idx;
+        const r = ws.getRow(rowNum);
+        r.getCell(tableDataStartCol).value = codigo || '';
+        r.getCell(tableDataStartCol + 1).value = concepto || '';
+        r.getCell(tableDataStartCol + 2).value = pvl || null;
+        r.getCell(tableDataStartCol + 3).value = qty || null;
+        r.getCell(tableDataStartCol + 4).value = dto || null;
+        r.getCell(tableDataStartCol + 5).value = baseCalc || null;
+        r.getCell(tableDataStartCol + 6).value = ivaPct || null;
+        r.getCell(tableDataStartCol + 7).value = totalCalc || null;
+        r.getCell(tableDataStartCol + 2).numFmt = moneyFmt;
+        r.getCell(tableDataStartCol + 5).numFmt = moneyFmt;
+        r.getCell(tableDataStartCol + 7).numFmt = moneyFmt;
+        r.getCell(tableDataStartCol + 4).numFmt = pctFmt;
+        r.getCell(tableDataStartCol + 6).numFmt = pctFmt;
+      });
+
+      const totalsStartRow = tableDataStartRow + lineasArr.length + (Number(process.env.PEDIDO_TEMPLATE_TABLA_MARGEN_TOTALES) || 2);
+      const labelCol = tableDataStartCol + 5;
+      const valueCol = tableDataStartCol + 7;
+      try {
+        ws.getRow(totalsStartRow).getCell(labelCol).value = 'BASE IMPONIBLE';
+        ws.getRow(totalsStartRow).getCell(valueCol).value = round2(sumBase);
+        ws.getRow(totalsStartRow).getCell(valueCol).numFmt = moneyFmt;
+        ws.getRow(totalsStartRow + 1).getCell(labelCol).value = 'IVA';
+        ws.getRow(totalsStartRow + 1).getCell(valueCol).value = round2(sumIva);
+        ws.getRow(totalsStartRow + 1).getCell(valueCol).numFmt = moneyFmt;
+        ws.getRow(totalsStartRow + 2).getCell(labelCol).value = 'TOTAL';
+        ws.getRow(totalsStartRow + 2).getCell(valueCol).value = round2(sumTotal);
+        ws.getRow(totalsStartRow + 2).getCell(valueCol).numFmt = moneyFmt;
+        if (dtoPedidoPct) {
+          ws.getRow(totalsStartRow - 1).getCell(labelCol).value = 'DTO PEDIDO';
+          ws.getRow(totalsStartRow - 1).getCell(valueCol).value = dtoPedidoPct;
+          ws.getRow(totalsStartRow - 1).getCell(valueCol).numFmt = pctFmt;
+        }
+      } catch (e) {
+        console.warn('Plantilla Excel: no se pudo escribir totales', e?.message);
+      }
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_${safeNum}.xlsx"`);
+      const buf = await wb.xlsx.writeBuffer();
+      return res.end(Buffer.from(buf));
+    }
+
+    const wbNew = new ExcelJS.Workbook();
+    wbNew.creator = 'CRM Gemavip';
+    wbNew.created = new Date();
+
+    const ws = wbNew.addWorksheet('Pedido', {
       pageSetup: {
         paperSize: 9, // A4
         orientation: 'portrait',
@@ -1147,7 +1286,7 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
     res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_${safeNum}.xlsx"`);
-    const buf = await wb.xlsx.writeBuffer();
+    const buf = await wbNew.xlsx.writeBuffer();
     return res.end(Buffer.from(buf));
   } catch (e) {
     next(e);
