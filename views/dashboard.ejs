@@ -47,8 +47,8 @@
 <div class="dash-grid" style="margin-top: 16px;">
   <section class="card dash-card">
     <div class="card-hd">
-      <h2 class="card-title">Últimos clientes</h2>
-      <p class="card-subtitle">Últimos <%= (latest.clientes || []).length %></p>
+      <h2 class="card-title"><%= isAdmin ? 'Clientes con más facturación' : 'Últimos clientes' %></h2>
+      <p class="card-subtitle"><%= isAdmin ? 'Top ' + (latest.clientes || []).length + ' por facturación' : 'Últimos ' + (latest.clientes || []).length %></p>
     </div>
     <div class="card-bd">
       <div class="table-wrap">
@@ -59,6 +59,7 @@
               <th>Nombre</th>
               <th>Población</th>
               <th>CP</th>
+              <% if (isAdmin) { %><th>Facturación</th><% } %>
               <th>Estado</th>
             </tr>
           </thead>
@@ -79,6 +80,7 @@
                 <td><%= c.Nombre_Razon_Social ?? '' %></td>
                 <td><%= c.Poblacion ?? '' %></td>
                 <td><%= c.CodigoPostal ?? '' %></td>
+                <% if (isAdmin && (c.TotalFacturado != null)) { %><td><%= Number(c.TotalFacturado).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %> €</td><% } %>
                 <td>
                   <% const st = (c.OK_KO ?? c.Estado ?? '').toString().toUpperCase(); %>
                   <% if (st === 'OK' || st === '1') { %>
@@ -103,7 +105,7 @@
   <section class="card dash-card">
     <div class="card-hd">
       <h2 class="card-title">Últimos pedidos</h2>
-      <p class="card-subtitle">Últimos <%= (latest.pedidos || []).length %></p>
+      <p class="card-subtitle"><%= isAdmin ? 'Últimos ' + (latest.pedidos || []).length : 'Últimos ' + (latest.pedidos || []).length %></p>
     </div>
     <div class="card-bd">
       <div class="table-wrap">

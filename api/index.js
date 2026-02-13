@@ -2182,9 +2182,10 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
 
     const latest = { clientes: [], pedidos: [], visitas: [] };
     const limitLatest = 8;
+    const limitAdmin = 10;
 
     if (admin) {
-      // Admin: últimos clientes que tengan pedidos (cualquier comercial); mismos 8 últimos pedidos (todos).
+      // Admin: 10 clientes con más facturación (SUM de total pedidos); 10 últimos pedidos.
       try {
         const clientesMeta = await db._ensureClientesMeta().catch(() => null);
         const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
@@ -2192,14 +2193,17 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         const pkClientes = clientesMeta?.pk || 'Id';
         const colClientePedido = pedidosMeta?.colCliente || 'Id_Cliente';
         const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+        const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
+        const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'TotalPedido';
         latest.clientes = await db.query(
-          `SELECT c.\`${pkClientes}\` AS Id, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO
+          `SELECT c.\`${pkClientes}\` AS Id, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO,
+            COALESCE(SUM(COALESCE(p.\`${colTotal}\`, 0)), 0) AS TotalFacturado
            FROM \`${tClientes}\` c
            INNER JOIN \`${tPedidos}\` p ON p.\`${colClientePedido}\` = c.\`${pkClientes}\`
            GROUP BY c.\`${pkClientes}\`, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO
-           ORDER BY c.\`${pkClientes}\` DESC
+           ORDER BY TotalFacturado DESC
            LIMIT ?`,
-          [limitLatest]
+          [limitAdmin]
         );
       } catch (_) {
         latest.clientes = [];
@@ -2210,9 +2214,12 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         const pk = pedidosMeta?.pk || 'id';
         const colNum = pedidosMeta?.colNumPedido || 'NumPedido';
         const colFecha = pedidosMeta?.colFecha || 'FechaPedido';
+        const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
+        const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal']) || 'TotalPedido';
+        const colEstado = db._pickCIFromColumns(pedidosCols, ['EstadoPedido', 'Estado', 'estado']) || 'EstadoPedido';
         latest.pedidos = await db.query(
-          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, TotalPedido, EstadoPedido FROM \`${tPedidos}\` ORDER BY \`${pk}\` DESC LIMIT ?`,
-          [limitLatest]
+          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ORDER BY \`${pk}\` DESC LIMIT ?`,
+          [limitAdmin]
         );
       } catch (_) {
         latest.pedidos = [];
