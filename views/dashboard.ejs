@@ -1,6 +1,19 @@
 <%- include('partials/header', { title: 'Dashboard' }) %>
 
 <% const isAdmin = user && (user.roles || []).some((r) => String(r).toLowerCase().includes('admin')); %>
+<% const errs = typeof dashboardErrors !== 'undefined' ? (dashboardErrors || {}) : {}; %>
+
+<% if (isAdmin && (errs.clientes || errs.pedidos)) { %>
+  <section class="card" style="margin-bottom: 16px; border-color: #dc2626;">
+    <div class="card-hd" style="background: #fef2f2;">
+      <h2 class="card-title" style="color: #dc2626;">Errores al cargar el Dashboard</h2>
+    </div>
+    <div class="card-bd" style="font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-word;">
+      <% if (errs.clientes) { %><p><strong>Clientes (top facturación):</strong> <%= errs.clientes %></p><% } %>
+      <% if (errs.pedidos) { %><p><strong>Últimos pedidos:</strong> <%= errs.pedidos %></p><% } %>
+    </div>
+  </section>
+<% } %>
 
 <section class="card">
   <div class="card-hd">

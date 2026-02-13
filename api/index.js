@@ -1156,6 +1156,181 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
   }
 });
 
+// Ventana de resultado de envío Hefame por email (abrir en nueva pestaña para ver éxito/error)
+app.get('/pedidos/:id(\\d+)/hefame-send-email', requireLogin, async (req, res, next) => {
+  const escapeHtml = (s) => {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  const renderResult = (ok, title, details, pedidoId) => {
+    const color = ok ? '#059669' : '#dc2626';
+    const downloadLink = pedidoId ? `<p style="margin-top:16px;"><a href="/pedidos/${pedidoId}/hefame.xlsx" style="color:#2563eb;">Descargar Excel Hefame</a></p>` : '';
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Envío Hefame</title></head>
+<body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;background:#f3f4f6;">
+  <div style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <h2 style="margin:0 0 12px;font-size:18px;color:${color};">${escapeHtml(title)}</h2>
+    <div style="white-space:pre-wrap;word-break:break-word;color:#374151;margin:8px 0;">${escapeHtml(details)}</div>
+    ${downloadLink}
+  </div>
+</body></html>`;
+  };
+
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderResult(false, 'Error', 'ID de pedido no válido.', null));
+    }
+    const item = await db.getPedidoById(id);
+    if (!item) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderResult(false, 'Error', 'Pedido no encontrado.', null));
+    }
+
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+      if (owner !== userId) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(renderResult(false, 'Error', 'No tienes permiso para este pedido.', null));
+      }
+    }
+
+    const lineas = await db.getArticulosByPedido(id).catch(() => []);
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const toNum = (v, dflt = 0) => {
+      if (v === null || v === undefined) return dflt;
+      const s = String(v).trim();
+      if (!s) return dflt;
+      const n = Number(String(s).replace(',', '.'));
+      return Number.isFinite(n) ? n : dflt;
+    };
+    const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+    const hefameTemplatePath =
+      process.env.HEFAME_EXCEL_TEMPLATE_PATH ||
+      path.join(__dirname, '..', 'templates', 'PLANTILLA TRANSFER DIRECTO CRM.xlsx');
+
+    let wb;
+    try {
+      await fs.access(hefameTemplatePath);
+      wb = new ExcelJS.Workbook();
+      await wb.xlsx.readFile(hefameTemplatePath);
+    } catch (e) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderResult(false, 'Error', `Plantilla Hefame no encontrada: ${hefameTemplatePath}\n${e?.message || e}`, id));
+    }
+    if (!wb?.worksheets?.length) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderResult(false, 'Error', 'Plantilla Hefame sin hojas.', id));
+    }
+
+    const ws = wb.worksheets[0];
+    const valorF5 = numPedido || (() => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`; })();
+    const nombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || '';
+    const codigoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
+    const telefono = cliente?.Telefono || cliente?.Movil || '';
+    const cp = String(cliente?.CodigoPostal ?? '').trim();
+    const poblacion = String(cliente?.Poblacion ?? '').trim();
+    const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
+    try {
+      ws.getCell('F5').value = valorF5;
+      ws.getCell('C13').value = nombre;
+      ws.getCell('C14').value = codigoHefame;
+      ws.getCell('C15').value = telefono;
+      ws.getCell('C16').value = poblacionConCP;
+    } catch (_) {}
+    const lineasArr = Array.isArray(lineas) ? lineas : [];
+    const firstDataRow = 21;
+    lineasArr.forEach((l, idx) => {
+      const row = firstDataRow + idx;
+      const cantidad = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+      const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
+      const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
+      const descuentoPct = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? 0, 0)));
+      try {
+        ws.getRow(row).getCell(2).value = cantidad;
+        ws.getRow(row).getCell(3).value = cn;
+        ws.getRow(row).getCell(4).value = descripcion;
+        ws.getRow(row).getCell(5).value = descuentoPct / 100;
+      } catch (_) {}
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const today = new Date();
+    const yyyymmdd = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+    const nombreClienteRaw = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
+    const nombreClienteSafe = String(nombreClienteRaw).trim().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '').slice(0, 80) || 'cliente';
+    const attachmentFileName = `${yyyymmdd}_${nombreClienteSafe}-${numPedido || `pedido_${id}`}.xlsx`;
+    const nombrePedidoAsunto = numPedido || `Pedido ${id}`;
+    const hefameMailTo = process.env.HEFAME_MAIL_TO || 'p.lara@gemavip.com';
+    const buildClienteHtml = () => {
+      const rows = [
+        ['Nombre / Razón social', cliente?.Nombre_Razon_Social || cliente?.Nombre || '—'],
+        ['CIF / NIF', cliente?.DNI_CIF || cliente?.DniCif || '—'],
+        ['Dirección', cliente?.Direccion || '—'],
+        ['Código postal', cliente?.CodigoPostal || '—'],
+        ['Población', cliente?.Poblacion || '—'],
+        ['Teléfono', cliente?.Telefono || cliente?.Movil || '—'],
+        ['Email', cliente?.Email || '—']
+      ];
+      if (codigoHefame) rows.push(['Nº asociado Hefame', codigoHefame]);
+      const trs = rows.map(([label, value]) =>
+        `<tr><td style="border:1px solid #e5e7eb;padding:8px;background:#f9fafb;">${escapeHtml(label)}</td><td style="border:1px solid #e5e7eb;padding:8px;">${escapeHtml(value)}</td></tr>`
+      ).join('');
+      return `<table style="border-collapse:collapse;">${trs}</table>`;
+    };
+
+    const smtpHost = process.env.SMTP_HOST || process.env.MAIL_HOST;
+    const smtpPort = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || 587);
+    const smtpUser = process.env.SMTP_USER || process.env.MAIL_USER;
+    const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.MAIL_PASSWORD;
+    const smtpFrom = process.env.SMTP_FROM || process.env.MAIL_FROM || smtpUser || 'crm@gemavip.com';
+    const smtpSecure = process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1';
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      const missing = [];
+      if (!smtpHost) missing.push('SMTP_HOST o MAIL_HOST');
+      if (!smtpUser) missing.push('SMTP_USER o MAIL_USER');
+      if (!smtpPass) missing.push('SMTP_PASSWORD, SMTP_PASS o MAIL_PASSWORD');
+      const details = `No se puede enviar el correo: faltan variables de entorno.\n\nVariables faltantes: ${missing.join(', ')}\n\nConfigura en el servidor (Vercel/entorno): SMTP_HOST, SMTP_PORT (ej. 587), SMTP_USER, SMTP_PASSWORD y opcionalmente SMTP_FROM, HEFAME_MAIL_TO.`;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderResult(false, 'Error al enviar el email', details, id));
+    }
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure || smtpPort === 465,
+        requireTLS: smtpPort === 587,
+        auth: { user: smtpUser, pass: smtpPass }
+      });
+      await transporter.sendMail({
+        from: smtpFrom,
+        to: hefameMailTo,
+        subject: nombrePedidoAsunto,
+        html: buildClienteHtml(),
+        attachments: [{ filename: attachmentFileName, content: Buffer.from(buf) }]
+      });
+      const details = `Destinatario: ${hefameMailTo}\nAsunto: ${nombrePedidoAsunto}\nAdjunto: ${attachmentFileName}`;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderResult(true, 'Email enviado correctamente', details, id));
+    } catch (mailErr) {
+      let details = mailErr?.message || String(mailErr);
+      if (mailErr?.response) details += `\nRespuesta SMTP: ${mailErr.response}`;
+      if (mailErr?.responseCode) details += `\nCódigo: ${mailErr.responseCode}`;
+      if (mailErr?.code) details += `\nCódigo error: ${mailErr.code}`;
+      console.error('Hefame: error enviando correo:', mailErr?.message || mailErr);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderResult(false, 'Error al enviar el email', details, id));
+    }
+  } catch (e) {
+    next(e);
+  }
+});
+
 app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -2183,6 +2358,7 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
     const latest = { clientes: [], pedidos: [], visitas: [] };
     const limitLatest = 8;
     const limitAdmin = 10;
+    let dashboardErrors = {}; // para mostrar errores a admin si fallan las consultas
 
     if (admin) {
       // Admin: 10 clientes con más facturación (SUM de total pedidos); 10 últimos pedidos.
@@ -2205,8 +2381,11 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
            LIMIT ?`,
           [limitAdmin]
         );
-      } catch (_) {
+        if (!Array.isArray(latest.clientes)) latest.clientes = [];
+      } catch (e) {
+        console.error('Dashboard [admin] error clientes:', e?.message || e);
         latest.clientes = [];
+        dashboardErrors.clientes = e?.message || String(e);
       }
       try {
         const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
@@ -2221,8 +2400,11 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
           `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ORDER BY \`${pk}\` DESC LIMIT ?`,
           [limitAdmin]
         );
-      } catch (_) {
+        if (!Array.isArray(latest.pedidos)) latest.pedidos = [];
+      } catch (e) {
+        console.error('Dashboard [admin] error pedidos:', e?.message || e);
         latest.pedidos = [];
+        dashboardErrors.pedidos = e?.message || String(e);
       }
     } else {
       // Comercial: solo sus últimos clientes y sus últimos pedidos.
@@ -2329,7 +2511,7 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
       }
     }
 
-    res.render('dashboard', { stats, latest });
+    res.render('dashboard', { stats, latest, dashboardErrors: dashboardErrors || {} });
   } catch (e) {
     next(e);
   }
