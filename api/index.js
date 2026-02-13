@@ -911,144 +911,6 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
     const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
     const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
 
-    const templatePath =
-      process.env.PEDIDO_EXCEL_TEMPLATE_PATH ||
-      path.join(__dirname, '..', 'templates', 'PLANTILLA TRANSFER DIRECTO CRM.xlsx');
-
-    let wb;
-    let usedTemplate = false;
-    try {
-      await fs.access(templatePath);
-      wb = new ExcelJS.Workbook();
-      await wb.xlsx.readFile(templatePath);
-      usedTemplate = true;
-    } catch (_) {
-      wb = null;
-    }
-
-    if (usedTemplate && wb && wb.worksheets && wb.worksheets.length > 0) {
-      const ws = wb.worksheets[0];
-      const fmtDate = res.locals.fmtDateES ? res.locals.fmtDateES.bind(res.locals) : (d) => (d ? String(d).slice(0, 10) : '');
-      const fecha = fmtDate(item.FechaPedido ?? item.Fecha ?? '');
-      const entrega = item?.FechaEntrega ? fmtDate(item.FechaEntrega) : '';
-      const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
-      const numAsociadoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
-
-      const pedidoInfo =
-        `PEDIDO #${numPedido || id}\n` +
-        `Fecha: ${fecha || ''}\n` +
-        (entrega ? `Entrega: ${entrega}\n` : '') +
-        (numPedidoCliente ? `Nº Pedido Cliente: ${numPedidoCliente}\n` : '') +
-        (numAsociadoHefame ? `Nº asociado Hefame: ${numAsociadoHefame}\n` : '');
-      const clienteTexto =
-        `CLIENTE\n` +
-        `${cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || ''}\n` +
-        (cliente?.DNI_CIF || cliente?.DniCif ? `${cliente.DNI_CIF || cliente.DniCif}\n` : '') +
-        (cliente?.Direccion ? `${cliente.Direccion}\n` : '') +
-        ([cliente?.CodigoPostal, cliente?.Poblacion].filter(Boolean).join(' ') ? `${[cliente?.CodigoPostal, cliente?.Poblacion].filter(Boolean).join(' ')}\n` : '') +
-        ([cliente?.Email, cliente?.Telefono || cliente?.Movil].filter(Boolean).join(' · ') || '');
-      const dir = direccionEnvio || null;
-      const direccionTexto =
-        'DIRECCIÓN DE ENVÍO\n' +
-        (dir
-          ? [
-              dir.Alias || dir.Nombre_Destinatario || cliente?.Nombre_Razon_Social || '—',
-              dir.Nombre_Destinatario && dir.Alias ? dir.Nombre_Destinatario : '',
-              dir.Direccion || '',
-              dir.Direccion2 || '',
-              [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' '),
-              dir.Pais || '',
-              [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · '),
-              dir.Observaciones || ''
-            ]
-              .filter(Boolean)
-              .join('\n')
-          : `${cliente?.Nombre_Razon_Social || '—'}\n(Sin dirección de envío)`);
-
-      const pedidoCell = process.env.PEDIDO_TEMPLATE_PEDIDO_CELL || 'E1';
-      const clienteCell = process.env.PEDIDO_TEMPLATE_CLIENTE_CELL || 'A7';
-      const direccionCell = process.env.PEDIDO_TEMPLATE_DIRECCION_CELL || 'E7';
-      const tableDataStartRow = Number(process.env.PEDIDO_TEMPLATE_TABLA_FILA_INICIO) || 15;
-      const tableDataStartCol = 1;
-
-      try {
-        ws.getCell(pedidoCell).value = pedidoInfo;
-        ws.getCell(clienteCell).value = clienteTexto;
-        ws.getCell(direccionCell).value = direccionTexto;
-      } catch (e) {
-        console.warn('Plantilla Excel: no se pudo escribir en alguna celda de cabecera', e?.message);
-      }
-
-      const lineasArr = Array.isArray(lineas) ? lineas : [];
-      let sumBase = 0;
-      let sumIva = 0;
-      let sumTotal = 0;
-      const moneyFmt = '#,##0.00"€"';
-      const pctFmt = '0.00"%"';
-
-      lineasArr.forEach((l, idx) => {
-        const codigo = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
-        const concepto = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-        const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
-        const pvl = Math.max(0, toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
-        const dto = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
-        let ivaPct = toNum(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
-        if (ivaPct > 100) ivaPct = 0;
-        const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
-        const ivaCalc = round2(baseCalc * ivaPct / 100);
-        const totalCalc = round2(baseCalc + ivaCalc);
-        sumBase += baseCalc;
-        sumIva += ivaCalc;
-        sumTotal += totalCalc;
-
-        const rowNum = tableDataStartRow + idx;
-        const r = ws.getRow(rowNum);
-        r.getCell(tableDataStartCol).value = codigo || '';
-        r.getCell(tableDataStartCol + 1).value = concepto || '';
-        r.getCell(tableDataStartCol + 2).value = pvl || null;
-        r.getCell(tableDataStartCol + 3).value = qty || null;
-        r.getCell(tableDataStartCol + 4).value = dto || null;
-        r.getCell(tableDataStartCol + 5).value = baseCalc || null;
-        r.getCell(tableDataStartCol + 6).value = ivaPct || null;
-        r.getCell(tableDataStartCol + 7).value = totalCalc || null;
-        r.getCell(tableDataStartCol + 2).numFmt = moneyFmt;
-        r.getCell(tableDataStartCol + 5).numFmt = moneyFmt;
-        r.getCell(tableDataStartCol + 7).numFmt = moneyFmt;
-        r.getCell(tableDataStartCol + 4).numFmt = pctFmt;
-        r.getCell(tableDataStartCol + 6).numFmt = pctFmt;
-      });
-
-      const totalsStartRow = tableDataStartRow + lineasArr.length + (Number(process.env.PEDIDO_TEMPLATE_TABLA_MARGEN_TOTALES) || 2);
-      const labelCol = tableDataStartCol + 5;
-      const valueCol = tableDataStartCol + 7;
-      try {
-        ws.getRow(totalsStartRow).getCell(labelCol).value = 'BASE IMPONIBLE';
-        ws.getRow(totalsStartRow).getCell(valueCol).value = round2(sumBase);
-        ws.getRow(totalsStartRow).getCell(valueCol).numFmt = moneyFmt;
-        ws.getRow(totalsStartRow + 1).getCell(labelCol).value = 'IVA';
-        ws.getRow(totalsStartRow + 1).getCell(valueCol).value = round2(sumIva);
-        ws.getRow(totalsStartRow + 1).getCell(valueCol).numFmt = moneyFmt;
-        ws.getRow(totalsStartRow + 2).getCell(labelCol).value = 'TOTAL';
-        ws.getRow(totalsStartRow + 2).getCell(valueCol).value = round2(sumTotal);
-        ws.getRow(totalsStartRow + 2).getCell(valueCol).numFmt = moneyFmt;
-        if (dtoPedidoPct) {
-          ws.getRow(totalsStartRow - 1).getCell(labelCol).value = 'DTO PEDIDO';
-          ws.getRow(totalsStartRow - 1).getCell(valueCol).value = dtoPedidoPct;
-          ws.getRow(totalsStartRow - 1).getCell(valueCol).numFmt = pctFmt;
-        }
-      } catch (e) {
-        console.warn('Plantilla Excel: no se pudo escribir totales', e?.message);
-      }
-
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      );
-      res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_${safeNum}.xlsx"`);
-      const buf = await wb.xlsx.writeBuffer();
-      return res.end(Buffer.from(buf));
-    }
-
     const wbNew = new ExcelJS.Workbook();
     wbNew.creator = 'CRM Gemavip';
     wbNew.created = new Date();
@@ -1287,6 +1149,111 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
     );
     res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_${safeNum}.xlsx"`);
     const buf = await wbNew.xlsx.writeBuffer();
+    return res.end(Buffer.from(buf));
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getPedidoById(id);
+    if (!item) return res.status(404).send('No encontrado');
+
+    const admin = isAdminUser(res.locals.user);
+    const userId = Number(res.locals.user?.id);
+    if (!admin && Number.isFinite(userId) && userId > 0) {
+      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+      if (owner !== userId) return res.status(404).send('No encontrado');
+    }
+
+    const lineas = await db.getArticulosByPedido(id).catch(() => []);
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+
+    const toNum = (v, dflt = 0) => {
+      if (v === null || v === undefined) return dflt;
+      const s = String(v).trim();
+      if (!s) return dflt;
+      const n = Number(String(s).replace(',', '.'));
+      return Number.isFinite(n) ? n : dflt;
+    };
+
+    const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+    const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
+
+    const hefameTemplatePath =
+      process.env.HEFAME_EXCEL_TEMPLATE_PATH ||
+      path.join(__dirname, '..', 'templates', 'PLANTILLA TRANSFER DIRECTO CRM.xlsx');
+
+    let wb;
+    try {
+      await fs.access(hefameTemplatePath);
+      wb = new ExcelJS.Workbook();
+      await wb.xlsx.readFile(hefameTemplatePath);
+    } catch (e) {
+      console.warn('Plantilla Hefame no encontrada:', hefameTemplatePath, e?.message);
+      return res.status(404).send('Plantilla Excel Hefame no encontrada. Coloca PLANTILLA TRANSFER DIRECTO CRM.xlsx en templates/.');
+    }
+
+    if (!wb || !wb.worksheets || wb.worksheets.length === 0) {
+      return res.status(500).send('Plantilla Hefame sin hojas.');
+    }
+
+    const ws = wb.worksheets[0];
+
+    const todayDDMMYYYY = () => {
+      const d = new Date();
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
+    const valorF5 = numPedido || todayDDMMYYYY();
+    const nombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || '';
+    const codigoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
+    const telefono = cliente?.Telefono || cliente?.Movil || cliente?.Teléfono || '';
+    const cp = String(cliente?.CodigoPostal ?? '').trim();
+    const poblacion = String(cliente?.Poblacion ?? '').trim();
+    const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
+
+    try {
+      ws.getCell('F5').value = valorF5;
+      ws.getCell('C13').value = nombre;
+      ws.getCell('C14').value = codigoHefame;
+      ws.getCell('C15').value = telefono;
+      ws.getCell('C16').value = poblacionConCP;
+    } catch (e) {
+      console.warn('Hefame Excel: error escribiendo cabecera', e?.message);
+    }
+
+    const lineasArr = Array.isArray(lineas) ? lineas : [];
+    const firstDataRow = 21;
+    lineasArr.forEach((l, idx) => {
+      const row = firstDataRow + idx;
+      const cantidad = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+      const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
+      const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
+      const descuento = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+
+      try {
+        ws.getRow(row).getCell(2).value = cantidad;
+        ws.getRow(row).getCell(3).value = cn;
+        ws.getRow(row).getCell(4).value = descripcion;
+        ws.getRow(row).getCell(5).value = descuento;
+      } catch (e) {
+        console.warn('Hefame Excel: error escribiendo línea', row, e?.message);
+      }
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_HEFAME_${safeNum}.xlsx"`);
+    const buf = await wb.xlsx.writeBuffer();
     return res.end(Buffer.from(buf));
   } catch (e) {
     next(e);

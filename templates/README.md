@@ -1,24 +1,41 @@
-# Plantilla Excel para exportar pedidos
+# Plantillas Excel
 
-Para que la exportación a Excel use vuestra plantilla **"PLANTILLA TRANSFER DIRECTO CRM.xlsx"**:
+## Excel estándar (botón «Excel»)
 
-1. Copiad el fichero a esta carpeta con el nombre exacto:
-   ```
-   PLANTILLA TRANSFER DIRECTO CRM.xlsx
-   ```
+El botón **Excel** en la ficha de un pedido genera siempre un libro desde cero (sin plantilla), válido para imprimir cualquier pedido.
 
-2. La aplicación rellenará automáticamente:
-   - **E1**: Nº pedido, fecha, entrega, Nº pedido cliente, Nº asociado Hefame (si aplica)
-   - **A7**: Bloque CLIENTE (nombre, CIF, dirección, etc.)
-   - **E7**: Bloque DIRECCIÓN DE ENVÍO
-   - **Desde fila 15**: Líneas del pedido (Código, Concepto, PVL, Unds, Dto, Subtotal, IVA, Total)
-   - **Después de las líneas**: BASE IMPONIBLE, IVA, TOTAL (y DTO PEDIDO si aplica)
+---
 
-Si vuestra plantilla usa otras celdas, podéis definirlas con variables de entorno:
+## Plantilla Transfer Hefame (botón «HEFAME»)
 
-- `PEDIDO_EXCEL_TEMPLATE_PATH`: ruta completa al .xlsx (opcional)
-- `PEDIDO_TEMPLATE_PEDIDO_CELL`: celda para datos del pedido (por defecto E1)
-- `PEDIDO_TEMPLATE_CLIENTE_CELL`: celda para cliente (por defecto A7)
-- `PEDIDO_TEMPLATE_DIRECCION_CELL`: celda para dirección envío (por defecto E7)
-- `PEDIDO_TEMPLATE_TABLA_FILA_INICIO`: primera fila de datos de líneas (por defecto 15)
-- `PEDIDO_TEMPLATE_TABLA_MARGEN_TOTALES`: filas entre última línea y totales (por defecto 2)
+El botón **HEFAME** descarga un Excel rellenando la plantilla **PLANTILLA TRANSFER DIRECTO CRM.xlsx**.
+
+Coloca el fichero en esta carpeta con el nombre exacto:
+```
+PLANTILLA TRANSFER DIRECTO CRM.xlsx
+```
+
+### Mapeo de celdas
+
+| Celda | Contenido |
+|-------|-----------|
+| **F5** | Nº Pedido; si viene vacío se pone la fecha del día en formato dd-mm-yyyy |
+| **C13** | Nombre (cliente) |
+| **C14** | Código Hefame (Nº asociado Hefame del pedido) |
+| **C15** | Teléfono |
+| **C16** | Código Postal + " " + Población |
+
+### Líneas de pedido (desde fila 21)
+
+Cada producto en una fila (21, 22, 23…):
+
+| Columna | Contenido |
+|---------|-----------|
+| **B** | Cantidad |
+| **C** | CN (SKU / código artículo) |
+| **D** | Descripción (nombre del artículo) |
+| **E** | Descuento (% bonificación) |
+
+### Variable de entorno
+
+- `HEFAME_EXCEL_TEMPLATE_PATH`: ruta completa al .xlsx si no está en `templates/PLANTILLA TRANSFER DIRECTO CRM.xlsx`.
