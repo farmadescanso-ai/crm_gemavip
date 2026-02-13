@@ -37,6 +37,7 @@
             <th>PEDIDO</th>
             <th>Cliente</th>
             <th>PEDIDO CLIENTE</th>
+            <th>Nº Hefame</th>
             <th>Total</th>
             <th>Estado</th>
           </tr>
@@ -80,6 +81,7 @@
               <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
               <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
               <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
+              <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? '—' %></td>
               <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? 0) %></td>
               <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
             </tr>

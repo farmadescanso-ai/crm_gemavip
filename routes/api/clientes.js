@@ -87,6 +87,32 @@ router.get(
   })
 );
 
+/**
+ * GET /api/clientes/:id/cooperativas
+ * Cooperativas del cliente con número de asociado (para Transfer Hefame, etc.)
+ */
+router.get(
+  '/:id/cooperativas',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminSessionUser(sessionUser);
+    const id = toInt(req.params.id, 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    if (sessionUser && !isAdmin) {
+      const c = await db.getClienteById(id);
+      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const cial = toInt(c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const selfId = toInt(sessionUser.id, 0) ?? 0;
+      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    const items = await db.getCooperativasByClienteId(id).catch(() => []);
+    const arr = Array.isArray(items) ? items : [];
+    return res.json({ ok: true, items: arr });
+  })
+);
+
 router.get(
   '/:id/direcciones-envio',
   asyncHandler(async (req, res) => {

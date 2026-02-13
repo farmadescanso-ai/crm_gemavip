@@ -4838,6 +4838,20 @@ class MySQLCRM {
           console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.Dto:', e.message);
         }
       }
+
+      // Nº asociado Hefame (Transfer Hefame): snapshot en el pedido para informes/integraciones
+      const hasNumAsociadoHefame =
+        colsLower.has('numasociadohefame') ||
+        colsLower.has('num_asociado_hefame') ||
+        colsLower.has('numasociado_hefame');
+      if (!hasNumAsociadoHefame) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`NumAsociadoHefame\` VARCHAR(50) NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.NumAsociadoHefame");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.NumAsociadoHefame:', e.message);
+        }
+      }
     } catch (e) {
       console.warn('⚠️ [SCHEMA] No se pudo asegurar esquema de pedidos:', e?.message || e);
     }
@@ -5505,6 +5519,7 @@ class MySQLCRM {
       if (!this.connected && !this.pool) {
         await this.connect();
       }
+      await this.ensurePedidosSchema();
 
       const { tPedidos, pk, colCliente, colFecha, colNumPedido } = await this._ensurePedidosMeta();
       const cols = await this._getColumns(tPedidos).catch(() => []);

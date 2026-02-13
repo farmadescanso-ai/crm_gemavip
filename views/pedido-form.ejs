@@ -151,7 +151,7 @@
         <label class="gv-field">
           <span class="gv-field__label">Tipo de pedido</span>
           <% if ((tiposPedido || []).length) { %>
-            <select name="Id_TipoPedido" class="gv-input">
+            <select name="Id_TipoPedido" id="Id_TipoPedido" class="gv-input">
               <% const curTP = Number(item.Id_TipoPedido ?? 0) || 0; %>
               <option value="0" <%= curTP === 0 ? 'selected' : '' %>>Sin especificar</option>
               <% (tiposPedido || []).forEach((tp) => { %>
@@ -160,9 +160,13 @@
               <% }) %>
             </select>
           <% } else { %>
-            <input name="Id_TipoPedido" type="number" min="0" class="gv-input" value="<%= item.Id_TipoPedido ?? 0 %>" />
+            <input name="Id_TipoPedido" id="Id_TipoPedido" type="number" min="0" class="gv-input" value="<%= item.Id_TipoPedido ?? 0 %>" />
           <% } %>
         </label>
+        <div id="gv-num-asociado-hefame-wrap" class="gv-field gv-num-asociado-hefame" style="display: none;">
+          <span class="gv-field__label">Nº asociado (Hefame)</span>
+          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" readonly placeholder="Seleccione un cliente con asociación Hefame" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '').toString().trim() %>" />
+        </div>
       </div>
       </div>
 
@@ -260,6 +264,9 @@
     var selCialDisplay = document.getElementById('Id_Cial__display');
     var hidCliente = document.getElementById('Id_Cliente');
     var autosaveEl = document.getElementById('pedidoAutosave');
+    var selTipoPedido = document.getElementById('Id_TipoPedido');
+    var wrapNumAsociadoHefame = document.getElementById('gv-num-asociado-hefame-wrap');
+    var inputNumAsociadoHefame = document.getElementById('numAsociadoHefame');
     if (!table || !btn) return;
 
     document.querySelectorAll('.gv-field-info').forEach(function(btnInfo){
@@ -345,6 +352,56 @@
     }
 
     // Importante: NO auto-guardar cabecera en modo edición para que "Cancelar" no modifique datos.
+
+    function isTipoTransferHefame(){
+      if (!selTipoPedido) return false;
+      if (selTipoPedido.tagName === 'SELECT') {
+        var opt = selTipoPedido.options && selTipoPedido.selectedIndex >= 0 ? selTipoPedido.options[selTipoPedido.selectedIndex] : null;
+        var text = opt ? String(opt.textContent || opt.innerText || '').trim() : '';
+        return /hefame/i.test(text);
+      }
+      return false;
+    }
+    async function loadNumAsociadoHefame(clienteId){
+      if (!inputNumAsociadoHefame) return;
+      var cid = parseInt(String(clienteId || '').trim(), 10) || 0;
+      if (!cid) {
+        inputNumAsociadoHefame.value = '';
+        inputNumAsociadoHefame.placeholder = 'Seleccione un cliente con asociación Hefame';
+        return;
+      }
+      inputNumAsociadoHefame.placeholder = 'Cargando…';
+      inputNumAsociadoHefame.value = '';
+      try {
+        var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/cooperativas', { headers: { Accept: 'application/json' } });
+        if (!r.ok) return;
+        var json = await r.json().catch(function(){ return null; });
+        if (!json || json.ok !== true) return;
+        var items = Array.isArray(json.items) ? json.items : [];
+        var hefame = items.find(function(c){ return String(c.Nombre || c.nombre || '').toUpperCase() === 'HEFAME'; });
+        if (hefame && (hefame.NumAsociado != null || hefame.numAsociado != null)) {
+          inputNumAsociadoHefame.value = String(hefame.NumAsociado ?? hefame.numAsociado ?? '');
+          inputNumAsociadoHefame.placeholder = '';
+        } else {
+          inputNumAsociadoHefame.value = '';
+          inputNumAsociadoHefame.placeholder = 'Sin número de asociado Hefame para este cliente';
+        }
+      } catch(_e) {
+        inputNumAsociadoHefame.placeholder = 'Error al cargar';
+        inputNumAsociadoHefame.value = '';
+      }
+    }
+    function toggleNumAsociadoHefameVisibility(){
+      if (!wrapNumAsociadoHefame) return;
+      if (isTipoTransferHefame()) {
+        wrapNumAsociadoHefame.style.display = '';
+        var cid = hidCliente ? String(hidCliente.value || '').trim() : '';
+        loadNumAsociadoHefame(cid);
+      } else {
+        wrapNumAsociadoHefame.style.display = 'none';
+        if (inputNumAsociadoHefame) { inputNumAsociadoHefame.value = ''; inputNumAsociadoHefame.placeholder = 'Seleccione un cliente con asociación Hefame'; }
+      }
+    }
 
     async function loadDireccionesEnvio(clienteId){
       if (!selDirEnvio) return;
@@ -439,6 +496,7 @@
         });
         refreshPrecios();
         loadDireccionesEnvio(id);
+        toggleNumAsociadoHefameVisibility();
 
         // En edición, los cambios de cabecera se aplican solo al pulsar "Guardar".
       } catch (_e) {}
@@ -598,6 +656,8 @@
       recalcTotals();
     });
 
+    if (selTipoPedido) selTipoPedido.addEventListener('change', function(){ toggleNumAsociadoHefameVisibility(); });
+
     // Si venimos con un cliente ya guardado (editar), cargar defaults
     if (hidCliente) {
       hidCliente.addEventListener('change', function(){
@@ -609,6 +669,7 @@
         loadClienteAndDefaults(hidCliente.value);
       }
     }
+    toggleNumAsociadoHefameVisibility();
 
     // Admin: permitir cambiar comercial manualmente
     if (selCialDisplay && isAdmin) {

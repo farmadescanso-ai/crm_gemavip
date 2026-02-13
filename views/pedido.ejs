@@ -75,6 +75,9 @@
         <% if (item.NumPedidoCliente || item.Num_Pedido_Cliente) { %>
           <div><span>Nº Pedido Cliente</span><b><%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></b></div>
         <% } %>
+        <% if (item.NumAsociadoHefame || item.num_asociado_hefame) { %>
+          <div><span>Nº asociado (Hefame)</span><b><%= item.NumAsociadoHefame ?? item.num_asociado_hefame %></b></div>
+        <% } %>
       </div>
     </div>
   </div>
