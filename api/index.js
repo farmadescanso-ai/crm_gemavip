@@ -1257,7 +1257,15 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
       today.getFullYear() +
       String(today.getMonth() + 1).padStart(2, '0') +
       String(today.getDate()).padStart(2, '0');
-    const attachmentFileName = `${yyyymmdd}_${safeNum}.xlsx`;
+    const nombreClienteRaw = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
+    const nombreClienteSafe = String(nombreClienteRaw)
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/\s/g, '_')
+      .slice(0, 80) || 'cliente';
+    const pedidoNum = numPedido || `pedido_${id}`;
+    const attachmentFileName = `${yyyymmdd}_${nombreClienteSafe}-${pedidoNum}.xlsx`;
     const nombrePedidoAsunto = numPedido || `Pedido ${id}`;
 
     const hefameMailTo = process.env.HEFAME_MAIL_TO || 'p.lara@gemavip.com';
@@ -1309,15 +1317,18 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
       const smtpPort = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || 587);
       const smtpUser = process.env.SMTP_USER || process.env.MAIL_USER;
       const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.MAIL_PASSWORD;
-      const smtpFrom = process.env.SMTP_FROM || process.env.MAIL_FROM || 'crm@gemavip.com';
+      const smtpFrom = process.env.SMTP_FROM || process.env.MAIL_FROM || smtpUser || 'crm@gemavip.com';
+      const smtpSecure = process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1';
 
       if (smtpHost && smtpUser && smtpPass) {
         const transporter = nodemailer.createTransport({
           host: smtpHost,
           port: smtpPort,
-          secure: smtpPort === 465,
+          secure: smtpSecure || smtpPort === 465,
+          requireTLS: smtpPort === 587,
           auth: { user: smtpUser, pass: smtpPass }
         });
+        console.log('Hefame: enviando correo a', hefameMailTo, 'desde', smtpFrom);
         await transporter.sendMail({
           from: smtpFrom,
           to: hefameMailTo,
@@ -1325,11 +1336,18 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
           html: buildClienteHtml(),
           attachments: [{ filename: attachmentFileName, content: Buffer.from(buf) }]
         });
+        console.log('Hefame: correo enviado correctamente a', hefameMailTo);
       } else {
-        console.warn('Hefame: no se envió correo (falta SMTP_HOST, SMTP_USER, SMTP_PASSWORD en .env)');
+        const missing = [];
+        if (!smtpHost) missing.push('SMTP_HOST');
+        if (!smtpUser) missing.push('SMTP_USER');
+        if (!smtpPass) missing.push('SMTP_PASSWORD');
+        console.warn('Hefame: no se envió correo. Variables faltantes (añádelas también a Preview si usas esa URL):', missing.join(', '));
       }
     } catch (mailErr) {
-      console.warn('Hefame: error enviando correo', mailErr?.message || mailErr);
+      console.error('Hefame: error enviando correo:', mailErr?.message || mailErr);
+      if (mailErr?.response) console.error('Hefame: respuesta SMTP:', mailErr.response);
+      if (mailErr?.responseCode) console.error('Hefame: código:', mailErr.responseCode);
     }
 
     res.setHeader(

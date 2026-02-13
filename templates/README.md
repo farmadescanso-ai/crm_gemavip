@@ -38,7 +38,13 @@ Cada producto en una fila (21, 22, 23…):
 
 ### Nombre del fichero descargado
 
-El Excel se descarga con el nombre: **yyyymmdd_** + nombre del pedido + `.xlsx` (ej. `20260213_P250001.xlsx`).
+Formato: **fecha_nombredelcliente-pedido.xlsx**
+
+- **fecha:** yyyymmdd (ej. 20260213)
+- **nombredelcliente:** nombre/razón social del cliente (espacios → `_`, sin caracteres inválidos)
+- **pedido:** número de pedido (ej. P250001)
+
+Ejemplo: `20260213_Farmacia_Lopez_SL-P250001.xlsx`
 
 ### Envío por correo
 
@@ -48,13 +54,25 @@ Al pulsar HEFAME se envía un correo a **p.lara@gemavip.com** (o a la dirección
 - **Adjunto:** el mismo Excel (con el nombre yyyymmdd_nombrepedido.xlsx)
 - **Cuerpo:** datos del cliente en HTML (estilo WooCommerce/Shopify)
 
-Para que el envío funcione, configura en `.env` el SMTP:
+Para que el correo se envíe a **p.lara@gemavip.com**, hay que configurar SMTP. En **Vercel**: Proyecto → Settings → Environment Variables. En local: `.env`.
 
-- `SMTP_HOST` (o `MAIL_HOST`)
-- `SMTP_PORT` (opcional, por defecto 587)
-- `SMTP_USER` (o `MAIL_USER`)
-- `SMTP_PASSWORD` o `SMTP_PASS` (o `MAIL_PASSWORD`)
-- `SMTP_FROM` (opcional, remitente)
+- **SMTP_HOST** (o MAIL_HOST) — ej. `smtp.gmail.com`, `smtp.office365.com`
+- **SMTP_USER** (o MAIL_USER) — email del remitente
+- **SMTP_PASSWORD** (o SMTP_PASS / MAIL_PASSWORD) — contraseña o “contraseña de aplicación”
+- **SMTP_PORT** — opcional (por defecto 587)
+- **SMTP_FROM** — opcional; remitente que verá el destinatario
+
+**Outlook / Microsoft 365** — en Vercel o .env:
+
+| Variable       | Valor                 |
+|----------------|------------------------|
+| SMTP_HOST      | `smtp.office365.com`   |
+| SMTP_PORT      | `587`                  |
+| SMTP_USER      | Tu correo (ej. `pedidos@gemavip.com`) |
+| SMTP_PASSWORD  | Contraseña de la cuenta o contraseña de aplicación si tienes 2FA |
+| SMTP_FROM      | El mismo que SMTP_USER |
+
+Con 2FA activado en Microsoft, crea una **contraseña de aplicación** en https://account.microsoft.com/security y úsala en SMTP_PASSWORD.
 
 Si no hay SMTP configurado, el Excel se descarga igual y en consola se avisa de que no se envió el correo.
 
