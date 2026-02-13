@@ -8,6 +8,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const MySQLStoreFactory = require('express-mysql-session');
 const ExcelJS = require('exceljs');
+const nodemailer = require('nodemailer');
 
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
@@ -1249,12 +1250,93 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
       }
     });
 
+    const buf = await wb.xlsx.writeBuffer();
+
+    const today = new Date();
+    const yyyymmdd =
+      today.getFullYear() +
+      String(today.getMonth() + 1).padStart(2, '0') +
+      String(today.getDate()).padStart(2, '0');
+    const attachmentFileName = `${yyyymmdd}_${safeNum}.xlsx`;
+    const nombrePedidoAsunto = numPedido || `Pedido ${id}`;
+
+    const hefameMailTo = process.env.HEFAME_MAIL_TO || 'p.lara@gemavip.com';
+    const buildClienteHtml = () => {
+      const rows = [
+        ['Nombre / Razón social', cliente?.Nombre_Razon_Social || cliente?.Nombre || '—'],
+        ['CIF / NIF', cliente?.DNI_CIF || cliente?.DniCif || '—'],
+        ['Dirección', cliente?.Direccion || '—'],
+        ['Código postal', cliente?.CodigoPostal || '—'],
+        ['Población', cliente?.Poblacion || '—'],
+        ['Provincia', cliente?.Provincia || cliente?.Nombre_Provincia || '—'],
+        ['Teléfono', cliente?.Telefono || cliente?.Movil || '—'],
+        ['Email', cliente?.Email || '—']
+      ];
+      if (codigoHefame) rows.push(['Nº asociado Hefame', codigoHefame]);
+      const trs = rows
+        .map(
+          ([label, value]) =>
+            `<tr><td style="border:1px solid #e5e7eb;padding:10px 12px;background:#f9fafb;font-weight:600;width:180px;">${escapeHtml(label)}</td><td style="border:1px solid #e5e7eb;padding:10px 12px;">${escapeHtml(value)}</td></tr>`
+        )
+        .join('');
+      return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#374151;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <h2 style="margin:0 0 16px;font-size:18px;color:#111827;">Datos del cliente · Pedido ${escapeHtml(nombrePedidoAsunto)}</h2>
+    <table style="border-collapse:collapse;width:100%;">
+      ${trs}
+    </table>
+    <p style="margin:20px 0 0;font-size:12px;color:#6b7280;">Generado por CRM Gemavip · Export Hefame</p>
+  </div>
+</body>
+</html>`;
+    };
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const t = String(s);
+      return t
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    try {
+      const smtpHost = process.env.SMTP_HOST || process.env.MAIL_HOST;
+      const smtpPort = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || 587);
+      const smtpUser = process.env.SMTP_USER || process.env.MAIL_USER;
+      const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.MAIL_PASSWORD;
+      const smtpFrom = process.env.SMTP_FROM || process.env.MAIL_FROM || 'crm@gemavip.com';
+
+      if (smtpHost && smtpUser && smtpPass) {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465,
+          auth: { user: smtpUser, pass: smtpPass }
+        });
+        await transporter.sendMail({
+          from: smtpFrom,
+          to: hefameMailTo,
+          subject: nombrePedidoAsunto,
+          html: buildClienteHtml(),
+          attachments: [{ filename: attachmentFileName, content: Buffer.from(buf) }]
+        });
+      } else {
+        console.warn('Hefame: no se envió correo (falta SMTP_HOST, SMTP_USER, SMTP_PASSWORD en .env)');
+      }
+    } catch (mailErr) {
+      console.warn('Hefame: error enviando correo', mailErr?.message || mailErr);
+    }
+
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
-    res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_HEFAME_${safeNum}.xlsx"`);
-    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Disposition', `attachment; filename="${attachmentFileName}"`);
     return res.end(Buffer.from(buf));
   } catch (e) {
     next(e);
