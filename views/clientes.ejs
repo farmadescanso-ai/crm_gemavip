@@ -140,11 +140,11 @@
 .gv-badge--empresa { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
 .gv-badge--persona { background: rgba(25, 135, 84, 0.15); color: #198754; }
 .gv-badge--otros { background: rgba(108, 117, 125, 0.2); color: #6c757d; }
-/* Tabla contactos: columna Nombre con ancho ~100 caracteres y salto de línea */
+/* Tabla contactos: columna Nombre 150px; si desborda, la fila crece para leer el texto completo */
 .gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 120px; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 100ch; max-width: 100ch; }
-.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 150px; }
+.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { width: 150px; max-width: 150px; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
 </style>
 
 <%- include('partials/footer') %>
