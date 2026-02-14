@@ -1,0 +1,42 @@
+<%- include('partials/header', { title: 'Cambiar contraseña' }) %>
+
+<section class="card" style="max-width: 520px; margin: 24px auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Cambiar contraseña</h1>
+    <p class="card-subtitle">Para mayor seguridad, introduce tu contraseña actual y la nueva (mínimo 8 caracteres).</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+    <% if (success) { %>
+      <div class="gv-alert gv-alert--success"><%= success %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form method="post" action="/cuenta/cambiar-contrasena" style="display:grid; gap: 12px;">
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Contraseña actual *</span>
+        <input name="current_password" type="password" autocomplete="current-password" required />
+      </label>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Nueva contraseña *</span>
+        <input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres" />
+      </label>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Repetir nueva contraseña *</span>
+        <input name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="Repite la nueva contraseña" />
+      </label>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn secondary" href="/dashboard">Cancelar</a>
+        <button class="btn" type="submit">Actualizar contraseña</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

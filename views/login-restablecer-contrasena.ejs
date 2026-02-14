@@ -1,0 +1,49 @@
+<%- include('partials/header', { title: 'Nueva contraseña', headerVariant: 'login' }) %>
+
+<section class="login-hero">
+  <div class="login-hero-inner">
+    <h1 class="login-title">Nueva contraseña</h1>
+    <p class="login-subtitle">
+      Elige una contraseña segura (mínimo 8 caracteres). Este enlace solo se puede usar una vez.
+    </p>
+  </div>
+</section>
+
+<section class="card login-card">
+  <div class="card-hd">
+    <h2 class="card-title" style="font-size: 20px;">Restablecer contraseña</h2>
+    <p class="card-subtitle">Introduce y confirma tu nueva contraseña.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <% if (token) { %>
+    <form method="post" action="/login/restablecer-contrasena" class="login-form">
+      <input type="hidden" name="token" value="<%= token %>" />
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Nueva contraseña *</span>
+        <input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres" />
+      </label>
+
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Repetir contraseña *</span>
+        <input name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="Repite la contraseña" />
+      </label>
+
+      <button class="btn" type="submit" style="justify-content:center;">Guardar nueva contraseña</button>
+    </form>
+    <% } else { %>
+      <p>El enlace no es válido. <a href="/login/olvidar-contrasena">Solicita uno nuevo</a>.</p>
+    <% } %>
+
+    <p style="margin-top: 16px; font-size: 13px;">
+      <a href="/login" style="color: var(--gv-link, #008bd2);">← Volver al inicio de sesión</a>
+    </p>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

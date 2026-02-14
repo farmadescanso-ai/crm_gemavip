@@ -1,0 +1,42 @@
+<%- include('partials/header', { title: 'Recuperar contraseña', headerVariant: 'login' }) %>
+
+<section class="login-hero">
+  <div class="login-hero-inner">
+    <h1 class="login-title">Recuperar contraseña</h1>
+    <p class="login-subtitle">
+      Introduce el email con el que te registraste. Si existe una cuenta, recibirás un enlace para restablecer la contraseña.
+    </p>
+  </div>
+</section>
+
+<section class="card login-card">
+  <div class="card-hd">
+    <h2 class="card-title" style="font-size: 20px;">¿Olvidaste tu contraseña?</h2>
+    <p class="card-subtitle">Te enviaremos un enlace seguro (válido 1 hora) a tu email. No compartas ese enlace con nadie.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+    <% if (success) { %>
+      <div class="gv-alert gv-alert--success"><%= success %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form method="post" action="/login/olvidar-contrasena" class="login-form">
+      <label style="display:grid; gap: 6px;">
+        <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Email</span>
+        <input name="email" type="email" autocomplete="email" required placeholder="tu@empresa.com" />
+      </label>
+
+      <button class="btn" type="submit" style="justify-content:center;">Enviar enlace de recuperación</button>
+    </form>
+
+    <p style="margin-top: 16px; font-size: 13px;">
+      <a href="/login" style="color: var(--gv-link, #008bd2);">← Volver al inicio de sesión</a>
+    </p>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

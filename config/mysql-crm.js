@@ -8230,18 +8230,56 @@ class MySQLCRM {
     }
   }
 
+  /**
+   * Actualizar solo la contraseña de un comercial (hash bcrypt).
+   * @param {number} comercialId - id del comercial
+   * @param {string} hashedPassword - contraseña ya hasheada con bcrypt
+   */
+  async updateComercialPassword(comercialId, hashedPassword) {
+    try {
+      if (!this.connected && !this.pool) await this.connect();
+      const sql = 'UPDATE comerciales SET Password = ? WHERE id = ? OR Id = ?';
+      const [result] = await this.pool.execute(sql, [hashedPassword, comercialId, comercialId]);
+      return (result?.affectedRows ?? 0) > 0;
+    } catch (e) {
+      console.error('❌ Error actualizando contraseña:', e?.message);
+      throw e;
+    }
+  }
+
   // ============================================
   // MÉTODOS DE RECUPERACIÓN DE CONTRASEÑA
   // ============================================
 
+  async _ensurePasswordResetTokensTable() {
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id INT NOT NULL AUTO_INCREMENT,
+          comercial_id INT NOT NULL,
+          token VARCHAR(128) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          expires_at DATETIME NOT NULL,
+          used TINYINT(1) NOT NULL DEFAULT 0,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uk_token (token),
+          KEY idx_email_created (email, created_at),
+          KEY idx_expires (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+    } catch (e) {
+      console.warn('⚠️ No se pudo asegurar tabla password_reset_tokens:', e?.message);
+    }
+  }
+
   /**
    * Crear un token de recuperación de contraseña
    */
-  async createPasswordResetToken(comercialId, email, token, expiresInHours = 24) {
+  async createPasswordResetToken(comercialId, email, token, expiresInHours = 1) {
     try {
-      if (!this.connected && !this.pool) {
-        await this.connect();
-      }
+      if (!this.connected && !this.pool) await this.connect();
+      await this._ensurePasswordResetTokensTable();
 
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + expiresInHours);
@@ -8268,9 +8306,8 @@ class MySQLCRM {
    */
   async findPasswordResetToken(token) {
     try {
-      if (!this.connected && !this.pool) {
-        await this.connect();
-      }
+      if (!this.connected && !this.pool) await this.connect();
+      await this._ensurePasswordResetTokensTable();
 
       const sql = `SELECT * FROM password_reset_tokens 
                    WHERE token = ? AND used = 0 AND expires_at > NOW() 
@@ -8324,9 +8361,8 @@ class MySQLCRM {
    */
   async countRecentPasswordResetAttempts(email, hours = 1) {
     try {
-      if (!this.connected && !this.pool) {
-        await this.connect();
-      }
+      if (!this.connected && !this.pool) await this.connect();
+      await this._ensurePasswordResetTokensTable();
 
       const sql = `SELECT COUNT(*) as count FROM password_reset_tokens 
                    WHERE email = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? HOUR)`;

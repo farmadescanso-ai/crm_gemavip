@@ -24,6 +24,10 @@
       <div class="gv-alert gv-alert--warn"><%= error %></div>
       <div style="height: 10px;"></div>
     <% } %>
+    <% if (typeof restablecido !== 'undefined' && restablecido) { %>
+      <div class="gv-alert gv-alert--success">Contraseña restablecida. Ya puedes iniciar sesión con tu nueva contraseña.</div>
+      <div style="height: 10px;"></div>
+    <% } %>
 
     <form method="post" action="/login" class="login-form">
       <label style="display:grid; gap: 6px;">
@@ -37,6 +41,10 @@
       </label>
 
       <button class="btn" type="submit" style="justify-content:center;">Entrar</button>
+
+      <p style="margin:14px 0 0 0; font-size: 13px;">
+        <a href="/login/olvidar-contrasena" style="color: var(--gv-link, #008bd2);">¿Olvidaste tu contraseña?</a>
+      </p>
     </form>
   </div>
 </section>

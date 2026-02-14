@@ -21,6 +21,8 @@ const {
   createLoadPedidoAndCheckOwner
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
+const { sendPasswordResetEmail, APP_BASE_URL } = require('../lib/mailer');
+const { sendPasswordResetEmail, getAppUrl } = require('../lib/send-password-reset-email');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -313,7 +315,8 @@ app.use('/', publicRouter);
 
 app.get('/login', (req, res) => {
   if (req.session?.user) return res.redirect('/dashboard');
-  res.render('login', { title: 'Login', error: null });
+  const restablecido = req.query?.restablecido === '1';
+  res.render('login', { title: 'Login', error: null, restablecido });
 });
 
 app.post('/login', async (req, res, next) => {
@@ -359,6 +362,188 @@ app.post('/logout', (req, res) => {
   req.session.destroy(() => {
     res.redirect('/login');
   });
+});
+
+// Rate limit por IP para "olvidar contraseña" (anti-abuso)
+const passwordResetIpAttempts = new Map();
+const PASSWORD_RESET_IP_MAX = 10;
+const PASSWORD_RESET_IP_WINDOW_MS = 60 * 60 * 1000;
+function checkPasswordResetRateLimitIp(ip) {
+  const now = Date.now();
+  for (const [key, data] of passwordResetIpAttempts.entries()) {
+    if (now - data.firstAt > PASSWORD_RESET_IP_WINDOW_MS) passwordResetIpAttempts.delete(key);
+  }
+  const data = passwordResetIpAttempts.get(ip);
+  if (!data) return true;
+  if (now - data.firstAt > PASSWORD_RESET_IP_WINDOW_MS) {
+    passwordResetIpAttempts.delete(ip);
+    return true;
+  }
+  return data.count < PASSWORD_RESET_IP_MAX;
+}
+function recordPasswordResetIp(ip) {
+  const now = Date.now();
+  const data = passwordResetIpAttempts.get(ip);
+  if (!data) {
+    passwordResetIpAttempts.set(ip, { count: 1, firstAt: now });
+  } else {
+    data.count += 1;
+  }
+}
+
+app.get('/login/olvidar-contrasena', (req, res) => {
+  if (req.session?.user) return res.redirect('/dashboard');
+  res.render('login-olvidar-contrasena', { title: 'Recuperar contraseña', error: null, success: null });
+});
+
+app.post('/login/olvidar-contrasena', async (req, res, next) => {
+  try {
+    if (req.session?.user) return res.redirect('/dashboard');
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    if (!checkPasswordResetRateLimitIp(ip)) {
+      return res.status(429).render('login-olvidar-contrasena', {
+        title: 'Recuperar contraseña',
+        error: 'Demasiados intentos. Espera una hora e inténtalo de nuevo.',
+        success: null
+      });
+    }
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.status(400).render('login-olvidar-contrasena', {
+        title: 'Recuperar contraseña',
+        error: 'Introduce tu email.',
+        success: null
+      });
+    }
+    const MAX_EMAIL_ATTEMPTS = 3;
+    const recentByEmail = await db.countRecentPasswordResetAttempts(email, 1);
+    if (recentByEmail >= MAX_EMAIL_ATTEMPTS) {
+      return res.render('login-olvidar-contrasena', {
+        title: 'Recuperar contraseña',
+        error: null,
+        success: 'Si existe una cuenta con ese correo, ya has recibido un enlace recientemente. Revisa tu bandeja o espera 1 hora para solicitar otro.'
+      });
+    }
+    const comercial = await db.getComercialByEmail(email);
+    if (comercial) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const comercialId = comercial.id ?? comercial.Id;
+      await db.createPasswordResetToken(comercialId, email, token, 1);
+      recordPasswordResetIp(ip);
+      const resetLink = `${APP_BASE_URL.replace(/\/$/, '')}/login/restablecer-contrasena?token=${encodeURIComponent(token)}`;
+      await sendPasswordResetEmail(email, resetLink, comercial.Nombre || '');
+    }
+    res.render('login-olvidar-contrasena', {
+      title: 'Recuperar contraseña',
+      error: null,
+      success: 'Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña en unos minutos. Revisa la carpeta de spam.'
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/login/restablecer-contrasena', (req, res) => {
+  if (req.session?.user) return res.redirect('/dashboard');
+  const token = String(req.query?.token || '').trim();
+  if (!token) {
+    return res.redirect('/login/olvidar-contrasena');
+  }
+  res.render('login-restablecer-contrasena', { title: 'Nueva contraseña', token, error: null });
+});
+
+app.post('/login/restablecer-contrasena', async (req, res, next) => {
+  try {
+    if (req.session?.user) return res.redirect('/dashboard');
+    const token = String(req.body?.token || '').trim();
+    const password = String(req.body?.password || '');
+    const passwordConfirm = String(req.body?.password_confirm || '');
+    if (!token) return res.redirect('/login/olvidar-contrasena');
+    if (!password || password.length < 8) {
+      return res.status(400).render('login-restablecer-contrasena', {
+        title: 'Nueva contraseña',
+        token,
+        error: 'La contraseña debe tener al menos 8 caracteres.'
+      });
+    }
+    if (password !== passwordConfirm) {
+      return res.status(400).render('login-restablecer-contrasena', {
+        title: 'Nueva contraseña',
+        token,
+        error: 'Las contraseñas no coinciden.'
+      });
+    }
+    const row = await db.findPasswordResetToken(token);
+    if (!row) {
+      return res.status(400).render('login-restablecer-contrasena', {
+        title: 'Nueva contraseña',
+        token: '',
+        error: 'El enlace ha caducado o ya se ha usado. Solicita uno nuevo desde "¿Olvidaste tu contraseña?".'
+      });
+    }
+    const hashed = await bcrypt.hash(password, 12);
+    await db.updateComercialPassword(row.comercial_id, hashed);
+    await db.markPasswordResetTokenAsUsed(token);
+    res.redirect('/login?restablecido=1');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/cuenta/cambiar-contrasena', requireLogin, (req, res) => {
+  res.render('cuenta-cambiar-contrasena', { title: 'Cambiar contraseña', error: null, success: null });
+});
+
+app.post('/cuenta/cambiar-contrasena', requireLogin, async (req, res, next) => {
+  try {
+    const userId = Number(res.locals.user?.id);
+    if (!userId) return res.redirect('/login');
+    const current = String(req.body?.current_password || '');
+    const newPass = String(req.body?.password || '');
+    const newPassConfirm = String(req.body?.password_confirm || '');
+    if (!current) {
+      return res.status(400).render('cuenta-cambiar-contrasena', {
+        title: 'Cambiar contraseña',
+        error: 'Introduce tu contraseña actual.',
+        success: null
+      });
+    }
+    if (!newPass || newPass.length < 8) {
+      return res.status(400).render('cuenta-cambiar-contrasena', {
+        title: 'Cambiar contraseña',
+        error: 'La nueva contraseña debe tener al menos 8 caracteres.',
+        success: null
+      });
+    }
+    if (newPass !== newPassConfirm) {
+      return res.status(400).render('cuenta-cambiar-contrasena', {
+        title: 'Cambiar contraseña',
+        error: 'La nueva contraseña y la confirmación no coinciden.',
+        success: null
+      });
+    }
+    const comercial = await db.getComercialById(userId);
+    if (!comercial) return res.redirect('/login');
+    const stored = String(comercial.Password || comercial.password || '');
+    let currentOk = false;
+    if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
+      currentOk = await bcrypt.compare(current, stored);
+    } else {
+      currentOk = current === stored;
+    }
+    if (!currentOk) {
+      return res.status(401).render('cuenta-cambiar-contrasena', {
+        title: 'Cambiar contraseña',
+        error: 'La contraseña actual no es correcta.',
+        success: null
+      });
+    }
+    const hashed = await bcrypt.hash(newPass, 12);
+    await db.updateComercialPassword(userId, hashed);
+    res.render('cuenta-cambiar-contrasena', { title: 'Cambiar contraseña', error: null, success: 'Contraseña actualizada correctamente.' });
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.get(
