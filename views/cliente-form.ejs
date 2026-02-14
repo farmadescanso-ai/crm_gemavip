@@ -91,21 +91,35 @@
         </label>
       </div>
 
-      <% if (typeof canChangeComercial === 'undefined' || canChangeComercial) { %>
       <label style="display:grid; gap: 6px;">
-        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial (Id_Cial)</span>
-        <select name="Id_Cial">
-          <option value="">(sin asignar)</option>
-          <% const curCial = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? 0) || 0; %>
-          <% (comerciales || []).forEach((c) => { %>
-            <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
-            <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
-          <% }) %>
-        </select>
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial asignado</span>
+        <% const curCial = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? 0) || 0; %>
+        <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.id ?? c.Id ?? 0) === curCial; }); %>
+        <% const mostrarDropdown = mode !== 'edit' || (typeof canChangeComercial !== 'undefined' && canChangeComercial); %>
+        <% if (mostrarDropdown) { %>
+          <select name="Id_Cial">
+            <option value="">(sin asignar)</option>
+            <% (comerciales || []).forEach((c) => { %>
+              <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
+              <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+            <% }) %>
+          </select>
+          <% if (mode === 'edit' && canChangeComercial) { %>
+            <small style="color: var(--gv-muted, #6c757d);">Cambia al comercial que debe quedar asignado y guarda. Las solicitudes pendientes se gestionan en Solicitudes.</small>
+          <% } %>
+        <% } else { %>
+          <p style="margin:0; padding: 8px 12px; background: var(--gv-muted-bg, #f1f3f5); border-radius: 8px; color: var(--gv-ink);"><%= comercialAsignado ? (comercialAsignado.Nombre ?? '') + (comercialAsignado.Email || comercialAsignado.email ? ' · ' + (comercialAsignado.Email || comercialAsignado.email) : '') : 'Sin asignar' %></p>
+          <input type="hidden" name="Id_Cial" value="<%= item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? '' %>" />
+          <% if (puedeSolicitarAsignacion && contactoId) { %>
+            <div style="margin-top: 8px;">
+              <form method="post" action="/clientes/<%= contactoId %>/solicitar-asignacion" style="display:inline;">
+                <button class="btn" type="submit">Solicitar que me asignen este contacto</button>
+              </form>
+              <small style="display:block; margin-top: 6px; color: var(--gv-muted, #6c757d);">Se enviará una solicitud al administrador; si la aprueba, el contacto quedará asignado a ti.</small>
+            </div>
+          <% } %>
+        <% } %>
       </label>
-      <% } else { %>
-        <input type="hidden" name="Id_Cial" value="<%= item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? '' %>" />
-      <% } %>
 
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>

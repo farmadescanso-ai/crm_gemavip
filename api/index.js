@@ -496,7 +496,8 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       db.getTarifas().catch(() => [])
     ]);
     if (!item) return res.status(404).send('No encontrado');
-    res.render('cliente-form', { mode: 'edit', item, comerciales, tarifas, error: null, admin, canChangeComercial: admin });
+    const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
+    res.render('cliente-form', { mode: 'edit', item, comerciales, tarifas, error: null, admin, canChangeComercial: admin, puedeSolicitarAsignacion, contactoId: id });
   } catch (e) {
     next(e);
   }
@@ -535,7 +536,8 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     };
 
     if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) {
-      return res.status(400).render('cliente-form', { mode: 'edit', item: { ...item, ...payload }, comerciales, tarifas, error: 'Nombre/Razón Social es obligatorio', admin, canChangeComercial: !!admin });
+      const puedeSolicitar = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
+      return res.status(400).render('cliente-form', { mode: 'edit', item: { ...item, ...payload }, comerciales, tarifas, error: 'Nombre/Razón Social es obligatorio', admin, canChangeComercial: !!admin, puedeSolicitarAsignacion: puedeSolicitar, contactoId: id });
     }
 
     await db.updateCliente(id, payload);
