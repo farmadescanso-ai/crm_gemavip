@@ -294,9 +294,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Evita 404 en navegadores por el icono
-app.get('/favicon.ico', (_req, res) => {
-  res.status(204).end();
+// Favicon: redirigir al logo de Gemavip
+app.get('/favicon.ico', (req, res) => {
+  res.redirect(302, '/assets/images/gemavip-logo.svg');
 });
 
 // Vistas y endpoints públicos (no requieren login)
