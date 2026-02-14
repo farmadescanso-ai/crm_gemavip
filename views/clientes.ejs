@@ -51,6 +51,7 @@
           <col class="gv-contactos-col-acciones" />
           <col class="gv-contactos-col-nombre" />
           <col />
+          <col class="gv-contactos-col-dnicif" />
           <col />
           <col />
           <col />
@@ -63,7 +64,7 @@
             <th>Acciones</th>
             <th class="gv-contactos-col-nombre">Nombre / Razón Social</th>
             <th>Tipo</th>
-            <th>DNI/CIF</th>
+            <th class="gv-contactos-col-dnicif">DNI/CIF</th>
             <th>CP</th>
             <th>Población</th>
             <th>Provincia</th>
@@ -105,7 +106,7 @@
               </td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
               <td><span class="gv-badge gv-badge--<%= (c.TipoContacto || '').toLowerCase() === 'empresa' ? 'empresa' : ((c.TipoContacto || '').toLowerCase() === 'persona' ? 'persona' : 'otros') %>"><%= c.TipoContacto || '—' %></span></td>
-              <td><%= c.DNI_CIF ?? '' %></td>
+              <td class="gv-contactos-col-dnicif"><%= c.DNI_CIF ?? '' %></td>
               <td><%= c.CodigoPostal ?? '' %></td>
               <td><%= c.Poblacion ?? '' %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
@@ -140,10 +141,11 @@
 .gv-badge--empresa { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
 .gv-badge--persona { background: rgba(25, 135, 84, 0.15); color: #198754; }
 .gv-badge--otros { background: rgba(108, 117, 125, 0.2); color: #6c757d; }
-/* Tabla contactos: 10px entre columnas; evitar que Población/Comercial etc. sobreimpriman columnas vecinas */
-.gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; }
+/* Tabla contactos: fuente 1 punto menos para que encaje mejor; 10px entre columnas */
+.gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 120px; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 200px; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-dnicif { width: 100px; }
 .gv-contactos .gv-contactos-table th,
 .gv-contactos .gv-contactos-table td {
   white-space: normal;
@@ -153,6 +155,7 @@
   box-sizing: border-box;
 }
 .gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { width: 200px; max-width: 200px; }
+.gv-contactos .gv-contactos-table td.gv-contactos-col-dnicif { width: 100px; min-width: 100px; max-width: 100px; }
 </style>
 
 <%- include('partials/footer') %>
