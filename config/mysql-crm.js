@@ -3352,9 +3352,12 @@ class MySQLCRM {
       const values = [];
       
       for (const [key, value] of Object.entries(payload)) {
+        if (value === undefined) continue; // no enviar undefined al bind (MySQL exige null, no undefined)
         fields.push(`\`${key}\` = ?`);
-        values.push(value);
+        values.push(value === null ? null : value);
       }
+      
+      if (fields.length === 0) return { affectedRows: 0 };
       
       values.push(id);
       const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
