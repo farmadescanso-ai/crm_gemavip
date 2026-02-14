@@ -4,10 +4,7 @@ const { asyncHandler, toBool, toInt } = require('./_utils');
 
 const router = express.Router();
 
-function isAdminSessionUser(user) {
-  const roles = user?.roles || [];
-  return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
-}
+const { isAdminUser } = require('../../lib/auth');
 
 /**
  * @openapi
@@ -19,7 +16,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
 
     const limit = Math.max(1, Math.min(500, toInt(req.query.limit, 50) ?? 50));
     const page = Math.max(1, toInt(req.query.page, 1) ?? 1);
@@ -60,7 +57,7 @@ router.get(
   '/suggest',
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
     const limit = Math.max(1, Math.min(50, toInt(req.query.limit, 20) ?? 20));
     const q = typeof req.query.q === 'string' ? String(req.query.q) : typeof req.query.search === 'string' ? String(req.query.search) : '';
     // A partir de 3 caracteres (texto) o 1 (solo dígitos: ID/CP)
@@ -95,7 +92,7 @@ router.get(
   '/:id/cooperativas',
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
 
@@ -117,7 +114,7 @@ router.get(
   '/:id/direcciones-envio',
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
 
@@ -182,7 +179,7 @@ router.put(
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
 
     // Seguridad:
     // - Admin: puede actualizar cualquier campo

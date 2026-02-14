@@ -4,10 +4,7 @@ const { asyncHandler, toInt } = require('./_utils');
 
 const router = express.Router();
 
-function isAdminSessionUser(user) {
-  const roles = user?.roles || [];
-  return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
-}
+const { isAdminUser } = require('../../lib/auth');
 
 /**
  * @openapi
@@ -45,7 +42,7 @@ router.get(
   '/events',
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
     const meta = await db._ensureVisitasMeta();
     const clientesMeta = await db._ensureClientesMeta().catch(() => null);
 

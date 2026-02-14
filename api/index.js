@@ -8,12 +8,19 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const MySQLStoreFactory = require('express-mysql-session');
 const ExcelJS = require('exceljs');
-const nodemailer = require('nodemailer');
-
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
 const publicRouter = require('../routes/public');
 const db = require('../config/mysql-crm');
+const {
+  isAdminUser,
+  normalizeRoles,
+  getCommonNavLinksForRoles,
+  getRoleNavLinksForRoles,
+  requireLogin,
+  createLoadPedidoAndCheckOwner
+} = require('../lib/auth');
+const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -155,72 +162,11 @@ function requireApiKeyIfConfigured(req, res, next) {
   return res.status(401).json({ ok: false, error: 'API key requerida (X-API-Key)' });
 }
 
-function normalizeRoles(roll) {
-  if (!roll) return [];
-  if (Array.isArray(roll)) return roll.map(String);
-  if (typeof roll === 'string') {
-    const s = roll.trim();
-    // JSON array en string
-    if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('{') && s.endsWith('}'))) {
-      try {
-        const parsed = JSON.parse(s);
-        if (Array.isArray(parsed)) return parsed.map(String);
-      } catch (_) {
-        // ignore
-      }
-    }
-    // CSV fallback
-    return s
-      .split(',')
-      .map((x) => x.trim())
-      .filter(Boolean);
-  }
-  return [String(roll)];
-}
+// Middleware reutilizable: carga pedido y comprueba admin o dueño (evita duplicar lógica en cada ruta)
+const loadPedidoAndCheckOwner = createLoadPedidoAndCheckOwner('id');
 
-function getCommonNavLinksForRoles(roles) {
-  const has = (name) => (roles || []).some((r) => String(r).toLowerCase().includes(String(name).toLowerCase()));
-  const isAdmin = has('admin');
-  const isComercial = has('comercial') || !roles || roles.length === 0;
-
-  const links = [];
-  if (isAdmin || isComercial) {
-    links.push({ href: '/clientes', label: 'Clientes' });
-    links.push({ href: '/pedidos', label: 'Pedidos' });
-    links.push({ href: '/visitas', label: 'Visitas' });
-    links.push({ href: '/articulos', label: 'Artículos' });
-  }
-  // Orden alfabético por etiqueta (español), para que nuevos enlaces caigan en su sitio.
-  return links.sort((a, b) =>
-    String(a?.label || '').localeCompare(String(b?.label || ''), 'es', { sensitivity: 'base' })
-  );
-}
-
-function getRoleNavLinksForRoles(roles) {
-  const has = (name) => (roles || []).some((r) => String(r).toLowerCase().includes(String(name).toLowerCase()));
-  const isAdmin = has('admin');
-
-  const links = [];
-  // Solo enlaces específicos del rol (no repetir los del menú principal)
-  if (isAdmin) links.push({ href: '/comerciales', label: 'Comerciales' });
-  if (isAdmin) links.push({ href: '/api/docs', label: 'API Docs' });
-  return links.sort((a, b) =>
-    String(a?.label || '').localeCompare(String(b?.label || ''), 'es', { sensitivity: 'base' })
-  );
-}
-
-function requireLogin(req, res, next) {
-  if (req.session?.user) return next();
-  return res.redirect('/login');
-}
-
-function isAdminUser(user) {
-  const roles = user?.roles || [];
-  return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
-}
-
+// requireAdmin sigue aquí porque usa renderErrorPage y wantsHtml de esta app
 function requireAdmin(req, res, next) {
-  // API Docs debe ser visible solo para administradores (por sesión)
   if (!req.session?.user) return res.redirect('/login');
   if (!isAdminUser(req.session.user)) {
     if (wantsHtml(req)) {
@@ -797,18 +743,10 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, async (req, res, next) => {
+app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
+    const item = res.locals.pedido;
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getPedidoById(id);
-    if (!item) return res.status(404).send('No encontrado');
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-      if (owner !== userId) return res.status(404).send('No encontrado');
-    }
     const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
     const pk = pedidosMeta?.pk || 'id';
     const colNum = pedidosMeta?.colNumPedido || 'NumPedido';
@@ -844,18 +782,11 @@ app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, async (req, res, next) => 
   }
 });
 
-app.get('/pedidos/:id(\\d+)', requireLogin, async (req, res, next) => {
+app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
+    const item = res.locals.pedido;
+    const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getPedidoById(id);
-    if (!item) return res.status(404).send('No encontrado');
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-      if (owner !== userId) return res.status(404).send('No encontrado');
-    }
     const lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
     let direccionEnvio = item?.Id_DireccionEnvio
@@ -872,20 +803,10 @@ app.get('/pedidos/:id(\\d+)', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
+app.get('/pedidos/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
+    const item = res.locals.pedido;
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getPedidoById(id);
-    if (!item) return res.status(404).send('No encontrado');
-
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-      if (owner !== userId) return res.status(404).send('No encontrado');
-    }
-
     const [lineas, cliente] = await Promise.all([
       db.getArticulosByPedido(id).catch(() => []),
       item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : Promise.resolve(null)
@@ -899,15 +820,8 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
 
-    const toNum = (v, dflt = 0) => {
-      if (v === null || v === undefined) return dflt;
-      const s = String(v).trim();
-      if (!s) return dflt;
-      const n = Number(String(s).replace(',', '.'));
-      return Number.isFinite(n) ? n : dflt;
-    };
     const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-    const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.Dto ?? item.Descuento ?? 0, 0)));
+    const dtoPedidoPct = Math.max(0, Math.min(100, toNumUtil(item.Dto ?? item.Descuento ?? 0, 0)));
 
     const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
     const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
@@ -1064,10 +978,10 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
     (Array.isArray(lineas) ? lineas : []).forEach((l) => {
       const codigo = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
       const concepto = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-      const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
-      const pvl = Math.max(0, toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
-      const dto = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
-      let ivaPct = toNum(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+      const qty = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
+      const pvl = Math.max(0, toNumUtil(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
+      const dto = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+      let ivaPct = toNumUtil(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
       if (ivaPct > 100) ivaPct = 0;
 
       const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
@@ -1156,195 +1070,33 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, async (req, res, next) => {
   }
 });
 
-// Ventana de resultado de envío Hefame por email (abrir en nueva pestaña para ver éxito/error)
-app.get('/pedidos/:id(\\d+)/hefame-send-email', requireLogin, async (req, res, next) => {
-  const escapeHtml = (s) => {
-    if (s == null) return '';
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  };
-  const renderResult = (ok, title, details, pedidoId) => {
-    const color = ok ? '#059669' : '#dc2626';
-    const downloadLink = pedidoId ? `<p style="margin-top:16px;"><a href="/pedidos/${pedidoId}/hefame.xlsx" style="color:#2563eb;">Descargar Excel Hefame</a></p>` : '';
-    return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Envío Hefame</title></head>
+// Página Hefame: envío por email deshabilitado; enlace a descargar Excel (se intentará en otro momento)
+app.get('/pedidos/:id(\\d+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner, (req, res) => {
+  const id = Number(req.params.id);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderHefameInfoPage(true, 'El envío por email está temporalmente deshabilitado.\n\nPuede descargar la plantilla Excel con los datos del pedido para Hefame usando el enlace siguiente.', id));
+});
+
+function renderHefameInfoPage(ok, details, pedidoId) {
+  const color = ok ? '#2563eb' : '#dc2626';
+  const downloadLink = pedidoId
+    ? `<p style="margin-top:20px;"><a href="/pedidos/${pedidoId}/hefame.xlsx" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Descargar plantilla Excel Hefame</a></p>`
+    : '';
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Export Hefame · CRM Gemavip</title></head>
 <body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;background:#f3f4f6;">
   <div style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-    <h2 style="margin:0 0 12px;font-size:18px;color:${color};">${escapeHtml(title)}</h2>
-    <div style="white-space:pre-wrap;word-break:break-word;color:#374151;margin:8px 0;">${escapeHtml(details)}</div>
+    <h2 style="margin:0 0 12px;font-size:18px;color:${color};">Export Hefame</h2>
+    <div style="white-space:pre-wrap;word-break:break-word;color:#374151;margin:8px 0;line-height:1.5;">${escapeHtmlUtil(details)}</div>
     ${downloadLink}
   </div>
 </body></html>`;
-  };
+}
 
+app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
+    const item = res.locals.pedido;
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderResult(false, 'Error', 'ID de pedido no válido.', null));
-    }
-    const item = await db.getPedidoById(id);
-    if (!item) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderResult(false, 'Error', 'Pedido no encontrado.', null));
-    }
-
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-      if (owner !== userId) {
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(renderResult(false, 'Error', 'No tienes permiso para este pedido.', null));
-      }
-    }
-
-    const lineas = await db.getArticulosByPedido(id).catch(() => []);
-    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
-    const toNum = (v, dflt = 0) => {
-      if (v === null || v === undefined) return dflt;
-      const s = String(v).trim();
-      if (!s) return dflt;
-      const n = Number(String(s).replace(',', '.'));
-      return Number.isFinite(n) ? n : dflt;
-    };
-    const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
-    const hefameTemplatePath =
-      process.env.HEFAME_EXCEL_TEMPLATE_PATH ||
-      path.join(__dirname, '..', 'templates', 'PLANTILLA TRANSFER DIRECTO CRM.xlsx');
-
-    let wb;
-    try {
-      await fs.access(hefameTemplatePath);
-      wb = new ExcelJS.Workbook();
-      await wb.xlsx.readFile(hefameTemplatePath);
-    } catch (e) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderResult(false, 'Error', `Plantilla Hefame no encontrada: ${hefameTemplatePath}\n${e?.message || e}`, id));
-    }
-    if (!wb?.worksheets?.length) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderResult(false, 'Error', 'Plantilla Hefame sin hojas.', id));
-    }
-
-    const ws = wb.worksheets[0];
-    const valorF5 = numPedido || (() => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`; })();
-    const nombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || '';
-    const codigoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
-    const telefono = cliente?.Telefono || cliente?.Movil || '';
-    const cp = String(cliente?.CodigoPostal ?? '').trim();
-    const poblacion = String(cliente?.Poblacion ?? '').trim();
-    const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
-    try {
-      ws.getCell('F5').value = valorF5;
-      ws.getCell('C13').value = nombre;
-      ws.getCell('C14').value = codigoHefame;
-      ws.getCell('C15').value = telefono;
-      ws.getCell('C16').value = poblacionConCP;
-    } catch (_) {}
-    const lineasArr = Array.isArray(lineas) ? lineas : [];
-    const firstDataRow = 21;
-    lineasArr.forEach((l, idx) => {
-      const row = firstDataRow + idx;
-      const cantidad = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
-      const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
-      const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-      const descuentoPct = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? 0, 0)));
-      try {
-        ws.getRow(row).getCell(2).value = cantidad;
-        ws.getRow(row).getCell(3).value = cn;
-        ws.getRow(row).getCell(4).value = descripcion;
-        ws.getRow(row).getCell(5).value = descuentoPct / 100;
-      } catch (_) {}
-    });
-
-    const buf = await wb.xlsx.writeBuffer();
-    const today = new Date();
-    const yyyymmdd = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
-    const nombreClienteRaw = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
-    const nombreClienteSafe = String(nombreClienteRaw).trim().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '').slice(0, 80) || 'cliente';
-    const attachmentFileName = `${yyyymmdd}_${nombreClienteSafe}-${numPedido || `pedido_${id}`}.xlsx`;
-    const nombrePedidoAsunto = numPedido || `Pedido ${id}`;
-    const hefameMailTo = process.env.HEFAME_MAIL_TO || 'p.lara@gemavip.com';
-    const buildClienteHtml = () => {
-      const rows = [
-        ['Nombre / Razón social', cliente?.Nombre_Razon_Social || cliente?.Nombre || '—'],
-        ['CIF / NIF', cliente?.DNI_CIF || cliente?.DniCif || '—'],
-        ['Dirección', cliente?.Direccion || '—'],
-        ['Código postal', cliente?.CodigoPostal || '—'],
-        ['Población', cliente?.Poblacion || '—'],
-        ['Teléfono', cliente?.Telefono || cliente?.Movil || '—'],
-        ['Email', cliente?.Email || '—']
-      ];
-      if (codigoHefame) rows.push(['Nº asociado Hefame', codigoHefame]);
-      const trs = rows.map(([label, value]) =>
-        `<tr><td style="border:1px solid #e5e7eb;padding:8px;background:#f9fafb;">${escapeHtml(label)}</td><td style="border:1px solid #e5e7eb;padding:8px;">${escapeHtml(value)}</td></tr>`
-      ).join('');
-      return `<table style="border-collapse:collapse;">${trs}</table>`;
-    };
-
-    const smtpHost = process.env.SMTP_HOST || process.env.MAIL_HOST;
-    const smtpPort = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || 587);
-    const smtpUser = process.env.SMTP_USER || process.env.MAIL_USER;
-    const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.MAIL_PASSWORD;
-    const smtpFrom = process.env.SMTP_FROM || process.env.MAIL_FROM || smtpUser || 'crm@gemavip.com';
-    const smtpSecure = process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1';
-
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      const missing = [];
-      if (!smtpHost) missing.push('SMTP_HOST o MAIL_HOST');
-      if (!smtpUser) missing.push('SMTP_USER o MAIL_USER');
-      if (!smtpPass) missing.push('SMTP_PASSWORD, SMTP_PASS o MAIL_PASSWORD');
-      const details = `No se puede enviar el correo: faltan variables de entorno.\n\nVariables faltantes: ${missing.join(', ')}\n\nConfigura en el servidor (Vercel/entorno): SMTP_HOST, SMTP_PORT (ej. 587), SMTP_USER, SMTP_PASSWORD y opcionalmente SMTP_FROM, HEFAME_MAIL_TO.`;
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderResult(false, 'Error al enviar el email', details, id));
-    }
-
-    try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpSecure || smtpPort === 465,
-        requireTLS: smtpPort === 587,
-        auth: { user: smtpUser, pass: smtpPass }
-      });
-      await transporter.sendMail({
-        from: smtpFrom,
-        to: hefameMailTo,
-        subject: nombrePedidoAsunto,
-        html: buildClienteHtml(),
-        attachments: [{ filename: attachmentFileName, content: Buffer.from(buf) }]
-      });
-      const details = `Destinatario: ${hefameMailTo}\nAsunto: ${nombrePedidoAsunto}\nAdjunto: ${attachmentFileName}`;
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderResult(true, 'Email enviado correctamente', details, id));
-    } catch (mailErr) {
-      let details = mailErr?.message || String(mailErr);
-      if (mailErr?.response) details += `\nRespuesta SMTP: ${mailErr.response}`;
-      if (mailErr?.responseCode) details += `\nCódigo: ${mailErr.responseCode}`;
-      if (mailErr?.code) details += `\nCódigo error: ${mailErr.code}`;
-      console.error('Hefame: error enviando correo:', mailErr?.message || mailErr);
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderResult(false, 'Error al enviar el email', details, id));
-    }
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getPedidoById(id);
-    if (!item) return res.status(404).send('No encontrado');
-
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-      if (owner !== userId) return res.status(404).send('No encontrado');
-    }
-
     const lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
 
@@ -1409,10 +1161,10 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
     const firstDataRow = 21;
     lineasArr.forEach((l, idx) => {
       const row = firstDataRow + idx;
-      const cantidad = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+      const cantidad = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
       const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
       const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-      const descuentoPct = Math.max(0, Math.min(100, toNum(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+      const descuentoPct = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
       const descuentoExcel = descuentoPct / 100;
 
       try {
@@ -1441,89 +1193,6 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
       .slice(0, 80) || 'cliente';
     const pedidoNum = numPedido || `pedido_${id}`;
     const attachmentFileName = `${yyyymmdd}_${nombreClienteSafe}-${pedidoNum}.xlsx`;
-    const nombrePedidoAsunto = numPedido || `Pedido ${id}`;
-
-    const hefameMailTo = process.env.HEFAME_MAIL_TO || 'p.lara@gemavip.com';
-    const buildClienteHtml = () => {
-      const rows = [
-        ['Nombre / Razón social', cliente?.Nombre_Razon_Social || cliente?.Nombre || '—'],
-        ['CIF / NIF', cliente?.DNI_CIF || cliente?.DniCif || '—'],
-        ['Dirección', cliente?.Direccion || '—'],
-        ['Código postal', cliente?.CodigoPostal || '—'],
-        ['Población', cliente?.Poblacion || '—'],
-        ['Provincia', cliente?.Provincia || cliente?.Nombre_Provincia || '—'],
-        ['Teléfono', cliente?.Telefono || cliente?.Movil || '—'],
-        ['Email', cliente?.Email || '—']
-      ];
-      if (codigoHefame) rows.push(['Nº asociado Hefame', codigoHefame]);
-      const trs = rows
-        .map(
-          ([label, value]) =>
-            `<tr><td style="border:1px solid #e5e7eb;padding:10px 12px;background:#f9fafb;font-weight:600;width:180px;">${escapeHtml(label)}</td><td style="border:1px solid #e5e7eb;padding:10px 12px;">${escapeHtml(value)}</td></tr>`
-        )
-        .join('');
-      return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#374151;background:#f3f4f6;">
-  <div style="max-width:600px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-    <h2 style="margin:0 0 16px;font-size:18px;color:#111827;">Datos del cliente · Pedido ${escapeHtml(nombrePedidoAsunto)}</h2>
-    <table style="border-collapse:collapse;width:100%;">
-      ${trs}
-    </table>
-    <p style="margin:20px 0 0;font-size:12px;color:#6b7280;">Generado por CRM Gemavip · Export Hefame</p>
-  </div>
-</body>
-</html>`;
-    };
-    function escapeHtml(s) {
-      if (s == null) return '';
-      const t = String(s);
-      return t
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
-    try {
-      const smtpHost = process.env.SMTP_HOST || process.env.MAIL_HOST;
-      const smtpPort = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || 587);
-      const smtpUser = process.env.SMTP_USER || process.env.MAIL_USER;
-      const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.MAIL_PASSWORD;
-      const smtpFrom = process.env.SMTP_FROM || process.env.MAIL_FROM || smtpUser || 'crm@gemavip.com';
-      const smtpSecure = process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1';
-
-      if (smtpHost && smtpUser && smtpPass) {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpSecure || smtpPort === 465,
-          requireTLS: smtpPort === 587,
-          auth: { user: smtpUser, pass: smtpPass }
-        });
-        console.log('Hefame: enviando correo a', hefameMailTo, 'desde', smtpFrom);
-        await transporter.sendMail({
-          from: smtpFrom,
-          to: hefameMailTo,
-          subject: nombrePedidoAsunto,
-          html: buildClienteHtml(),
-          attachments: [{ filename: attachmentFileName, content: Buffer.from(buf) }]
-        });
-        console.log('Hefame: correo enviado correctamente a', hefameMailTo);
-      } else {
-        const missing = [];
-        if (!smtpHost) missing.push('SMTP_HOST');
-        if (!smtpUser) missing.push('SMTP_USER');
-        if (!smtpPass) missing.push('SMTP_PASSWORD');
-        console.warn('Hefame: no se envió correo. Variables faltantes (añádelas también a Preview si usas esa URL):', missing.join(', '));
-      }
-    } catch (mailErr) {
-      console.error('Hefame: error enviando correo:', mailErr?.message || mailErr);
-      if (mailErr?.response) console.error('Hefame: respuesta SMTP:', mailErr.response);
-      if (mailErr?.responseCode) console.error('Hefame: código:', mailErr.responseCode);
-    }
 
     res.setHeader(
       'Content-Type',
@@ -1536,12 +1205,12 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, async (req, res, next) =
   }
 });
 
-app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
+app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
+    const item = res.locals.pedido;
+    const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const [item, tarifas, formasPago, comerciales, tiposPedido] = await Promise.all([
-      db.getPedidoById(id),
+    const [tarifas, formasPago, comerciales, tiposPedido] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => []),
@@ -1551,13 +1220,6 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
     if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
     const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
     if (formaPagoTransfer && (formaPagoTransfer.id ?? formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(f.id ?? f.Id) === Number(formaPagoTransfer.id ?? formaPagoTransfer.Id))) formasPago.push(formaPagoTransfer);
-    if (!item) return res.status(404).send('No encontrado');
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-      if (owner !== userId) return res.status(404).send('No encontrado');
-    }
 
     const estadoNorm = String(item.EstadoPedido ?? item.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
     const canEdit = admin ? (estadoNorm !== 'pagado') : (estadoNorm === 'pendiente');
@@ -1647,19 +1309,11 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-app.post('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
+app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
+    const existing = res.locals.pedido;
+    const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const existing = await db.getPedidoById(id);
-    if (!existing) return res.status(404).send('No encontrado');
-
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(existing.Id_Cial ?? existing.id_cial ?? existing.ComercialId ?? existing.comercialId ?? 0) || 0;
-      if (owner !== userId) return res.status(404).send('No encontrado');
-    }
 
     const estadoNorm = String(existing.EstadoPedido ?? existing.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
     const canEdit = admin ? (estadoNorm !== 'pagado') : (estadoNorm === 'pendiente');
@@ -1723,18 +1377,9 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-app.post('/pedidos/:id(\\d+)/delete', requireLogin, async (req, res, next) => {
+app.post('/pedidos/:id(\\d+)/delete', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getPedidoById(id);
-    if (!item) return res.status(404).send('No encontrado');
-    const admin = isAdminUser(res.locals.user);
-    const userId = Number(res.locals.user?.id);
-    if (!admin && Number.isFinite(userId) && userId > 0) {
-      const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-      if (owner !== userId) return res.status(404).send('No encontrado');
-    }
     await db.deletePedido(id);
     return res.redirect('/pedidos');
   } catch (e) {
@@ -2378,8 +2023,7 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
            INNER JOIN \`${tPedidos}\` p ON p.\`${colClientePedido}\` = c.\`${pkClientes}\`
            GROUP BY c.\`${pkClientes}\`, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO
            ORDER BY TotalFacturado DESC
-           LIMIT ?`,
-          [limitAdmin]
+           LIMIT ${Number(limitAdmin) || 10}`
         );
         if (!Array.isArray(latest.clientes)) latest.clientes = [];
       } catch (e) {
@@ -2397,8 +2041,7 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal']) || 'TotalPedido';
         const colEstado = db._pickCIFromColumns(pedidosCols, ['EstadoPedido', 'Estado', 'estado']) || 'EstadoPedido';
         latest.pedidos = await db.query(
-          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ORDER BY \`${pk}\` DESC LIMIT ?`,
-          [limitAdmin]
+          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ORDER BY \`${pk}\` DESC LIMIT ${Number(limitAdmin) || 10}`
         );
         if (!Array.isArray(latest.pedidos)) latest.pedidos = [];
       } catch (e) {

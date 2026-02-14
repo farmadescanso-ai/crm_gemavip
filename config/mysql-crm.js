@@ -1398,15 +1398,16 @@ class MySQLCRM {
           // no romper consultas si el servidor no lo soporta
         }
         
-        // Agregar timeout a la consulta
+        // Sin parámetros usar query() (protocolo simple) para evitar "Incorrect arguments to mysqld_stmt_execute" con execute()
+        const hasParams = Array.isArray(params) && params.length > 0;
         const result = await Promise.race([
-          connection.execute(sql, params),
-          new Promise((_, reject) => 
+          hasParams ? connection.execute(sql, params) : connection.query(sql),
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error(`Timeout en consulta SQL después de 15 segundos: ${sql.substring(0, 100)}...`)), 15000)
           )
         ]);
-        
-        // Para UPDATE, INSERT, DELETE, execute devuelve [rows, fields]
+
+        // Para UPDATE, INSERT, DELETE, execute/query devuelve [rows, fields]
         // Para SELECT, rows contiene los resultados
         // Para UPDATE/INSERT/DELETE, necesitamos el ResultSetHeader que está en result[0]
         // pero execute devuelve [rows, fields] donde rows es el ResultSetHeader para UPDATE

@@ -1,13 +1,9 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
+const { isAdminUser } = require('../../lib/auth');
 const { asyncHandler, toInt } = require('./_utils');
 
 const router = express.Router();
-
-function isAdminSessionUser(user) {
-  const roles = user?.roles || [];
-  return (roles || []).some((r) => String(r).toLowerCase().includes('admin'));
-}
 
 function normEstado(val) {
   const s = String(val ?? '').trim().toLowerCase();
@@ -17,7 +13,7 @@ function normEstado(val) {
 async function assertPedidoAccess(req, pedidoId, { write = false } = {}) {
   const sessionUser = req.session?.user || null;
   if (!sessionUser) return { ok: true, sessionUser: null, admin: false, item: null };
-  const admin = isAdminSessionUser(sessionUser);
+  const admin = isAdminUser(sessionUser);
 
   const item = await db.getPedidoById(pedidoId);
   if (!item) return { ok: false, status: 404, error: 'No encontrado' };
@@ -47,7 +43,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
     const comercialId = toInt(req.query.comercialId, null);
     const clienteId = toInt(req.query.clienteId, null);
 
@@ -126,7 +122,7 @@ router.post(
   '/',
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
-    const isAdmin = isAdminSessionUser(sessionUser);
+    const isAdmin = isAdminUser(sessionUser);
     // Compatibilidad:
     // - Legacy: body es el pedido "plano"
     // - Nuevo: { pedido: {...}, lineas: [...] }
