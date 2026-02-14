@@ -155,7 +155,21 @@
 .gv-contactos .gv-contactos-table col.gv-contactos-col-comercial { width: 11%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-estado { width: 11%; }
 .gv-contactos .gv-contactos-table td.gv-contactos-col-dnicif { overflow: hidden; max-width: 100%; }
-.gv-contactos .gv-contactos-table th { white-space: nowrap; }
+/* Cabecera alineada al resto de vistas (pedidos, visitas, etc.) */
+.gv-contactos .gv-contactos-table thead th {
+  background: #fbfdff;
+  color: var(--gv-ink, #1a1a1a);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 5px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
 .gv-contactos .gv-contactos-table th,
 .gv-contactos .gv-contactos-table td {
   word-wrap: break-word;
@@ -164,6 +178,10 @@
   box-sizing: border-box;
   padding-left: 5px;
   padding-right: 5px;
+}
+.gv-contactos .gv-contactos-table tbody td {
+  padding: 12px 5px;
+  border-bottom: 1px solid #f0f0f0;
 }
 .gv-contactos .gv-contactos-table th:first-child,
 .gv-contactos .gv-contactos-table td:first-child { padding-left: 0; }
