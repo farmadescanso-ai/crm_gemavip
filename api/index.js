@@ -2284,14 +2284,16 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
     const maxYear = now >= switchDate ? currentYear + 1 : currentYear;
     const years = [];
     for (let y = MIN_YEAR; y <= maxYear; y += 1) years.push(y);
-    const selectedYearRaw = req.query?.year;
+    const selectedYearRaw = String(req.query?.year || '').trim().toLowerCase();
     const selectedYearParsed = Number(selectedYearRaw);
     const selectedYear =
-      Number.isFinite(selectedYearParsed) && selectedYearParsed >= MIN_YEAR && selectedYearParsed <= maxYear
-        ? selectedYearParsed
-        : currentYear;
-    const yearFrom = `${selectedYear}-01-01`;
-    const yearTo = `${selectedYear}-12-31`;
+      selectedYearRaw === 'all' || selectedYearRaw === 'todos'
+        ? 'all'
+        : (Number.isFinite(selectedYearParsed) && selectedYearParsed >= MIN_YEAR && selectedYearParsed <= maxYear
+            ? selectedYearParsed
+            : currentYear);
+    const yearFrom = selectedYear === 'all' ? null : `${selectedYear}-01-01`;
+    const yearTo = selectedYear === 'all' ? null : `${selectedYear}-12-31`;
 
     const safeCount = async (table) => {
       try {
@@ -2315,7 +2317,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
         const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
         const colFecha = pedidosMeta?.colFecha || null;
-        if (!colFecha) return await safeCount(tPedidos);
+        if (selectedYear === 'all' || !colFecha) return await safeCount(tPedidos);
         const rows = await db.query(
           `SELECT COUNT(*) AS n FROM \`${tPedidos}\` WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?`,
           [yearFrom, yearTo]
@@ -2329,7 +2331,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
     const countVisitasWithYear = async () => {
       try {
         if (!metaVisitas?.table) return await safeCount(visitasTable);
-        if (!metaVisitas.colFecha) return await safeCount(metaVisitas.table);
+        if (selectedYear === 'all' || !metaVisitas.colFecha) return await safeCount(metaVisitas.table);
         const rows = await db.query(
           `SELECT COUNT(*) AS n FROM \`${metaVisitas.table}\` WHERE DATE(\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`,
           [yearFrom, yearTo]
@@ -2346,7 +2348,9 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         : (hasUserId ? db.countClientesOptimizado({ comercial: userId }) : 0),
       admin
         ? countPedidosWithYear()
-        : (hasUserId ? db.countPedidos({ comercialId: userId, from: yearFrom, to: yearTo }) : 0),
+        : (hasUserId
+            ? (selectedYear === 'all' ? db.countPedidos({ comercialId: userId }) : db.countPedidos({ comercialId: userId, from: yearFrom, to: yearTo }))
+            : 0),
       countVisitasWithYear(),
       admin ? safeCount('comerciales') : null
     ]);
@@ -2359,7 +2363,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         if (owner.clause) {
           const where = [owner.clause];
           const params = [...(owner.params || [])];
-          if (meta.colFecha) {
+          if (selectedYear !== 'all' && meta.colFecha) {
             where.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
             params.push(yearFrom, yearTo);
           }
@@ -2392,7 +2396,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         if (admin) {
           const where = [];
           const params = [];
-          if (colFecha) {
+          if (selectedYear !== 'all' && colFecha) {
             where.push(`DATE(\`${colFecha}\`) BETWEEN ? AND ?`);
             params.push(yearFrom, yearTo);
           }
@@ -2403,7 +2407,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
           if (colComercial) {
             const where = [`\`${colComercial}\` = ?`];
             const params = [userId];
-            if (colFecha) {
+            if (selectedYear !== 'all' && colFecha) {
               where.push(`DATE(\`${colFecha}\`) BETWEEN ? AND ?`);
               params.push(yearFrom, yearTo);
             }
@@ -2418,7 +2422,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
             ventas = (Array.isArray(rows) ? rows : []).reduce((acc, r) => {
               const v = Number(r?.[colTotal] ?? r?.TotalPedido ?? r?.Total ?? r?.ImporteTotal ?? 0);
               // Si tenemos fecha en el row, filtramos por año en memoria
-              if (colFecha) {
+              if (selectedYear !== 'all' && colFecha) {
                 const fv = r?.[colFecha];
                 const year = fv ? Number(String(fv).slice(0, 4)) : NaN;
                 if (Number.isFinite(year) && year !== selectedYear) return acc;
@@ -2452,8 +2456,8 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const colFecha = pedidosMeta?.colFecha || null;
         const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
         const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'TotalPedido';
-        const yearWhere = colFecha ? `WHERE DATE(p.\`${colFecha}\`) BETWEEN ? AND ?` : '';
-        const yearParams = colFecha ? [yearFrom, yearTo] : [];
+        const yearWhere = (selectedYear !== 'all' && colFecha) ? `WHERE DATE(p.\`${colFecha}\`) BETWEEN ? AND ?` : '';
+        const yearParams = (selectedYear !== 'all' && colFecha) ? [yearFrom, yearTo] : [];
         latest.clientes = await db.query(
           `SELECT c.\`${pkClientes}\` AS Id, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO,
             COALESCE(SUM(COALESCE(p.\`${colTotal}\`, 0)), 0) AS TotalFacturado
@@ -2480,8 +2484,8 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
         const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal']) || 'TotalPedido';
         const colEstado = db._pickCIFromColumns(pedidosCols, ['EstadoPedido', 'Estado', 'estado']) || 'EstadoPedido';
-        const where = colFecha ? `WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?` : '';
-        const params = colFecha ? [yearFrom, yearTo] : [];
+        const where = (selectedYear !== 'all' && colFecha) ? `WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?` : '';
+        const params = (selectedYear !== 'all' && colFecha) ? [yearFrom, yearTo] : [];
         latest.pedidos = await db.query(
           `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ${where} ORDER BY \`${pk}\` DESC LIMIT ${Number(limitAdmin) || 10}`,
           params
@@ -2511,14 +2515,17 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
           const colComercial = pedidosMeta?.colComercial || null;
           const colFecha = pedidosMeta?.colFecha || null;
           if (colComercial && colFecha) {
-            const rows = await db.query(
-              `SELECT * FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? AND DATE(\`${colFecha}\`) BETWEEN ? AND ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`,
-              [userId, yearFrom, yearTo]
-            );
+            const sql =
+              selectedYear === 'all'
+                ? `SELECT * FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`
+                : `SELECT * FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? AND DATE(\`${colFecha}\`) BETWEEN ? AND ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`;
+            const params = selectedYear === 'all' ? [userId] : [userId, yearFrom, yearTo];
+            const rows = await db.query(sql, params);
             latest.pedidos = Array.isArray(rows) ? rows : [];
           } else {
             const rows = await db.getPedidosByComercial(userId).catch(() => []);
             const filtered = (Array.isArray(rows) ? rows : []).filter((r) => {
+              if (selectedYear === 'all') return true;
               const fv = r?.FechaPedido ?? r?.Fecha ?? null;
               const y = fv ? Number(String(fv).slice(0, 4)) : NaN;
               return !Number.isFinite(y) ? true : y === selectedYear;
@@ -2550,7 +2557,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
           where.push(`v.\`${metaVisitas.colComercial}\` = ?`);
           params.push(userId);
         }
-        if (metaVisitas.colFecha) {
+        if (selectedYear !== 'all' && metaVisitas.colFecha) {
           where.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
           params.push(yearFrom, yearTo);
         }
@@ -2597,7 +2604,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
 
         const where = [];
         const params = [];
-        if (metaVisitas.colFecha) {
+        if (selectedYear !== 'all' && metaVisitas.colFecha) {
           where.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
           params.push(yearFrom, yearTo);
         }
