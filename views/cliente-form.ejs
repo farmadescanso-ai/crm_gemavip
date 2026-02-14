@@ -1,9 +1,9 @@
-<%- include('partials/header', { title: mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' }) %>
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar contacto' : 'Nuevo contacto' }) %>
 
 <section class="card" style="max-width: 980px; margin: 0 auto;">
   <div class="card-hd">
-    <h1 class="card-title"><%= mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' %></h1>
-    <p class="card-subtitle">Completa la información básica del cliente.</p>
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar contacto' : 'Nuevo contacto' %></h1>
+    <p class="card-subtitle">Completa la información básica. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.</p>
   </div>
   <div class="card-bd">
     <% if (error) { %>
@@ -18,15 +18,20 @@
           <input name="Nombre_Razon_Social" required value="<%= item.Nombre_Razon_Social ?? item.Nombre ?? '' %>" />
         </label>
         <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre comercial</span>
-          <input name="Nombre_Cial" value="<%= item.Nombre_Cial ?? '' %>" />
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo de contacto</span>
+          <select name="TipoContacto">
+            <option value="">— Seleccionar —</option>
+            <option value="Empresa" <%= (item.TipoContacto || '').toString() === 'Empresa' ? 'selected' : '' %>>Empresa</option>
+            <option value="Persona" <%= (item.TipoContacto || '').toString() === 'Persona' ? 'selected' : '' %>>Persona</option>
+            <option value="Otros" <%= (item.TipoContacto || '').toString() === 'Otros' ? 'selected' : '' %>>Otros</option>
+          </select>
         </label>
       </div>
 
       <div class="grid cols-2" style="gap: 12px;">
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">DNI/CIF</span>
-          <input name="DNI_CIF" value="<%= item.DNI_CIF ?? '' %>" />
+          <input name="DNI_CIF" id="gv-dni-cif" value="<%= item.DNI_CIF ?? '' %>" placeholder="Obligatorio para pedidos y estado activo" />
         </label>
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Email</span>
@@ -45,10 +50,11 @@
         </label>
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Estado</span>
-          <select name="OK_KO">
+          <select name="OK_KO" id="gv-ok-ko">
             <option value="1" <%= String(item.OK_KO ?? '1') === '1' ? 'selected' : '' %>>Activo</option>
             <option value="0" <%= String(item.OK_KO ?? '1') === '0' ? 'selected' : '' %>>Inactivo</option>
           </select>
+          <small style="color: var(--gv-muted, #6c757d);">Solo se puede estar activo con DNI/CIF informado.</small>
         </label>
       </div>
 
@@ -109,6 +115,20 @@
     </form>
   </div>
 </section>
-
+<script>
+(function () {
+  var dni = document.getElementById('gv-dni-cif');
+  var okKo = document.getElementById('gv-ok-ko');
+  if (!dni || !okKo) return;
+  function sync() {
+    var vacio = !String(dni.value || '').trim();
+    okKo.querySelector('option[value="1"]').disabled = vacio;
+    if (vacio && okKo.value === '1') okKo.value = '0';
+  }
+  dni.addEventListener('input', sync);
+  dni.addEventListener('change', sync);
+  sync();
+})();
+</script>
 <%- include('partials/footer') %>
 

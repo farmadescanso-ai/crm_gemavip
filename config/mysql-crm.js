@@ -1166,8 +1166,9 @@ class MySQLCRM {
       'EstadoClienteId',
       'estadoClienteId'
     ]);
+    const colTipoContacto = pickCI(['TipoContacto', 'tipo_contacto', 'Tipo_Contacto']);
 
-    const meta = { tClientes, pk, colComercial, colEstadoCliente };
+    const meta = { tClientes, pk, colComercial, colEstadoCliente, colTipoContacto };
     this._metaCache.clientesMeta = meta;
     return meta;
   }
@@ -1193,6 +1194,22 @@ class MySQLCRM {
     const nie = /^[XYZ][0-9]{7}[A-Z]$/;
     const cif = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/;
     return dni.test(v) || nie.test(v) || cif.test(v);
+  }
+
+  /**
+   * Clasifica TipoContacto por DNI_CIF: CIF → Empresa, DNI/NIE → Persona, resto → Otros.
+   * @param {string} value - DNI_CIF del cliente
+   * @returns {'Empresa'|'Persona'|'Otros'}
+   */
+  _getTipoContactoFromDniCif(value) {
+    const v = this._normalizeDniCif(value);
+    if (!v || ['PENDIENTE', 'NULL', 'N/A', 'NA'].includes(v) || v.startsWith('SIN_DNI')) return 'Otros';
+    const dni = /^[0-9]{8}[A-Z]$/;
+    const nie = /^[XYZ][0-9]{7}[A-Z]$/;
+    const cif = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/;
+    if (cif.test(v)) return 'Empresa';
+    if (dni.test(v) || nie.test(v)) return 'Persona';
+    return 'Otros';
   }
 
   async _getEstadoClienteIds() {
@@ -2104,6 +2121,14 @@ class MySQLCRM {
         }
       }
 
+      if (colTipoContacto && filters.tipoContacto !== null && filters.tipoContacto !== undefined && String(filters.tipoContacto).trim() !== '') {
+        const tipoVal = String(filters.tipoContacto).trim();
+        if (['Empresa', 'Persona', 'Otros'].includes(tipoVal)) {
+          whereConditions.push(`c.\`${colTipoContacto}\` = ?`);
+          params.push(tipoVal);
+        }
+      }
+
       // Filtro por provincia
       if (filters.provincia !== null && filters.provincia !== undefined && filters.provincia !== '' && !isNaN(filters.provincia)) {
         const provinciaId = typeof filters.provincia === 'number' ? filters.provincia : parseInt(filters.provincia);
@@ -2232,7 +2257,7 @@ class MySQLCRM {
   async getClientesOptimizadoPaged(filters = {}, options = {}) {
     let sql = '';
     try {
-      const { pk, colComercial, colEstadoCliente } = await this._ensureClientesMeta();
+      const { pk, colComercial, colEstadoCliente, colTipoContacto } = await this._ensureClientesMeta();
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
       const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : 50;
       const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
@@ -2258,7 +2283,8 @@ class MySQLCRM {
                   'c.CodigoPostal',
                   'c.Poblacion',
                   'c.Id_Provincia',
-                  'c.Id_TipoCliente'
+                  'c.Id_TipoCliente',
+                  ...(colTipoContacto ? [`c.\`${colTipoContacto}\` as TipoContacto`] : [])
                 ].join(',\n          ')
               : 'c.*'
           },
@@ -2324,6 +2350,14 @@ class MySQLCRM {
         if (!isNaN(tipoClienteId) && tipoClienteId > 0) {
           whereConditions.push('c.Id_TipoCliente = ?');
           params.push(tipoClienteId);
+        }
+      }
+
+      if (colTipoContacto && filters.tipoContacto !== null && filters.tipoContacto !== undefined && String(filters.tipoContacto).trim() !== '') {
+        const tipoVal = String(filters.tipoContacto).trim();
+        if (['Empresa', 'Persona', 'Otros'].includes(tipoVal)) {
+          whereConditions.push(`c.\`${colTipoContacto}\` = ?`);
+          params.push(tipoVal);
         }
       }
 
@@ -2527,7 +2561,7 @@ class MySQLCRM {
   async countClientesOptimizado(filters = {}) {
     let sql = '';
     try {
-      const { pk, colComercial, colEstadoCliente } = await this._ensureClientesMeta();
+      const { pk, colComercial, colEstadoCliente, colTipoContacto } = await this._ensureClientesMeta();
       const whereConditions = [];
 
       sql = 'SELECT COUNT(*) as total FROM clientes c';
@@ -2577,6 +2611,14 @@ class MySQLCRM {
         if (!isNaN(tipoClienteId) && tipoClienteId > 0) {
           whereConditions.push('c.Id_TipoCliente = ?');
           params.push(tipoClienteId);
+        }
+      }
+
+      if (colTipoContacto && filters.tipoContacto !== null && filters.tipoContacto !== undefined && String(filters.tipoContacto).trim() !== '') {
+        const tipoVal = String(filters.tipoContacto).trim();
+        if (['Empresa', 'Persona', 'Otros'].includes(tipoVal)) {
+          whereConditions.push(`c.\`${colTipoContacto}\` = ?`);
+          params.push(tipoVal);
         }
       }
 
@@ -3076,6 +3118,13 @@ class MySQLCRM {
           console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
         }
       }
+
+      const metaUpdate = await this._ensureClientesMeta().catch(() => null);
+      if (!metaUpdate?.colTipoContacto && payload.TipoContacto !== undefined) delete payload.TipoContacto;
+      if (payload.TipoContacto !== undefined && payload.TipoContacto !== null) {
+        const t = String(payload.TipoContacto).trim();
+        payload.TipoContacto = (t === 'Empresa' || t === 'Persona' || t === 'Otros') ? t : null;
+      }
       
       const fields = [];
       const values = [];
@@ -3237,6 +3286,13 @@ class MySQLCRM {
           // Si falla la asociación, continuar sin ella
           console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
         }
+      }
+
+      // TipoContacto (Empresa/Persona): solo incluir si la columna existe
+      if (!meta?.colTipoContacto && payload.TipoContacto !== undefined) delete payload.TipoContacto;
+      if (payload.TipoContacto !== undefined && payload.TipoContacto !== null) {
+        const t = String(payload.TipoContacto).trim();
+        payload.TipoContacto = (t === 'Empresa' || t === 'Persona' || t === 'Otros') ? t : null;
       }
       
       const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');

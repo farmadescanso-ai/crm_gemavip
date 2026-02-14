@@ -1,42 +1,47 @@
-<%- include('partials/header', { title: 'Clientes' }) %>
+<%- include('partials/header', { title: 'Contactos' }) %>
 
-<section class="card">
-  <div class="card-hd">
-    <h1 class="card-title">Clientes</h1>
-    <p class="card-subtitle">
-      Página <%= paging.page %> · Mostrando <%= items.length %> de <%= paging.total %> (limit <%= paging.limit %>)
-      <% if (typeof q !== 'undefined' && q) { %>
-        · Buscando: "<%= q %>"
-      <% } %>
+<section class="card gv-contactos">
+  <div class="gv-contactos-hd">
+    <div class="gv-contactos-hd__title-row">
+      <h1 class="gv-contactos-hd__title">Contactos</h1>
+      <button type="button" class="gv-contactos-hd__info" aria-label="Información" title="Información" data-tooltip="Gestiona tus clientes y proveedores: empresas y personas. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+      <span class="gv-contactos-hd__tooltip" role="tooltip" id="contactos-tooltip">Gestiona tus clientes y proveedores: empresas y personas. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.</span>
+    </div>
+    <div class="gv-contactos-hd__bar">
+      <nav class="gv-contactos-tabs" aria-label="Filtrar por tipo">
+        <a class="gv-contactos-tab <%= (typeof tipoContacto === 'undefined' || tipoContacto === '') ? 'is-active' : '' %>" href="/clientes?<%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>limit=<%= paging.limit %>">Todos</a>
+        <a class="gv-contactos-tab <%= tipoContacto === 'Empresa' ? 'is-active' : '' %>" href="/clientes?tipo=Empresa&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Empresas</a>
+        <a class="gv-contactos-tab <%= tipoContacto === 'Persona' ? 'is-active' : '' %>" href="/clientes?tipo=Persona&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Personas</a>
+        <a class="gv-contactos-tab <%= tipoContacto === 'Otros' ? 'is-active' : '' %>" href="/clientes?tipo=Otros&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Otros</a>
+      </nav>
+      <div class="gv-contactos-hd__actions">
+        <span class="gv-contactos-order">Contactos A–Z</span>
+        <form method="get" action="/clientes" class="gv-contactos-search" style="display:inline-flex; align-items:center; gap:8px;">
+          <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %><input type="hidden" name="tipo" value="<%= tipoContacto %>" /><% } %>
+          <input type="hidden" name="limit" value="<%= paging.limit %>" />
+          <input type="search" name="q" placeholder="Buscar..." value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" style="min-width: 200px;" />
+          <button class="btn secondary" type="submit">Buscar</button>
+        </form>
+        <% if (admin) { %>
+          <a class="btn" href="/clientes/new">Nuevo contacto</a>
+        <% } %>
+      </div>
+    </div>
+    <p class="gv-contactos-hd__sub">
+      Página <%= paging.page %> · Mostrando <%= items.length %> de <%= paging.total %> (límite <%= paging.limit %>)
+      <% if (typeof q !== 'undefined' && q) { %> · Buscando: "<%= q %>"<% } %>
+      <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %> · Tipo: <%= tipoContacto %><% } %>
     </p>
   </div>
   <div class="card-bd">
-    <% if (admin) { %>
-      <div style="display:flex; justify-content:flex-end; margin-bottom: 10px;">
-        <a class="btn" href="/clientes/new">Nuevo cliente</a>
-      </div>
-    <% } %>
-    <form method="get" action="/clientes" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom: 12px;">
-      <input
-        type="search"
-        name="q"
-        placeholder="Búsqueda inteligente (nombre, CIF, email, teléfono, CP o ID...)"
-        value="<%= (typeof q !== 'undefined' && q) ? q : '' %>"
-        style="min-width: 320px; flex: 1 1 320px;"
-      />
-      <input type="hidden" name="limit" value="<%= paging.limit %>" />
-      <button class="btn" type="submit">Buscar</button>
-      <% if (typeof q !== 'undefined' && q) { %>
-        <a class="btn secondary" href="/clientes?limit=<%= paging.limit %>">Limpiar</a>
-      <% } %>
-    </form>
-
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
       <% if (paging.page > 1) { %>
-        <a class="btn secondary" href="/clientes?page=<%= paging.page - 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %>">Anterior</a>
+        <a class="btn secondary" href="/clientes?page=<%= paging.page - 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %><%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? ('&tipo=' + encodeURIComponent(tipoContacto)) : '' %>">Anterior</a>
       <% } %>
       <% if ((paging.page * paging.limit) < paging.total) { %>
-        <a class="btn secondary" href="/clientes?page=<%= paging.page + 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %>">Siguiente</a>
+        <a class="btn secondary" href="/clientes?page=<%= paging.page + 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %><%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? ('&tipo=' + encodeURIComponent(tipoContacto)) : '' %>">Siguiente</a>
       <% } %>
     </div>
 
@@ -46,7 +51,9 @@
           <tr>
             <th>Acciones</th>
             <th>ID</th>
-            <th>Nombre/Razón Social</th>
+            <th>Nombre / Razón Social</th>
+            <th>Tipo</th>
+            <th>DNI/CIF</th>
             <th>Nombre Comercial</th>
             <th>CP</th>
             <th>Población</th>
@@ -60,21 +67,21 @@
             <tr>
               <td>
                 <div class="gv-actions">
-                  <a class="btn secondary icon" href="/clientes/<%= c.id ?? c.Id %>" title="Ver" aria-label="Ver cliente <%= c.id ?? c.Id %>">
+                  <a class="btn secondary icon" href="/clientes/<%= c.id ?? c.Id %>" title="Ver" aria-label="Ver contacto <%= c.id ?? c.Id %>">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
                       <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                   </a>
                   <% if (admin) { %>
-                    <a class="btn secondary icon" href="/clientes/<%= c.id ?? c.Id %>/edit" title="Editar" aria-label="Editar cliente <%= c.id ?? c.Id %>">
+                    <a class="btn secondary icon" href="/clientes/<%= c.id ?? c.Id %>/edit" title="Editar" aria-label="Editar contacto <%= c.id ?? c.Id %>">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 20h9"></path>
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
                       </svg>
                     </a>
-                    <form method="post" action="/clientes/<%= c.id ?? c.Id %>/delete" onsubmit="return confirm('¿Mover este cliente a la papelera?');">
-                      <button class="btn secondary icon danger" type="submit" title="Papelera" aria-label="Enviar cliente <%= c.id ?? c.Id %> a papelera">
+                    <form method="post" action="/clientes/<%= c.id ?? c.Id %>/delete" onsubmit="return confirm('¿Mover este contacto a la papelera?');">
+                      <button class="btn secondary icon danger" type="submit" title="Papelera" aria-label="Enviar contacto <%= c.id ?? c.Id %> a papelera">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <path d="M3 6h18"></path>
                           <path d="M8 6V4h8v2"></path>
@@ -89,6 +96,8 @@
               </td>
               <td><%= c.id ?? c.Id %></td>
               <td><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
+              <td><span class="gv-badge gv-badge--<%= (c.TipoContacto || '').toLowerCase() === 'empresa' ? 'empresa' : ((c.TipoContacto || '').toLowerCase() === 'persona' ? 'persona' : 'otros') %>"><%= c.TipoContacto || '—' %></span></td>
+              <td><%= c.DNI_CIF ?? '' %></td>
               <td><%= c.Nombre_Cial ?? '' %></td>
               <td><%= c.CodigoPostal ?? '' %></td>
               <td><%= c.Poblacion ?? '' %></td>
@@ -103,5 +112,27 @@
   </div>
 </section>
 
-<%- include('partials/footer') %>
+<style>
+.gv-contactos-hd { margin-bottom: 16px; }
+.gv-contactos-hd__title-row { display: flex; align-items: center; gap: 8px; position: relative; }
+.gv-contactos-hd__title { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--gv-ink, #1a1a1a); }
+.gv-contactos-hd__info { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%; background: var(--gv-muted-bg, #e9ecef); color: var(--gv-muted, #6c757d); cursor: pointer; }
+.gv-contactos-hd__info:hover { background: var(--gv-muted, #6c757d); color: #fff; }
+.gv-contactos-hd__tooltip { position: absolute; left: 0; top: 100%; margin-top: 6px; padding: 10px 14px; max-width: 360px; font-size: 13px; line-height: 1.45; color: #fff; background: #1a1a1a; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.2); opacity: 0; visibility: hidden; pointer-events: none; z-index: 10; transition: opacity .15s, visibility .15s; }
+.gv-contactos-hd__info:hover + .gv-contactos-hd__tooltip,
+.gv-contactos-hd__info:focus + .gv-contactos-hd__tooltip { opacity: 1; visibility: visible; }
+.gv-contactos-hd__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--gv-border, #dee2e6); }
+.gv-contactos-tabs { display: flex; gap: 4px; }
+.gv-contactos-tab { padding: 8px 14px; font-size: 14px; font-weight: 500; color: var(--gv-muted, #6c757d); text-decoration: none; border-radius: 6px; }
+.gv-contactos-tab:hover { color: var(--gv-ink, #1a1a1a); background: var(--gv-muted-bg, #f1f3f5); }
+.gv-contactos-tab.is-active { color: #0d6efd; background: rgba(13, 110, 253, 0.1); }
+.gv-contactos-hd__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.gv-contactos-order { font-size: 13px; color: var(--gv-muted, #6c757d); }
+.gv-contactos-hd__sub { margin: 10px 0 0; font-size: 13px; color: var(--gv-muted, #6c757d); }
+.gv-badge { display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 6px; }
+.gv-badge--empresa { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
+.gv-badge--persona { background: rgba(25, 135, 84, 0.15); color: #198754; }
+.gv-badge--otros { background: rgba(108, 117, 125, 0.2); color: #6c757d; }
+</style>
 
+<%- include('partials/footer') %>

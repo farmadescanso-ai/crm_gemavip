@@ -383,14 +383,17 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const offset = (page - 1) * limit;
     const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search).trim() : '';
+    const tipoContacto = typeof req.query.tipo === 'string' ? String(req.query.tipo).trim() : '';
     const admin = isAdminUser(res.locals.user);
     const baseFilters = admin ? {} : { comercial: res.locals.user?.id };
-    const filters = q ? { ...baseFilters, q } : baseFilters;
+    const filters = { ...baseFilters };
+    if (q) filters.q = q;
+    if (tipoContacto && ['Empresa', 'Persona', 'Otros'].includes(tipoContacto)) filters.tipoContacto = tipoContacto;
     const [items, total] = await Promise.all([
       db.getClientesOptimizadoPaged(filters, { limit, offset }),
       db.countClientesOptimizado(filters)
     ]);
-    res.render('clientes', { items: items || [], q, admin, paging: { page, limit, total: total || 0 } });
+    res.render('clientes', { items: items || [], q, admin, tipoContacto: tipoContacto || undefined, paging: { page, limit, total: total || 0 } });
   } catch (e) {
     next(e);
   }
@@ -419,11 +422,12 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
     const comerciales = await db.getComerciales().catch(() => []);
     const tarifas = await db.getTarifas().catch(() => []);
     const body = req.body || {};
+    const dniTrim = String(body.DNI_CIF || '').trim();
     const payload = {
       Id_Cial: body.Id_Cial ? Number(body.Id_Cial) || null : null,
       Nombre_Razon_Social: String(body.Nombre_Razon_Social || '').trim(),
       Nombre_Cial: String(body.Nombre_Cial || '').trim() || null,
-      DNI_CIF: String(body.DNI_CIF || '').trim() || null,
+      DNI_CIF: dniTrim || null,
       Direccion: String(body.Direccion || '').trim() || null,
       Poblacion: String(body.Poblacion || '').trim() || null,
       CodigoPostal: String(body.CodigoPostal || '').trim() || null,
@@ -432,8 +436,9 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
       Email: String(body.Email || '').trim() || null,
       Tarifa: body.Tarifa !== undefined ? (Number(body.Tarifa) || 0) : 0,
       Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
-      OK_KO: String(body.OK_KO || '1') === '1' ? 1 : 0,
-      Observaciones: String(body.Observaciones || '').trim() || null
+      OK_KO: (String(body.OK_KO || '1') === '1' && dniTrim) ? 1 : 0,
+      Observaciones: String(body.Observaciones || '').trim() || null,
+      TipoContacto: (body.TipoContacto === 'Empresa' || body.TipoContacto === 'Persona' || body.TipoContacto === 'Otros') ? body.TipoContacto : null
     };
 
     if (!payload.Nombre_Razon_Social) {
@@ -486,6 +491,7 @@ app.post('/clientes/:id/edit', requireAdmin, async (req, res, next) => {
     const tarifas = await db.getTarifas().catch(() => []);
     const body = req.body || {};
 
+    const dniTrimEdit = body.DNI_CIF !== undefined ? String(body.DNI_CIF || '').trim() : (item.DNI_CIF ? String(item.DNI_CIF).trim() : '');
     const payload = {
       Id_Cial: body.Id_Cial ? Number(body.Id_Cial) || null : null,
       Nombre_Razon_Social: body.Nombre_Razon_Social !== undefined ? String(body.Nombre_Razon_Social || '').trim() : undefined,
@@ -499,8 +505,9 @@ app.post('/clientes/:id/edit', requireAdmin, async (req, res, next) => {
       Email: body.Email !== undefined ? (String(body.Email || '').trim() || null) : undefined,
       Tarifa: body.Tarifa !== undefined ? (Number(body.Tarifa) || 0) : undefined,
       Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
-      OK_KO: body.OK_KO !== undefined ? (String(body.OK_KO || '1') === '1' ? 1 : 0) : undefined,
-      Observaciones: body.Observaciones !== undefined ? (String(body.Observaciones || '').trim() || null) : undefined
+      OK_KO: body.OK_KO !== undefined ? ((String(body.OK_KO || '1') === '1' && dniTrimEdit) ? 1 : 0) : undefined,
+      Observaciones: body.Observaciones !== undefined ? (String(body.Observaciones || '').trim() || null) : undefined,
+      TipoContacto: (body.TipoContacto === 'Empresa' || body.TipoContacto === 'Persona' || body.TipoContacto === 'Otros') ? body.TipoContacto : (body.TipoContacto !== undefined ? null : undefined)
     };
 
     if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) {
@@ -727,11 +734,24 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         articulos,
         item: pedidoPayload,
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
+        clientes: [],
         error: 'Id_Cial e Id_Cliente son obligatorios'
       });
     }
+    const clientePedido = await db.getClienteById(pedidoPayload.Id_Cliente);
+    const dniCliente = clientePedido ? String(clientePedido.DNI_CIF || '').trim() : '';
+    const activo = Number(clientePedido?.OK_KO ?? clientePedido?.ok_ko ?? 0) === 1;
+    if (!clientePedido) {
+      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: [], error: 'Cliente no encontrado.' });
+    }
+    if (!dniCliente || dniCliente.toLowerCase() === 'pendiente') {
+      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []), error: 'No se pueden crear pedidos para un cliente sin DNI/CIF. Indica el DNI/CIF del cliente y asígnalo como activo.' });
+    }
+    if (!activo) {
+      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []), error: 'No se pueden crear pedidos para un cliente inactivo. Activa el cliente en Contactos.' });
+    }
     if (!pedidoPayload.EstadoPedido) {
-      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, error: 'EstadoPedido es obligatorio' });
+      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: [], error: 'EstadoPedido es obligatorio' });
     }
 
     const created = await db.createPedido(pedidoPayload);
