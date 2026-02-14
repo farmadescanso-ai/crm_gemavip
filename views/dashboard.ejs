@@ -18,9 +18,18 @@
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Dashboard</h1>
-    <p class="card-subtitle">Resumen rápido del CRM.</p>
+    <p class="card-subtitle">Resumen rápido del CRM. Año <strong><%= selectedYear ?? new Date().getFullYear() %></strong>.</p>
   </div>
   <div class="card-bd">
+    <form method="get" action="/dashboard" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 0 0 12px 0;">
+      <label for="year" style="font-weight:700; color: var(--gv-ink);">Año</label>
+      <select id="year" name="year" class="gv-client-picker__q" style="width:auto; min-width: 140px;">
+        <% (years || []).forEach((y) => { %>
+          <option value="<%= y %>" <%= Number(selectedYear) === Number(y) ? 'selected' : '' %>><%= y %></option>
+        <% }) %>
+      </select>
+      <button class="btn secondary" type="submit">Ver</button>
+    </form>
     <div class="dash-stats">
       <div class="dash-stat" data-variant="blue">
         <div class="dash-stat-label">Clientes</div>
@@ -30,17 +39,17 @@
       <div class="dash-stat" data-variant="navy">
         <div class="dash-stat-label">Pedidos</div>
         <div class="dash-stat-value"><%= stats.pedidos ?? '—' %></div>
-        <div class="dash-stat-foot"><%= isAdmin ? 'Total en BD' : 'Tus pedidos' %></div>
+        <div class="dash-stat-foot"><%= isAdmin ? 'Año seleccionado' : 'Año seleccionado' %></div>
       </div>
       <div class="dash-stat" data-variant="green">
         <div class="dash-stat-label">Visitas</div>
         <div class="dash-stat-value"><%= stats.visitas ?? '—' %></div>
-        <div class="dash-stat-foot"><%= isAdmin ? 'Total en BD' : 'Tus visitas' %></div>
+        <div class="dash-stat-foot">Año seleccionado</div>
       </div>
       <div class="dash-stat" data-variant="yellow">
         <div class="dash-stat-label">Ventas</div>
         <div class="dash-stat-value"><%= stats.ventas == null ? '—' : fmtEurES(stats.ventas) %></div>
-        <div class="dash-stat-foot"><%= isAdmin ? 'Total de todos los comerciales' : 'Tus ventas acumuladas' %></div>
+        <div class="dash-stat-foot"><%= isAdmin ? 'Total (año)' : 'Tus ventas (año)' %></div>
       </div>
       <% if (isAdmin) { %>
         <div class="dash-stat" data-variant="navy">

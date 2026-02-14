@@ -2273,8 +2273,26 @@ app.post('/visitas/:id/delete', requireLogin, async (req, res, next) => {
   }
 });
 
-app.get('/dashboard', requireLogin, async (_req, res, next) => {
+app.get('/dashboard', requireLogin, async (req, res, next) => {
   try {
+    const MIN_YEAR = 2025;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    // A partir del 01/09 del año en curso, habilitamos seleccionar el año siguiente.
+    // Ej.: desde 01/09/2026 aparecen 2025, 2026 y 2027.
+    const switchDate = new Date(currentYear, 8, 1, 0, 0, 0, 0); // 1 Sep (mes 8)
+    const maxYear = now >= switchDate ? currentYear + 1 : currentYear;
+    const years = [];
+    for (let y = MIN_YEAR; y <= maxYear; y += 1) years.push(y);
+    const selectedYearRaw = req.query?.year;
+    const selectedYearParsed = Number(selectedYearRaw);
+    const selectedYear =
+      Number.isFinite(selectedYearParsed) && selectedYearParsed >= MIN_YEAR && selectedYearParsed <= maxYear
+        ? selectedYearParsed
+        : currentYear;
+    const yearFrom = `${selectedYear}-01-01`;
+    const yearTo = `${selectedYear}-12-31`;
+
     const safeCount = async (table) => {
       try {
         const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${table}\``);
@@ -2291,14 +2309,45 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
     const userId = Number(res.locals.user?.id);
     const hasUserId = Number.isFinite(userId) && userId > 0;
 
+    const countPedidosWithYear = async () => {
+      // Best-effort: si no hay columna fecha, contamos todos
+      try {
+        const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+        const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+        const colFecha = pedidosMeta?.colFecha || null;
+        if (!colFecha) return await safeCount(tPedidos);
+        const rows = await db.query(
+          `SELECT COUNT(*) AS n FROM \`${tPedidos}\` WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?`,
+          [yearFrom, yearTo]
+        );
+        return Number(rows?.[0]?.n ?? 0);
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const countVisitasWithYear = async () => {
+      try {
+        if (!metaVisitas?.table) return await safeCount(visitasTable);
+        if (!metaVisitas.colFecha) return await safeCount(metaVisitas.table);
+        const rows = await db.query(
+          `SELECT COUNT(*) AS n FROM \`${metaVisitas.table}\` WHERE DATE(\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`,
+          [yearFrom, yearTo]
+        );
+        return Number(rows?.[0]?.n ?? 0);
+      } catch (_) {
+        return null;
+      }
+    };
+
     const [clientes, pedidos, visitasTotal, comerciales] = await Promise.all([
       admin
         ? safeCount('clientes')
         : (hasUserId ? db.countClientesOptimizado({ comercial: userId }) : 0),
       admin
-        ? safeCount('pedidos')
-        : (hasUserId ? db.countPedidos({ comercialId: userId }) : 0),
-      safeCount(visitasTable),
+        ? countPedidosWithYear()
+        : (hasUserId ? db.countPedidos({ comercialId: userId, from: yearFrom, to: yearTo }) : 0),
+      countVisitasWithYear(),
       admin ? safeCount('comerciales') : null
     ]);
 
@@ -2308,7 +2357,13 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         const meta = await db._ensureVisitasMeta();
         const owner = db._buildVisitasOwnerWhere(meta, res.locals.user, 'v');
         if (owner.clause) {
-          const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${meta.table}\` v WHERE ${owner.clause}`, owner.params);
+          const where = [owner.clause];
+          const params = [...(owner.params || [])];
+          if (meta.colFecha) {
+            where.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
+            params.push(yearFrom, yearTo);
+          }
+          const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${meta.table}\` v WHERE ${where.join(' AND ')}`, params);
           visitas = Number(rows?.[0]?.n ?? 0);
         } else {
           visitas = 0;
@@ -2328,22 +2383,33 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
       const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
       const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
       const colComercial = pedidosMeta?.colComercial || null;
+      const colFecha = pedidosMeta?.colFecha || null;
       const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
       const colTotal =
         db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || null;
 
       if (colTotal) {
         if (admin) {
-          const rows = await db.query(
-            `SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\``,
-            []
-          );
+          const where = [];
+          const params = [];
+          if (colFecha) {
+            where.push(`DATE(\`${colFecha}\`) BETWEEN ? AND ?`);
+            params.push(yearFrom, yearTo);
+          }
+          const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+          const rows = await db.query(`SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\`${whereSql}`, params);
           ventas = Number(rows?.[0]?.total ?? 0) || 0;
         } else if (hasUserId) {
           if (colComercial) {
+            const where = [`\`${colComercial}\` = ?`];
+            const params = [userId];
+            if (colFecha) {
+              where.push(`DATE(\`${colFecha}\`) BETWEEN ? AND ?`);
+              params.push(yearFrom, yearTo);
+            }
             const rows = await db.query(
-              `SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ?`,
-              [userId]
+              `SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\` WHERE ${where.join(' AND ')}`,
+              params
             );
             ventas = Number(rows?.[0]?.total ?? 0) || 0;
           } else {
@@ -2351,6 +2417,12 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
             const rows = await db.getPedidosByComercial(userId).catch(() => []);
             ventas = (Array.isArray(rows) ? rows : []).reduce((acc, r) => {
               const v = Number(r?.[colTotal] ?? r?.TotalPedido ?? r?.Total ?? r?.ImporteTotal ?? 0);
+              // Si tenemos fecha en el row, filtramos por año en memoria
+              if (colFecha) {
+                const fv = r?.[colFecha];
+                const year = fv ? Number(String(fv).slice(0, 4)) : NaN;
+                if (Number.isFinite(year) && year !== selectedYear) return acc;
+              }
               return acc + (Number.isFinite(v) ? v : 0);
             }, 0);
           }
@@ -2377,16 +2449,21 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         const pkClientes = clientesMeta?.pk || 'Id';
         const colClientePedido = pedidosMeta?.colCliente || 'Id_Cliente';
         const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+        const colFecha = pedidosMeta?.colFecha || null;
         const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
         const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'TotalPedido';
+        const yearWhere = colFecha ? `WHERE DATE(p.\`${colFecha}\`) BETWEEN ? AND ?` : '';
+        const yearParams = colFecha ? [yearFrom, yearTo] : [];
         latest.clientes = await db.query(
           `SELECT c.\`${pkClientes}\` AS Id, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO,
             COALESCE(SUM(COALESCE(p.\`${colTotal}\`, 0)), 0) AS TotalFacturado
            FROM \`${tClientes}\` c
            INNER JOIN \`${tPedidos}\` p ON p.\`${colClientePedido}\` = c.\`${pkClientes}\`
+           ${yearWhere}
            GROUP BY c.\`${pkClientes}\`, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO
            ORDER BY TotalFacturado DESC
            LIMIT ${Number(limitAdmin) || 10}`
+          , yearParams
         );
         if (!Array.isArray(latest.clientes)) latest.clientes = [];
       } catch (e) {
@@ -2403,8 +2480,11 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
         const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal']) || 'TotalPedido';
         const colEstado = db._pickCIFromColumns(pedidosCols, ['EstadoPedido', 'Estado', 'estado']) || 'EstadoPedido';
+        const where = colFecha ? `WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?` : '';
+        const params = colFecha ? [yearFrom, yearTo] : [];
         latest.pedidos = await db.query(
-          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ORDER BY \`${pk}\` DESC LIMIT ${Number(limitAdmin) || 10}`
+          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ${where} ORDER BY \`${pk}\` DESC LIMIT ${Number(limitAdmin) || 10}`,
+          params
         );
         if (!Array.isArray(latest.pedidos)) latest.pedidos = [];
       } catch (e) {
@@ -2425,8 +2505,26 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
       }
       try {
         if (hasUserId) {
-          const rows = await db.getPedidosByComercial(userId).catch(() => []);
-          latest.pedidos = Array.isArray(rows) ? rows.slice(0, limitLatest) : [];
+          const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+          const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+          const pk = pedidosMeta?.pk || 'id';
+          const colComercial = pedidosMeta?.colComercial || null;
+          const colFecha = pedidosMeta?.colFecha || null;
+          if (colComercial && colFecha) {
+            const rows = await db.query(
+              `SELECT * FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? AND DATE(\`${colFecha}\`) BETWEEN ? AND ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`,
+              [userId, yearFrom, yearTo]
+            );
+            latest.pedidos = Array.isArray(rows) ? rows : [];
+          } else {
+            const rows = await db.getPedidosByComercial(userId).catch(() => []);
+            const filtered = (Array.isArray(rows) ? rows : []).filter((r) => {
+              const fv = r?.FechaPedido ?? r?.Fecha ?? null;
+              const y = fv ? Number(String(fv).slice(0, 4)) : NaN;
+              return !Number.isFinite(y) ? true : y === selectedYear;
+            });
+            latest.pedidos = filtered.slice(0, limitLatest);
+          }
         } else {
           latest.pedidos = [];
         }
@@ -2451,6 +2549,10 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         if (metaVisitas.colComercial && Number.isFinite(userId) && userId > 0) {
           where.push(`v.\`${metaVisitas.colComercial}\` = ?`);
           params.push(userId);
+        }
+        if (metaVisitas.colFecha) {
+          where.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
+          params.push(yearFrom, yearTo);
         }
         const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
         latest.visitas = await db.query(
@@ -2493,6 +2595,13 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
         const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
         const selectComercialNombre = metaVisitas.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
 
+        const where = [];
+        const params = [];
+        if (metaVisitas.colFecha) {
+          where.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
+          params.push(yearFrom, yearTo);
+        }
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
         latest.visitas = await db.query(
           `
           SELECT
@@ -2507,17 +2616,18 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
           FROM \`${metaVisitas.table}\` v
           ${joinCliente}
           ${joinComercial}
+          ${whereSql}
           ORDER BY v.\`${metaVisitas.pk}\` DESC
           LIMIT 10
         `,
-          []
+          params
         );
       } catch (_) {
         latest.visitas = [];
       }
     }
 
-    res.render('dashboard', { stats, latest, dashboardErrors: dashboardErrors || {} });
+    res.render('dashboard', { stats, latest, dashboardErrors: dashboardErrors || {}, years, selectedYear });
   } catch (e) {
     next(e);
   }
