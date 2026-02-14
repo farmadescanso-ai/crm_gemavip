@@ -54,10 +54,39 @@
       </form>
     <% } %>
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>.xlsx">Excel</a>
-    <a class="btn secondary" href="/pedidos/<%= pedidoId %>/hefame.xlsx">HEFAME</a>
-    <a class="btn secondary" href="/pedidos/<%= pedidoId %>/hefame-send-email" target="_blank" rel="noopener noreferrer" title="Abrir información Hefame">HEFAME (info)</a>
+    <span class="gv-hefame-wrap">
+      <a class="btn secondary" href="/pedidos/<%= pedidoId %>/hefame.xlsx">HEFAME</a>
+      <button type="button" class="gv-hefame-info-btn" onclick="document.getElementById('modal-hefame').showModal()" title="Información Hefame" aria-label="Información Hefame">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+    </span>
     <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
   </div>
+
+  <dialog id="modal-hefame" class="gv-modal-hefame" aria-labelledby="modal-hefame-title" onclick="if (event.target === this) this.close()">
+    <div class="gv-modal-hefame-inner">
+      <h2 id="modal-hefame-title" class="gv-modal-hefame-title">Export Hefame</h2>
+      <p class="gv-modal-hefame-text">El envío por email está temporalmente deshabilitado.</p>
+      <p class="gv-modal-hefame-text">Puede descargar la plantilla Excel con los datos del pedido para Hefame usando el enlace siguiente.</p>
+      <p class="gv-modal-hefame-actions">
+        <a class="btn" href="/pedidos/<%= pedidoId %>/hefame.xlsx">Descargar plantilla Excel Hefame</a>
+      </p>
+      <button type="button" class="gv-modal-hefame-close" onclick="document.getElementById('modal-hefame').close()" aria-label="Cerrar">Cerrar</button>
+    </div>
+  </dialog>
+  <style>
+    .gv-hefame-wrap { display: inline-flex; align-items: center; gap: 4px; }
+    .gv-hefame-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; background: var(--gv-bg, #f8f9fa); color: var(--gv-muted, #6c757d); cursor: pointer; }
+    .gv-hefame-info-btn:hover { background: var(--gv-bg-hover, #e9ecef); color: var(--gv-fg, #212529); }
+    .gv-modal-hefame { border: none; border-radius: 8px; padding: 0; max-width: 90vw; width: 420px; box-shadow: 0 4px 20px rgba(0,0,0,.2); }
+    .gv-modal-hefame::backdrop { background: rgba(0,0,0,.4); }
+    .gv-modal-hefame-inner { padding: 20px 24px; }
+    .gv-modal-hefame-title { margin: 0 0 12px; font-size: 1.15rem; color: var(--gv-fg, #212529); }
+    .gv-modal-hefame-text { margin: 0 0 8px; font-size: 0.95rem; line-height: 1.45; color: var(--gv-muted, #495057); }
+    .gv-modal-hefame-actions { margin: 16px 0 12px; }
+    .gv-modal-hefame-close { display: block; margin-top: 8px; padding: 6px 12px; font-size: 0.9rem; background: transparent; border: 1px solid rgba(0,0,0,.2); border-radius: 6px; cursor: pointer; color: var(--gv-fg, #212529); }
+    .gv-modal-hefame-close:hover { background: rgba(0,0,0,.06); }
+  </style>
 
   <div class="gv-doc-head gv-print-header">
     <div class="gv-doc-company">
