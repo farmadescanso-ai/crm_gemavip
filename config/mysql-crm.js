@@ -3022,23 +3022,36 @@ class MySQLCRM {
   }
 
   async getNotificaciones(limit = 50, offset = 0) {
+    const l = Math.max(1, Math.min(100, Number(limit)));
+    const o = Math.max(0, Number(offset));
+    const toList = (rows) => (Array.isArray(rows) ? rows : (rows != null ? [rows] : []));
     try {
       await this._ensureNotificacionesTable();
-      const l = Math.max(1, Math.min(100, Number(limit)));
-      const o = Math.max(0, Number(offset));
-      const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-      const tComerciales = await this._resolveTableNameCaseInsensitive('comerciales');
+      const clientesMeta = await this._ensureClientesMeta().catch(() => null);
+      const comercialesMeta = await this._ensureComercialesMeta().catch(() => null);
+      const tClientes = clientesMeta?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
+      const tComerciales = comercialesMeta?.table || (await this._resolveTableNameCaseInsensitive('comerciales'));
+      const pkClientes = clientesMeta?.pk || 'Id';
+      const pkComerciales = comercialesMeta?.pk || 'id';
       const sql = `SELECT n.*, c.Nombre_Razon_Social AS contacto_nombre, com.Nombre AS comercial_nombre
          FROM notificaciones n
-         LEFT JOIN \`${tClientes}\` c ON n.id_contacto = c.Id
-         LEFT JOIN \`${tComerciales}\` com ON n.id_comercial_solicitante = com.id
+         LEFT JOIN \`${tClientes}\` c ON n.id_contacto = c.\`${pkClientes}\`
+         LEFT JOIN \`${tComerciales}\` com ON n.id_comercial_solicitante = com.\`${pkComerciales}\`
          ORDER BY n.fecha_creacion DESC
          LIMIT ? OFFSET ?`;
       const rows = await this.query(sql, [l, o]);
-      return Array.isArray(rows) ? rows : [];
+      return toList(rows);
     } catch (e) {
       console.error('❌ Error listando notificaciones:', e?.message);
-      return [];
+      try {
+        const fallback = await this.query(
+          'SELECT n.*, NULL AS contacto_nombre, NULL AS comercial_nombre FROM notificaciones n ORDER BY n.fecha_creacion DESC LIMIT ? OFFSET ?',
+          [l, o]
+        );
+        return toList(fallback);
+      } catch (e2) {
+        return [];
+      }
     }
   }
 
