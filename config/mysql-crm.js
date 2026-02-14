@@ -3025,16 +3025,65 @@ class MySQLCRM {
     }
   }
 
+  /**
+   * Obtiene nombres de contactos por lista de IDs. Devuelve Map(id -> nombre).
+   */
+  async _getClientesNombresByIds(ids) {
+    const map = {};
+    if (!ids || ids.length === 0) return map;
+    const uniq = [...new Set(ids.filter((id) => id != null && id !== ''))];
+    if (uniq.length === 0) return map;
+    try {
+      const meta = await this._ensureClientesMeta();
+      const placeholders = uniq.map(() => '?').join(',');
+      const sql = `SELECT \`${meta.pk}\` AS id, Nombre_Razon_Social AS nombre FROM \`${meta.tClientes}\` WHERE \`${meta.pk}\` IN (${placeholders})`;
+      const rows = await this.query(sql, uniq);
+      const list = Array.isArray(rows) ? rows : [];
+      list.forEach((r) => {
+        const id = r.id ?? r.Id ?? r.id_contacto;
+        const nombre = r.nombre ?? r.Nombre_Razon_Social ?? r.Nombre ?? '';
+        if (id != null) map[Number(id)] = nombre;
+      });
+    } catch (e) {
+      console.warn('⚠️ [NOTIF] No se pudieron cargar nombres de contactos:', e?.message);
+    }
+    return map;
+  }
+
+  /**
+   * Obtiene nombres de comerciales por lista de IDs. Devuelve Map(id -> nombre).
+   */
+  async _getComercialesNombresByIds(ids) {
+    const map = {};
+    if (!ids || ids.length === 0) return map;
+    const uniq = [...new Set(ids.filter((id) => id != null && id !== ''))];
+    if (uniq.length === 0) return map;
+    try {
+      const meta = await this._ensureComercialesMeta();
+      const placeholders = uniq.map(() => '?').join(',');
+      const sql = `SELECT \`${meta.pk}\` AS id, Nombre AS nombre FROM \`${meta.table}\` WHERE \`${meta.pk}\` IN (${placeholders})`;
+      const rows = await this.query(sql, uniq);
+      const list = Array.isArray(rows) ? rows : [];
+      list.forEach((r) => {
+        const id = r.id ?? r.Id;
+        const nombre = r.nombre ?? r.Nombre ?? '';
+        if (id != null) map[Number(id)] = nombre;
+      });
+    } catch (e) {
+      console.warn('⚠️ [NOTIF] No se pudieron cargar nombres de comerciales:', e?.message);
+    }
+    return map;
+  }
+
   async getNotificaciones(limit = 50, offset = 0) {
     const l = Math.max(1, Math.min(100, Number(limit)));
     const o = Math.max(0, Number(offset));
     await this._ensureNotificacionesTable();
     try {
-      // Sin placeholders en LIMIT/OFFSET para evitar fallos con execute() en algunos entornos
       const sql = `SELECT id, tipo, id_contacto, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM \`notificaciones\` ORDER BY fecha_creacion DESC LIMIT ${l} OFFSET ${o}`;
       const rows = await this.query(sql);
       const list = Array.isArray(rows) ? rows : (rows && typeof rows === 'object' && !rows.insertId ? [rows] : []);
-      return list.map((n) => ({
+      const items = list.map((n) => ({
         id: n.id,
         tipo: n.tipo,
         id_contacto: n.id_contacto,
@@ -3047,6 +3096,18 @@ class MySQLCRM {
         contacto_nombre: null,
         comercial_nombre: null
       }));
+      if (items.length === 0) return items;
+      const contactIds = items.map((x) => x.id_contacto).filter(Boolean);
+      const comercialIds = items.map((x) => x.id_comercial_solicitante).filter(Boolean);
+      const [nombresContactos, nombresComerciales] = await Promise.all([
+        this._getClientesNombresByIds(contactIds),
+        this._getComercialesNombresByIds(comercialIds)
+      ]);
+      items.forEach((n) => {
+        n.contacto_nombre = nombresContactos[Number(n.id_contacto)] ?? null;
+        n.comercial_nombre = nombresComerciales[Number(n.id_comercial_solicitante)] ?? null;
+      });
+      return items;
     } catch (e) {
       console.error('❌ Error listando notificaciones:', e?.message);
       return [];

@@ -438,6 +438,14 @@ main.container{
 .btn.icon.danger{
   border-color: rgba(255,186,0,.6);
 }
+.btn.icon.success{
+  border-color: rgba(25,135,84,.5);
+  color: #198754;
+}
+.btn.icon.success:hover{
+  background: rgba(25,135,84,.1);
+  border-color: #198754;
+}
 
 .table-wrap{ overflow:auto; border-radius: 14px; border:1px solid var(--gv-border); }
 table{

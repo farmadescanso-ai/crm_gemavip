@@ -22,13 +22,14 @@
             <th>Contacto</th>
             <th>Comercial solicitante</th>
             <th>Estado</th>
+            <th>Fecha resolución</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="notif-tbody">
           <% if (!items || items.length === 0) { %>
             <tr id="notif-empty-row">
-              <td colspan="5" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay solicitudes.</td>
+              <td colspan="6" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay solicitudes.</td>
             </tr>
           <% } else { %>
             <% items.forEach((n) => { %>
@@ -43,14 +44,21 @@
                     <%= (n.estado || '').toLowerCase() === 'pendiente' ? 'Pendiente' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'Aprobada' : 'Rechazada') %>
                   </span>
                 </td>
+                <td><%= (n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion ? (typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion) : '—' %></td>
                 <td>
                   <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
-                    <form method="post" action="/notificaciones/<%= n.id %>/aprobar" style="display:inline;">
-                      <button class="btn" type="submit">Aprobar asignación</button>
-                    </form>
-                    <form method="post" action="/notificaciones/<%= n.id %>/rechazar" style="display:inline;">
-                      <button class="btn secondary" type="submit">Rechazar solicitud</button>
-                    </form>
+                    <div class="gv-actions">
+                      <form method="post" action="/notificaciones/<%= n.id %>/aprobar">
+                        <button class="btn secondary icon success" type="submit" title="Aprobar asignación" aria-label="Aprobar asignación">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                      </form>
+                      <form method="post" action="/notificaciones/<%= n.id %>/rechazar">
+                        <button class="btn secondary icon danger" type="submit" title="Rechazar solicitud" aria-label="Rechazar solicitud">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                      </form>
+                    </div>
                   <% } else { %>
                     —
                   <% } %>
@@ -87,9 +95,10 @@
         var badgeClass = estado === 'pendiente' ? 'otros' : (estado === 'aprobada' ? 'persona' : 'empresa');
         var tr = document.createElement('tr');
         var acc = estado === 'pendiente'
-          ? '<form method="post" action="/notificaciones/' + n.id + '/aprobar" style="display:inline;"><button class="btn" type="submit">Aprobar asignación</button></form> <form method="post" action="/notificaciones/' + n.id + '/rechazar" style="display:inline;"><button class="btn secondary" type="submit">Rechazar solicitud</button></form>'
+          ? '<div class="gv-actions"><form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar asignación" aria-label="Aprobar asignación"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar solicitud" aria-label="Rechazar solicitud"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form></div>'
           : '—';
-        tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td><a href="/clientes/' + n.id_contacto + '">' + (n.contacto_nombre || 'Contacto #' + n.id_contacto) + '</a></td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + acc + '</td>';
+        var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
+        tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td><a href="/clientes/' + n.id_contacto + '">' + (n.contacto_nombre || 'Contacto #' + n.id_contacto) + '</a></td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + acc + '</td>';
         tbody.appendChild(tr);
       });
     })
