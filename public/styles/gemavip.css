@@ -1286,8 +1286,12 @@ table.calendar td.is-empty{
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+@media (min-width: 720px){
+  .dash-stats{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (min-width: 960px){
-  .dash-stats{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* Auto-fit para que 4 (comercial) y 5 (admin) KPIs quepan en 1 fila */
+  .dash-stats{ grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 }
 .dash-stat{
   border: 1px solid var(--gv-border);
@@ -1321,9 +1325,11 @@ table.calendar td.is-empty{
 }
 .dash-stat-value{
   margin-top: 6px;
-  font-size: 26px;
+  font-size: clamp(18px, 2.1vw, 26px);
   font-weight: 800;
   color: var(--gv-ink);
+  line-height: 1.15;
+  white-space: nowrap;
 }
 .dash-stat-foot{
   margin-top: 4px;

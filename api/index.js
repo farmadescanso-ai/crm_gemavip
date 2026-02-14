@@ -2320,6 +2320,49 @@ app.get('/dashboard', requireLogin, async (_req, res, next) => {
 
     const stats = { clientes, pedidos, visitas, comerciales };
 
+    // Ventas (suma de importes de pedidos)
+    // - Comercial: solo sus ventas acumuladas
+    // - Admin: total de ventas de todos los comerciales
+    let ventas = null;
+    try {
+      const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+      const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+      const colComercial = pedidosMeta?.colComercial || null;
+      const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
+      const colTotal =
+        db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || null;
+
+      if (colTotal) {
+        if (admin) {
+          const rows = await db.query(
+            `SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\``,
+            []
+          );
+          ventas = Number(rows?.[0]?.total ?? 0) || 0;
+        } else if (hasUserId) {
+          if (colComercial) {
+            const rows = await db.query(
+              `SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ?`,
+              [userId]
+            );
+            ventas = Number(rows?.[0]?.total ?? 0) || 0;
+          } else {
+            // Fallback legacy: usar el método existente (puede ser más costoso, pero evita "Unknown column")
+            const rows = await db.getPedidosByComercial(userId).catch(() => []);
+            ventas = (Array.isArray(rows) ? rows : []).reduce((acc, r) => {
+              const v = Number(r?.[colTotal] ?? r?.TotalPedido ?? r?.Total ?? r?.ImporteTotal ?? 0);
+              return acc + (Number.isFinite(v) ? v : 0);
+            }, 0);
+          }
+        } else {
+          ventas = 0;
+        }
+      }
+    } catch (_) {
+      ventas = null;
+    }
+    stats.ventas = ventas;
+
     const latest = { clientes: [], pedidos: [], visitas: [] };
     const limitLatest = 8;
     const limitAdmin = 10;

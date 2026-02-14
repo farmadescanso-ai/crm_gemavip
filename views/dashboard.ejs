@@ -37,8 +37,13 @@
         <div class="dash-stat-value"><%= stats.visitas ?? '—' %></div>
         <div class="dash-stat-foot"><%= isAdmin ? 'Total en BD' : 'Tus visitas' %></div>
       </div>
+      <div class="dash-stat" data-variant="yellow">
+        <div class="dash-stat-label">Ventas</div>
+        <div class="dash-stat-value"><%= stats.ventas == null ? '—' : fmtEurES(stats.ventas) %></div>
+        <div class="dash-stat-foot"><%= isAdmin ? 'Total de todos los comerciales' : 'Tus ventas acumuladas' %></div>
+      </div>
       <% if (isAdmin) { %>
-        <div class="dash-stat" data-variant="yellow">
+        <div class="dash-stat" data-variant="navy">
           <div class="dash-stat-label">Comerciales</div>
           <div class="dash-stat-value"><%= stats.comerciales ?? '—' %></div>
           <div class="dash-stat-foot">Total en BD</div>
@@ -93,7 +98,7 @@
                 <td><%= c.Nombre_Razon_Social ?? '' %></td>
                 <td><%= c.Poblacion ?? '' %></td>
                 <td><%= c.CodigoPostal ?? '' %></td>
-                <% if (isAdmin && (c.TotalFacturado != null)) { %><td><%= Number(c.TotalFacturado).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %> €</td><% } %>
+                <% if (isAdmin && (c.TotalFacturado != null)) { %><td><%= fmtEurES(c.TotalFacturado) %></td><% } %>
                 <td>
                   <% const st = (c.OK_KO ?? c.Estado ?? '').toString().toUpperCase(); %>
                   <% if (st === 'OK' || st === '1') { %>
@@ -148,7 +153,7 @@
                 </td>
                 <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
                 <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-                <td><%= p.TotalPedido ?? p.Total ?? '' %></td>
+                <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? p.ImporteTotal ?? 0) %></td>
                 <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
               </tr>
             <% }) %>
