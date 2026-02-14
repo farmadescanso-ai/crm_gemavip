@@ -6,6 +6,7 @@
     <p class="card-subtitle">Completa la información básica. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.</p>
   </div>
   <div class="card-bd">
+    <% const missingFields = typeof missingFields !== 'undefined' && Array.isArray(missingFields) ? missingFields : []; %>
     <% if (error) { %>
       <div class="gv-alert gv-alert--warn"><%= error %></div>
       <div style="height: 10px;"></div>
@@ -13,9 +14,10 @@
 
     <form method="post" action="<%= mode === 'edit' ? ('/clientes/' + (item.Id || item.id) + '/edit') : '/clientes/new' %>" style="display:grid; gap: 12px;">
       <div class="grid cols-2" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;">
+        <label style="display:grid; gap: 6px;" class="<%= missingFields.indexOf('Nombre_Razon_Social') !== -1 ? 'gv-field-error' : '' %>">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre / Razón Social *</span>
-          <input name="Nombre_Razon_Social" required value="<%= item.Nombre_Razon_Social ?? item.Nombre ?? '' %>" />
+          <input name="Nombre_Razon_Social" required value="<%= item.Nombre_Razon_Social ?? item.Nombre ?? '' %>" aria-invalid="<%= missingFields.indexOf('Nombre_Razon_Social') !== -1 ? 'true' : 'false' %>" />
+          <% if (missingFields.indexOf('Nombre_Razon_Social') !== -1) { %><small class="gv-field-error-msg">Campo obligatorio</small><% } %>
         </label>
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo de contacto</span>
@@ -91,6 +93,7 @@
         </label>
       </div>
 
+      <% /* Comercial asignado: se muestra como "Nombre · Email" (ej. Farmadescanso 2021 SL · pedidos@farmadescanso.com). El ID del comercial se puede obtener con db.getComercialIdFromDisplayString(eseTexto). */ %>
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial asignado</span>
         <% const curCial = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? 0) || 0; %>
@@ -123,7 +126,7 @@
 
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>
-        <textarea name="Observaciones" rows="4"><%= item.Observaciones ?? '' %></textarea>
+        <textarea name="Observaciones" rows="4"><%= item.Observaciones ?? item.Notas ?? '' %></textarea>
       </label>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">

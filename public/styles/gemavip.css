@@ -1391,6 +1391,19 @@ table.calendar td.is-empty{
 .gv-alert.error{ background: rgba(255,186,0,.16); border-color: rgba(255,186,0,.35); }
 .gv-alert.info{ background: rgba(0,139,210,.12); border-color: rgba(0,139,210,.30); }
 
+/* Campos obligatorios no rellenados en formularios */
+.gv-field-error input,
+.gv-field-error select,
+.gv-field-error textarea {
+  border-color: rgba(255,186,0,.7);
+  box-shadow: 0 0 0 1px rgba(255,186,0,.25);
+}
+.gv-field-error-msg {
+  color: #b8860b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* Página de error (estándar) */
 .gv-error{
   max-width: 960px;

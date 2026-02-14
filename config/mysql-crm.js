@@ -1167,8 +1167,9 @@ class MySQLCRM {
       'estadoClienteId'
     ]);
     const colTipoContacto = pickCI(['TipoContacto', 'tipo_contacto', 'Tipo_Contacto']);
+    const colObservaciones = pickCI(['Observaciones', 'observaciones', 'Notas', 'notas', 'Comentarios', 'comentarios']);
 
-    const meta = { tClientes, pk, colComercial, colEstadoCliente, colTipoContacto };
+    const meta = { tClientes, pk, colComercial, colEstadoCliente, colTipoContacto, colObservaciones, cols };
     this._metaCache.clientesMeta = meta;
     return meta;
   }
@@ -1519,6 +1520,23 @@ class MySQLCRM {
       console.error('❌ Error obteniendo comercial por ID:', error.message);
       return null;
     }
+  }
+
+  /**
+   * Obtiene el ID del comercial a partir del texto "Comercial asignado":
+   * formato "Nombre · Email" (ej. "Farmadescanso 2021 SL · pedidos@farmadescanso.com").
+   * Extrae el email (parte tras " · ") y busca el comercial por email.
+   * @param {string} displayStr - Texto en formato "Nombre · Email" o solo email
+   * @returns {Promise<number|null>} - id del comercial o null
+   */
+  async getComercialIdFromDisplayString(displayStr) {
+    if (!displayStr || typeof displayStr !== 'string') return null;
+    const trimmed = displayStr.trim();
+    if (!trimmed) return null;
+    const email = trimmed.includes(' · ') ? trimmed.split(' · ').pop().trim() : trimmed;
+    if (!email) return null;
+    const c = await this.getComercialByEmail(email);
+    return c ? (c.id ?? c.Id ?? null) : null;
   }
 
   /**
@@ -3125,9 +3143,9 @@ class MySQLCRM {
       [aprobar ? 'aprobada' : 'rechazada', idAdmin, ahora, idNotif]
     );
     if (aprobar) {
-      const { colComercial } = await this._ensureClientesMeta();
-      if (colComercial) {
-        await this.query(`UPDATE clientes SET \`${colComercial}\` = ? WHERE Id = ?`, [notif.id_comercial_solicitante, notif.id_contacto]);
+      const { tClientes, pk, colComercial } = await this._ensureClientesMeta();
+      if (colComercial && tClientes) {
+        await this.query(`UPDATE \`${tClientes}\` SET \`${colComercial}\` = ? WHERE \`${pk}\` = ?`, [notif.id_comercial_solicitante, notif.id_contacto]);
       }
     }
     return { ok: true };
@@ -3350,18 +3368,31 @@ class MySQLCRM {
       
       const fields = [];
       const values = [];
-      
+      const colsList = metaUpdate?.cols || [];
+      const pickColName = (key) => {
+        if (key === 'Observaciones' && metaUpdate?.colObservaciones) return metaUpdate.colObservaciones;
+        if (!colsList.length) return key;
+        const keyLower = String(key).toLowerCase();
+        const found = colsList.find(c => c.toLowerCase() === keyLower);
+        return found || null;
+      };
+
       for (const [key, value] of Object.entries(payload)) {
         if (value === undefined) continue; // no enviar undefined al bind (MySQL exige null, no undefined)
-        fields.push(`\`${key}\` = ?`);
+        const colName = pickColName(key);
+        if (!colName) continue; // omitir campos que no existen en la tabla
+        const inTable = !colsList.length || colsList.some(c => c.toLowerCase() === colName.toLowerCase());
+        if (!inTable) continue;
+        fields.push(`\`${colName}\` = ?`);
         values.push(value === null ? null : value);
       }
       
       if (fields.length === 0) return { affectedRows: 0 };
       
       values.push(id);
-      const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-      const sql = `UPDATE \`${tClientes}\` SET ${fields.join(', ')} WHERE Id = ?`;
+      const tClientes = metaUpdate?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
+      const pk = metaUpdate?.pk || 'Id';
+      const sql = `UPDATE \`${tClientes}\` SET ${fields.join(', ')} WHERE \`${pk}\` = ?`;
       await this.query(sql, values);
       return { affectedRows: 1 };
     } catch (error) {

@@ -456,8 +456,10 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
       TipoContacto: (body.TipoContacto === 'Empresa' || body.TipoContacto === 'Persona' || body.TipoContacto === 'Otros') ? body.TipoContacto : null
     };
 
-    if (!payload.Nombre_Razon_Social) {
-      return res.status(400).render('cliente-form', { mode: 'create', comerciales, tarifas, item: payload, error: 'Nombre/Razón Social es obligatorio' });
+    const missingFieldsNew = [];
+    if (!payload.Nombre_Razon_Social) missingFieldsNew.push('Nombre_Razon_Social');
+    if (missingFieldsNew.length > 0) {
+      return res.status(400).render('cliente-form', { mode: 'create', comerciales, tarifas, item: payload, error: 'Completa los campos obligatorios marcados.', missingFields: missingFieldsNew });
     }
 
     await db.createCliente(payload);
@@ -535,9 +537,22 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       TipoContacto: (body.TipoContacto === 'Empresa' || body.TipoContacto === 'Persona' || body.TipoContacto === 'Otros') ? body.TipoContacto : (body.TipoContacto !== undefined ? null : undefined)
     };
 
-    if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) {
+    const missingFields = [];
+    if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) missingFields.push('Nombre_Razon_Social');
+    if (missingFields.length > 0) {
       const puedeSolicitar = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
-      return res.status(400).render('cliente-form', { mode: 'edit', item: { ...item, ...payload }, comerciales, tarifas, error: 'Nombre/Razón Social es obligatorio', admin, canChangeComercial: !!admin, puedeSolicitarAsignacion: puedeSolicitar, contactoId: id });
+      return res.status(400).render('cliente-form', {
+        mode: 'edit',
+        item: { ...item, ...payload },
+        comerciales,
+        tarifas,
+        error: 'Completa los campos obligatorios marcados.',
+        missingFields,
+        admin,
+        canChangeComercial: !!admin,
+        puedeSolicitarAsignacion: puedeSolicitar,
+        contactoId: id
+      });
     }
 
     await db.updateCliente(id, payload);
