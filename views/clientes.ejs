@@ -45,18 +45,18 @@
       <% } %>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap gv-contactos-table-wrap">
       <table class="gv-contactos-table">
         <colgroup>
           <col class="gv-contactos-col-acciones" />
           <col class="gv-contactos-col-nombre" />
-          <col />
+          <col class="gv-contactos-col-tipo" />
           <col class="gv-contactos-col-dnicif" />
-          <col />
-          <col />
-          <col />
-          <col />
-          <col />
+          <col class="gv-contactos-col-cp" />
+          <col class="gv-contactos-col-poblacion" />
+          <col class="gv-contactos-col-provincia" />
+          <col class="gv-contactos-col-comercial" />
+          <col class="gv-contactos-col-estado" />
           <col />
         </colgroup>
         <thead>
@@ -141,21 +141,27 @@
 .gv-badge--empresa { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
 .gv-badge--persona { background: rgba(25, 135, 84, 0.15); color: #198754; }
 .gv-badge--otros { background: rgba(108, 117, 125, 0.2); color: #6c757d; }
-/* Tabla contactos: fuente 1 punto menos para que encaje mejor; 10px entre columnas */
+/* Tabla contactos: margen 10px cada lado; ancho 100% repartido entre columnas; títulos completos en cabecera */
+.gv-contactos .gv-contactos-table-wrap { margin: 0 10px; }
 .gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 120px; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 200px; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-dnicif { width: 100px; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 10%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 20%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 8%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-dnicif { width: 8%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-cp { width: 6%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-poblacion { width: 12%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 11%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-comercial { width: 15%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-estado { width: 10%; }
+.gv-contactos .gv-contactos-table th { white-space: nowrap; }
 .gv-contactos .gv-contactos-table th,
 .gv-contactos .gv-contactos-table td {
-  white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
   min-width: 0;
   box-sizing: border-box;
 }
-.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { width: 200px; max-width: 200px; }
-.gv-contactos .gv-contactos-table td.gv-contactos-col-dnicif { width: 100px; min-width: 100px; max-width: 100px; }
+.gv-contactos .gv-contactos-table td { white-space: normal; }
 </style>
 
 <%- include('partials/footer') %>
