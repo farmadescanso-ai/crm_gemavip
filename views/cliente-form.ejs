@@ -6,7 +6,7 @@
     <p class="card-subtitle">Completa la información básica. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.</p>
   </div>
   <div class="card-bd">
-    <% const missingFields = typeof missingFields !== 'undefined' && Array.isArray(missingFields) ? missingFields : []; %>
+    <% const missingFieldsList = (typeof missingFields !== 'undefined' && Array.isArray(missingFields)) ? missingFields : []; %>
     <% if (error) { %>
       <div class="gv-alert gv-alert--warn"><%= error %></div>
       <div style="height: 10px;"></div>
@@ -14,10 +14,10 @@
 
     <form method="post" action="<%= mode === 'edit' ? ('/clientes/' + (item.Id || item.id) + '/edit') : '/clientes/new' %>" style="display:grid; gap: 12px;">
       <div class="grid cols-2" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;" class="<%= missingFields.indexOf('Nombre_Razon_Social') !== -1 ? 'gv-field-error' : '' %>">
+        <label style="display:grid; gap: 6px;" class="<%= missingFieldsList.indexOf('Nombre_Razon_Social') !== -1 ? 'gv-field-error' : '' %>">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre / Razón Social *</span>
-          <input name="Nombre_Razon_Social" required value="<%= item.Nombre_Razon_Social ?? item.Nombre ?? '' %>" aria-invalid="<%= missingFields.indexOf('Nombre_Razon_Social') !== -1 ? 'true' : 'false' %>" />
-          <% if (missingFields.indexOf('Nombre_Razon_Social') !== -1) { %><small class="gv-field-error-msg">Campo obligatorio</small><% } %>
+          <input name="Nombre_Razon_Social" required value="<%= item.Nombre_Razon_Social ?? item.Nombre ?? '' %>" aria-invalid="<%= missingFieldsList.indexOf('Nombre_Razon_Social') !== -1 ? 'true' : 'false' %>" />
+          <% if (missingFieldsList.indexOf('Nombre_Razon_Social') !== -1) { %><small class="gv-field-error-msg">Campo obligatorio</small><% } %>
         </label>
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo de contacto</span>
