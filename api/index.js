@@ -22,7 +22,6 @@ const {
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { sendPasswordResetEmail, APP_BASE_URL } = require('../lib/mailer');
-const { sendPasswordResetEmail, getAppUrl } = require('../lib/send-password-reset-email');
 
 const app = express();
 app.set('trust proxy', 1);
