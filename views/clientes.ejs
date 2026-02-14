@@ -50,11 +50,9 @@
         <thead>
           <tr>
             <th>Acciones</th>
-            <th>ID</th>
             <th>Nombre / Razón Social</th>
             <th>Tipo</th>
             <th>DNI/CIF</th>
-            <th>Nombre Comercial</th>
             <th>CP</th>
             <th>Población</th>
             <th>Provincia</th>
@@ -94,11 +92,9 @@
                   <% } %>
                 </div>
               </td>
-              <td><%= c.id ?? c.Id %></td>
               <td><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
               <td><span class="gv-badge gv-badge--<%= (c.TipoContacto || '').toLowerCase() === 'empresa' ? 'empresa' : ((c.TipoContacto || '').toLowerCase() === 'persona' ? 'persona' : 'otros') %>"><%= c.TipoContacto || '—' %></span></td>
               <td><%= c.DNI_CIF ?? '' %></td>
-              <td><%= c.Nombre_Cial ?? '' %></td>
               <td><%= c.CodigoPostal ?? '' %></td>
               <td><%= c.Poblacion ?? '' %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
