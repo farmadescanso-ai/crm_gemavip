@@ -17,6 +17,7 @@ router.get('/', (_req, res) => {
 
 router.use('/comerciales', require('./comerciales'));
 router.use('/clientes', require('./clientes'));
+router.use('/notificaciones', require('./notificaciones'));
 router.use('/pedidos', require('./pedidos'));
 router.use('/visitas', require('./visitas'));
 

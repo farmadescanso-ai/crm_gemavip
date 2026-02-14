@@ -2992,7 +2992,8 @@ class MySQLCRM {
           PRIMARY KEY (\`id\`),
           KEY \`idx_notif_estado\` (\`estado\`),
           KEY \`idx_notif_contacto\` (\`id_contacto\`),
-          KEY \`idx_notif_comercial\` (\`id_comercial_solicitante\`)
+          KEY \`idx_notif_comercial\` (\`id_comercial_solicitante\`),
+          KEY \`idx_notif_fecha_creacion\` (\`fecha_creacion\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
       return true;
@@ -3005,7 +3006,7 @@ class MySQLCRM {
   async createSolicitudAsignacion(idContacto, idComercialSolicitante) {
     await this._ensureNotificacionesTable();
     const r = await this.query(
-      'INSERT INTO notificaciones (tipo, id_contacto, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?)',
+      'INSERT INTO `notificaciones` (tipo, id_contacto, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?)',
       ['asignacion_contacto', idContacto, idComercialSolicitante, 'pendiente']
     );
     return r?.insertId ?? r?.affectedRows ?? null;
@@ -3014,8 +3015,11 @@ class MySQLCRM {
   async getNotificacionesPendientesCount() {
     try {
       await this._ensureNotificacionesTable();
-      const rows = await this.query("SELECT COUNT(*) AS n FROM notificaciones WHERE estado = 'pendiente'");
-      return Number(rows?.[0]?.n ?? 0);
+      const rows = await this.query('SELECT COUNT(*) AS n FROM `notificaciones` WHERE estado = \'pendiente\'');
+      if (!rows) return 0;
+      const first = Array.isArray(rows) ? rows[0] : rows;
+      const n = first?.n ?? first?.N ?? (Array.isArray(first) ? first[0] : 0);
+      return Number(n ?? 0);
     } catch (_) {
       return 0;
     }
@@ -3024,16 +3028,25 @@ class MySQLCRM {
   async getNotificaciones(limit = 50, offset = 0) {
     const l = Math.max(1, Math.min(100, Number(limit)));
     const o = Math.max(0, Number(offset));
-    const toList = (rows) => (Array.isArray(rows) ? rows : (rows != null ? [rows] : []));
     await this._ensureNotificacionesTable();
-    // Consulta solo a notificaciones (sin JOIN): evita fallos por nombres de tabla clientes/comerciales en el servidor
     try {
-      const rows = await this.query(
-        'SELECT id, tipo, id_contacto, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM notificaciones ORDER BY fecha_creacion DESC LIMIT ? OFFSET ?',
-        [l, o]
-      );
-      const list = toList(rows);
-      return list.map((n) => ({ ...n, contacto_nombre: null, comercial_nombre: null }));
+      // Sin placeholders en LIMIT/OFFSET para evitar fallos con execute() en algunos entornos
+      const sql = `SELECT id, tipo, id_contacto, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM \`notificaciones\` ORDER BY fecha_creacion DESC LIMIT ${l} OFFSET ${o}`;
+      const rows = await this.query(sql);
+      const list = Array.isArray(rows) ? rows : (rows && typeof rows === 'object' && !rows.insertId ? [rows] : []);
+      return list.map((n) => ({
+        id: n.id,
+        tipo: n.tipo,
+        id_contacto: n.id_contacto,
+        id_comercial_solicitante: n.id_comercial_solicitante,
+        estado: n.estado,
+        id_admin_resolvio: n.id_admin_resolvio,
+        fecha_creacion: n.fecha_creacion,
+        fecha_resolucion: n.fecha_resolucion,
+        notas: n.notas,
+        contacto_nombre: null,
+        comercial_nombre: null
+      }));
     } catch (e) {
       console.error('❌ Error listando notificaciones:', e?.message);
       return [];
@@ -3042,12 +3055,12 @@ class MySQLCRM {
 
   async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) {
     await this._ensureNotificacionesTable();
-    const rows = await this.query('SELECT * FROM notificaciones WHERE id = ? AND estado = ?', [idNotif, 'pendiente']);
+    const rows = await this.query('SELECT * FROM `notificaciones` WHERE id = ? AND estado = ?', [idNotif, 'pendiente']);
     if (!rows?.length) return { ok: false, message: 'Notificación no encontrada o ya resuelta' };
     const notif = rows[0];
     const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await this.query(
-      'UPDATE notificaciones SET estado = ?, id_admin_resolvio = ?, fecha_resolucion = ? WHERE id = ?',
+      'UPDATE `notificaciones` SET estado = ?, id_admin_resolvio = ?, fecha_resolucion = ? WHERE id = ?',
       [aprobar ? 'aprobada' : 'rechazada', idAdmin, ahora, idNotif]
     );
     if (aprobar) {

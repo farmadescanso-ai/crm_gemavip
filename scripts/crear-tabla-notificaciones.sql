@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS `notificaciones` (
   PRIMARY KEY (`id`),
   KEY `idx_notif_estado` (`estado`),
   KEY `idx_notif_contacto` (`id_contacto`),
-  KEY `idx_notif_comercial` (`id_comercial_solicitante`)
+  KEY `idx_notif_comercial` (`id_comercial_solicitante`),
+  KEY `idx_notif_fecha_creacion` (`fecha_creacion`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Solicitudes de asignación de contactos y notificaciones para el administrador';
+
+-- Índice adicional si la tabla ya existía sin él:
+-- ALTER TABLE `notificaciones` ADD KEY `idx_notif_fecha_creacion` (`fecha_creacion`);

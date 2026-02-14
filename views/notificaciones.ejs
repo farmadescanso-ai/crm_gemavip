@@ -25,9 +25,9 @@
             <th>Acciones</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="notif-tbody">
           <% if (!items || items.length === 0) { %>
-            <tr>
+            <tr id="notif-empty-row">
               <td colspan="5" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay solicitudes.</td>
             </tr>
           <% } else { %>
@@ -63,5 +63,37 @@
     </div>
   </div>
 </section>
-
+<script>
+(function() {
+  var emptyRow = document.getElementById('notif-empty-row');
+  var total = <%= (typeof paging !== 'undefined' && paging && paging.total) ? paging.total : 0 %>;
+  if (!emptyRow || total === 0) return;
+  fetch('/api/notificaciones?limit=50')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok || !data.items || data.items.length === 0) return;
+      var tbody = document.getElementById('notif-tbody');
+      emptyRow.remove();
+      var fmtDate = function(d) {
+        if (!d) return '';
+        var s = String(d);
+        var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return m[3] + '/' + m[2] + '/' + m[1];
+        return s;
+      };
+      data.items.forEach(function(n) {
+        var estado = (n.estado || '').toLowerCase();
+        var estadoLabel = estado === 'pendiente' ? 'Pendiente' : (estado === 'aprobada' ? 'Aprobada' : 'Rechazada');
+        var badgeClass = estado === 'pendiente' ? 'otros' : (estado === 'aprobada' ? 'persona' : 'empresa');
+        var tr = document.createElement('tr');
+        var acc = estado === 'pendiente'
+          ? '<form method="post" action="/notificaciones/' + n.id + '/aprobar" style="display:inline;"><button class="btn" type="submit">Aprobar asignación</button></form> <form method="post" action="/notificaciones/' + n.id + '/rechazar" style="display:inline;"><button class="btn secondary" type="submit">Rechazar solicitud</button></form>'
+          : '—';
+        tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td><a href="/clientes/' + n.id_contacto + '">' + (n.contacto_nombre || 'Contacto #' + n.id_contacto) + '</a></td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + acc + '</td>';
+        tbody.appendChild(tr);
+      });
+    })
+    .catch(function() {});
+})();
+</script>
 <%- include('partials/footer') %>
