@@ -3025,33 +3025,18 @@ class MySQLCRM {
     const l = Math.max(1, Math.min(100, Number(limit)));
     const o = Math.max(0, Number(offset));
     const toList = (rows) => (Array.isArray(rows) ? rows : (rows != null ? [rows] : []));
+    await this._ensureNotificacionesTable();
+    // Consulta solo a notificaciones (sin JOIN): evita fallos por nombres de tabla clientes/comerciales en el servidor
     try {
-      await this._ensureNotificacionesTable();
-      const clientesMeta = await this._ensureClientesMeta().catch(() => null);
-      const comercialesMeta = await this._ensureComercialesMeta().catch(() => null);
-      const tClientes = clientesMeta?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
-      const tComerciales = comercialesMeta?.table || (await this._resolveTableNameCaseInsensitive('comerciales'));
-      const pkClientes = clientesMeta?.pk || 'Id';
-      const pkComerciales = comercialesMeta?.pk || 'id';
-      const sql = `SELECT n.*, c.Nombre_Razon_Social AS contacto_nombre, com.Nombre AS comercial_nombre
-         FROM notificaciones n
-         LEFT JOIN \`${tClientes}\` c ON n.id_contacto = c.\`${pkClientes}\`
-         LEFT JOIN \`${tComerciales}\` com ON n.id_comercial_solicitante = com.\`${pkComerciales}\`
-         ORDER BY n.fecha_creacion DESC
-         LIMIT ? OFFSET ?`;
-      const rows = await this.query(sql, [l, o]);
-      return toList(rows);
+      const rows = await this.query(
+        'SELECT id, tipo, id_contacto, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM notificaciones ORDER BY fecha_creacion DESC LIMIT ? OFFSET ?',
+        [l, o]
+      );
+      const list = toList(rows);
+      return list.map((n) => ({ ...n, contacto_nombre: null, comercial_nombre: null }));
     } catch (e) {
       console.error('❌ Error listando notificaciones:', e?.message);
-      try {
-        const fallback = await this.query(
-          'SELECT n.*, NULL AS contacto_nombre, NULL AS comercial_nombre FROM notificaciones n ORDER BY n.fecha_creacion DESC LIMIT ? OFFSET ?',
-          [l, o]
-        );
-        return toList(fallback);
-      } catch (e2) {
-        return [];
-      }
+      return [];
     }
   }
 
