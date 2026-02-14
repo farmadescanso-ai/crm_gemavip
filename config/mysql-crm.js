@@ -3004,7 +3004,7 @@ class MySQLCRM {
 
   async createSolicitudAsignacion(idContacto, idComercialSolicitante) {
     await this._ensureNotificacionesTable();
-    const [r] = await this.query(
+    const r = await this.query(
       'INSERT INTO notificaciones (tipo, id_contacto, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?)',
       ['asignacion_contacto', idContacto, idComercialSolicitante, 'pendiente']
     );
@@ -3026,15 +3026,15 @@ class MySQLCRM {
       await this._ensureNotificacionesTable();
       const l = Math.max(1, Math.min(100, Number(limit)));
       const o = Math.max(0, Number(offset));
-      const rows = await this.query(
-        `SELECT n.*, c.Nombre_Razon_Social AS contacto_nombre, com.Nombre AS comercial_nombre
+      const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
+      const tComerciales = await this._resolveTableNameCaseInsensitive('comerciales');
+      const sql = `SELECT n.*, c.Nombre_Razon_Social AS contacto_nombre, com.Nombre AS comercial_nombre
          FROM notificaciones n
-         LEFT JOIN clientes c ON n.id_contacto = c.Id
-         LEFT JOIN comerciales com ON n.id_comercial_solicitante = com.id
+         LEFT JOIN \`${tClientes}\` c ON n.id_contacto = c.Id
+         LEFT JOIN \`${tComerciales}\` com ON n.id_comercial_solicitante = com.id
          ORDER BY n.fecha_creacion DESC
-         LIMIT ? OFFSET ?`,
-        [l, o]
-      );
+         LIMIT ? OFFSET ?`;
+      const rows = await this.query(sql, [l, o]);
       return Array.isArray(rows) ? rows : [];
     } catch (e) {
       console.error('❌ Error listando notificaciones:', e?.message);
