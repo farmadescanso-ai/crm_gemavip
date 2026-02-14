@@ -3221,21 +3221,22 @@ class MySQLCRM {
         console.warn('⚠️  [UPDATE] No se pudo calcular Id_EstdoCliente:', e?.message || e);
       }
       
-      // Si hay código postal, validar correspondencia con provincia y país
+      // Si hay código postal, validar correspondencia con provincia y país (si existe el módulo)
       if (payload.CodigoPostal && (provinciaId || paisId)) {
         try {
           const { validarCodigoPostalProvinciaPais } = require('../scripts/validar-codigo-postal-provincia-pais');
           const validacion = validarCodigoPostalProvinciaPais(payload.CodigoPostal, provinciaId, paisId, provincias, paises);
-          
-          if (!validacion.valido) {
-            throw new Error(validacion.error);
-          }
+          if (!validacion.valido) throw new Error(validacion.error);
         } catch (error) {
-          throw new Error(`Error de validación: ${error.message}`);
+          if (error.code === 'MODULE_NOT_FOUND' || (error.message && error.message.includes('Cannot find module'))) {
+            // Módulo opcional no desplegado: omitir validación
+          } else {
+            throw new Error(`Error de validación: ${error.message}`);
+          }
         }
       }
       
-      // Si se actualiza CodigoPostal y no hay Id_Provincia, intentar asociarla
+      // Si se actualiza CodigoPostal y no hay Id_Provincia, intentar asociarla (si existe el módulo)
       if (payload.CodigoPostal && !payload.Id_Provincia) {
         try {
           const { obtenerProvinciaPorCodigoPostal } = require('../scripts/asociar-provincia-por-codigo-postal');
@@ -3260,8 +3261,11 @@ class MySQLCRM {
             }
           }
         } catch (error) {
-          // Si falla la asociación, continuar sin ella
-          console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
+          if (error.code === 'MODULE_NOT_FOUND' || (error.message && error.message.includes('Cannot find module'))) {
+            // Módulo opcional: omitir asociación
+          } else {
+            console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
+          }
         }
       }
 
@@ -3390,21 +3394,22 @@ class MySQLCRM {
         }
       }
       
-      // Si hay código postal, validar correspondencia con provincia y país
+      // Si hay código postal, validar correspondencia con provincia y país (si existe el módulo)
       if (payload.CodigoPostal && (payload.Id_Provincia || payload.Id_Pais)) {
         try {
           const { validarCodigoPostalProvinciaPais } = require('../scripts/validar-codigo-postal-provincia-pais');
           const validacion = validarCodigoPostalProvinciaPais(payload.CodigoPostal, payload.Id_Provincia, payload.Id_Pais, provincias, paises);
-          
-          if (!validacion.valido) {
-            throw new Error(validacion.error);
-          }
+          if (!validacion.valido) throw new Error(validacion.error);
         } catch (error) {
-          throw new Error(`Error de validación: ${error.message}`);
+          if (error.code === 'MODULE_NOT_FOUND' || (error.message && error.message.includes('Cannot find module'))) {
+            // Módulo opcional no desplegado: omitir validación
+          } else {
+            throw new Error(`Error de validación: ${error.message}`);
+          }
         }
       }
       
-      // Si hay CodigoPostal y no hay Id_Provincia, intentar asociarla
+      // Si hay CodigoPostal y no hay Id_Provincia, intentar asociarla (si existe el módulo)
       if (payload.CodigoPostal && !payload.Id_Provincia) {
         try {
           const { obtenerProvinciaPorCodigoPostal } = require('../scripts/asociar-provincia-por-codigo-postal');
@@ -3429,8 +3434,11 @@ class MySQLCRM {
             }
           }
         } catch (error) {
-          // Si falla la asociación, continuar sin ella
-          console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
+          if (error.code === 'MODULE_NOT_FOUND' || (error.message && error.message.includes('Cannot find module'))) {
+            // Módulo opcional: omitir asociación
+          } else {
+            console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
+          }
         }
       }
 
