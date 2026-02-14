@@ -141,14 +141,15 @@
 .gv-badge--empresa { background: rgba(13, 110, 253, 0.15); color: #0d6efd; }
 .gv-badge--persona { background: rgba(25, 135, 84, 0.15); color: #198754; }
 .gv-badge--otros { background: rgba(108, 117, 125, 0.2); color: #6c757d; }
-/* Tabla contactos: margen 5px cada lado; DNI/CIF con más ancho para no sobresalir; resto repartido igual */
-.gv-contactos .gv-contactos-table-wrap { margin: 0 5px; }
+/* Tabla contactos: margen 2px cada lado; CP ancho fijo (ES/PT); espacio ganado a Nombre / Razón Social */
+.gv-contactos .gv-contactos-table-wrap { margin: 0 2px; }
 .gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 11%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 11%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 16%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 11%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-dnicif { width: 12%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-cp { width: 11%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-cp { width: 7%; }
+.gv-contactos .gv-contactos-table td.gv-contactos-col-cp { white-space: nowrap; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-poblacion { width: 11%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 11%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-comercial { width: 11%; }
