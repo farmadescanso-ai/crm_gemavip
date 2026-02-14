@@ -91,6 +91,7 @@
         </label>
       </div>
 
+      <% if (typeof canChangeComercial === 'undefined' || canChangeComercial) { %>
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial (Id_Cial)</span>
         <select name="Id_Cial">
@@ -102,6 +103,9 @@
           <% }) %>
         </select>
       </label>
+      <% } else { %>
+        <input type="hidden" name="Id_Cial" value="<%= item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? '' %>" />
+      <% } %>
 
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>

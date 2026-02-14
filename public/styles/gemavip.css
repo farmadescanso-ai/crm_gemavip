@@ -172,6 +172,31 @@ main.container{
 }
 
 .userbox{ display:flex; align-items:center; }
+.gv-notif-link{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gv-muted, #6c757d);
+  padding: 6px;
+  border-radius: 10px;
+}
+.gv-notif-link:hover{ color: #0d6efd; background: rgba(13, 110, 253, .08); }
+.gv-notif-badge{
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  background: #dc3545;
+  border-radius: 8px;
+}
 .user-menu{ position: relative; }
 .user-summary{
   list-style:none;

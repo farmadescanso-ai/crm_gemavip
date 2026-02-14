@@ -215,11 +215,20 @@ app.use((req, _res, next) => {
   req.user = user;
   next();
 });
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.locals.user = req.user || null;
   const roles = res.locals.user?.roles || [];
   res.locals.navLinks = res.locals.user ? getCommonNavLinksForRoles(roles) : [];
   res.locals.roleNavLinks = res.locals.user ? getRoleNavLinksForRoles(roles) : [];
+  if (res.locals.user && isAdminUser(res.locals.user)) {
+    try {
+      res.locals.notificacionesPendientes = await db.getNotificacionesPendientesCount();
+    } catch (_) {
+      res.locals.notificacionesPendientes = 0;
+    }
+  } else {
+    res.locals.notificacionesPendientes = 0;
+  }
 
   // Helpers globales para EJS (formatos ES)
   res.locals.fmtDateES = (val) => {
@@ -387,6 +396,10 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
     const order = String(req.query.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
     const admin = isAdminUser(res.locals.user);
     const baseFilters = admin ? {} : { comercial: res.locals.user?.id };
+    if (!admin && res.locals.user?.id) {
+      const poolId = await db.getComercialIdPool();
+      if (poolId) baseFilters.comercialPoolId = poolId;
+    }
     const filters = { ...baseFilters };
     if (q) filters.q = q;
     if (tipoContacto && ['Empresa', 'Persona', 'Otros'].includes(tipoContacto)) filters.tipoContacto = tipoContacto;
@@ -394,7 +407,8 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
       db.getClientesOptimizadoPaged(filters, { limit, offset, sortBy: 'nombre', order }),
       db.countClientesOptimizado(filters)
     ]);
-    res.render('clientes', { items: items || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page, limit, total: total || 0 } });
+    const poolId = admin ? null : await db.getComercialIdPool();
+    res.render('clientes', { items: items || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page, limit, total: total || 0 }, poolId: poolId || null });
   } catch (e) {
     next(e);
   }
@@ -460,41 +474,50 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
     const item = await db.getClienteById(id);
     if (!item) return res.status(404).send('No encontrado');
     const admin = isAdminUser(res.locals.user);
-    res.render('cliente', { item, admin });
+    if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para ver este contacto.');
+    const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
+    const poolId = await db.getComercialIdPool();
+    const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
+    res.render('cliente', { item, admin, canEdit: admin || (await db.canComercialEditCliente(id, res.locals.user?.id)), puedeSolicitarAsignacion, poolId, solicitud });
   } catch (e) {
     next(e);
   }
 });
 
-app.get('/clientes/:id/edit', requireAdmin, async (req, res, next) => {
+app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const admin = isAdminUser(res.locals.user);
+    if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
     const [item, comerciales, tarifas] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => [])
     ]);
     if (!item) return res.status(404).send('No encontrado');
-    res.render('cliente-form', { mode: 'edit', item, comerciales, tarifas, error: null });
+    res.render('cliente-form', { mode: 'edit', item, comerciales, tarifas, error: null, admin, canChangeComercial: admin });
   } catch (e) {
     next(e);
   }
 });
 
-app.post('/clientes/:id/edit', requireAdmin, async (req, res, next) => {
+app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const admin = isAdminUser(res.locals.user);
+    if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
     const item = await db.getClienteById(id);
     if (!item) return res.status(404).send('No encontrado');
     const comerciales = await db.getComerciales().catch(() => []);
     const tarifas = await db.getTarifas().catch(() => []);
     const body = req.body || {};
+    const canChangeComercial = admin;
 
     const dniTrimEdit = body.DNI_CIF !== undefined ? String(body.DNI_CIF || '').trim() : (item.DNI_CIF ? String(item.DNI_CIF).trim() : '');
     const payload = {
-      Id_Cial: body.Id_Cial ? Number(body.Id_Cial) || null : null,
+      Id_Cial: canChangeComercial && body.Id_Cial !== undefined ? (body.Id_Cial ? Number(body.Id_Cial) || null : null) : undefined,
       Nombre_Razon_Social: body.Nombre_Razon_Social !== undefined ? String(body.Nombre_Razon_Social || '').trim() : undefined,
       Nombre_Cial: body.Nombre_Cial !== undefined ? (String(body.Nombre_Cial || '').trim() || null) : undefined,
       DNI_CIF: body.DNI_CIF !== undefined ? (String(body.DNI_CIF || '').trim() || null) : undefined,
@@ -512,11 +535,61 @@ app.post('/clientes/:id/edit', requireAdmin, async (req, res, next) => {
     };
 
     if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) {
-      return res.status(400).render('cliente-form', { mode: 'edit', item: { ...item, ...payload }, comerciales, tarifas, error: 'Nombre/Razón Social es obligatorio' });
+      return res.status(400).render('cliente-form', { mode: 'edit', item: { ...item, ...payload }, comerciales, tarifas, error: 'Nombre/Razón Social es obligatorio', admin, canChangeComercial: !!admin });
     }
 
     await db.updateCliente(id, payload);
     return res.redirect(`/clientes/${id}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/clientes/:id/solicitar-asignacion', requireLogin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const userId = Number(res.locals.user?.id);
+    if (!userId || isAdminUser(res.locals.user)) return res.status(403).send('Solo un comercial puede solicitar que se le asigne un contacto.');
+    const item = await db.getClienteById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    if (!(await db.isContactoAsignadoAPoolOSinAsignar(id))) return res.status(400).send('Este contacto ya está asignado a otro comercial.');
+    await db.createSolicitudAsignacion(id, userId);
+    return res.redirect(`/clientes/${id}?solicitud=ok`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/notificaciones', requireAdmin, async (req, res, next) => {
+  try {
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 50));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const offset = (page - 1) * limit;
+    const [items, total] = await Promise.all([db.getNotificaciones(limit, offset), db.getNotificacionesPendientesCount()]);
+    res.render('notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, resuelto: req.query.resuelto || undefined });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/notificaciones/:id/aprobar', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    await db.resolverSolicitudAsignacion(id, res.locals.user?.id, true);
+    return res.redirect('/notificaciones?resuelto=aprobada');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/notificaciones/:id/rechazar', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    await db.resolverSolicitudAsignacion(id, res.locals.user?.id, false);
+    return res.redirect('/notificaciones?resuelto=rechazada');
   } catch (e) {
     next(e);
   }

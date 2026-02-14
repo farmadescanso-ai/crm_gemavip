@@ -1,0 +1,67 @@
+<%- include('partials/header', { title: 'Solicitudes de asignación' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Solicitudes de asignación</h1>
+    <p class="card-subtitle">Los comerciales solicitan contactos para asignarse. Aquí puedes aprobar o rechazar las solicitudes pendientes.</p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof resuelto !== 'undefined' && resuelto) { %>
+      <p class="notice" style="margin-bottom:12px; padding:10px; background: rgba(25,135,84,.1); border-radius:8px; color:#198754;">
+        <%= resuelto === 'aprobada' ? 'Asignación aprobada. El contacto queda asignado al comercial.' : 'Solicitud rechazada.' %>
+      </p>
+    <% } %>
+    <p style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
+      <span aria-hidden="true">🔔</span> Solicitudes pendientes: <strong><%= typeof paging !== 'undefined' ? paging.total : 0 %></strong>
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Contacto</th>
+            <th>Comercial solicitante</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!items || items.length === 0) { %>
+            <tr>
+              <td colspan="5" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay solicitudes.</td>
+            </tr>
+          <% } else { %>
+            <% items.forEach((n) => { %>
+              <tr>
+                <td><%= typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || '') %></td>
+                <td>
+                  <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Contacto #' + n.id_contacto %></a>
+                </td>
+                <td><%= n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante %></td>
+                <td>
+                  <span class="gv-badge gv-badge--<%= (n.estado || '').toLowerCase() === 'pendiente' ? 'otros' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'persona' : 'empresa') %>">
+                    <%= (n.estado || '').toLowerCase() === 'pendiente' ? 'Pendiente' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'Aprobada' : 'Rechazada') %>
+                  </span>
+                </td>
+                <td>
+                  <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
+                    <form method="post" action="/notificaciones/<%= n.id %>/aprobar" style="display:inline;">
+                      <button class="btn" type="submit">Aprobar asignación</button>
+                    </form>
+                    <form method="post" action="/notificaciones/<%= n.id %>/rechazar" style="display:inline;">
+                      <button class="btn secondary" type="submit">Rechazar solicitud</button>
+                    </form>
+                  <% } else { %>
+                    —
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

@@ -1521,6 +1521,23 @@ class MySQLCRM {
     }
   }
 
+  /**
+   * Obtiene el ID del comercial "pool" (ej. Paco Lara) por nombre.
+   * Nombre configurable con COMERCIAL_POOL_NAME (default "Paco Lara").
+   */
+  async getComercialIdPool() {
+    const name = (process.env.COMERCIAL_POOL_NAME || 'Paco Lara').trim();
+    if (!name) return null;
+    try {
+      const sql = 'SELECT id, Id FROM comerciales WHERE TRIM(Nombre) = ? OR TRIM(nombre) = ? LIMIT 1';
+      const rows = await this.query(sql, [name, name]);
+      const row = rows?.[0];
+      return row ? (row.id ?? row.Id ?? null) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async createComercial(payload) {
     try {
       if (!this.connected && !this.pool) {
@@ -2377,13 +2394,17 @@ class MySQLCRM {
           if (!colComercial) {
             throw new Error('No se encontró columna de comercial en tabla clientes');
           }
-          // Regla: comercial ve sus clientes + pool (Id=1) si se pide explícitamente
-          if (filters.comercialIncludePool && comercialId !== 1) {
+          const poolId = filters.comercialPoolId != null && !isNaN(filters.comercialPoolId) ? Number(filters.comercialPoolId) : null;
+          if (poolId != null && poolId > 0 && poolId !== comercialId) {
+            whereConditions.push(`(c.\`${colComercial}\` = ? OR c.\`${colComercial}\` = ?)`);
+            params.push(comercialId, poolId);
+          } else if (filters.comercialIncludePool && comercialId !== 1) {
             whereConditions.push(`(c.\`${colComercial}\` = ? OR c.\`${colComercial}\` = 1)`);
+            params.push(comercialId);
           } else {
             whereConditions.push(`c.\`${colComercial}\` = ?`);
+            params.push(comercialId);
           }
-          params.push(comercialId);
         }
       }
 
@@ -2640,12 +2661,17 @@ class MySQLCRM {
           if (!colComercial) {
             throw new Error('No se encontró columna de comercial en tabla clientes');
           }
-          if (filters.comercialIncludePool && comercialId !== 1) {
+          const poolId = filters.comercialPoolId != null && !isNaN(filters.comercialPoolId) ? Number(filters.comercialPoolId) : null;
+          if (poolId != null && poolId > 0 && poolId !== comercialId) {
+            whereConditions.push(`(c.\`${colComercial}\` = ? OR c.\`${colComercial}\` = ?)`);
+            params.push(comercialId, poolId);
+          } else if (filters.comercialIncludePool && comercialId !== 1) {
             whereConditions.push(`(c.\`${colComercial}\` = ? OR c.\`${colComercial}\` = 1)`);
+            params.push(comercialId);
           } else {
             whereConditions.push(`c.\`${colComercial}\` = ?`);
+            params.push(comercialId);
           }
-          params.push(comercialId);
         }
       }
 
@@ -2887,6 +2913,36 @@ class MySQLCRM {
     }
   }
 
+  /**
+   * Indica si un comercial puede editar un contacto: es suyo o está asignado al comercial pool (Paco Lara).
+   */
+  async canComercialEditCliente(clienteId, userId) {
+    if (!clienteId || !userId) return false;
+    const cliente = await this.getClienteById(clienteId);
+    if (!cliente) return false;
+    const { colComercial } = await this._ensureClientesMeta();
+    if (!colComercial) return false;
+    const asignado = Number(cliente[colComercial] ?? cliente.Id_Cial ?? 0) || 0;
+    if (asignado === Number(userId)) return true;
+    const poolId = await this.getComercialIdPool();
+    return poolId != null && asignado === Number(poolId);
+  }
+
+  /**
+   * Indica si el contacto está asignado al pool (Paco Lara) o sin asignar (permite solicitar asignación).
+   */
+  async isContactoAsignadoAPoolOSinAsignar(clienteId) {
+    if (!clienteId) return false;
+    const cliente = await this.getClienteById(clienteId);
+    if (!cliente) return false;
+    const { colComercial } = await this._ensureClientesMeta();
+    if (!colComercial) return false;
+    const asignado = Number(cliente[colComercial] ?? cliente.Id_Cial ?? 0) || 0;
+    if (asignado === 0) return true;
+    const poolId = await this.getComercialIdPool();
+    return poolId != null && asignado === Number(poolId);
+  }
+
   async getClientesByComercial(comercialId) {
     try {
       const sql = 'SELECT * FROM clientes WHERE ComercialId = ? OR comercialId = ? ORDER BY Id ASC';
@@ -2917,6 +2973,92 @@ class MySQLCRM {
       console.error('❌ Error obteniendo clientes por código postal:', error.message);
       return [];
     }
+  }
+
+  // ---------- Notificaciones (solicitudes de asignación de contactos) ----------
+  async _ensureNotificacionesTable() {
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`notificaciones\` (
+          \`id\` INT NOT NULL AUTO_INCREMENT,
+          \`tipo\` VARCHAR(64) NOT NULL DEFAULT 'asignacion_contacto',
+          \`id_contacto\` INT NOT NULL,
+          \`id_comercial_solicitante\` INT NOT NULL,
+          \`estado\` ENUM('pendiente','aprobada','rechazada') NOT NULL DEFAULT 'pendiente',
+          \`id_admin_resolvio\` INT NULL,
+          \`fecha_creacion\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          \`fecha_resolucion\` DATETIME NULL,
+          \`notas\` VARCHAR(500) NULL,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_notif_estado\` (\`estado\`),
+          KEY \`idx_notif_contacto\` (\`id_contacto\`),
+          KEY \`idx_notif_comercial\` (\`id_comercial_solicitante\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      return true;
+    } catch (e) {
+      console.warn('⚠️ [NOTIF] No se pudo crear tabla notificaciones:', e?.message);
+      return false;
+    }
+  }
+
+  async createSolicitudAsignacion(idContacto, idComercialSolicitante) {
+    await this._ensureNotificacionesTable();
+    const [r] = await this.query(
+      'INSERT INTO notificaciones (tipo, id_contacto, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?)',
+      ['asignacion_contacto', idContacto, idComercialSolicitante, 'pendiente']
+    );
+    return r?.insertId ?? r?.affectedRows ?? null;
+  }
+
+  async getNotificacionesPendientesCount() {
+    try {
+      await this._ensureNotificacionesTable();
+      const rows = await this.query("SELECT COUNT(*) AS n FROM notificaciones WHERE estado = 'pendiente'");
+      return Number(rows?.[0]?.n ?? 0);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  async getNotificaciones(limit = 50, offset = 0) {
+    try {
+      await this._ensureNotificacionesTable();
+      const l = Math.max(1, Math.min(100, Number(limit)));
+      const o = Math.max(0, Number(offset));
+      const rows = await this.query(
+        `SELECT n.*, c.Nombre_Razon_Social AS contacto_nombre, com.Nombre AS comercial_nombre
+         FROM notificaciones n
+         LEFT JOIN clientes c ON n.id_contacto = c.Id
+         LEFT JOIN comerciales com ON n.id_comercial_solicitante = com.id
+         ORDER BY n.fecha_creacion DESC
+         LIMIT ? OFFSET ?`,
+        [l, o]
+      );
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.error('❌ Error listando notificaciones:', e?.message);
+      return [];
+    }
+  }
+
+  async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) {
+    await this._ensureNotificacionesTable();
+    const rows = await this.query('SELECT * FROM notificaciones WHERE id = ? AND estado = ?', [idNotif, 'pendiente']);
+    if (!rows?.length) return { ok: false, message: 'Notificación no encontrada o ya resuelta' };
+    const notif = rows[0];
+    const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    await this.query(
+      'UPDATE notificaciones SET estado = ?, id_admin_resolvio = ?, fecha_resolucion = ? WHERE id = ?',
+      [aprobar ? 'aprobada' : 'rechazada', idAdmin, ahora, idNotif]
+    );
+    if (aprobar) {
+      const { colComercial } = await this._ensureClientesMeta();
+      if (colComercial) {
+        await this.query(`UPDATE clientes SET \`${colComercial}\` = ? WHERE Id = ?`, [notif.id_comercial_solicitante, notif.id_contacto]);
+      }
+    }
+    return { ok: true };
   }
 
   async moverClienteAPapelera(clienteId, eliminadoPor) {

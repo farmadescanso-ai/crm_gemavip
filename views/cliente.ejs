@@ -28,11 +28,21 @@
       </table>
     </div>
 
+    <% if (typeof solicitud !== 'undefined' && solicitud === 'ok') { %>
+      <p class="notice" style="margin-top:12px; padding:10px; background: rgba(25,135,84,.1); border-radius:8px; color:#198754;">Solicitud enviada. Un administrador la revisará y te asignará el contacto si la aprueba.</p>
+    <% } %>
     <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top: 12px;">
       <a class="btn secondary" href="/clientes">Volver</a>
-      <% if (admin) { %>
+      <% if (canEdit) { %>
         <a class="btn secondary" href="/clientes/<%= item.Id ?? item.id %>/edit">Editar</a>
-        <form method="post" action="/clientes/<%= item.Id ?? item.id %>/delete" style="display:inline;" onsubmit="return confirm('¿Mover este cliente a la papelera?');">
+      <% } %>
+      <% if (puedeSolicitarAsignacion) { %>
+        <form method="post" action="/clientes/<%= item.Id ?? item.id %>/solicitar-asignacion" style="display:inline;">
+          <button class="btn" type="submit">Solicitar que me asignen este contacto</button>
+        </form>
+      <% } %>
+      <% if (admin) { %>
+        <form method="post" action="/clientes/<%= item.Id ?? item.id %>/delete" style="display:inline;" onsubmit="return confirm('¿Mover este contacto a la papelera?');">
           <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Papelera</button>
         </form>
       <% } %>
