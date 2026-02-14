@@ -384,16 +384,17 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
     const offset = (page - 1) * limit;
     const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search).trim() : '';
     const tipoContacto = typeof req.query.tipo === 'string' ? String(req.query.tipo).trim() : '';
+    const order = String(req.query.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
     const admin = isAdminUser(res.locals.user);
     const baseFilters = admin ? {} : { comercial: res.locals.user?.id };
     const filters = { ...baseFilters };
     if (q) filters.q = q;
     if (tipoContacto && ['Empresa', 'Persona', 'Otros'].includes(tipoContacto)) filters.tipoContacto = tipoContacto;
     const [items, total] = await Promise.all([
-      db.getClientesOptimizadoPaged(filters, { limit, offset }),
+      db.getClientesOptimizadoPaged(filters, { limit, offset, sortBy: 'nombre', order }),
       db.countClientesOptimizado(filters)
     ]);
-    res.render('clientes', { items: items || [], q, admin, tipoContacto: tipoContacto || undefined, paging: { page, limit, total: total || 0 } });
+    res.render('clientes', { items: items || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page, limit, total: total || 0 } });
   } catch (e) {
     next(e);
   }

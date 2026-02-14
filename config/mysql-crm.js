@@ -2264,6 +2264,8 @@ class MySQLCRM {
       const compact = options.compact === true || options.compact === '1';
       const compactSearch = options.compactSearch === true || options.compactSearch === '1';
       const order = String(options.order || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+      const sortBy = String(options.sortBy || '').toLowerCase();
+      const orderByNombre = sortBy === 'nombre' || sortBy === 'nombre_razon_social';
 
       const whereConditions = [];
       const params = [];
@@ -2540,7 +2542,9 @@ class MySQLCRM {
       // - Si hay búsqueda u otros filtros, ordenar estable por Id.
       const hasSearch = !!(filters.q && String(filters.q).trim().length >= 3);
       const conVentas = (filters.conVentas === true || filters.conVentas === 'true' || filters.conVentas === '1');
-      if (conVentas && !hasSearch && this.__pedidosFechaCol) {
+      if (orderByNombre) {
+        sql += ` ORDER BY NULLIF(TRIM(c.Nombre_Razon_Social), '') ${order}, c.\`${pk}\` ASC LIMIT ${limit} OFFSET ${offset}`;
+      } else if (conVentas && !hasSearch && this.__pedidosFechaCol) {
         sql += ` ORDER BY (SELECT MAX(p3.\`${this.__pedidosFechaCol}\`) FROM pedidos p3 WHERE p3.\`${this.__pedidosClienteCol}\` = c.\`${pk}\`) DESC, c.\`${pk}\` ${order} LIMIT ${limit} OFFSET ${offset}`;
       } else {
         sql += ` ORDER BY c.\`${pk}\` ${order} LIMIT ${limit} OFFSET ${offset}`;
