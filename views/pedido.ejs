@@ -54,15 +54,18 @@
       </form>
     <% } %>
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>.xlsx">Excel</a>
+    <% if (canShowHefame) { %>
     <span class="gv-hefame-wrap">
       <a class="btn secondary" href="/pedidos/<%= pedidoId %>/hefame.xlsx">HEFAME</a>
       <button type="button" class="gv-hefame-info-btn" onclick="document.getElementById('modal-hefame').showModal()" title="Información Hefame" aria-label="Información Hefame">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
       </button>
     </span>
+    <% } %>
     <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
   </div>
 
+  <% if (canShowHefame) { %>
   <dialog id="modal-hefame" class="gv-modal-hefame" aria-labelledby="modal-hefame-title" onclick="if (event.target === this) this.close()">
     <div class="gv-modal-hefame-inner">
       <h2 id="modal-hefame-title" class="gv-modal-hefame-title">Export Hefame</h2>
@@ -74,6 +77,7 @@
       <button type="button" class="gv-modal-hefame-close" onclick="document.getElementById('modal-hefame').close()" aria-label="Cerrar">Cerrar</button>
     </div>
   </dialog>
+  <% } %>
   <style>
     .gv-hefame-wrap { display: inline-flex; align-items: center; gap: 4px; }
     .gv-hefame-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; background: var(--gv-bg, #f8f9fa); color: var(--gv-muted, #6c757d); cursor: pointer; }

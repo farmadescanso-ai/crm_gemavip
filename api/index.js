@@ -782,22 +782,38 @@ app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, loadPedidoAndCheckOwner, a
   }
 });
 
+// HEFAME solo disponible si forma de pago = Transfer y tipo de pedido incluye "HEFAME" (admin y comercial)
+async function canShowHefameForPedido(item) {
+  const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0);
+  const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? 0);
+  const [formaPago, tipos] = await Promise.all([
+    idFormaPago ? db.getFormaPagoById(idFormaPago).catch(() => null) : null,
+    db.getTiposPedido().catch(() => [])
+  ]);
+  const tipo = (tipos || []).find((t) => Number(t.id ?? t.Id) === idTipoPedido) ?? null;
+  const formaPagoNombre = String(formaPago?.FormaPago ?? formaPago?.Nombre ?? formaPago?.nombre ?? '').trim();
+  const tipoNombre = String(tipo?.Tipo ?? tipo?.Nombre ?? tipo?.nombre ?? '').trim();
+  return /transfer/i.test(formaPagoNombre) && /hefame/i.test(tipoNombre);
+}
+
 app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    const lineas = await db.getArticulosByPedido(id).catch(() => []);
-    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const [lineas, cliente, canShowHefame] = await Promise.all([
+      db.getArticulosByPedido(id).catch(() => []),
+      item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null,
+      canShowHefameForPedido(item)
+    ]);
     let direccionEnvio = item?.Id_DireccionEnvio
       ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
       : null;
-    // Si el pedido no trae dirección de envío pero el cliente solo tiene 1, usarla por defecto para mostrar/imprimir.
     if (!direccionEnvio && cliente?.Id) {
       const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id)).catch(() => []);
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
-    res.render('pedido', { item, lineas: lineas || [], cliente, direccionEnvio, admin });
+    res.render('pedido', { item, lineas: lineas || [], cliente, direccionEnvio, admin, canShowHefame });
   } catch (e) {
     next(e);
   }
@@ -1071,7 +1087,12 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async 
 });
 
 // Página Hefame: envío por email deshabilitado; enlace a descargar Excel (se intentará en otro momento)
-app.get('/pedidos/:id(\\d+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner, (req, res) => {
+app.get('/pedidos/:id(\\d+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner, async (req, res) => {
+  const item = res.locals.pedido;
+  if (!(await canShowHefameForPedido(item))) {
+    res.status(403).send('HEFAME solo disponible para pedidos con forma de pago Transfer y tipo HEFAME.');
+    return;
+  }
   const id = Number(req.params.id);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(renderHefameInfoPage(true, 'El envío por email está temporalmente deshabilitado.\n\nPuede descargar la plantilla Excel con los datos del pedido para Hefame usando el enlace siguiente.', id));
@@ -1096,6 +1117,10 @@ function renderHefameInfoPage(ok, details, pedidoId) {
 app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
+    if (!(await canShowHefameForPedido(item))) {
+      res.status(403).send('HEFAME solo disponible para pedidos con forma de pago Transfer y tipo HEFAME.');
+      return;
+    }
     const id = Number(req.params.id);
     const lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
