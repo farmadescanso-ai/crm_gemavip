@@ -44,10 +44,8 @@
                   <% const pidFromNotas = (() => { const m = String(n.notas || '').match(/pedidoId\s*=\s*(\d+)/i); return m && m[1] ? Number(m[1]) : null; })(); %>
                   <% const pid = (n.id_pedido != null ? Number(n.id_pedido) : null) || pidFromNotas; %>
                   <% if (tipoN === 'pedido_especial' && pid) { %>
-                    <a href="/pedidos/<%= pid %>/edit"><%= n.pedido_num ? String(n.pedido_num) : 'Pedido' %></a>
-                    <% if (n.contacto_nombre) { %>
-                      <span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre %></a></span>
-                    <% } %>
+                    <% const clienteName = String(n.contacto_nombre || '').trim(); %>
+                    <a href="/pedidos/<%= pid %>/edit" title="<%= n.pedido_num ? String(n.pedido_num) : ('Pedido #' + pid) %>"><%= clienteName || 'Cliente' %></a>
                   <% } else { %>
                     <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente' %></a>
                   <% } %>
@@ -114,10 +112,10 @@
           var mm = String(n.notas).match(/pedidoId\s*=\s*(\d+)/i);
           if (mm && mm[1]) pid = parseInt(mm[1], 10) || null;
         }
-        var pedidoLabel = (n.pedido_num ? String(n.pedido_num) : 'Pedido');
+        var pedidoLabel = (n.pedido_num ? String(n.pedido_num) : ('Pedido #' + pid));
         var clienteLabel = (n.contacto_nombre ? String(n.contacto_nombre) : 'Cliente');
         var ref = (tipo === 'pedido_especial' && pid)
-          ? ('<a href="/pedidos/' + pid + '/edit">' + pedidoLabel + '</a>' + (n.id_contacto ? ('<span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/' + n.id_contacto + '">' + clienteLabel + '</a></span>') : ''))
+          ? ('<a href="/pedidos/' + pid + '/edit" title="' + pedidoLabel + '">' + clienteLabel + '</a>')
           : ('<a href="/clientes/' + n.id_contacto + '">' + clienteLabel + '</a>');
         var tr = document.createElement('tr');
         var acc = estado === 'pendiente'
