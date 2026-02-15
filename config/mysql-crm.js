@@ -6368,8 +6368,40 @@ class MySQLCRM {
               cliente.Id_Tarifa ?? cliente.id_tarifa ?? cliente.Tarifa ?? cliente.tarifa ?? 0;
             const dtoCliente = cliente.Dto ?? cliente.dto ?? null;
             if (!hasTarifa) {
-              if (colTarifaId) mysqlData[colTarifaId] = Number.isFinite(Number(tarifaCliente)) ? Number(tarifaCliente) : 0;
-              else if (colTarifaLegacy) mysqlData[colTarifaLegacy] = Number.isFinite(Number(tarifaCliente)) ? Number(tarifaCliente) : 0;
+              // Requisito: si el cliente tiene tarifa pero NO existe/está vigente, aplicar tarifa 0 (PVL).
+              let tId = Number(tarifaCliente);
+              if (!Number.isFinite(tId) || tId < 0) tId = 0;
+              if (tId > 0) {
+                try {
+                  const tTar = await this._resolveTableNameCaseInsensitive('tarifasClientes');
+                  const tarCols = await this._getColumns(tTar).catch(() => []);
+                  const pickTar = (cands) => this._pickCIFromColumns(tarCols, cands);
+                  const tarPk = pickTar(['Id', 'id']) || 'Id';
+                  const colActiva = pickTar(['Activa', 'activa']);
+                  const colInicio = pickTar(['FechaInicio', 'fecha_inicio', 'Fecha_Inicio', 'inicio']);
+                  const colFin = pickTar(['FechaFin', 'fecha_fin', 'Fecha_Fin', 'fin']);
+                  const rows = await this.query(`SELECT * FROM \`${tTar}\` WHERE \`${tarPk}\` = ? LIMIT 1`, [tId]);
+                  const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+                  if (!row) {
+                    tId = 0;
+                  } else {
+                    const activaRaw = colActiva ? row[colActiva] : 1;
+                    const activa =
+                      activaRaw === 1 || activaRaw === '1' || activaRaw === true ||
+                      (typeof activaRaw === 'string' && ['ok', 'si', 'sí', 'true'].includes(activaRaw.trim().toLowerCase()));
+                    const now = new Date();
+                    const start = colInicio && row[colInicio] ? new Date(row[colInicio]) : null;
+                    const end = colFin && row[colFin] ? new Date(row[colFin]) : null;
+                    const inRange = (!start || now >= start) && (!end || now <= end);
+                    if (!activa || !inRange) tId = 0;
+                  }
+                } catch (_) {
+                  // Si no podemos validar, mejor no inventar: caer a PVL.
+                  tId = 0;
+                }
+              }
+              if (colTarifaId) mysqlData[colTarifaId] = tId;
+              else if (colTarifaLegacy) mysqlData[colTarifaLegacy] = tId;
             }
             if (!hasDto && colDtoPedido && dtoCliente !== null && dtoCliente !== undefined && dtoCliente !== '') {
               mysqlData[colDtoPedido] = Number(dtoCliente) || 0;

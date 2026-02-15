@@ -384,17 +384,16 @@
         return;
       }
 
-      // Asegurar que exista opción (si por cualquier motivo no viene en la lista, la añadimos)
+      // Requisito: si el cliente trae una tarifa que NO existe en el selector, usar tarifa 0 (PVL).
       var exists = false;
       for (var i=0; i<(selTarifa.options || []).length; i++){
         if (String(selTarifa.options[i].value) === String(tid)) { exists = true; break; }
       }
       if (!exists) {
-        var opt = document.createElement('option');
-        opt.value = String(tid);
-        opt.textContent = String(tid) + ' · (Tarifa cliente)';
-        opt.setAttribute('data-label', '(Tarifa cliente)');
-        selTarifa.appendChild(opt);
+        selTarifa.value = '0';
+        setAutosave('Tarifa del cliente no encontrada. Se aplica tarifa 0 (PVL).', true);
+        scheduleRefreshPrecios();
+        return;
       }
       selTarifa.value = String(tid);
       scheduleRefreshPrecios();
