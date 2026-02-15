@@ -1328,16 +1328,9 @@ class MySQLCRM {
     if (this._metaCache?.clientesMeta) return this._metaCache.clientesMeta;
 
     const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-    let colsRows = [];
-    try {
-      colsRows = await this.query(`SHOW COLUMNS FROM \`${tClientes}\``);
-    } catch (_) {
-      colsRows = [];
-    }
-
-    const cols = (Array.isArray(colsRows) ? colsRows : [])
-      .map(r => String(r.Field || r.field || '').trim())
-      .filter(Boolean);
+    // Importante: en algunos entornos (serverless/hosting) SHOW COLUMNS puede no estar permitido.
+    // Usar _getColumns() que incluye fallback vía queryWithFields.
+    const cols = await this._getColumns(tClientes).catch(() => []);
 
     const colsLower = new Set(cols.map(c => c.toLowerCase()));
     const pickCI = (cands) => {

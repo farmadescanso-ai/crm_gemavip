@@ -647,7 +647,7 @@
 
     function applyCachedPreciosToRows(tarifaId, rows){
       var tid = parseInt(String(tarifaId || '0'), 10) || 0;
-      if (!tid) return;
+      // Nota: tarifa 0 (PVL) es válida y también debe cachearse/aplicarse.
       var cache = preciosCacheByTarifa[String(tid)] || null;
       if (!cache) return;
       (rows || []).forEach(function(tr){
@@ -685,9 +685,8 @@
         return;
       }
 
-      // Si no hay tarifa activa, no tocamos precios automáticamente.
-      // (PVL depende de tarifa; si no hay tarifa, mantenemos lo que hubiera en pantalla.)
-      if (!tarifaId) {
+      // Tarifa 0 (PVL) es válida. Solo abortamos si el valor no es numérico o es negativo.
+      if (!isFinite(Number(tarifaId)) || Number(tarifaId) < 0) {
         recalcTotals();
         return;
       }
@@ -935,9 +934,19 @@
             else if (isTransferContext()) pvl.value = '0';
             else {
               var tid = getTarifaId();
-              var cache = tid ? (preciosCacheByTarifa[String(tid)] || null) : null;
-              if (cache && cache[aid] !== undefined && cache[aid] !== null) pvl.value = String(cache[aid]);
-              // Si no hay caché, dejamos el valor actual (se actualizará al terminar el fetch).
+              // Tarifa 0 también usa caché (PVL)
+              var cache = (preciosCacheByTarifa[String(tid)] || null);
+              if (cache && cache[aid] !== undefined && cache[aid] !== null) {
+                pvl.value = String(cache[aid]);
+              } else {
+                // Fallback instantáneo: usar PVL del artículo (data-pvl) mientras llega el fetch de tarifa.
+                try {
+                  var opt = t.options && t.selectedIndex >= 0 ? t.options[t.selectedIndex] : null;
+                  var rawPvl = opt ? (opt.getAttribute('data-pvl') || '') : '';
+                  var n = Number(String(rawPvl || '').replace(',', '.'));
+                  if (isFinite(n) && n >= 0) pvl.value = String(n);
+                } catch(_e) {}
+              }
             }
           }
         }
