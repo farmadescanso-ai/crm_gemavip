@@ -503,9 +503,10 @@
     }
 
     // Precios: PVL fijo por tarifa.
-    // Requisito: al cambiar tarifa/artículo, primero poner PVL=0 y luego aplicar precios de la tarifa.
+    // Requisito: al cambiar tarifa/artículo, NO poner PVL a 0; sustituir directamente por los precios de la tarifa nueva.
     var refreshPreciosTimer = null;
     var refreshPreciosSeq = 0; // para ignorar respuestas antiguas
+    var preciosCacheByTarifa = {}; // { [tarifaId]: { [articuloId]: precio } }
 
     function scheduleRefreshPrecios(){
       if (refreshPreciosTimer) clearTimeout(refreshPreciosTimer);
@@ -527,16 +528,30 @@
       return false;
     }
 
-    function setAllPVLToZero(rows){
+    function applyCachedPreciosToRows(tarifaId, rows){
+      var tid = parseInt(String(tarifaId || '0'), 10) || 0;
+      if (!tid) return;
+      var cache = preciosCacheByTarifa[String(tid)] || null;
+      if (!cache) return;
       (rows || []).forEach(function(tr){
         var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
         var pvl = tr.querySelector('input.gv-line-pvl');
-        if (!pvl) return;
-        var aid = sel ? String(sel.value || '').trim() : '';
-        if (!aid) {
-          pvl.value = '';
-          return;
+        if (!sel || !pvl) return;
+        var aid = String(sel.value || '').trim();
+        if (!aid) { pvl.value = ''; return; }
+        if (cache[aid] !== undefined && cache[aid] !== null) {
+          pvl.value = String(cache[aid]);
         }
+      });
+    }
+
+    function setPVLToZeroForTransfer(rows){
+      (rows || []).forEach(function(tr){
+        var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
+        var pvl = tr.querySelector('input.gv-line-pvl');
+        if (!sel || !pvl) return;
+        var aid = String(sel.value || '').trim();
+        if (!aid) { pvl.value = ''; return; }
         pvl.value = '0';
       });
     }
@@ -546,15 +561,23 @@
       var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
       if (!rows.length) return;
 
-      // 1) Siempre: primero PVL=0 (o vacío si no hay artículo)
-      setAllPVLToZero(rows);
-      recalcTotals();
-
       // Transfer: PVL siempre 0 (no valorar)
-      if (isTransferContext()) return;
+      if (isTransferContext()) {
+        setPVLToZeroForTransfer(rows);
+        recalcTotals();
+        return;
+      }
 
-      // 2) Si no hay tarifa activa, no hacemos fetch (se queda PVL=0)
-      if (!tarifaId) return;
+      // Si no hay tarifa activa, no tocamos precios automáticamente.
+      // (PVL depende de tarifa; si no hay tarifa, mantenemos lo que hubiera en pantalla.)
+      if (!tarifaId) {
+        recalcTotals();
+        return;
+      }
+
+      // 1) Aplicar inmediatamente desde caché (si ya se consultó esta tarifa antes)
+      applyCachedPreciosToRows(tarifaId, rows);
+      recalcTotals();
 
       // 3) Fetch precios por tarifa (puede tardar). Protegemos contra respuestas fuera de orden.
       var articuloIds = [];
@@ -579,6 +602,13 @@
         if (seq !== refreshPreciosSeq) return;
 
         var precios = json.precios || {};
+        // Guardar caché por tarifa (merge)
+        var keyTid = String(parseInt(String(tarifaId || '0'), 10) || 0);
+        if (!preciosCacheByTarifa[keyTid]) preciosCacheByTarifa[keyTid] = {};
+        Object.keys(precios).forEach(function(k){
+          preciosCacheByTarifa[keyTid][String(k)] = precios[k];
+        });
+
         rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
         rows.forEach(function(tr){
           var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
@@ -586,8 +616,10 @@
           if (!sel || !pvl) return;
           var aid = String(sel.value || '').trim();
           if (!aid) return;
-          // PVL fijo: si no hay precio en tarifa, se queda en 0.
-          if (precios[aid] !== undefined && precios[aid] !== null) pvl.value = String(precios[aid]);
+          // PVL fijo: si no hay precio en tarifa, mantenemos el valor actual (evita "parpadeo" y no fuerza 0).
+          if (precios[aid] !== undefined && precios[aid] !== null) {
+            pvl.value = String(precios[aid]);
+          }
         });
         recalcTotals();
       } catch(_e){}
@@ -741,14 +773,24 @@
     table.addEventListener('change', function(e){
       var t = e.target;
       if (t && t.matches('select[name*=\"[Id_Articulo]\"]')) {
-        // PVL fijo: al cambiar artículo, primero PVL=0 y luego tarifa (async)
+        // PVL fijo: al cambiar artículo, aplicar desde caché si existe y luego ajustar por tarifa (async)
         var tr = t.closest ? t.closest('tr') : null;
         if (tr) {
           var pvl = tr.querySelector('input.gv-line-pvl');
-          if (pvl) pvl.value = (String(t.value || '').trim() ? '0' : '');
+          if (pvl) {
+            var aid = String(t.value || '').trim();
+            if (!aid) pvl.value = '';
+            else if (isTransferContext()) pvl.value = '0';
+            else {
+              var tid = getTarifaId();
+              var cache = tid ? (preciosCacheByTarifa[String(tid)] || null) : null;
+              if (cache && cache[aid] !== undefined && cache[aid] !== null) pvl.value = String(cache[aid]);
+              // Si no hay caché, dejamos el valor actual (se actualizará al terminar el fetch).
+            }
+          }
         }
         recalcTotals();
-        // Luego ajustar por tarifa (async)
+        // Ajustar por tarifa (async)
         scheduleRefreshPrecios();
       }
     });
