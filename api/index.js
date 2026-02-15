@@ -1033,6 +1033,15 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
     const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
     const colFecha = pedidosMeta?.colFecha || 'FechaPedido';
     const colComercial = pedidosMeta?.colComercial || 'Id_Cial';
+    const colEstadoTxt = pedidosMeta?.colEstado || 'EstadoPedido';
+    const colEstadoId = pedidosMeta?.colEstadoId || 'Id_EstadoPedido';
+
+    // Estado catálogo (best-effort)
+    let hasEstadoIdCol = false;
+    try {
+      const cols = await db._getColumns(pedidosMeta?.tPedidos || 'pedidos').catch(() => []);
+      hasEstadoIdCol = (cols || []).some((c) => String(c).toLowerCase() === String(colEstadoId).toLowerCase());
+    } catch (_) {}
 
     const startYear = 2025;
     const currentYear = new Date().getFullYear();
@@ -1056,10 +1065,12 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       items = await db.query(
         `
           SELECT DISTINCT p.*,
+            ${hasEstadoIdCol ? 'ep.nombre AS EstadoPedidoNombre, ep.color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
             c.Nombre_Razon_Social AS ClienteNombre,
             c.Nombre_Cial AS ClienteNombreCial
           FROM pedidos p
           LEFT JOIN clientes c ON (c.Id = p.Id_Cliente OR c.id = p.Id_Cliente)
+          ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.id = p.\`${colEstadoId}\`` : ''}
           INNER JOIN pedidos_articulos pa ON pa.Id_NumPedido = p.id
           INNER JOIN articulos a ON a.id = pa.Id_Articulo
           WHERE YEAR(p.\`${colFecha}\`) = ?
@@ -1076,10 +1087,12 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       items = await db.query(
         `
           SELECT p.*,
+            ${hasEstadoIdCol ? 'ep.nombre AS EstadoPedidoNombre, ep.color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
             c.Nombre_Razon_Social AS ClienteNombre,
             c.Nombre_Cial AS ClienteNombreCial
           FROM pedidos p
           LEFT JOIN clientes c ON (c.Id = p.Id_Cliente OR c.id = p.Id_Cliente)
+          ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.id = p.\`${colEstadoId}\`` : ''}
           WHERE YEAR(p.\`${colFecha}\`) = ?
             ${scopeUserId ? `AND p.\`${colComercial}\` = ?` : ''}
           ORDER BY p.id DESC
@@ -1141,12 +1154,14 @@ function parseLineasFromBody(body) {
 
 app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido, estadoPendienteId] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getTiposPedido().catch(() => []),
-      db.getDescuentosPedidoActivos().catch(() => [])
+      db.getDescuentosPedidoActivos().catch(() => []),
+      db.getEstadosPedidoActivos().catch(() => []),
+      db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null)
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
@@ -1166,12 +1181,14 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       formasPago: Array.isArray(formasPago) ? formasPago : [],
       tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
       descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+      estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       articulos: Array.isArray(articulos) ? articulos : [],
       item: {
         Id_Cial: res.locals.user?.id ?? null,
         Id_Tarifa: 0,
         Serie: 'P',
         EstadoPedido: 'Pendiente',
+        Id_EstadoPedido: estadoPendienteId ?? null,
         Id_FormaPago: null,
         Id_TipoPedido: null,
         Observaciones: ''
@@ -1189,12 +1206,13 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
 
 app.post('/pedidos/new', requireLogin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getTiposPedido().catch(() => []),
-      db.getDescuentosPedidoActivos().catch(() => [])
+      db.getDescuentosPedidoActivos().catch(() => []),
+      db.getEstadosPedidoActivos().catch(() => [])
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
     const body = req.body || {};
@@ -1208,6 +1226,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
       Id_DireccionEnvio: body.Id_DireccionEnvio ? (Number(body.Id_DireccionEnvio) || null) : null,
       Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
+      Id_EstadoPedido: body.Id_EstadoPedido ? (Number(body.Id_EstadoPedido) || null) : null,
       // Importante: si viene 0 (default de UI), omitimos para que DB aplique tarifa del cliente.
       ...(Number.isFinite(tarifaId) && tarifaId > 0 ? { Id_Tarifa: tarifaId } : {}),
       // Serie fija para pedidos en este CRM
@@ -1219,6 +1238,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
       NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
       FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
+      // Legacy: mantener también el texto para instalaciones sin FK/columna
       EstadoPedido: String(body.EstadoPedido || 'Pendiente').trim(),
       Observaciones: String(body.Observaciones || '').trim() || null
     };
@@ -1233,6 +1253,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         formasPago,
         tiposPedido: tiposPedido || [],
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
         item: pedidoPayload,
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
@@ -1253,6 +1274,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         formasPago,
         tiposPedido: tiposPedido || [],
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
         item: pedidoPayload,
         lineas,
@@ -1270,6 +1292,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         formasPago,
         tiposPedido: tiposPedido || [],
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
         item: pedidoPayload,
         lineas,
@@ -1287,6 +1310,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         formasPago,
         tiposPedido: tiposPedido || [],
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
         item: pedidoPayload,
         lineas,
@@ -1304,6 +1328,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         formasPago,
         tiposPedido: tiposPedido || [],
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
         item: pedidoPayload,
         lineas,
@@ -1817,12 +1842,13 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido] = await Promise.all([
+    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido, estadosPedido] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => []),
       db.getTiposPedido().catch(() => []),
-      db.getDescuentosPedidoActivos().catch(() => [])
+      db.getDescuentosPedidoActivos().catch(() => []),
+      db.getEstadosPedidoActivos().catch(() => [])
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
@@ -1910,6 +1936,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       formasPago,
       tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
       descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+      estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       comerciales,
       articulos,
       clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
@@ -1947,12 +1974,13 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
       });
     }
 
-    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido] = await Promise.all([
+    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido, estadosPedido] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => []),
       db.getTiposPedido().catch(() => []),
-      db.getDescuentosPedidoActivos().catch(() => [])
+      db.getDescuentosPedidoActivos().catch(() => []),
+      db.getEstadosPedidoActivos().catch(() => [])
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
 
@@ -1965,6 +1993,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
       Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
+      Id_EstadoPedido: body.Id_EstadoPedido ? (Number(body.Id_EstadoPedido) || null) : null,
       Serie: 'P',
       ...(esEspecial ? { EsEspecial: 1, EspecialEstado: 'pendiente' } : { EsEspecial: 0 }),
       ...(esEspecial && !existingEspecial ? { EspecialFechaSolicitud: new Date() } : {}),
@@ -1988,6 +2017,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
         formasPago,
         tiposPedido: tiposPedido || [],
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         comerciales,
         articulos,
         error: 'Id_Cial e Id_Cliente son obligatorios'

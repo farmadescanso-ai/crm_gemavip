@@ -83,7 +83,17 @@
               <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
               <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? '—' %></td>
               <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? 0) %></td>
-              <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
+              <td>
+                <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? '').trim(); %>
+                <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
+                <% const st = estadoLabel.toLowerCase(); %>
+                <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
+                <% if (estadoLabel) { %>
+                  <span class="badge <%= cls %>"><%= estadoLabel %></span>
+                <% } else { %>
+                  —
+                <% } %>
+              </td>
             </tr>
           <% }) %>
         </tbody>

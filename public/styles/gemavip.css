@@ -1362,6 +1362,11 @@ table.calendar td.is-empty{
   background: rgba(0,139,210,.12);
   border-color: rgba(0,139,210,.30);
 }
+.badge.danger{
+  background: rgba(220,53,69,.12);
+  border-color: rgba(220,53,69,.30);
+  color: rgba(185,28,28,.95);
+}
 
 .footer{
   padding: 28px 18px;

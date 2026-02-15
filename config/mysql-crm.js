@@ -648,7 +648,9 @@ class MySQLCRM {
       'numeroPedido'
     ]);
 
-    const meta = { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido };
+    const colEstado = pickCI(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
+    const colEstadoId = pickCI(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
+    const meta = { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido, colEstado, colEstadoId };
     this._metaCache.pedidosMeta = meta;
     return meta;
   }
@@ -688,6 +690,124 @@ class MySQLCRM {
     const meta = { table: t, pk, colDesde, colHasta, colDto, colActivo, colOrden };
     this._metaCache.descuentosPedidoMeta = meta;
     return meta;
+  }
+
+  // =====================================================
+  // ESTADOS DE PEDIDO (catálogo)
+  // =====================================================
+  async _ensureEstadosPedidoMeta() {
+    if (this._metaCache?.estadosPedidoMeta) return this._metaCache.estadosPedidoMeta;
+    const table = await this._resolveTableNameCaseInsensitive('estados_pedido');
+    const cols = await this._getColumns(table).catch(() => []);
+    const pick = (cands) => this._pickCIFromColumns(cols, cands);
+    const pk = pick(['id', 'Id']) || 'id';
+    const colCodigo = pick(['codigo', 'Codigo', 'code']) || 'codigo';
+    const colNombre = pick(['nombre', 'Nombre', 'name']) || 'nombre';
+    const colColor = pick(['color', 'Color']) || 'color';
+    const colActivo = pick(['activo', 'Activo']) || 'activo';
+    const colOrden = pick(['orden', 'Orden']) || 'orden';
+    const meta = { table, pk, colCodigo, colNombre, colColor, colActivo, colOrden, cols };
+    this._metaCache.estadosPedidoMeta = meta;
+    return meta;
+  }
+
+  async ensureEstadosPedidoTable() {
+    // Best-effort: crear tabla y seeds si no existe. No romper si no hay permisos.
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`estados_pedido\` (
+          \`id\` INT NOT NULL AUTO_INCREMENT,
+          \`codigo\` VARCHAR(32) NOT NULL,
+          \`nombre\` VARCHAR(64) NOT NULL,
+          \`color\` ENUM('ok','info','warn','danger') NOT NULL DEFAULT 'info',
+          \`activo\` TINYINT(1) NOT NULL DEFAULT 1,
+          \`orden\` INT NOT NULL DEFAULT 0,
+          \`created_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`uq_estados_pedido_codigo\` (\`codigo\`),
+          KEY \`idx_estados_pedido_activo_orden\` (\`activo\`, \`orden\`, \`nombre\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      // Seed (idempotente por UNIQUE(codigo))
+      await this.query(
+        `
+          INSERT INTO \`estados_pedido\` (\`codigo\`, \`nombre\`, \`color\`, \`activo\`, \`orden\`)
+          VALUES
+            ('pendiente', 'Pendiente', 'warn', 1, 10),
+            ('aprobado',  'Aprobado',  'ok',   1, 20),
+            ('entregado', 'Entregado', 'info', 1, 25),
+            ('pagado',    'Pagado',    'ok',   1, 30),
+            ('denegado',  'Denegado',  'danger', 1, 40)
+          ON DUPLICATE KEY UPDATE
+            \`nombre\`=VALUES(\`nombre\`),
+            \`color\`=VALUES(\`color\`),
+            \`activo\`=VALUES(\`activo\`),
+            \`orden\`=VALUES(\`orden\`)
+        `
+      );
+      await this._ensureEstadosPedidoMeta().catch(() => null);
+      return true;
+    } catch (e) {
+      console.warn('⚠️ [SCHEMA] No se pudo asegurar estados_pedido:', e?.message || e);
+      return false;
+    }
+  }
+
+  async getEstadosPedidoActivos() {
+    await this.ensureEstadosPedidoTable();
+    try {
+      const meta = await this._ensureEstadosPedidoMeta().catch(() => null);
+      if (!meta?.table) return [];
+      const sql = `
+        SELECT
+          \`${meta.pk}\` AS id,
+          \`${meta.colCodigo}\` AS codigo,
+          \`${meta.colNombre}\` AS nombre,
+          \`${meta.colColor}\` AS color,
+          \`${meta.colOrden}\` AS orden
+        FROM \`${meta.table}\`
+        WHERE \`${meta.colActivo}\` = 1
+        ORDER BY \`${meta.colOrden}\` ASC, \`${meta.colNombre}\` ASC
+      `;
+      const rows = await this.query(sql).catch(() => []);
+      return Array.isArray(rows) ? rows : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async getEstadoPedidoIdByCodigo(codigo) {
+    const code = String(codigo || '').trim().toLowerCase();
+    if (!code) return null;
+    await this.ensureEstadosPedidoTable();
+    try {
+      const meta = await this._ensureEstadosPedidoMeta().catch(() => null);
+      if (!meta?.table) return null;
+      const rows = await this.query(
+        `SELECT \`${meta.pk}\` AS id FROM \`${meta.table}\` WHERE LOWER(TRIM(\`${meta.colCodigo}\`)) = ? LIMIT 1`,
+        [code]
+      );
+      const id = rows?.[0]?.id;
+      const n = Number(id);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async getEstadoPedidoById(id) {
+    const n = Number.parseInt(String(id ?? '').trim(), 10);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    await this.ensureEstadosPedidoTable();
+    try {
+      const meta = await this._ensureEstadosPedidoMeta().catch(() => null);
+      if (!meta?.table) return null;
+      const rows = await this.query(`SELECT * FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`, [n]);
+      return rows?.[0] ?? null;
+    } catch (_) {
+      return null;
+    }
   }
 
   async getDescuentosPedidoActivos(conn = null) {
@@ -3526,6 +3646,8 @@ class MySQLCRM {
         const pk = meta.pk;
         const colEsEspecial = pick(['EsEspecial', 'es_especial', 'PedidoEspecial', 'pedido_especial']);
         const colEstado = pick(['EspecialEstado', 'especial_estado', 'EstadoEspecial', 'estado_especial']);
+        const colEstadoTxtPedido = meta.colEstado || pick(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
+        const colEstadoIdPedido = meta.colEstadoId || pick(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
         const colFechaRes = pick(['EspecialFechaResolucion', 'especial_fecha_resolucion', 'FechaResolucionEspecial', 'fecha_resolucion_especial']);
         const colIdAdmin = pick(['EspecialIdAdminResolvio', 'especial_id_admin_resolvio', 'IdAdminResolvioEspecial', 'id_admin_resolvio_especial']);
         const colNotas = pick(['EspecialNotas', 'especial_notas', 'NotasEspecial', 'notas_especial']);
@@ -3543,6 +3665,14 @@ class MySQLCRM {
           if (colFechaRes) upd[colFechaRes] = ahora;
           if (colIdAdmin) upd[colIdAdmin] = idAdmin;
           if (colNotas) upd[colNotas] = `Resuelto ${aprobar ? 'APROBADO' : 'RECHAZADO'} (notif #${notif.id})`;
+          // Requisito: si se deniega un pedido especial, el estado del pedido debe quedar "Denegado" (rojo).
+          if (!aprobar) {
+            if (colEstadoTxtPedido) upd[colEstadoTxtPedido] = 'Denegado';
+            if (colEstadoIdPedido) {
+              const denId = await this.getEstadoPedidoIdByCodigo('denegado').catch(() => null);
+              if (denId) upd[colEstadoIdPedido] = denId;
+            }
+          }
           const keys = Object.keys(upd);
           if (keys.length) {
             const fields = keys.map((c) => `\`${c}\` = ?`).join(', ');
@@ -5398,7 +5528,7 @@ class MySQLCRM {
       // 1) Buscar por ID numérico (Id/id)
       if (isNum) {
         const rows = await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`, [asNum]);
-        if (rows && rows.length > 0) return rows[0];
+        if (rows && rows.length > 0) return await this._enrichPedidoWithEstado(rows[0]);
       }
 
       // 1.1) Fallback (cuando el parámetro es un número "humano" de pedido):
@@ -5412,14 +5542,14 @@ class MySQLCRM {
           const yy = String(y).slice(-2);
           const numPedido = `P${yy}${sec}`;
           const rowsByNum = await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${colNumPedido}\` = ? LIMIT 1`, [numPedido]);
-          if (rowsByNum && rowsByNum.length > 0) return rowsByNum[0];
+          if (rowsByNum && rowsByNum.length > 0) return await this._enrichPedidoWithEstado(rowsByNum[0]);
         }
       }
 
       // 2) Fallback: buscar por NumPedido si el parámetro parece un número de pedido
       if (asStr && colNumPedido) {
         const rowsNum = await this.query(`SELECT * FROM \`${tPedidos}\` WHERE \`${colNumPedido}\` = ? LIMIT 1`, [asStr]);
-        if (rowsNum && rowsNum.length > 0) return rowsNum[0];
+        if (rowsNum && rowsNum.length > 0) return await this._enrichPedidoWithEstado(rowsNum[0]);
       }
 
       return null;
@@ -5427,6 +5557,48 @@ class MySQLCRM {
       console.error('❌ Error obteniendo pedido por ID:', error.message);
       console.error('❌ ID usado:', id);
       return null;
+    }
+  }
+
+  async _enrichPedidoWithEstado(pedidoRow) {
+    const p = pedidoRow && typeof pedidoRow === 'object' ? pedidoRow : null;
+    if (!p) return pedidoRow;
+    try {
+      const meta = await this._ensurePedidosMeta().catch(() => null);
+      const colEstadoId = meta?.colEstadoId || null;
+      const colEstadoTxt = meta?.colEstado || null;
+      if (!colEstadoId && !colEstadoTxt) return pedidoRow;
+
+      // Si hay FK, preferirla
+      const rawId = colEstadoId ? p[colEstadoId] : (p.Id_EstadoPedido ?? p.id_estado_pedido ?? null);
+      let estadoId = Number.parseInt(String(rawId ?? '').trim(), 10);
+      if (!Number.isFinite(estadoId) || estadoId <= 0) estadoId = null;
+
+      // Si no hay FK pero hay texto, intentar mapear por código
+      if (!estadoId && colEstadoTxt) {
+        const txt = String(p[colEstadoTxt] ?? p.EstadoPedido ?? p.Estado ?? '').trim().toLowerCase();
+        if (txt) estadoId = await this.getEstadoPedidoIdByCodigo(txt).catch(() => null);
+      }
+
+      if (!estadoId) return pedidoRow;
+      const estado = await this.getEstadoPedidoById(estadoId).catch(() => null);
+      if (!estado) return pedidoRow;
+
+      const eMeta = await this._ensureEstadosPedidoMeta().catch(() => null);
+      const nombre = eMeta?.colNombre ? estado[eMeta.colNombre] : (estado.nombre ?? null);
+      const color = eMeta?.colColor ? estado[eMeta.colColor] : (estado.color ?? null);
+
+      if (nombre) {
+        p.EstadoPedido = String(nombre);
+      }
+      if (color) {
+        p.EstadoColor = String(color);
+      }
+      // Exponer id para formularios
+      p.Id_EstadoPedido = estadoId;
+      return p;
+    } catch (_) {
+      return pedidoRow;
     }
   }
 
@@ -5704,6 +5876,46 @@ class MySQLCRM {
           console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.EspecialIdAdminResolvio:', e.message);
         }
       }
+
+      // Estado normalizado (FK a estados_pedido)
+      const hasEstadoId =
+        colsLower.has('id_estadopedido') ||
+        colsLower.has('id_estado_pedido') ||
+        colsLower.has('estadopedidoid') ||
+        colsLower.has('estado_pedido_id');
+      if (!hasEstadoId) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`Id_EstadoPedido\` INT NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.Id_EstadoPedido");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.Id_EstadoPedido:', e.message);
+        }
+      }
+      // Índice best-effort
+      try {
+        const idxRows = await this.query(`SHOW INDEX FROM \`${tPedidos}\``).catch(() => []);
+        const existing = new Set((idxRows || []).map((r) => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+        if (!existing.has('idx_pedidos_estado_pedido')) {
+          await this.query(`CREATE INDEX \`idx_pedidos_estado_pedido\` ON \`${tPedidos}\` (\`Id_EstadoPedido\`)`);
+        }
+      } catch (_) {}
+
+      // FK best-effort: pedidos.Id_EstadoPedido -> estados_pedido.id
+      try {
+        await this.ensureEstadosPedidoTable();
+        const fkName = 'fk_pedidos_estado_pedido';
+        try {
+          await this.query(
+            `ALTER TABLE \`${tPedidos}\` ADD CONSTRAINT \`${fkName}\` FOREIGN KEY (\`Id_EstadoPedido\`) REFERENCES \`estados_pedido\`(\`id\`) ON DELETE RESTRICT ON UPDATE RESTRICT`
+          );
+          console.log(`✅ [FK] Creada ${fkName}`);
+        } catch (e) {
+          const msg = String(e?.message || e);
+          if (!msg.toLowerCase().includes('duplicate') && !msg.toLowerCase().includes('already') && !msg.toLowerCase().includes('exists')) {
+            // no romper si no hay permisos o hay datos incompatibles
+          }
+        }
+      } catch (_) {}
     } catch (e) {
       console.warn('⚠️ [SCHEMA] No se pudo asegurar esquema de pedidos:', e?.message || e);
     }
@@ -5841,6 +6053,8 @@ class MySQLCRM {
       const colTarifaId = pickPedidoCol(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
       const colTarifaLegacy = pickPedidoCol(['Tarifa', 'tarifa']);
       const colDtoPedido = pickPedidoCol(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
+      const colEstadoTxt = pickPedidoCol(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
+      const colEstadoId = pickPedidoCol(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
       const colEsEspecial = pickPedidoCol(['EsEspecial', 'es_especial', 'PedidoEspecial', 'pedido_especial']);
       const colEspecialEstado = pickPedidoCol(['EspecialEstado', 'especial_estado', 'EstadoEspecial', 'estado_especial']);
       const colEspecialNotas = pickPedidoCol(['EspecialNotas', 'especial_notas', 'NotasEspecial', 'notas_especial']);
@@ -5908,6 +6122,8 @@ class MySQLCRM {
               colTarifaLegacy,
               colDtoPedido,
               colTipoPedido,
+              colEstadoTxt,
+              colEstadoId,
               colEsEspecial,
               colEspecialEstado,
               colEspecialNotas,
@@ -5921,6 +6137,31 @@ class MySQLCRM {
         const [rows] = await conn.execute(selectSql, [idNum]);
         if (!rows || rows.length === 0) throw new Error('Pedido no encontrado');
         const current = rows[0];
+
+        // Normalizar estado por catálogo si viene en payload (best-effort)
+        try {
+          await this.ensureEstadosPedidoTable();
+          // Si viene Id_EstadoPedido, rellenar texto (EstadoPedido/Estado) con el nombre
+          if (colEstadoId && Object.prototype.hasOwnProperty.call(filteredPedido, colEstadoId)) {
+            const n = Number.parseInt(String(filteredPedido[colEstadoId] ?? '').trim(), 10);
+            if (Number.isFinite(n) && n > 0) {
+              const est = await this.getEstadoPedidoById(n).catch(() => null);
+              const eMeta = await this._ensureEstadosPedidoMeta().catch(() => null);
+              const nombre = eMeta?.colNombre && est ? est[eMeta.colNombre] : (est?.nombre ?? null);
+              if (nombre && colEstadoTxt && !Object.prototype.hasOwnProperty.call(filteredPedido, colEstadoTxt)) {
+                filteredPedido[colEstadoTxt] = String(nombre);
+              }
+            }
+          }
+          // Si viene texto pero no FK, intentar mapear a FK
+          if (colEstadoTxt && Object.prototype.hasOwnProperty.call(filteredPedido, colEstadoTxt) && colEstadoId && !Object.prototype.hasOwnProperty.call(filteredPedido, colEstadoId)) {
+            const code = String(filteredPedido[colEstadoTxt] ?? '').trim().toLowerCase();
+            if (code) {
+              const idEstado = await this.getEstadoPedidoIdByCodigo(code).catch(() => null);
+              if (idEstado) filteredPedido[colEstadoId] = idEstado;
+            }
+          }
+        } catch (_) {}
 
         const finalNumPedido = numPedidoFromPayload || (colNumPedido ? (current[colNumPedido] ? String(current[colNumPedido]).trim() : null) : null);
 
@@ -6476,6 +6717,8 @@ class MySQLCRM {
       const colTarifaId = pick(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
       const colTarifaLegacy = pick(['Tarifa', 'tarifa']);
       const colDtoPedido = pick(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
+      const colEstadoTxt = pick(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
+      const colEstadoId = pick(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
 
       // Convertir formato NocoDB a MySQL + filtrar columnas válidas
       const mysqlData = {};
@@ -6558,6 +6801,42 @@ class MySQLCRM {
       } catch (_) {
         // best-effort
       }
+
+      // Estado: normalizar por catálogo (si existe columna FK) o mantener texto (legacy).
+      try {
+        await this.ensureEstadosPedidoTable();
+        let estadoId = null;
+
+        // Prioridad: Id_EstadoPedido explícito
+        if (colEstadoId) {
+          const raw = mysqlData[colEstadoId] ?? input.Id_EstadoPedido ?? input.id_estado_pedido ?? input.EstadoPedidoId ?? input.estado_pedido_id;
+          const n = Number.parseInt(String(raw ?? '').trim(), 10);
+          if (Number.isFinite(n) && n > 0) estadoId = n;
+        }
+
+        // Fallback: texto -> codigo
+        if (!estadoId) {
+          const rawTxt = colEstadoTxt ? (mysqlData[colEstadoTxt] ?? input.EstadoPedido ?? input.Estado ?? null) : (input.EstadoPedido ?? input.Estado ?? null);
+          const code = String(rawTxt ?? '').trim().toLowerCase();
+          if (code) estadoId = await this.getEstadoPedidoIdByCodigo(code).catch(() => null);
+        }
+
+        // Default: Pendiente
+        if (!estadoId) estadoId = await this.getEstadoPedidoIdByCodigo('pendiente').catch(() => null);
+
+        // Persistir FK si hay columna
+        if (colEstadoId && estadoId && mysqlData[colEstadoId] === undefined) {
+          mysqlData[colEstadoId] = estadoId;
+        }
+
+        // Persistir texto (si existe la columna legacy) para compat/reporting
+        if (colEstadoTxt && (mysqlData[colEstadoTxt] === undefined || mysqlData[colEstadoTxt] === null || String(mysqlData[colEstadoTxt]).trim() === '') && estadoId) {
+          const est = await this.getEstadoPedidoById(estadoId).catch(() => null);
+          const eMeta = await this._ensureEstadosPedidoMeta().catch(() => null);
+          const nombre = eMeta?.colNombre && est ? est[eMeta.colNombre] : (est?.nombre ?? null);
+          if (nombre) mysqlData[colEstadoTxt] = String(nombre);
+        }
+      } catch (_) {}
 
       if (Object.keys(mysqlData).length === 0) {
         throw new Error('No hay campos válidos para crear el pedido');

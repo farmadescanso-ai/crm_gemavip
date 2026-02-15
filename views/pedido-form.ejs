@@ -117,7 +117,23 @@
       <div class="gv-doc__grid">
         <label class="gv-field">
           <span class="gv-field__label">Estado del pedido *</span>
-          <input name="EstadoPedido" required class="gv-input" value="<%= item.EstadoPedido ?? 'Pendiente' %>" />
+          <% const curEstadoTxt = String(item.EstadoPedido ?? item.Estado ?? 'Pendiente'); %>
+          <% const curEstadoId = Number(item.Id_EstadoPedido ?? item.Id_EstadoPedido ?? item.id_estado_pedido ?? 0) || 0; %>
+          <% if (Array.isArray(estadosPedido) && estadosPedido.length) { %>
+            <select id="Id_EstadoPedido" name="Id_EstadoPedido" required class="gv-input">
+              <% (estadosPedido || []).forEach((ep) => { %>
+                <% const eid = Number(ep.id ?? ep.Id ?? 0) || 0; %>
+                <% const code = String(ep.codigo ?? '').trim().toLowerCase(); %>
+                <% const name = String(ep.nombre ?? ep.Nombre ?? '').trim(); %>
+                <% const selected = (curEstadoId && eid === curEstadoId) || (!curEstadoId && name && name.toLowerCase() === curEstadoTxt.trim().toLowerCase()) || (!curEstadoId && code && code === curEstadoTxt.trim().toLowerCase()); %>
+                <option value="<%= eid %>" data-nombre="<%= name %>" <%= selected ? 'selected' : '' %>><%= name || ('Estado ' + eid) %></option>
+              <% }) %>
+            </select>
+            <!-- Compat: mantener texto por si la instalación no tiene la FK/columna -->
+            <input type="hidden" id="EstadoPedidoLegacy" name="EstadoPedido" value="<%= curEstadoTxt %>" />
+          <% } else { %>
+            <input name="EstadoPedido" required class="gv-input" value="<%= curEstadoTxt %>" />
+          <% } %>
         </label>
         <label class="gv-field">
           <span class="gv-field__label">Fecha del pedido</span>
@@ -288,6 +304,8 @@
     var selTipoPedido = document.getElementById('Id_TipoPedido');
     var wrapNumAsociadoHefame = document.getElementById('gv-num-asociado-hefame-wrap');
     var inputNumAsociadoHefame = document.getElementById('numAsociadoHefame');
+    var selEstadoPedido = document.getElementById('Id_EstadoPedido');
+    var hidEstadoPedido = document.getElementById('EstadoPedidoLegacy');
     if (!table || !btn) return;
 
     // Tramos de descuento (desde BD). Cada tramo:
@@ -976,6 +994,17 @@
     }
 
     // Inicial
+    if (selEstadoPedido && hidEstadoPedido) {
+      var syncEstado = function(){
+        try {
+          var opt = selEstadoPedido.options && selEstadoPedido.selectedIndex >= 0 ? selEstadoPedido.options[selEstadoPedido.selectedIndex] : null;
+          var nombre = opt ? (opt.getAttribute('data-nombre') || opt.textContent || '') : '';
+          hidEstadoPedido.value = String(nombre || '').trim() || hidEstadoPedido.value;
+        } catch(_e){}
+      };
+      selEstadoPedido.addEventListener('change', function(){ syncEstado(); });
+      syncEstado();
+    }
     applyEspecialUI();
     recalcTotals();
     scheduleRefreshPrecios();
