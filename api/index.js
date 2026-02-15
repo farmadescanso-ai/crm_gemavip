@@ -23,6 +23,11 @@ const {
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, APP_BASE_URL } = require('../lib/mailer');
 
+// Emails de notificaciones: desactivado por defecto (hasta configurar SMTP correctamente).
+const NOTIF_EMAILS_ENABLED =
+  process.env.NOTIF_EMAILS_ENABLED === '1' ||
+  String(process.env.NOTIF_EMAILS_ENABLED || '').toLowerCase() === 'true';
+
 const app = express();
 app.set('trust proxy', 1);
 
@@ -954,7 +959,7 @@ app.post('/notificaciones/:id/aprobar', requireAdmin, async (req, res, next) => 
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const resolved = await db.resolverSolicitudAsignacion(id, res.locals.user?.id, true);
-    if (resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
+    if (NOTIF_EMAILS_ENABLED && resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
       const pedidoUrl = resolved?.id_pedido ? `${APP_BASE_URL}/pedidos/${resolved.id_pedido}` : '';
       await sendPedidoEspecialDecisionEmail(String(resolved.comercial_email), {
         decision: 'aprobado',
@@ -974,7 +979,7 @@ app.post('/notificaciones/:id/rechazar', requireAdmin, async (req, res, next) =>
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const resolved = await db.resolverSolicitudAsignacion(id, res.locals.user?.id, false);
-    if (resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
+    if (NOTIF_EMAILS_ENABLED && resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
       const pedidoUrl = resolved?.id_pedido ? `${APP_BASE_URL}/pedidos/${resolved.id_pedido}` : '';
       await sendPedidoEspecialDecisionEmail(String(resolved.comercial_email), {
         decision: 'rechazado',
