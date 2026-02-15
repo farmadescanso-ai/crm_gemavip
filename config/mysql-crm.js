@@ -768,6 +768,7 @@ class MySQLCRM {
       const colDto = meta.colDto || pickCI(['dto_pct']);
       const colActivo = meta.colActivo || pickCI(['activo']);
       const colOrden = meta.colOrden || pickCI(['orden']);
+      const colUpdatedAt = pickCI(['updated_at', 'UpdatedAt', 'Actualizado', 'actualizado', 'FechaActualizacion', 'fecha_actualizacion']);
 
       const selectCols = [
         `\`${pk}\` AS id`,
@@ -775,7 +776,8 @@ class MySQLCRM {
         colHasta ? `\`${colHasta}\` AS importe_hasta` : 'NULL AS importe_hasta',
         colDto ? `\`${colDto}\` AS dto_pct` : '0 AS dto_pct',
         colActivo ? `\`${colActivo}\` AS activo` : '1 AS activo',
-        colOrden ? `\`${colOrden}\` AS orden` : '0 AS orden'
+        colOrden ? `\`${colOrden}\` AS orden` : '0 AS orden',
+        colUpdatedAt ? `\`${colUpdatedAt}\` AS updated_at` : 'NULL AS updated_at'
       ];
       const sql = `SELECT ${selectCols.join(', ')} FROM \`${meta.table}\` ORDER BY orden ASC, importe_desde ASC`;
       const rows = await this.query(sql).catch(() => null);

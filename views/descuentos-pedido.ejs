@@ -9,6 +9,7 @@
     </p>
   </div>
   <div class="card-bd">
+    <% const fmtDateDash = (val) => { const s = (typeof fmtDateES === 'function') ? (fmtDateES(val) || '') : ''; return s ? s.replace(/\//g, '-') : ''; }; %>
     <% if (error) { %>
       <div class="gv-alert gv-alert--warn"><%= error %></div>
       <div style="height: 10px;"></div>
@@ -38,12 +39,13 @@
             <th style="text-align:left;">Dto (%)</th>
             <th style="text-align:left;">Activo</th>
             <th style="text-align:left;">Orden</th>
-            <th style="width: 280px;"></th>
+            <th style="text-align:left;">Actualización</th>
+            <th style="width: 150px;"></th>
           </tr>
         </thead>
         <tbody>
           <% if (!items || !items.length) { %>
-            <tr><td colspan="6" style="color: var(--gv-muted); padding: 14px;">No hay tramos configurados.</td></tr>
+            <tr><td colspan="7" style="color: var(--gv-muted); padding: 14px;">No hay tramos configurados.</td></tr>
           <% } %>
           <% (items || []).forEach((it) => { %>
             <tr>
@@ -52,14 +54,43 @@
               <td><%= fmtNumES(it.dto_pct ?? it.DtoPct ?? it.dto ?? 0, 2) %></td>
               <td><%= (Number(it.activo ?? it.Activo ?? 0) === 1) ? 'Sí' : 'No' %></td>
               <td><%= (it.orden ?? it.Orden ?? 0) %></td>
+              <td><%= fmtDateDash(it.updated_at ?? it.updatedAt ?? it.UpdatedAt ?? '') || '—' %></td>
               <td style="text-align:right;">
-                <a class="btn secondary" href="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/edit">Editar</a>
-                <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/toggle" style="display:inline;">
-                  <button class="btn secondary" type="submit"><%= (Number(it.activo ?? it.Activo ?? 0) === 1) ? 'Desactivar' : 'Activar' %></button>
-                </form>
-                <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/delete" style="display:inline;" onsubmit="return confirm('¿Borrar este tramo?');">
-                  <button class="btn secondary" type="submit">Borrar</button>
-                </form>
+                <div class="gv-actions">
+                  <a class="btn secondary icon" href="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/edit" title="Editar" aria-label="Editar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                    </svg>
+                  </a>
+
+                  <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/toggle">
+                    <% const isActive = (Number(it.activo ?? it.Activo ?? 0) === 1); %>
+                    <button class="btn secondary icon <%= isActive ? '' : 'success' %>" type="submit" title="<%= isActive ? 'Desactivar' : 'Activar' %>" aria-label="<%= isActive ? 'Desactivar' : 'Activar' %>">
+                      <% if (isActive) { %>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                        </svg>
+                      <% } else { %>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      <% } %>
+                    </button>
+                  </form>
+
+                  <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/delete" onsubmit="return confirm('¿Borrar este tramo?');">
+                    <button class="btn secondary icon danger" type="submit" title="Borrar" aria-label="Borrar">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
           <% }) %>
