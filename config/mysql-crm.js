@@ -3348,6 +3348,39 @@ class MySQLCRM {
     return map;
   }
 
+  /**
+   * Obtiene Nº de pedido (colNumPedido) por lista de IDs. Devuelve Map(id -> NumPedido).
+   */
+  async _getPedidosNumsByIds(ids) {
+    const map = {};
+    if (!ids || ids.length === 0) return map;
+    const uniq = [...new Set(ids.filter((id) => id != null && id !== ''))]
+      .map((x) => Number.parseInt(String(x).trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (uniq.length === 0) return map;
+    try {
+      const meta = await this._ensurePedidosMeta().catch(() => null);
+      if (!meta?.tPedidos) return map;
+      const cols = await this._getColumns(meta.tPedidos).catch(() => []);
+      const pick = (cands) => this._pickCIFromColumns(cols, cands);
+      const pk = meta.pk || pick(['Id', 'id']) || 'Id';
+      const colNum = meta.colNumPedido || pick(['NumPedido', 'NumeroPedido', 'Numero_Pedido', 'num_pedido']);
+      if (!colNum) return map;
+      const placeholders = uniq.map(() => '?').join(',');
+      const sql = `SELECT \`${pk}\` AS id, \`${colNum}\` AS num FROM \`${meta.tPedidos}\` WHERE \`${pk}\` IN (${placeholders})`;
+      const rows = await this.query(sql, uniq);
+      const list = Array.isArray(rows) ? rows : [];
+      list.forEach((r) => {
+        const id = Number(r.id ?? r.Id);
+        const num = r.num ?? r.NumPedido ?? r.NumeroPedido ?? null;
+        if (Number.isFinite(id)) map[id] = (num != null ? String(num).trim() : null);
+      });
+    } catch (e) {
+      console.warn('⚠️ [NOTIF] No se pudieron cargar nº de pedido:', e?.message);
+    }
+    return map;
+  }
+
   async getNotificaciones(limit = 50, offset = 0) {
     const l = Math.max(1, Math.min(100, Number(limit)));
     const o = Math.max(0, Number(offset));
@@ -3364,6 +3397,7 @@ class MySQLCRM {
         tipo: n.tipo,
         id_contacto: n.id_contacto,
         id_pedido: n.id_pedido ?? null,
+        pedido_num: null,
         id_comercial_solicitante: n.id_comercial_solicitante,
         estado: n.estado,
         id_admin_resolvio: n.id_admin_resolvio,
@@ -3376,18 +3410,95 @@ class MySQLCRM {
       if (items.length === 0) return items;
       const contactIds = items.map((x) => x.id_contacto).filter(Boolean);
       const comercialIds = items.map((x) => x.id_comercial_solicitante).filter(Boolean);
-      const [nombresContactos, nombresComerciales] = await Promise.all([
+      const pedidoIds = items
+        .map((x) => x.id_pedido)
+        .filter(Boolean)
+        .map((v) => Number.parseInt(String(v).trim(), 10))
+        .filter((n) => Number.isFinite(n) && n > 0);
+
+      const [nombresContactos, nombresComerciales, numsPedido] = await Promise.all([
         this._getClientesNombresByIds(contactIds),
-        this._getComercialesNombresByIds(comercialIds)
+        this._getComercialesNombresByIds(comercialIds),
+        this._getPedidosNumsByIds(pedidoIds)
       ]);
       items.forEach((n) => {
         n.contacto_nombre = nombresContactos[Number(n.id_contacto)] ?? null;
         n.comercial_nombre = nombresComerciales[Number(n.id_comercial_solicitante)] ?? null;
+        const pid = Number.parseInt(String(n.id_pedido ?? '').trim(), 10);
+        n.pedido_num = Number.isFinite(pid) && pid > 0 ? (numsPedido[pid] ?? null) : null;
       });
       return items;
     } catch (e) {
       console.error('❌ Error listando notificaciones:', e?.message);
       return [];
+    }
+  }
+
+  async getNotificacionesForComercial(idComercial, limit = 50, offset = 0) {
+    const cid = Number.parseInt(String(idComercial ?? '').trim(), 10);
+    if (!Number.isFinite(cid) || cid <= 0) return [];
+    const l = Math.max(1, Math.min(100, Number(limit)));
+    const o = Math.max(0, Number(offset));
+    await this._ensureNotificacionesTable();
+    try {
+      const cols = await this._getColumns('notificaciones').catch(() => []);
+      const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+      const hasPedido = colsLower.has('id_pedido');
+      const sql = `SELECT id, tipo, id_contacto, ${hasPedido ? 'id_pedido' : 'NULL AS id_pedido'}, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas
+        FROM \`notificaciones\`
+        WHERE id_comercial_solicitante = ?
+        ORDER BY fecha_creacion DESC
+        LIMIT ${l} OFFSET ${o}`;
+      const rows = await this.query(sql, [cid]);
+      const list = Array.isArray(rows) ? rows : [];
+      const items = list.map((n) => ({
+        id: n.id,
+        tipo: n.tipo,
+        id_contacto: n.id_contacto,
+        id_pedido: n.id_pedido ?? null,
+        pedido_num: null,
+        id_comercial_solicitante: n.id_comercial_solicitante,
+        estado: n.estado,
+        id_admin_resolvio: n.id_admin_resolvio,
+        fecha_creacion: n.fecha_creacion,
+        fecha_resolucion: n.fecha_resolucion,
+        notas: n.notas,
+        contacto_nombre: null,
+        comercial_nombre: null
+      }));
+      if (!items.length) return items;
+      const contactIds = items.map((x) => x.id_contacto).filter(Boolean);
+      const pedidoIds = items
+        .map((x) => x.id_pedido)
+        .filter(Boolean)
+        .map((v) => Number.parseInt(String(v).trim(), 10))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      const [nombresContactos, numsPedido] = await Promise.all([
+        this._getClientesNombresByIds(contactIds),
+        this._getPedidosNumsByIds(pedidoIds)
+      ]);
+      items.forEach((n) => {
+        n.contacto_nombre = nombresContactos[Number(n.id_contacto)] ?? null;
+        const pid = Number.parseInt(String(n.id_pedido ?? '').trim(), 10);
+        n.pedido_num = Number.isFinite(pid) && pid > 0 ? (numsPedido[pid] ?? null) : null;
+      });
+      return items;
+    } catch (e) {
+      console.error('❌ Error listando notificaciones comercial:', e?.message);
+      return [];
+    }
+  }
+
+  async getNotificacionesForComercialCount(idComercial) {
+    const cid = Number.parseInt(String(idComercial ?? '').trim(), 10);
+    if (!Number.isFinite(cid) || cid <= 0) return 0;
+    await this._ensureNotificacionesTable();
+    try {
+      const rows = await this.query('SELECT COUNT(*) AS n FROM `notificaciones` WHERE id_comercial_solicitante = ?', [cid]);
+      const first = Array.isArray(rows) ? rows[0] : rows;
+      return Number(first?.n ?? 0) || 0;
+    } catch (_) {
+      return 0;
     }
   }
 
@@ -3403,6 +3514,10 @@ class MySQLCRM {
     );
     if (String(notif.tipo || '').toLowerCase() === 'pedido_especial') {
       // Resolver pedido especial: marcar en pedidos como aprobado/rechazado y dejar trazabilidad.
+      let resolvedPid = null;
+      let resolvedPedidoNum = null;
+      let resolvedClienteNombre = null;
+      let resolvedComercialEmail = null;
       try {
         await this.ensurePedidosSchema();
         const meta = await this._ensurePedidosMeta();
@@ -3414,12 +3529,14 @@ class MySQLCRM {
         const colFechaRes = pick(['EspecialFechaResolucion', 'especial_fecha_resolucion', 'FechaResolucionEspecial', 'fecha_resolucion_especial']);
         const colIdAdmin = pick(['EspecialIdAdminResolvio', 'especial_id_admin_resolvio', 'IdAdminResolvioEspecial', 'id_admin_resolvio_especial']);
         const colNotas = pick(['EspecialNotas', 'especial_notas', 'NotasEspecial', 'notas_especial']);
+        const colNumPedido = meta.colNumPedido || pick(['NumPedido', 'NumeroPedido', 'Numero_Pedido', 'num_pedido']);
         let pid = Number.parseInt(String(notif.id_pedido ?? '').trim(), 10);
         if (!Number.isFinite(pid) || pid <= 0) {
           const m = String(notif.notas || '').match(/pedidoId\s*=\s*(\d+)/i);
           if (m && m[1]) pid = Number.parseInt(m[1], 10);
         }
         if (Number.isFinite(pid) && pid > 0) {
+          resolvedPid = pid;
           const upd = {};
           if (colEsEspecial) upd[colEsEspecial] = 1;
           if (colEstado) upd[colEstado] = aprobar ? 'aprobado' : 'rechazado';
@@ -3433,9 +3550,46 @@ class MySQLCRM {
             values.push(pid);
             await this.query(`UPDATE \`${meta.tPedidos}\` SET ${fields} WHERE \`${pk}\` = ?`, values);
           }
+
+          // Obtener NumPedido para mostrar/notificar
+          try {
+            if (colNumPedido) {
+              const rowsP = await this.query(
+                `SELECT \`${colNumPedido}\` AS num FROM \`${meta.tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`,
+                [pid]
+              );
+              const rowP = Array.isArray(rowsP) && rowsP.length ? rowsP[0] : null;
+              resolvedPedidoNum = rowP?.num != null ? String(rowP.num).trim() : null;
+            }
+          } catch (_) {}
         }
       } catch (_) {}
-      return { ok: true };
+      // Enriquecer para que la capa HTTP pueda notificar (email/in-app)
+      try {
+        const clienteId = Number.parseInt(String(notif.id_contacto ?? '').trim(), 10);
+        if (Number.isFinite(clienteId) && clienteId > 0) {
+          const nombres = await this._getClientesNombresByIds([clienteId]).catch(() => ({}));
+          resolvedClienteNombre = nombres[clienteId] ?? null;
+        }
+      } catch (_) {}
+      try {
+        const cid = Number.parseInt(String(notif.id_comercial_solicitante ?? '').trim(), 10);
+        if (Number.isFinite(cid) && cid > 0) {
+          const com = await this.getComercialById(cid).catch(() => null);
+          resolvedComercialEmail = com?.Email ?? com?.email ?? null;
+        }
+      } catch (_) {}
+
+      return {
+        ok: true,
+        tipo: 'pedido_especial',
+        decision: aprobar ? 'aprobada' : 'rechazada',
+        id_pedido: resolvedPid,
+        num_pedido: resolvedPedidoNum,
+        cliente_nombre: resolvedClienteNombre,
+        comercial_email: resolvedComercialEmail,
+        id_comercial_solicitante: notif.id_comercial_solicitante
+      };
     }
 
     if (aprobar) {

@@ -44,12 +44,12 @@
                   <% const pidFromNotas = (() => { const m = String(n.notas || '').match(/pedidoId\s*=\s*(\d+)/i); return m && m[1] ? Number(m[1]) : null; })(); %>
                   <% const pid = (n.id_pedido != null ? Number(n.id_pedido) : null) || pidFromNotas; %>
                   <% if (tipoN === 'pedido_especial' && pid) { %>
-                    <a href="/pedidos/<%= pid %>/edit">Pedido #<%= pid %></a>
-                    <% if (n.id_contacto) { %>
-                      <span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/<%= n.id_contacto %>">#<%= n.id_contacto %></a></span>
+                    <a href="/pedidos/<%= pid %>/edit"><%= n.pedido_num ? String(n.pedido_num) : 'Pedido' %></a>
+                    <% if (n.contacto_nombre) { %>
+                      <span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre %></a></span>
                     <% } %>
                   <% } else { %>
-                    <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente #' + n.id_contacto %></a>
+                    <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente' %></a>
                   <% } %>
                 </td>
                 <td><%= n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante %></td>
@@ -114,9 +114,11 @@
           var mm = String(n.notas).match(/pedidoId\s*=\s*(\d+)/i);
           if (mm && mm[1]) pid = parseInt(mm[1], 10) || null;
         }
+        var pedidoLabel = (n.pedido_num ? String(n.pedido_num) : 'Pedido');
+        var clienteLabel = (n.contacto_nombre ? String(n.contacto_nombre) : 'Cliente');
         var ref = (tipo === 'pedido_especial' && pid)
-          ? ('<a href="/pedidos/' + pid + '/edit">Pedido #' + pid + '</a>' + (n.id_contacto ? ('<span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/' + n.id_contacto + '">#' + n.id_contacto + '</a></span>') : ''))
-          : ('<a href="/clientes/' + n.id_contacto + '">' + (n.contacto_nombre || 'Cliente #' + n.id_contacto) + '</a>');
+          ? ('<a href="/pedidos/' + pid + '/edit">' + pedidoLabel + '</a>' + (n.id_contacto ? ('<span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/' + n.id_contacto + '">' + clienteLabel + '</a></span>') : ''))
+          : ('<a href="/clientes/' + n.id_contacto + '">' + clienteLabel + '</a>');
         var tr = document.createElement('tr');
         var acc = estado === 'pendiente'
           ? '<div class="gv-actions"><form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form></div>'

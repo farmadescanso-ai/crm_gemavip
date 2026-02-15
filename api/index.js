@@ -21,7 +21,7 @@ const {
   createLoadPedidoAndCheckOwner
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
-const { sendPasswordResetEmail, APP_BASE_URL } = require('../lib/mailer');
+const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, APP_BASE_URL } = require('../lib/mailer');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -953,7 +953,16 @@ app.post('/notificaciones/:id/aprobar', requireAdmin, async (req, res, next) => 
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    await db.resolverSolicitudAsignacion(id, res.locals.user?.id, true);
+    const resolved = await db.resolverSolicitudAsignacion(id, res.locals.user?.id, true);
+    if (resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
+      const pedidoUrl = resolved?.id_pedido ? `${APP_BASE_URL}/pedidos/${resolved.id_pedido}` : '';
+      await sendPedidoEspecialDecisionEmail(String(resolved.comercial_email), {
+        decision: 'aprobado',
+        pedidoNum: resolved.num_pedido || '',
+        clienteNombre: resolved.cliente_nombre || '',
+        pedidoUrl
+      }).catch(() => null);
+    }
     return res.redirect('/notificaciones?resuelto=aprobada');
   } catch (e) {
     next(e);
@@ -964,8 +973,34 @@ app.post('/notificaciones/:id/rechazar', requireAdmin, async (req, res, next) =>
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    await db.resolverSolicitudAsignacion(id, res.locals.user?.id, false);
+    const resolved = await db.resolverSolicitudAsignacion(id, res.locals.user?.id, false);
+    if (resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
+      const pedidoUrl = resolved?.id_pedido ? `${APP_BASE_URL}/pedidos/${resolved.id_pedido}` : '';
+      await sendPedidoEspecialDecisionEmail(String(resolved.comercial_email), {
+        decision: 'rechazado',
+        pedidoNum: resolved.num_pedido || '',
+        clienteNombre: resolved.cliente_nombre || '',
+        pedidoUrl
+      }).catch(() => null);
+    }
     return res.redirect('/notificaciones?resuelto=rechazada');
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Notificaciones del comercial (sus propias solicitudes y respuestas)
+app.get('/mis-notificaciones', requireLogin, async (req, res, next) => {
+  try {
+    const admin = isAdminUser(res.locals.user);
+    if (admin) return res.redirect('/notificaciones');
+    const userId = Number(res.locals.user?.id);
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 50));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const offset = (page - 1) * limit;
+    const items = await db.getNotificacionesForComercial(userId, limit, offset).catch(() => []);
+    const total = await db.getNotificacionesForComercialCount(userId).catch(() => (items?.length || 0));
+    res.render('mis-notificaciones', { items: items || [], paging: { page, limit, total: total || 0 } });
   } catch (e) {
     next(e);
   }

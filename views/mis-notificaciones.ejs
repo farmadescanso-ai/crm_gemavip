@@ -1,0 +1,63 @@
+<%- include('partials/header', { title: 'Mis notificaciones' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Mis notificaciones</h1>
+    <p class="card-subtitle">Solicitudes y respuestas (pedidos especiales, asignaciones, etc.).</p>
+  </div>
+  <div class="card-bd">
+    <p style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
+      <span aria-hidden="true">🔔</span> Total: <strong><%= typeof paging !== 'undefined' ? paging.total : 0 %></strong>
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Referencia</th>
+            <th>Estado</th>
+            <th>Fecha resolución</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!items || items.length === 0) { %>
+            <tr>
+              <td colspan="5" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay notificaciones.</td>
+            </tr>
+          <% } else { %>
+            <% items.forEach((n) => { %>
+              <% const tipoN = String(n.tipo || '').toLowerCase(); %>
+              <% const isPedido = tipoN === 'pedido_especial'; %>
+              <% const pid = n.id_pedido ? Number(n.id_pedido) : null; %>
+              <% const pedidoLabel = (n.pedido_num ? String(n.pedido_num) : (pid ? 'Pedido' : 'Pedido')); %>
+              <tr>
+                <td><%= typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || '') %></td>
+                <td><%= isPedido ? 'Pedido especial' : 'Asignación cliente' %></td>
+                <td>
+                  <% if (isPedido && pid) { %>
+                    <a href="/pedidos/<%= pid %>"><%= pedidoLabel %></a>
+                    <% if (n.contacto_nombre) { %>
+                      <span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre %></a></span>
+                    <% } %>
+                  <% } else { %>
+                    <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente' %></a>
+                  <% } %>
+                </td>
+                <td>
+                  <span class="gv-badge gv-badge--<%= (n.estado || '').toLowerCase() === 'pendiente' ? 'otros' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'persona' : 'empresa') %>">
+                    <%= (n.estado || '').toLowerCase() === 'pendiente' ? 'Pendiente' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'Aprobada' : 'Rechazada') %>
+                  </span>
+                </td>
+                <td><%= (n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion ? (typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion) : '—' %></td>
+              </tr>
+            <% }) %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
