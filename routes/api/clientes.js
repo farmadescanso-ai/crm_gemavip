@@ -154,6 +154,29 @@ router.get(
   })
 );
 
+// Crear 1 dirección de envío desde fiscal si no hay ninguna (best-effort).
+router.post(
+  '/:id/direcciones-envio/ensure-fiscal',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const id = toInt(req.params.id, 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    // Seguridad: si no es admin, solo acceder a clientes asignados (o pool Id_Cial=1 / sin asignar).
+    if (sessionUser && !isAdmin) {
+      const c = await db.getClienteById(id);
+      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const cial = toInt(c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const selfId = toInt(sessionUser.id, 0) ?? 0;
+      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    const result = await db.ensureDireccionEnvioFiscal(id);
+    return res.json({ ok: true, ...result });
+  })
+);
+
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {

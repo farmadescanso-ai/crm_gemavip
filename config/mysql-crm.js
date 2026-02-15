@@ -3205,6 +3205,7 @@ class MySQLCRM {
           \`id\` INT NOT NULL AUTO_INCREMENT,
           \`tipo\` VARCHAR(64) NOT NULL DEFAULT 'asignacion_contacto',
           \`id_contacto\` INT NOT NULL,
+          \`id_pedido\` INT NULL,
           \`id_comercial_solicitante\` INT NOT NULL,
           \`estado\` ENUM('pendiente','aprobada','rechazada') NOT NULL DEFAULT 'pendiente',
           \`id_admin_resolvio\` INT NULL,
@@ -3214,10 +3215,24 @@ class MySQLCRM {
           PRIMARY KEY (\`id\`),
           KEY \`idx_notif_estado\` (\`estado\`),
           KEY \`idx_notif_contacto\` (\`id_contacto\`),
+          KEY \`idx_notif_pedido\` (\`id_pedido\`),
           KEY \`idx_notif_comercial\` (\`id_comercial_solicitante\`),
+          KEY \`idx_notif_tipo_estado\` (\`tipo\`, \`estado\`, \`fecha_creacion\`),
           KEY \`idx_notif_fecha_creacion\` (\`fecha_creacion\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
+
+      // Si la tabla existía sin la columna id_pedido/índices, intentar añadirlos (best-effort).
+      try {
+        const cols = await this._getColumns('notificaciones').catch(() => []);
+        const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+        if (!colsLower.has('id_pedido')) {
+          try { await this.query('ALTER TABLE `notificaciones` ADD COLUMN `id_pedido` INT NULL'); } catch (_) {}
+        }
+        // Índices: ignorar errores si ya existen.
+        try { await this.query('ALTER TABLE `notificaciones` ADD KEY `idx_notif_pedido` (`id_pedido`)'); } catch (_) {}
+        try { await this.query('ALTER TABLE `notificaciones` ADD KEY `idx_notif_tipo_estado` (`tipo`, `estado`, `fecha_creacion`)'); } catch (_) {}
+      } catch (_) {}
       return true;
     } catch (e) {
       console.warn('⚠️ [NOTIF] No se pudo crear tabla notificaciones:', e?.message);
@@ -3227,11 +3242,54 @@ class MySQLCRM {
 
   async createSolicitudAsignacion(idContacto, idComercialSolicitante) {
     await this._ensureNotificacionesTable();
-    const r = await this.query(
-      'INSERT INTO `notificaciones` (tipo, id_contacto, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?)',
-      ['asignacion_contacto', idContacto, idComercialSolicitante, 'pendiente']
-    );
-    return r?.insertId ?? r?.affectedRows ?? null;
+    try {
+      const r = await this.query(
+        'INSERT INTO `notificaciones` (tipo, id_contacto, id_pedido, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?, ?)',
+        ['asignacion_contacto', idContacto, null, idComercialSolicitante, 'pendiente']
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    } catch (_e) {
+      // Compat si no hay permisos para ALTER y falta id_pedido
+      const r = await this.query(
+        'INSERT INTO `notificaciones` (tipo, id_contacto, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?)',
+        ['asignacion_contacto', idContacto, idComercialSolicitante, 'pendiente']
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    }
+  }
+
+  async ensureNotificacionPedidoEspecial(pedidoId, clienteId, idComercialSolicitante, notas = null) {
+    await this._ensureNotificacionesTable();
+    const pid = Number.parseInt(String(pedidoId ?? '').trim(), 10);
+    const cid = Number.parseInt(String(clienteId ?? '').trim(), 10);
+    const sid = Number.parseInt(String(idComercialSolicitante ?? '').trim(), 10);
+    if (!Number.isFinite(pid) || pid <= 0) return null;
+    if (!Number.isFinite(cid) || cid <= 0) return null;
+    if (!Number.isFinite(sid) || sid <= 0) return null;
+    try {
+      const existing = await this.query(
+        'SELECT id FROM `notificaciones` WHERE tipo = ? AND estado = ? AND id_pedido = ? LIMIT 1',
+        ['pedido_especial', 'pendiente', pid]
+      );
+      if (Array.isArray(existing) && existing.length) return existing[0]?.id ?? null;
+    } catch (_) {
+      // Si no existe columna id_pedido aún, caer al insert sin check.
+    }
+    try {
+      const r = await this.query(
+        'INSERT INTO `notificaciones` (tipo, id_contacto, id_pedido, id_comercial_solicitante, estado, notas) VALUES (?, ?, ?, ?, ?, ?)',
+        ['pedido_especial', cid, pid, sid, 'pendiente', notas ? String(notas).slice(0, 500) : null]
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    } catch (_e) {
+      const safeNotes = (notas ? String(notas) : '').trim();
+      const fallbackNotes = `${safeNotes ? (safeNotes + ' · ') : ''}pedidoId=${pid}`.slice(0, 500);
+      const r = await this.query(
+        'INSERT INTO `notificaciones` (tipo, id_contacto, id_comercial_solicitante, estado, notas) VALUES (?, ?, ?, ?, ?)',
+        ['pedido_especial', cid, sid, 'pendiente', fallbackNotes]
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    }
   }
 
   async getNotificacionesPendientesCount() {
@@ -3302,13 +3360,17 @@ class MySQLCRM {
     const o = Math.max(0, Number(offset));
     await this._ensureNotificacionesTable();
     try {
-      const sql = `SELECT id, tipo, id_contacto, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM \`notificaciones\` ORDER BY fecha_creacion DESC LIMIT ${l} OFFSET ${o}`;
+      const cols = await this._getColumns('notificaciones').catch(() => []);
+      const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+      const hasPedido = colsLower.has('id_pedido');
+      const sql = `SELECT id, tipo, id_contacto, ${hasPedido ? 'id_pedido' : 'NULL AS id_pedido'}, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM \`notificaciones\` ORDER BY fecha_creacion DESC LIMIT ${l} OFFSET ${o}`;
       const rows = await this.query(sql);
       const list = Array.isArray(rows) ? rows : (rows && typeof rows === 'object' && !rows.insertId ? [rows] : []);
       const items = list.map((n) => ({
         id: n.id,
         tipo: n.tipo,
         id_contacto: n.id_contacto,
+        id_pedido: n.id_pedido ?? null,
         id_comercial_solicitante: n.id_comercial_solicitante,
         estado: n.estado,
         id_admin_resolvio: n.id_admin_resolvio,
@@ -3346,6 +3408,43 @@ class MySQLCRM {
       'UPDATE `notificaciones` SET estado = ?, id_admin_resolvio = ?, fecha_resolucion = ? WHERE id = ?',
       [aprobar ? 'aprobada' : 'rechazada', idAdmin, ahora, idNotif]
     );
+    if (String(notif.tipo || '').toLowerCase() === 'pedido_especial') {
+      // Resolver pedido especial: marcar en pedidos como aprobado/rechazado y dejar trazabilidad.
+      try {
+        await this.ensurePedidosSchema();
+        const meta = await this._ensurePedidosMeta();
+        const cols = await this._getColumns(meta.tPedidos).catch(() => []);
+        const pick = (cands) => this._pickCIFromColumns(cols, cands);
+        const pk = meta.pk;
+        const colEsEspecial = pick(['EsEspecial', 'es_especial', 'PedidoEspecial', 'pedido_especial']);
+        const colEstado = pick(['EspecialEstado', 'especial_estado', 'EstadoEspecial', 'estado_especial']);
+        const colFechaRes = pick(['EspecialFechaResolucion', 'especial_fecha_resolucion', 'FechaResolucionEspecial', 'fecha_resolucion_especial']);
+        const colIdAdmin = pick(['EspecialIdAdminResolvio', 'especial_id_admin_resolvio', 'IdAdminResolvioEspecial', 'id_admin_resolvio_especial']);
+        const colNotas = pick(['EspecialNotas', 'especial_notas', 'NotasEspecial', 'notas_especial']);
+        let pid = Number.parseInt(String(notif.id_pedido ?? '').trim(), 10);
+        if (!Number.isFinite(pid) || pid <= 0) {
+          const m = String(notif.notas || '').match(/pedidoId\s*=\s*(\d+)/i);
+          if (m && m[1]) pid = Number.parseInt(m[1], 10);
+        }
+        if (Number.isFinite(pid) && pid > 0) {
+          const upd = {};
+          if (colEsEspecial) upd[colEsEspecial] = 1;
+          if (colEstado) upd[colEstado] = aprobar ? 'aprobado' : 'rechazado';
+          if (colFechaRes) upd[colFechaRes] = ahora;
+          if (colIdAdmin) upd[colIdAdmin] = idAdmin;
+          if (colNotas) upd[colNotas] = `Resuelto ${aprobar ? 'APROBADO' : 'RECHAZADO'} (notif #${notif.id})`;
+          const keys = Object.keys(upd);
+          if (keys.length) {
+            const fields = keys.map((c) => `\`${c}\` = ?`).join(', ');
+            const values = keys.map((c) => upd[c]);
+            values.push(pid);
+            await this.query(`UPDATE \`${meta.tPedidos}\` SET ${fields} WHERE \`${pk}\` = ?`, values);
+          }
+        }
+      } catch (_) {}
+      return { ok: true };
+    }
+
     if (aprobar) {
       const { tClientes, pk, colComercial } = await this._ensureClientesMeta();
       if (colComercial && tClientes) {
@@ -5373,6 +5472,91 @@ class MySQLCRM {
           console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.NumAsociadoHefame:', e.message);
         }
       }
+
+      // Pedido especial: permite descuentos manuales y requiere aprobación de admin
+      const hasEsEspecial =
+        colsLower.has('esespecial') ||
+        colsLower.has('es_especial') ||
+        colsLower.has('pedidoespecial') ||
+        colsLower.has('pedido_especial');
+      if (!hasEsEspecial) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`EsEspecial\` TINYINT(1) NOT NULL DEFAULT 0`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.EsEspecial");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.EsEspecial:', e.message);
+        }
+      }
+
+      const hasEspecialEstado =
+        colsLower.has('especialestado') ||
+        colsLower.has('especial_estado') ||
+        colsLower.has('estadoespecial') ||
+        colsLower.has('estado_especial');
+      if (!hasEspecialEstado) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`EspecialEstado\` VARCHAR(16) NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.EspecialEstado");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.EspecialEstado:', e.message);
+        }
+      }
+
+      const hasEspecialNotas =
+        colsLower.has('especialnotas') ||
+        colsLower.has('especial_notas') ||
+        colsLower.has('notasespecial') ||
+        colsLower.has('notas_especial');
+      if (!hasEspecialNotas) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`EspecialNotas\` VARCHAR(500) NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.EspecialNotas");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.EspecialNotas:', e.message);
+        }
+      }
+
+      const hasEspecialFechaSolicitud =
+        colsLower.has('especialfechasolicitud') ||
+        colsLower.has('especial_fecha_solicitud') ||
+        colsLower.has('fechasolicitudespecial') ||
+        colsLower.has('fecha_solicitud_especial');
+      if (!hasEspecialFechaSolicitud) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`EspecialFechaSolicitud\` DATETIME NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.EspecialFechaSolicitud");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.EspecialFechaSolicitud:', e.message);
+        }
+      }
+
+      const hasEspecialFechaResolucion =
+        colsLower.has('especialfecharesolucion') ||
+        colsLower.has('especial_fecha_resolucion') ||
+        colsLower.has('fecharesolucionespecial') ||
+        colsLower.has('fecha_resolucion_especial');
+      if (!hasEspecialFechaResolucion) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`EspecialFechaResolucion\` DATETIME NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.EspecialFechaResolucion");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.EspecialFechaResolucion:', e.message);
+        }
+      }
+
+      const hasEspecialIdAdmin =
+        colsLower.has('especialidadadminresolvio') ||
+        colsLower.has('especial_id_admin_resolvio') ||
+        colsLower.has('idadminresolviospecial') ||
+        colsLower.has('id_admin_resolvio_especial');
+      if (!hasEspecialIdAdmin) {
+        try {
+          await this.query(`ALTER TABLE \`${tPedidos}\` ADD COLUMN \`EspecialIdAdminResolvio\` INT NULL`);
+          console.log("✅ [SCHEMA] Añadida columna pedidos.EspecialIdAdminResolvio");
+        } catch (e) {
+          console.warn('⚠️ [SCHEMA] No se pudo añadir pedidos.EspecialIdAdminResolvio:', e.message);
+        }
+      }
     } catch (e) {
       console.warn('⚠️ [SCHEMA] No se pudo asegurar esquema de pedidos:', e?.message || e);
     }
@@ -5510,6 +5694,12 @@ class MySQLCRM {
       const colTarifaId = pickPedidoCol(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
       const colTarifaLegacy = pickPedidoCol(['Tarifa', 'tarifa']);
       const colDtoPedido = pickPedidoCol(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
+      const colEsEspecial = pickPedidoCol(['EsEspecial', 'es_especial', 'PedidoEspecial', 'pedido_especial']);
+      const colEspecialEstado = pickPedidoCol(['EspecialEstado', 'especial_estado', 'EstadoEspecial', 'estado_especial']);
+      const colEspecialNotas = pickPedidoCol(['EspecialNotas', 'especial_notas', 'NotasEspecial', 'notas_especial']);
+      const colEspecialFechaSolicitud = pickPedidoCol(['EspecialFechaSolicitud', 'especial_fecha_solicitud', 'FechaSolicitudEspecial', 'fecha_solicitud_especial']);
+      const colEspecialFechaResolucion = pickPedidoCol(['EspecialFechaResolucion', 'especial_fecha_resolucion', 'FechaResolucionEspecial', 'fecha_resolucion_especial']);
+      const colEspecialIdAdminResolvio = pickPedidoCol(['EspecialIdAdminResolvio', 'especial_id_admin_resolvio', 'IdAdminResolvioEspecial', 'id_admin_resolvio_especial']);
       const colDirEnvio = pickPedidoCol([
         'Id_DireccionEnvio',
         'id_direccionenvio',
@@ -5561,7 +5751,24 @@ class MySQLCRM {
 
         // Leer pedido actual (dentro de la transacción)
         const selectCols = Array.from(
-          new Set([pk, colNumPedido, colClientePedido, colDirEnvio, colTarifaId, colTarifaLegacy, colDtoPedido, colTipoPedido].filter(Boolean))
+          new Set(
+            [
+              pk,
+              colNumPedido,
+              colClientePedido,
+              colDirEnvio,
+              colTarifaId,
+              colTarifaLegacy,
+              colDtoPedido,
+              colTipoPedido,
+              colEsEspecial,
+              colEspecialEstado,
+              colEspecialNotas,
+              colEspecialFechaSolicitud,
+              colEspecialFechaResolucion,
+              colEspecialIdAdminResolvio
+            ].filter(Boolean)
+          )
         );
         const selectSql = `SELECT ${selectCols.map((c) => `\`${c}\``).join(', ')} FROM \`${tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`;
         const [rows] = await conn.execute(selectSql, [idNum]);
@@ -5706,6 +5913,11 @@ class MySQLCRM {
         };
         const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
         const clampPct = (n) => Math.max(0, Math.min(100, Number(n) || 0));
+
+        // Pedido especial: descuentos manuales (no aplicar tabla descuentos_pedido)
+        const isEspecial = colEsEspecial
+          ? (Number(filteredPedido[colEsEspecial] ?? current[colEsEspecial] ?? 0) === 1)
+          : false;
 
         // Prefetch precios por tarifa/Artículo desde `tarifasClientes_precios`
         const preciosTarifa = new Map(); // Id_Articulo -> Precio para la tarifa efectiva
@@ -5944,9 +6156,19 @@ class MySQLCRM {
           if (insRes?.insertId) insertedIds.push(insRes.insertId);
         }
 
-        // 4) DTO pedido automático por tramos (desde tabla) y totales del pedido (sobre Subtotal)
-        const dtoPedidoPct = isTransfer ? 0 : await this.getDtoPedidoPctForSubtotal(sumTotal, conn).catch(() => 0);
-        const pedidoDtoPct = clampPct(getNum(dtoPedidoPct, 0));
+        // 4) DTO pedido (manual si especial, automático por tramos si normal) y totales del pedido (sobre Subtotal)
+        let pedidoDtoPct = 0;
+        if (isTransfer) {
+          pedidoDtoPct = 0;
+        } else if (isEspecial) {
+          const dtoManualRaw = colDtoPedido
+            ? (Object.prototype.hasOwnProperty.call(filteredPedido, colDtoPedido) ? filteredPedido[colDtoPedido] : current[colDtoPedido])
+            : (pedidoInput.Dto ?? pedidoInput.dto ?? 0);
+          pedidoDtoPct = clampPct(getNum(dtoManualRaw, 0));
+        } else {
+          const dtoPedidoPct = await this.getDtoPedidoPctForSubtotal(sumTotal, conn).catch(() => 0);
+          pedidoDtoPct = clampPct(getNum(dtoPedidoPct, 0));
+        }
         const descuentoPedido = round2(sumTotal * (pedidoDtoPct / 100));
         const totalFinal = round2(sumTotal - descuentoPedido);
 
@@ -6904,6 +7126,53 @@ class MySQLCRM {
     } catch (error) {
       console.error('❌ Error creando dirección de envío:', error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Si un cliente no tiene direcciones de envío, crea una (principal) a partir de la dirección fiscal.
+   * Devuelve { created: boolean, id: number|null }.
+   */
+  async ensureDireccionEnvioFiscal(clienteId) {
+    const cid = Number.parseInt(String(clienteId ?? '').trim(), 10);
+    if (!Number.isFinite(cid) || cid <= 0) return { created: false, id: null };
+    try {
+      // Si ya existe alguna dirección activa, no crear nada.
+      const existing = await this.getDireccionesEnvioByCliente(cid, { compact: true }).catch(() => []);
+      const arr = Array.isArray(existing) ? existing : [];
+      if (arr.length > 0) {
+        const firstId = Number.parseInt(String(arr[0]?.id ?? arr[0]?.Id ?? '').trim(), 10);
+        return { created: false, id: Number.isFinite(firstId) ? firstId : null };
+      }
+
+      const c = await this.getClienteById(cid).catch(() => null);
+      if (!c) return { created: false, id: null };
+
+      const nombre = String(c.Nombre_Razon_Social ?? c.Nombre ?? '').trim();
+      const direccion = String(c.Direccion ?? c.direccion ?? '').trim();
+      const poblacion = String(c.Poblacion ?? c.poblacion ?? '').trim();
+      const cp = String(c.CodigoPostal ?? c.codigo_postal ?? c.CP ?? c.cp ?? '').trim();
+      const pais = String(c.Pais ?? c.pais ?? '').trim();
+
+      // Si no hay una dirección fiscal mínima, no podemos crear.
+      if (!direccion && !poblacion && !cp) return { created: false, id: null };
+
+      const created = await this.createDireccionEnvio({
+        Id_Cliente: cid,
+        Alias: 'Fiscal',
+        Nombre_Destinatario: nombre || null,
+        Direccion: direccion || null,
+        Poblacion: poblacion || null,
+        CodigoPostal: cp || null,
+        Pais: pais || null,
+        Es_Principal: 1,
+        Activa: 1
+      });
+      const id = Number(created?.insertId ?? 0) || null;
+      return { created: Boolean(id), id };
+    } catch (e) {
+      console.warn('⚠️ Error asegurando dirección envío fiscal:', e?.message || e);
+      return { created: false, id: null };
     }
   }
 

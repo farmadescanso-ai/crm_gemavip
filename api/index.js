@@ -1138,6 +1138,8 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       },
       lineas: [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
       clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
+      // En creación siempre editable; permite cargar defaults (tarifa/direcciones) al seleccionar cliente.
+      canEdit: true,
       error: null
     });
   } catch (e) {
@@ -1157,16 +1159,22 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
     const articulos = await db.getArticulos({}).catch(() => []);
     const body = req.body || {};
     const admin = isAdminUser(res.locals.user);
+    const esEspecial = body.EsEspecial === '1' || body.EsEspecial === 1 || body.EsEspecial === true || String(body.EsEspecial || '').toLowerCase() === 'on';
+    const tarifaIn = Number(body.Id_Tarifa);
+    const tarifaId = Number.isFinite(tarifaIn) ? tarifaIn : NaN;
     const pedidoPayload = {
       Id_Cial: admin ? (Number(body.Id_Cial) || 0) : (Number(res.locals.user?.id) || 0),
       Id_Cliente: Number(body.Id_Cliente) || 0,
       Id_DireccionEnvio: body.Id_DireccionEnvio ? (Number(body.Id_DireccionEnvio) || null) : null,
       Id_FormaPago: body.Id_FormaPago ? (Number(body.Id_FormaPago) || 0) : 0,
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
-      Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
+      // Importante: si viene 0 (default de UI), omitimos para que DB aplique tarifa del cliente.
+      ...(Number.isFinite(tarifaId) && tarifaId > 0 ? { Id_Tarifa: tarifaId } : {}),
       // Serie fija para pedidos en este CRM
       Serie: 'P',
-      // Dto pedido: se calcula automáticamente desde tabla (descuentos_pedido) en backend.
+      // Pedido especial: descuentos manuales (no aplicar tabla descuentos_pedido)
+      ...(esEspecial ? { EsEspecial: 1, EspecialEstado: 'pendiente', EspecialFechaSolicitud: new Date() } : { EsEspecial: 0 }),
+      ...(esEspecial ? { Dto: Number(String(body.Dto || '').replace(',', '.')) || 0 } : {}),
       NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
@@ -1189,6 +1197,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         item: pedidoPayload,
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
         clientes: [],
+        canEdit: true,
         error: 'Id_Cial e Id_Cliente son obligatorios'
       });
     }
@@ -1196,21 +1205,80 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
     const dniCliente = clientePedido ? String(clientePedido.DNI_CIF || '').trim() : '';
     const activo = Number(clientePedido?.OK_KO ?? clientePedido?.ok_ko ?? 0) === 1;
     if (!clientePedido) {
-      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: [], error: 'Cliente no encontrado.' });
+      return res.status(400).render('pedido-form', {
+        mode: 'create',
+        admin,
+        comerciales,
+        tarifas,
+        formasPago,
+        tiposPedido: tiposPedido || [],
+        descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        articulos,
+        item: pedidoPayload,
+        lineas,
+        clientes: [],
+        canEdit: true,
+        error: 'Cliente no encontrado.'
+      });
     }
     if (!dniCliente || dniCliente.toLowerCase() === 'pendiente') {
-      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []), error: 'No se pueden crear pedidos para un cliente sin DNI/CIF. Indica el DNI/CIF del cliente y asígnalo como activo.' });
+      return res.status(400).render('pedido-form', {
+        mode: 'create',
+        admin,
+        comerciales,
+        tarifas,
+        formasPago,
+        tiposPedido: tiposPedido || [],
+        descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        articulos,
+        item: pedidoPayload,
+        lineas,
+        clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
+        canEdit: true,
+        error: 'No se pueden crear pedidos para un cliente sin DNI/CIF. Indica el DNI/CIF del cliente y asígnalo como activo.'
+      });
     }
     if (!activo) {
-      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []), error: 'No se pueden crear pedidos para un cliente inactivo. Activa el cliente en Contactos.' });
+      return res.status(400).render('pedido-form', {
+        mode: 'create',
+        admin,
+        comerciales,
+        tarifas,
+        formasPago,
+        tiposPedido: tiposPedido || [],
+        descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        articulos,
+        item: pedidoPayload,
+        lineas,
+        clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
+        canEdit: true,
+        error: 'No se pueden crear pedidos para un cliente inactivo. Activa el cliente en Contactos.'
+      });
     }
     if (!pedidoPayload.EstadoPedido) {
-      return res.status(400).render('pedido-form', { mode: 'create', admin, comerciales, tarifas, formasPago, tiposPedido: tiposPedido || [], articulos, item: pedidoPayload, lineas, clientes: [], error: 'EstadoPedido es obligatorio' });
+      return res.status(400).render('pedido-form', {
+        mode: 'create',
+        admin,
+        comerciales,
+        tarifas,
+        formasPago,
+        tiposPedido: tiposPedido || [],
+        descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+        articulos,
+        item: pedidoPayload,
+        lineas,
+        clientes: [],
+        canEdit: true,
+        error: 'EstadoPedido es obligatorio'
+      });
     }
 
     const created = await db.createPedido(pedidoPayload);
     const pedidoId = created?.insertId ?? created?.Id ?? created?.id;
     const result = await db.updatePedidoWithLineas(pedidoId, {}, lineas);
+    if (esEspecial && !admin) {
+      await db.ensureNotificacionPedidoEspecial(pedidoId, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
+    }
     return res.redirect(`/pedidos/${pedidoId}`);
   } catch (e) {
     next(e);
@@ -1722,15 +1790,20 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     if (formaPagoTransfer && (formaPagoTransfer.id ?? formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(f.id ?? f.Id) === Number(formaPagoTransfer.id ?? formaPagoTransfer.Id))) formasPago.push(formaPagoTransfer);
 
     const estadoNorm = String(item.EstadoPedido ?? item.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
-    const canEdit = admin ? (estadoNorm !== 'pagado') : (estadoNorm === 'pendiente');
+    const especial = Number(item.EsEspecial ?? item.es_especial ?? 0) === 1;
+    const especialEstado = String(item.EspecialEstado ?? item.especial_estado ?? '').trim().toLowerCase();
+    const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
+    const canEdit = admin ? (estadoNorm !== 'pagado') : ((estadoNorm === 'pendiente') && !especialPendiente);
     if (!canEdit) {
       return renderErrorPage(req, res, {
         status: 403,
         heading: 'No permitido',
         summary: admin
           ? 'Un pedido en estado "Pagado" no se puede modificar.'
-          : 'Solo puedes modificar pedidos en estado "Pendiente".',
-        publicMessage: `Estado actual: ${String(item.EstadoPedido ?? item.Estado ?? '—')}`
+          : (especialPendiente ? 'Este pedido especial está pendiente de aprobación del administrador.' : 'Solo puedes modificar pedidos en estado "Pendiente".'),
+        publicMessage: especialPendiente
+          ? 'Acción requerida: el administrador debe aprobar o rechazar el pedido especial.'
+          : `Estado actual: ${String(item.EstadoPedido ?? item.Estado ?? '—')}`
       });
     }
 
@@ -1817,15 +1890,20 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
     const id = Number(req.params.id);
 
     const estadoNorm = String(existing.EstadoPedido ?? existing.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
-    const canEdit = admin ? (estadoNorm !== 'pagado') : (estadoNorm === 'pendiente');
+    const existingEspecial = Number(existing.EsEspecial ?? existing.es_especial ?? 0) === 1;
+    const existingEspecialEstado = String(existing.EspecialEstado ?? existing.especial_estado ?? '').trim().toLowerCase();
+    const existingEspecialPendiente = existingEspecial && (existingEspecialEstado === 'pendiente' || existingEspecialEstado === '' || existingEspecialEstado === 'solicitado');
+    const canEdit = admin ? (estadoNorm !== 'pagado') : ((estadoNorm === 'pendiente') && !existingEspecialPendiente);
     if (!canEdit) {
       return renderErrorPage(req, res, {
         status: 403,
         heading: 'No permitido',
         summary: admin
           ? 'Un pedido en estado "Pagado" no se puede modificar.'
-          : 'Solo puedes modificar pedidos en estado "Pendiente".',
-        publicMessage: `Estado actual: ${String(existing.EstadoPedido ?? existing.Estado ?? '—')}`
+          : (existingEspecialPendiente ? 'Este pedido especial está pendiente de aprobación del administrador.' : 'Solo puedes modificar pedidos en estado "Pendiente".'),
+        publicMessage: existingEspecialPendiente
+          ? 'Acción requerida: el administrador debe aprobar o rechazar el pedido especial.'
+          : `Estado actual: ${String(existing.EstadoPedido ?? existing.Estado ?? '—')}`
       });
     }
 
@@ -1839,6 +1917,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
     const articulos = await db.getArticulos({}).catch(() => []);
 
     const body = req.body || {};
+    const esEspecial = body.EsEspecial === '1' || body.EsEspecial === 1 || body.EsEspecial === true || String(body.EsEspecial || '').toLowerCase() === 'on';
     const pedidoPayload = {
       Id_Cial: admin ? (Number(body.Id_Cial) || 0) : (Number(res.locals.user?.id) || 0),
       Id_Cliente: Number(body.Id_Cliente) || 0,
@@ -1847,7 +1926,9 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
       Serie: 'P',
-      // Dto pedido: se calcula automáticamente desde tabla (descuentos_pedido) en backend.
+      ...(esEspecial ? { EsEspecial: 1, EspecialEstado: 'pendiente' } : { EsEspecial: 0 }),
+      ...(esEspecial && !existingEspecial ? { EspecialFechaSolicitud: new Date() } : {}),
+      ...(esEspecial ? { Dto: Number(String(body.Dto || '').replace(',', '.')) || 0 } : {}),
       NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
@@ -1874,6 +1955,9 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
     }
 
     await db.updatePedidoWithLineas(id, pedidoPayload, lineas);
+    if (esEspecial && !admin) {
+      await db.ensureNotificacionPedidoEspecial(id, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
+    }
     return res.redirect(`/pedidos/${id}`);
   } catch (e) {
     next(e);

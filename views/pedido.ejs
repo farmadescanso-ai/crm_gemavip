@@ -113,6 +113,10 @@
         <% if (item.NumAsociadoHefame || item.num_asociado_hefame) { %>
           <div><span>Nº asociado (Hefame)</span><b><%= item.NumAsociadoHefame ?? item.num_asociado_hefame %></b></div>
         <% } %>
+        <% if (Number(item.EsEspecial ?? item.es_especial ?? 0) === 1) { %>
+          <% const est = String(item.EspecialEstado ?? item.especial_estado ?? 'pendiente').trim().toLowerCase() || 'pendiente'; %>
+          <div><span>Especial</span><b><%= est === 'aprobado' ? 'Aprobado' : (est === 'rechazado' ? 'Rechazado' : 'Pendiente') %></b></div>
+        <% } %>
       </div>
     </div>
   </div>

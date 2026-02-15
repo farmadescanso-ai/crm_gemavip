@@ -1,14 +1,14 @@
-<%- include('partials/header', { title: 'Solicitudes de asignación' }) %>
+<%- include('partials/header', { title: 'Notificaciones' }) %>
 
 <section class="card">
   <div class="card-hd">
-    <h1 class="card-title">Solicitudes de asignación</h1>
-    <p class="card-subtitle">Los comerciales solicitan contactos para asignarse. Aquí puedes aprobar o rechazar las solicitudes pendientes.</p>
+    <h1 class="card-title">Notificaciones</h1>
+    <p class="card-subtitle">Solicitudes pendientes (asignación de clientes y pedidos especiales). Puedes aprobar o rechazar.</p>
   </div>
   <div class="card-bd">
     <% if (typeof resuelto !== 'undefined' && resuelto) { %>
       <p class="notice" style="margin-bottom:12px; padding:10px; background: rgba(25,135,84,.1); border-radius:8px; color:#198754;">
-        <%= resuelto === 'aprobada' ? 'Asignación aprobada. El contacto queda asignado al comercial.' : 'Solicitud rechazada.' %>
+        <%= resuelto === 'aprobada' ? 'Solicitud aprobada.' : 'Solicitud rechazada.' %>
       </p>
     <% } %>
     <p style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
@@ -19,7 +19,8 @@
         <thead>
           <tr>
             <th>Fecha</th>
-            <th>Contacto</th>
+            <th>Tipo</th>
+            <th>Referencia</th>
             <th>Comercial solicitante</th>
             <th>Estado</th>
             <th>Fecha resolución</th>
@@ -29,14 +30,27 @@
         <tbody id="notif-tbody">
           <% if (!items || items.length === 0) { %>
             <tr id="notif-empty-row">
-              <td colspan="6" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay solicitudes.</td>
+              <td colspan="7" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay notificaciones.</td>
             </tr>
           <% } else { %>
             <% items.forEach((n) => { %>
               <tr>
                 <td><%= typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || '') %></td>
                 <td>
-                  <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Contacto #' + n.id_contacto %></a>
+                  <%= (n.tipo || '').toLowerCase() === 'pedido_especial' ? 'Pedido especial' : 'Asignación cliente' %>
+                </td>
+                <td>
+                  <% const tipoN = (n.tipo || '').toLowerCase(); %>
+                  <% const pidFromNotas = (() => { const m = String(n.notas || '').match(/pedidoId\s*=\s*(\d+)/i); return m && m[1] ? Number(m[1]) : null; })(); %>
+                  <% const pid = (n.id_pedido != null ? Number(n.id_pedido) : null) || pidFromNotas; %>
+                  <% if (tipoN === 'pedido_especial' && pid) { %>
+                    <a href="/pedidos/<%= pid %>/edit">Pedido #<%= pid %></a>
+                    <% if (n.id_contacto) { %>
+                      <span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/<%= n.id_contacto %>">#<%= n.id_contacto %></a></span>
+                    <% } %>
+                  <% } else { %>
+                    <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente #' + n.id_contacto %></a>
+                  <% } %>
                 </td>
                 <td><%= n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante %></td>
                 <td>
@@ -49,12 +63,12 @@
                   <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
                     <div class="gv-actions">
                       <form method="post" action="/notificaciones/<%= n.id %>/aprobar">
-                        <button class="btn secondary icon success" type="submit" title="Aprobar asignación" aria-label="Aprobar asignación">
+                        <button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </button>
                       </form>
                       <form method="post" action="/notificaciones/<%= n.id %>/rechazar">
-                        <button class="btn secondary icon danger" type="submit" title="Rechazar solicitud" aria-label="Rechazar solicitud">
+                        <button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                       </form>
@@ -93,12 +107,22 @@
         var estado = (n.estado || '').toLowerCase();
         var estadoLabel = estado === 'pendiente' ? 'Pendiente' : (estado === 'aprobada' ? 'Aprobada' : 'Rechazada');
         var badgeClass = estado === 'pendiente' ? 'otros' : (estado === 'aprobada' ? 'persona' : 'empresa');
+        var tipo = (n.tipo || '').toLowerCase();
+        var tipoLabel = tipo === 'pedido_especial' ? 'Pedido especial' : 'Asignación cliente';
+        var pid = n.id_pedido;
+        if (!pid && tipo === 'pedido_especial' && n.notas) {
+          var mm = String(n.notas).match(/pedidoId\s*=\s*(\d+)/i);
+          if (mm && mm[1]) pid = parseInt(mm[1], 10) || null;
+        }
+        var ref = (tipo === 'pedido_especial' && pid)
+          ? ('<a href="/pedidos/' + pid + '/edit">Pedido #' + pid + '</a>' + (n.id_contacto ? ('<span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/' + n.id_contacto + '">#' + n.id_contacto + '</a></span>') : ''))
+          : ('<a href="/clientes/' + n.id_contacto + '">' + (n.contacto_nombre || 'Cliente #' + n.id_contacto) + '</a>');
         var tr = document.createElement('tr');
         var acc = estado === 'pendiente'
-          ? '<div class="gv-actions"><form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar asignación" aria-label="Aprobar asignación"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar solicitud" aria-label="Rechazar solicitud"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form></div>'
+          ? '<div class="gv-actions"><form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form></div>'
           : '—';
         var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
-        tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td><a href="/clientes/' + n.id_contacto + '">' + (n.contacto_nombre || 'Contacto #' + n.id_contacto) + '</a></td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + acc + '</td>';
+        tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td>' + tipoLabel + '</td><td>' + ref + '</td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + acc + '</td>';
         tbody.appendChild(tr);
       });
     })

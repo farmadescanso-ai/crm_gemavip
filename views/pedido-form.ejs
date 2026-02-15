@@ -1,5 +1,6 @@
 <%- include('partials/header', { title: mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' }) %>
 <% var isAdminForm = !!(typeof user !== 'undefined' && user && (user.roles || []).some(function(r){ return String(r).toLowerCase().indexOf('admin') !== -1; })); %>
+<% var isEspecialPedido = Number((item && (item.EsEspecial ?? item.es_especial ?? item.especial)) ?? 0) === 1; %>
 
 <section class="card gv-pedido-form">
   <div class="card-hd">
@@ -40,7 +41,7 @@
 
       <div class="gv-doc__grid gv-doc__grid--cabecera">
         <label class="gv-field">
-          <span class="gv-field__label">Comercial * <button type="button" class="gv-field-info" aria-label="Información" data-info="<%= isAdminForm ? 'Puedes cambiar el comercial del pedido manualmente.' : 'Se asigna automáticamente según el cliente seleccionado.' %>"></button></span>
+          <span class="gv-field__label">Comercial * <button type="button" class="gv-field-info" aria-label="Información" data-info="<%= isAdminForm ? 'Puedes cambiar el comercial del pedido manualmente.' : 'En sesión comercial, el pedido se guarda con el comercial logueado.' %>"></button></span>
           <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
           <input type="hidden" name="Id_Cial" id="Id_Cial" value="<%= curCial || '' %>" />
           <select <%= isAdminForm ? '' : 'disabled' %> class="gv-input" id="Id_Cial__display">
@@ -180,7 +181,13 @@
       <div class="card" style="padding: 12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap:wrap;">
           <div style="font-weight: 900;">Líneas</div>
-          <button class="btn secondary" type="button" id="addLineaBtn">Añadir línea</button>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:8px; font-weight:800; user-select:none;">
+              <input type="checkbox" id="EsEspecial" name="EsEspecial" value="1" <%= isEspecialPedido ? 'checked' : '' %> />
+              <span>Pedido especial</span>
+            </label>
+            <button class="btn secondary" type="button" id="addLineaBtn">Añadir línea</button>
+          </div>
         </div>
         <div style="height: 10px;"></div>
         <div class="table-wrap">
@@ -238,8 +245,8 @@
                     max="100"
                     step="0.01"
                     value="<%= item.Dto ?? item.Descuento ?? 0 %>"
-                    readonly
-                    title="Se calcula automáticamente según el Subtotal"
+                    <%= isEspecialPedido ? '' : 'readonly' %>
+                    title="<%= isEspecialPedido ? 'Pedido especial: descuento manual (no se aplica tabla de tramos)' : 'Se calcula automáticamente según el Subtotal' %>"
                   />
                 </td>
                 <td style="text-align:right; font-weight:700;" id="dtoPedidoAmountCell">—</td>
@@ -273,6 +280,7 @@
     var dtoPedidoEl = document.getElementById('DtoPedidoInput') || (form ? form.querySelector('input[name=\"Dto\"]') : null);
     var selDirEnvio = document.getElementById('Id_DireccionEnvio');
     var helpDirEnvio = document.getElementById('Id_DireccionEnvioHelp');
+    var chkEspecial = document.getElementById('EsEspecial');
     var hidCial = document.getElementById('Id_Cial');
     var selCialDisplay = document.getElementById('Id_Cial__display');
     var hidCliente = document.getElementById('Id_Cliente');
@@ -331,6 +339,18 @@
     var defaultDto = 0;
     function clampPct(n){ n = Number(n); if (!isFinite(n)) n = 0; return Math.max(0, Math.min(100, n)); }
     function getTarifaId(){ return selTarifa ? (parseInt(String(selTarifa.value||'0'),10) || 0) : 0; }
+    function isPedidoEspecial(){ return !!(chkEspecial && chkEspecial.checked); }
+    function applyEspecialUI(){
+      var esp = isPedidoEspecial();
+      if (dtoPedidoEl) {
+        dtoPedidoEl.readOnly = !esp;
+        if (esp) {
+          dtoPedidoEl.title = 'Pedido especial: descuento manual (no se aplica tabla de tramos)';
+        } else {
+          dtoPedidoEl.title = 'Se calcula automáticamente según el Subtotal';
+        }
+      }
+    }
 
     function markManual(el){
       if (!el) return;
@@ -434,12 +454,25 @@
       selDirEnvio.innerHTML = '<option value="">(por defecto)</option>';
       if (helpDirEnvio) helpDirEnvio.textContent = 'Si el cliente tiene más de una, selecciona una.';
       if (!cid) return;
+      // Evitar bucle: si no hay direcciones, intentamos crear 1 desde fiscal una sola vez.
+      loadDireccionesEnvio._ensuredFiscal = loadDireccionesEnvio._ensuredFiscal || {};
       try{
         var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/direcciones-envio?compact=1', { headers: { Accept: 'application/json' } });
         if (!r.ok) return;
         var json = await r.json().catch(function(){ return null; });
         if (!json || json.ok !== true) return;
         var items = Array.isArray(json.items) ? json.items : [];
+        if (items.length === 0 && !loadDireccionesEnvio._ensuredFiscal[String(cid)]) {
+          loadDireccionesEnvio._ensuredFiscal[String(cid)] = true;
+          try {
+            await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/direcciones-envio/ensure-fiscal', {
+              method: 'POST',
+              headers: { Accept: 'application/json' }
+            });
+          } catch (_e) {}
+          // Reintentar una vez
+          return await loadDireccionesEnvio(cid);
+        }
         items.forEach(function(d){
           var id = d.id ?? d.Id ?? '';
           if (!id) return;
@@ -479,6 +512,7 @@
       if (!id) return;
       try {
         var userId = parseInt('<%= Number(user?.id ?? 0) %>', 10) || 0;
+        setAutosave('', false);
 
         var r = await fetch('/api/clientes/' + encodeURIComponent(String(id)), { headers: { Accept: 'application/json' } });
         if (!r.ok) return;
@@ -496,6 +530,7 @@
         // - EXCEPCIÓN (sesión comercial): si el cliente no está asignado o está en pool (Id_Cial=1),
         //   al pasar un pedido se puede asignar (reclamar) al comercial actual.
         var cialNum = parseInt(String(cial || '').trim(), 10) || 0;
+        var cialOriginal = cialNum;
         // En modo edición NO reclamamos ni persistimos nada automáticamente (Cancelar debe ser inocuo).
         var canClaim = !isEditMode && !isAdmin && userId > 0 && userId !== 1 && (cialNum <= 0 || cialNum === 1);
         if (canClaim) {
@@ -509,8 +544,18 @@
           } catch (_e) {}
         }
 
-        // Requisito: el comercial SIEMPRE se toma del cliente seleccionado (ya con posible claim)
-        setCial(cialNum || cial);
+        // Requisito:
+        // - En pedido, el comercial es el comercial logueado (rol comercial).
+        // - Si el cliente está en pool/libre, se puede reclamar y quedará asignado al comercial actual.
+        if (!isAdmin && userId > 0) {
+          setCial(userId);
+          if (cialOriginal && cialOriginal !== 1 && cialOriginal !== userId) {
+            setAutosave('Aviso: este cliente está asignado a otro comercial. El pedido se guardará con tu comercial (sesión).', true);
+          }
+        } else {
+          // Admin: sí puede reflejar el comercial del cliente (y cambiarlo manualmente).
+          setCial(cialNum || cial);
+        }
 
         // Tarifa: actualizar al cambiar cliente (sin tocar si el cliente no trae tarifa)
         if (selTarifa && tar !== undefined && tar !== null && String(tar).trim() !== '') selTarifa.value = String(tar);
@@ -667,6 +712,11 @@
 
     // Descuento automático basado en la tabla (descuentosPedido) - sin valores hardcodeados.
     function getDtoPedidoAuto(subtotal){
+      // Pedido especial: descuento manual (no aplicar tramos)
+      if (isPedidoEspecial()) {
+        var cur = dtoPedidoEl ? Number(String(dtoPedidoEl.value || '').replace(',', '.')) : 0;
+        return clampPct(cur);
+      }
       var x = Number(subtotal);
       if (!isFinite(x) || x <= 0) return 0;
       if (!Array.isArray(descuentosPedido) || !descuentosPedido.length) return 0;
@@ -729,7 +779,7 @@
 
       // Aplicar dto pedido auto según tabla (sobre subtotal)
       var dtoPedido = getDtoPedidoAuto(subtotal);
-      if (dtoPedidoEl) {
+      if (dtoPedidoEl && !isPedidoEspecial()) {
         // Evitar NaN/formatos: input number usa "."
         dtoPedidoEl.value = String(dtoPedido);
       }
@@ -862,8 +912,15 @@
       dtoPedidoEl.addEventListener('change', function(){ recalcTotals(); });
       dtoPedidoEl.addEventListener('blur', function(){ recalcTotals(); });
     }
+    if (chkEspecial) {
+      chkEspecial.addEventListener('change', function(){
+        applyEspecialUI();
+        recalcTotals();
+      });
+    }
 
     // Inicial
+    applyEspecialUI();
     recalcTotals();
     scheduleRefreshPrecios();
   })();
