@@ -208,7 +208,7 @@
                       <% }) %>
                     </select>
                   </td>
-                  <td><input class="gv-line-pvl" name="lineas[<%= idx %>][PrecioUnitario]" type="number" min="0" step="0.01" value="<%= l.PrecioUnitario ?? l.Precio ?? '' %>" placeholder="auto" /></td>
+                  <td><input class="gv-line-pvl" name="lineas[<%= idx %>][PrecioUnitario]" type="number" min="0" step="0.01" value="<%= l.PrecioUnitario ?? l.Precio ?? '' %>" placeholder="tarifa" readonly title="PVL fijo: se carga desde la tarifa seleccionada" /></td>
                   <td><input name="lineas[<%= idx %>][Cantidad]" type="number" min="0" step="0.01" value="<%= l.Cantidad ?? 1 %>" /></td>
                   <td><input class="gv-line-dto" name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" placeholder="auto" /></td>
                   <td style="text-align:right; font-weight:900;" class="gv-line-total">—</td>
@@ -315,8 +315,8 @@
       return !!(el && String(el.getAttribute('data-manual') || '') === '1');
     }
 
-    table.querySelectorAll('input.gv-line-pvl').forEach(function (i) { i.addEventListener('input', function(){ markManual(i); }); });
-    if (selTarifa) selTarifa.addEventListener('change', function(){ markManual(selTarifa); refreshPrecios(); });
+    // PVL fijo: no permitir edición manual en UI (readonly) y siempre recalcular por tarifa.
+    if (selTarifa) selTarifa.addEventListener('change', function(){ markManual(selTarifa); scheduleRefreshPrecios(); });
 
     function setIfNotManual(selectEl, value){
       if (!selectEl) return;
@@ -502,26 +502,43 @@
       } catch (_e) {}
     }
 
-    // Precios: queremos "instantáneo" en UI (data-pvl) y ajuste posterior por tarifa (fetch).
+    // Precios: PVL fijo por tarifa.
+    // Requisito: al cambiar tarifa/artículo, primero poner PVL=0 y luego aplicar precios de la tarifa.
     var refreshPreciosTimer = null;
     var refreshPreciosSeq = 0; // para ignorar respuestas antiguas
-
-    function applyPVLFromOption(sel, pvl){
-      if (!sel || !pvl) return;
-      var aid = String(sel.value || '').trim();
-      if (!aid) return;
-      // Si el usuario lo ha tocado manualmente y hay un valor, no pisar.
-      if (isManual(pvl) && String(pvl.value || '').trim() !== '') return;
-      var opt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
-      var op = opt ? opt.getAttribute('data-pvl') : '';
-      if (op !== null && op !== undefined && String(op).trim() !== '') {
-        pvl.value = String(op);
-      }
-    }
 
     function scheduleRefreshPrecios(){
       if (refreshPreciosTimer) clearTimeout(refreshPreciosTimer);
       refreshPreciosTimer = setTimeout(function(){ refreshPrecios(); }, 80);
+    }
+
+    function isTransferContext(){
+      try{
+        // Tipo pedido (ya existe helper para Hefame)
+        if (isTipoTransferHefame && isTipoTransferHefame()) return true;
+      } catch(_e){}
+      // Tarifa por texto/label
+      try{
+        if (!selTarifa || selTarifa.tagName !== 'SELECT') return false;
+        var opt = selTarifa.options && selTarifa.selectedIndex >= 0 ? selTarifa.options[selTarifa.selectedIndex] : null;
+        var label = opt ? (opt.getAttribute('data-label') || opt.textContent || '') : '';
+        return /transfer/i.test(String(label || ''));
+      } catch(_e){}
+      return false;
+    }
+
+    function setAllPVLToZero(rows){
+      (rows || []).forEach(function(tr){
+        var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
+        var pvl = tr.querySelector('input.gv-line-pvl');
+        if (!pvl) return;
+        var aid = sel ? String(sel.value || '').trim() : '';
+        if (!aid) {
+          pvl.value = '';
+          return;
+        }
+        pvl.value = '0';
+      });
     }
 
     async function refreshPrecios(){
@@ -529,16 +546,14 @@
       var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
       if (!rows.length) return;
 
-      // 1) Relleno inmediato por PVL del option (sirve incluso sin tarifa)
-      rows.forEach(function(tr){
-        var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
-        var pvl = tr.querySelector('input.gv-line-pvl');
-        if (!sel || !pvl) return;
-        applyPVLFromOption(sel, pvl);
-      });
+      // 1) Siempre: primero PVL=0 (o vacío si no hay artículo)
+      setAllPVLToZero(rows);
       recalcTotals();
 
-      // 2) Si no hay tarifa activa, no hacemos fetch.
+      // Transfer: PVL siempre 0 (no valorar)
+      if (isTransferContext()) return;
+
+      // 2) Si no hay tarifa activa, no hacemos fetch (se queda PVL=0)
       if (!tarifaId) return;
 
       // 3) Fetch precios por tarifa (puede tardar). Protegemos contra respuestas fuera de orden.
@@ -550,11 +565,6 @@
         var aid = parseInt(String(sel.value||''),10) || 0;
         if (!aid) return;
         articuloIds.push(aid);
-        // Feedback ligero: si está vacío, mostrar "Cargando…" en placeholder.
-        if (String(pvl.value || '').trim() === '') {
-          if (!pvl.getAttribute('data-ph')) pvl.setAttribute('data-ph', String(pvl.getAttribute('placeholder') || ''));
-          pvl.setAttribute('placeholder', 'Cargando…');
-        }
       });
       if (!articuloIds.length) return;
 
@@ -576,19 +586,8 @@
           if (!sel || !pvl) return;
           var aid = String(sel.value || '').trim();
           if (!aid) return;
-          if (isManual(pvl) && String(pvl.value||'').trim() !== '') return;
-          if (precios[aid] !== undefined && precios[aid] !== null) {
-            pvl.value = String(precios[aid]);
-          } else {
-            // Fallback inmediato
-            applyPVLFromOption(sel, pvl);
-          }
-          // Restaurar placeholder si lo cambiamos
-          var oldPh = pvl.getAttribute('data-ph');
-          if (oldPh !== null) {
-            pvl.setAttribute('placeholder', oldPh || 'auto');
-            pvl.removeAttribute('data-ph');
-          }
+          // PVL fijo: si no hay precio en tarifa, se queda en 0.
+          if (precios[aid] !== undefined && precios[aid] !== null) pvl.value = String(precios[aid]);
         });
         recalcTotals();
       } catch(_e){}
@@ -710,7 +709,8 @@
       if (dto && String(dto.value || '').trim() === '') dto.value = String(defaultDto || 0);
 
       var pvl = tr.querySelector('input.gv-line-pvl');
-      if (pvl) pvl.addEventListener('input', function(){ markManual(pvl); });
+      // PVL fijo: no permitir edición manual
+      if (pvl) { pvl.setAttribute('readonly', 'readonly'); pvl.setAttribute('placeholder', 'tarifa'); }
       scheduleRefreshPrecios();
       recalcTotals();
     });
@@ -741,11 +741,11 @@
     table.addEventListener('change', function(e){
       var t = e.target;
       if (t && t.matches('select[name*=\"[Id_Articulo]\"]')) {
-        // Instantáneo: PVL desde data-pvl del option de esa fila.
+        // PVL fijo: al cambiar artículo, primero PVL=0 y luego tarifa (async)
         var tr = t.closest ? t.closest('tr') : null;
         if (tr) {
           var pvl = tr.querySelector('input.gv-line-pvl');
-          applyPVLFromOption(t, pvl);
+          if (pvl) pvl.value = (String(t.value || '').trim() ? '0' : '');
         }
         recalcTotals();
         // Luego ajustar por tarifa (async)
@@ -768,6 +768,7 @@
 
     // Inicial
     recalcTotals();
+    scheduleRefreshPrecios();
   })();
 </script>
 
