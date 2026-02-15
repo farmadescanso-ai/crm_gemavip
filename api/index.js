@@ -575,15 +575,29 @@ app.get('/comerciales', requireAdmin, async (req, res, next) => {
 // ===========================
 app.get('/admin/descuentos-pedido', requireAdmin, async (_req, res, next) => {
   try {
+    // Diagnóstico (solo admin) para detectar DB incorrecta o tabla vacía en producción
+    let diag = { database: null, count: null };
+    try {
+      const r = await db.query('SELECT DATABASE() AS db').catch(() => []);
+      diag.database = r && r[0] ? (r[0].db ?? r[0].DB ?? r[0].database ?? null) : null;
+    } catch (_) {}
+    try {
+      const c = await db.query('SELECT COUNT(*) AS n FROM `descuentos_pedido`').catch(() => []);
+      diag.count = c && c[0] ? Number(c[0].n ?? c[0].N ?? 0) : null;
+    } catch (_) {
+      diag.count = null;
+    }
+
     const items = await db.getDescuentosPedidoAdmin().catch(() => null);
     if (items === null) {
       return res.render('descuentos-pedido', {
         title: 'Descuentos de pedido',
         items: [],
-        error: 'No se pudo leer la tabla descuentos_pedido. ¿Has ejecutado el script scripts/crear-tabla-descuentos-pedido.sql?'
+        error: 'No se pudo leer la tabla descuentos_pedido. ¿Has ejecutado el script scripts/crear-tabla-descuentos-pedido.sql?',
+        diag
       });
     }
-    return res.render('descuentos-pedido', { title: 'Descuentos de pedido', items: items || [], error: null });
+    return res.render('descuentos-pedido', { title: 'Descuentos de pedido', items: items || [], error: null, diag });
   } catch (e) {
     next(e);
   }

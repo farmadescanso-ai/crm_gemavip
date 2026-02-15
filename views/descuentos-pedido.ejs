@@ -14,6 +14,14 @@
       <div style="height: 10px;"></div>
     <% } %>
 
+    <% if (typeof diag !== 'undefined' && diag) { %>
+      <div style="margin-bottom: 12px; padding: 10px 12px; border:1px solid rgba(148,163,184,.6); border-radius: 12px; background: rgba(148,163,184,.10); color: var(--gv-ink); font-size: 13px;">
+        <div style="font-weight:800; margin-bottom: 4px;">Diagnóstico (admin)</div>
+        <div>BD actual: <b><%= diag.database || '—' %></b></div>
+        <div>Filas en <code>descuentos_pedido</code>: <b><%= (diag.count === null || diag.count === undefined) ? '—' : diag.count %></b></div>
+      </div>
+    <% } %>
+
     <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap:wrap; margin-bottom: 12px;">
       <a class="btn" href="/admin/descuentos-pedido/new">Nuevo tramo</a>
       <div style="color: var(--gv-muted); font-size: 13px;">
