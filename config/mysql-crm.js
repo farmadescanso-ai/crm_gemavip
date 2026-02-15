@@ -5546,25 +5546,45 @@ class MySQLCRM {
           updatedPedido = { affectedRows: updRes?.affectedRows || 0, changedRows: updRes?.changedRows || 0 };
         }
 
-        // 2) Borrar líneas actuales (por las columnas de enlace que existan)
-        const where = [];
-        const params = [];
-        if (paMeta.colPedidoId) {
-          where.push(`\`${paMeta.colPedidoId}\` = ?`);
-          params.push(idNum);
-        }
-        if (paMeta.colPedidoIdNum) {
-          where.push(`\`${paMeta.colPedidoIdNum}\` = ?`);
-          params.push(idNum);
-        }
-        if (paMeta.colNumPedido && finalNumPedido) {
-          where.push(`\`${paMeta.colNumPedido}\` = ?`);
-          params.push(finalNumPedido);
-        }
-        if (!where.length) throw new Error('No se pudo determinar cómo enlazar líneas con el pedido (faltan columnas)');
+        // 2) Borrar líneas actuales (priorizando el enlace más fuerte para proteger integridad)
+        // Evitamos borrados cruzados si existe NumPedido y no es único, limpiando "legacy" solo cuando no hay vínculo por ID.
+        let deletedLineas = 0;
+        const delExec = async (sql, params) => {
+          const [r] = await conn.execute(sql, params);
+          deletedLineas += r?.affectedRows || 0;
+        };
 
-        const [delRes] = await conn.execute(`DELETE FROM \`${paMeta.table}\` WHERE (${where.join(' OR ')})`, params);
-        const deletedLineas = delRes?.affectedRows || 0;
+        if (paMeta.colPedidoId) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoId}\` = ?`, [idNum]);
+
+          if (paMeta.colPedidoIdNum) {
+            await delExec(
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoIdNum}\` = ? AND (\`${paMeta.colPedidoId}\` IS NULL OR \`${paMeta.colPedidoId}\` = 0)`,
+              [idNum]
+            );
+          }
+          if (paMeta.colNumPedido && finalNumPedido) {
+            const extra = paMeta.colPedidoIdNum
+              ? ` AND (\`${paMeta.colPedidoIdNum}\` IS NULL OR \`${paMeta.colPedidoIdNum}\` = 0)`
+              : '';
+            await delExec(
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ? AND (\`${paMeta.colPedidoId}\` IS NULL OR \`${paMeta.colPedidoId}\` = 0)${extra}`,
+              [finalNumPedido]
+            );
+          }
+        } else if (paMeta.colPedidoIdNum) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoIdNum}\` = ?`, [idNum]);
+          if (paMeta.colNumPedido && finalNumPedido) {
+            await delExec(
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ? AND (\`${paMeta.colPedidoIdNum}\` IS NULL OR \`${paMeta.colPedidoIdNum}\` = 0)`,
+              [finalNumPedido]
+            );
+          }
+        } else if (paMeta.colNumPedido && finalNumPedido) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ?`, [finalNumPedido]);
+        } else {
+          throw new Error('No se pudo determinar cómo enlazar líneas con el pedido (faltan columnas)');
+        }
 
         // 3) Insertar nuevas líneas
         const insertedIds = [];
@@ -5772,20 +5792,7 @@ class MySQLCRM {
       const colNumPedidoPedido = pedidosMeta.colNumPedido;
       const numPedido = colNumPedidoPedido ? (pedido[colNumPedidoPedido] ?? pedido.NumPedido ?? pedido.Numero_Pedido ?? null) : null;
 
-      const where = [];
-      const params = [];
-      if (paMeta.colPedidoId) {
-        where.push(`\`${paMeta.colPedidoId}\` = ?`);
-        params.push(idNum);
-      }
-      if (paMeta.colPedidoIdNum) {
-        where.push(`\`${paMeta.colPedidoIdNum}\` = ?`);
-        params.push(idNum);
-      }
-      if (paMeta.colNumPedido && numPedido) {
-        where.push(`\`${paMeta.colNumPedido}\` = ?`);
-        params.push(String(numPedido).trim());
-      }
+      const numPedidoStr = numPedido !== null && numPedido !== undefined ? String(numPedido).trim() : null;
 
       const conn = await this.pool.getConnection();
       try {
@@ -5793,12 +5800,40 @@ class MySQLCRM {
         await conn.beginTransaction();
 
         let deletedLineas = 0;
-        if (where.length) {
-          const [delLineasRes] = await conn.execute(
-            `DELETE FROM \`${paMeta.table}\` WHERE (${where.join(' OR ')})`,
-            params
-          );
-          deletedLineas = delLineasRes?.affectedRows || 0;
+        const delExec = async (sql, params) => {
+          const [r] = await conn.execute(sql, params);
+          deletedLineas += r?.affectedRows || 0;
+        };
+
+        // Borrado seguro de líneas: primero por ID, luego limpiar "legacy" sin vínculo por ID
+        if (paMeta.colPedidoId) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoId}\` = ?`, [idNum]);
+
+          if (paMeta.colPedidoIdNum) {
+            await delExec(
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoIdNum}\` = ? AND (\`${paMeta.colPedidoId}\` IS NULL OR \`${paMeta.colPedidoId}\` = 0)`,
+              [idNum]
+            );
+          }
+          if (paMeta.colNumPedido && numPedidoStr) {
+            const extra = paMeta.colPedidoIdNum
+              ? ` AND (\`${paMeta.colPedidoIdNum}\` IS NULL OR \`${paMeta.colPedidoIdNum}\` = 0)`
+              : '';
+            await delExec(
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ? AND (\`${paMeta.colPedidoId}\` IS NULL OR \`${paMeta.colPedidoId}\` = 0)${extra}`,
+              [numPedidoStr]
+            );
+          }
+        } else if (paMeta.colPedidoIdNum) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoIdNum}\` = ?`, [idNum]);
+          if (paMeta.colNumPedido && numPedidoStr) {
+            await delExec(
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ? AND (\`${paMeta.colPedidoIdNum}\` IS NULL OR \`${paMeta.colPedidoIdNum}\` = 0)`,
+              [numPedidoStr]
+            );
+          }
+        } else if (paMeta.colNumPedido && numPedidoStr) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ?`, [numPedidoStr]);
         }
 
         const [delPedidoRes] = await conn.execute(

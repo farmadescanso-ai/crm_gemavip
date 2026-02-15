@@ -618,11 +618,15 @@
       });
     }
     table.addEventListener('click', function (e) {
-      var t = e.target;
-      if (t && t.matches('[data-remove-linea]')) {
-        var tr = t.closest('tr');
+      var target = e && e.target ? e.target : null;
+      // Nota: si se hace click en el SVG/icono, e.target NO es el <button>, por eso usamos closest().
+      var btnRemove = target && target.closest ? target.closest('[data-remove-linea]') : null;
+      if (btnRemove) {
+        var tr = btnRemove.closest('tr');
         if (tr) tr.remove();
         renumber();
+        refreshPrecios();
+        recalcTotals();
       }
     });
     btn.addEventListener('click', function () {
