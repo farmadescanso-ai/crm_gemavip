@@ -5385,9 +5385,41 @@ class MySQLCRM {
       .map((x) => Number.parseInt(String(x ?? '').trim(), 10))
       .filter((n) => Number.isFinite(n) && n > 0)
       .slice(0, 200);
-    if (!Number.isFinite(tId) || tId <= 0 || ids.length === 0) return {};
+    if (!Number.isFinite(tId) || tId < 0 || ids.length === 0) return {};
 
     if (!this.connected && !this.pool) await this.connect();
+
+    // Validar tarifa activa/vigente (best-effort). Si no lo es, caer a PVL (tarifa 0).
+    let effectiveTarifaId = tId;
+    if (tId > 0) {
+      try {
+        const tTar = await this._resolveTableNameCaseInsensitive('tarifasClientes');
+        const tarCols = await this._getColumns(tTar).catch(() => []);
+        const pickTar = (cands) => this._pickCIFromColumns(tarCols, cands);
+        const tarPk = pickTar(['Id', 'id']) || 'Id';
+        const colActiva = pickTar(['Activa', 'activa']);
+        const colInicio = pickTar(['FechaInicio', 'fecha_inicio', 'Fecha_Inicio', 'inicio']);
+        const colFin = pickTar(['FechaFin', 'fecha_fin', 'Fecha_Fin', 'fin']);
+
+        const [tRows] = await this.pool.query(`SELECT * FROM \`${tTar}\` WHERE \`${tarPk}\` = ? LIMIT 1`, [tId]);
+        const row = (tRows && tRows[0]) ? tRows[0] : null;
+        if (row) {
+          const activaRaw = colActiva ? row[colActiva] : 1;
+          const activa =
+            activaRaw === 1 || activaRaw === '1' || activaRaw === true ||
+            (typeof activaRaw === 'string' && ['ok', 'si', 'sí', 'true'].includes(activaRaw.trim().toLowerCase()));
+
+          const now = new Date();
+          const start = colInicio && row[colInicio] ? new Date(row[colInicio]) : null;
+          const end = colFin && row[colFin] ? new Date(row[colFin]) : null;
+          const inRange = (!start || now >= start) && (!end || now <= end);
+          if (!(activa && inRange)) effectiveTarifaId = 0;
+        }
+      } catch (_) {
+        // Si no podemos validar, no rompemos: usamos la tarifa solicitada.
+        effectiveTarifaId = tId;
+      }
+    }
 
     // 1) Tabla de precios por tarifa
     let preciosTarifa = new Map();
@@ -5406,13 +5438,13 @@ class MySQLCRM {
         FROM \`${tTP}\`
         WHERE \`${cTar}\` IN (?, 0) AND \`${cArt}\` IN (${inPlaceholders})
       `;
-      const rows = await this.query(sql, [tId, ...ids]).catch(() => []);
+      const rows = await this.query(sql, [effectiveTarifaId, ...ids]).catch(() => []);
       for (const r of (rows || [])) {
         const aid = Number.parseInt(String(r.Id_Articulo ?? '').trim(), 10);
         const tid = Number.parseInt(String(r.Id_Tarifa ?? '').trim(), 10);
         const precio = Number(String(r.Precio ?? '').replace(',', '.'));
         if (!Number.isFinite(aid) || aid <= 0 || !Number.isFinite(precio)) continue;
-        if (tid === tId) preciosTarifa.set(aid, precio);
+        if (tid === effectiveTarifaId) preciosTarifa.set(aid, precio);
         if (tid === 0) preciosPVL.set(aid, precio);
       }
     } catch (_) {
@@ -5838,30 +5870,15 @@ class MySQLCRM {
             }
           }
 
-          // Aceptar alias de precio desde formularios (PrecioUnitario vs Precio)
-          if (colPrecioUnit) {
-            const cur = mysqlData[colPrecioUnit];
-            const curStr = cur === null || cur === undefined ? '' : String(cur).trim();
-            if (!curStr) {
-              const raw =
-                linea.PrecioUnitario ?? linea.Precio ?? linea.precioUnitario ?? linea.precio ?? linea.PVL ?? linea.pvl;
-              const n = raw !== null && raw !== undefined && String(raw).trim() !== '' ? (Number(String(raw).replace(',', '.')) || 0) : null;
-              if (n !== null) mysqlData[colPrecioUnit] = n;
-            }
-          }
-
           const qty = colQty ? Math.max(0, getNum(mysqlData[colQty], 0)) : Math.max(0, getNum(linea.Cantidad ?? linea.Unidades ?? 0, 0));
 
           let precioUnit = 0;
-          if (colPrecioUnit && mysqlData[colPrecioUnit] !== null && mysqlData[colPrecioUnit] !== undefined && String(mysqlData[colPrecioUnit]).trim() !== '') {
-            precioUnit = Math.max(0, getNum(mysqlData[colPrecioUnit], 0));
-          } else if (articulo) {
-            precioUnit = Math.max(0, getPrecioFromTarifa(articulo, artId));
-          }
+          // Fuente de verdad: SIEMPRE calcular PVL por tarifa en backend (no confiar en valores enviados por navegador).
+          if (articulo) precioUnit = Math.max(0, getPrecioFromTarifa(articulo, artId));
           if (isTransfer) {
             precioUnit = 0;
-            if (colPrecioUnit) mysqlData[colPrecioUnit] = 0;
           }
+          if (colPrecioUnit) mysqlData[colPrecioUnit] = precioUnit;
 
           // DTO de línea (específico) se aplica en base imponible de la línea.
           // DTO de pedido (general) se aplica a nivel pedido (sobre el Subtotal) y se calcula desde tabla,

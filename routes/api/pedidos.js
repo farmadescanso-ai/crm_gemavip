@@ -73,6 +73,7 @@ router.get(
 router.get(
   '/precios',
   asyncHandler(async (req, res) => {
+    // tarifaId: permitir 0 para "PVL" (tarifa base)
     const tarifaId = toInt(req.query.tarifaId, 0);
     const raw = String(req.query.articuloIds || req.query.articulos || '').trim();
     const articuloIds = raw
@@ -82,7 +83,7 @@ router.get(
           .filter((n) => Number.isFinite(n) && n > 0)
           .slice(0, 200)
       : [];
-    if (!tarifaId || !articuloIds.length) return res.json({ ok: true, precios: {} });
+    if (!articuloIds.length) return res.json({ ok: true, precios: {} });
     const precios = await db.getPreciosArticulosParaTarifa(tarifaId, articuloIds).catch(() => ({}));
     return res.json({ ok: true, tarifaId, precios });
   })
