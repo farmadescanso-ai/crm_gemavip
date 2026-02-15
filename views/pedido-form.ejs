@@ -502,40 +502,95 @@
       } catch (_e) {}
     }
 
+    // Precios: queremos "instantáneo" en UI (data-pvl) y ajuste posterior por tarifa (fetch).
+    var refreshPreciosTimer = null;
+    var refreshPreciosSeq = 0; // para ignorar respuestas antiguas
+
+    function applyPVLFromOption(sel, pvl){
+      if (!sel || !pvl) return;
+      var aid = String(sel.value || '').trim();
+      if (!aid) return;
+      // Si el usuario lo ha tocado manualmente y hay un valor, no pisar.
+      if (isManual(pvl) && String(pvl.value || '').trim() !== '') return;
+      var opt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+      var op = opt ? opt.getAttribute('data-pvl') : '';
+      if (op !== null && op !== undefined && String(op).trim() !== '') {
+        pvl.value = String(op);
+      }
+    }
+
+    function scheduleRefreshPrecios(){
+      if (refreshPreciosTimer) clearTimeout(refreshPreciosTimer);
+      refreshPreciosTimer = setTimeout(function(){ refreshPrecios(); }, 80);
+    }
+
     async function refreshPrecios(){
       var tarifaId = getTarifaId();
+      var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+      if (!rows.length) return;
+
+      // 1) Relleno inmediato por PVL del option (sirve incluso sin tarifa)
+      rows.forEach(function(tr){
+        var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
+        var pvl = tr.querySelector('input.gv-line-pvl');
+        if (!sel || !pvl) return;
+        applyPVLFromOption(sel, pvl);
+      });
+      recalcTotals();
+
+      // 2) Si no hay tarifa activa, no hacemos fetch.
       if (!tarifaId) return;
+
+      // 3) Fetch precios por tarifa (puede tardar). Protegemos contra respuestas fuera de orden.
       var articuloIds = [];
-      table.querySelectorAll('tbody tr').forEach(function(tr){
+      rows.forEach(function(tr){
         var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
         var pvl = tr.querySelector('input.gv-line-pvl');
         if (!sel || !pvl) return;
         var aid = parseInt(String(sel.value||''),10) || 0;
         if (!aid) return;
         articuloIds.push(aid);
+        // Feedback ligero: si está vacío, mostrar "Cargando…" en placeholder.
+        if (String(pvl.value || '').trim() === '') {
+          if (!pvl.getAttribute('data-ph')) pvl.setAttribute('data-ph', String(pvl.getAttribute('placeholder') || ''));
+          pvl.setAttribute('placeholder', 'Cargando…');
+        }
       });
       if (!articuloIds.length) return;
+
+      var seq = ++refreshPreciosSeq;
       try{
         var url = '/api/pedidos/precios?tarifaId=' + encodeURIComponent(String(tarifaId)) + '&articuloIds=' + encodeURIComponent(articuloIds.join(','));
         var r = await fetch(url, { headers: { Accept: 'application/json' } });
         if (!r.ok) return;
         var json = await r.json();
         if (!json || json.ok !== true) return;
+        // Si mientras tanto se lanzó otra petición, ignorar esta.
+        if (seq !== refreshPreciosSeq) return;
+
         var precios = json.precios || {};
-        table.querySelectorAll('tbody tr').forEach(function(tr){
+        rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+        rows.forEach(function(tr){
           var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
           var pvl = tr.querySelector('input.gv-line-pvl');
           if (!sel || !pvl) return;
           var aid = String(sel.value || '').trim();
           if (!aid) return;
           if (isManual(pvl) && String(pvl.value||'').trim() !== '') return;
-          if (precios[aid] !== undefined && precios[aid] !== null) pvl.value = String(precios[aid]);
-          else {
-            var opt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
-            var op = opt ? opt.getAttribute('data-pvl') : '';
-            if (op && String(op).trim() !== '') pvl.value = String(op);
+          if (precios[aid] !== undefined && precios[aid] !== null) {
+            pvl.value = String(precios[aid]);
+          } else {
+            // Fallback inmediato
+            applyPVLFromOption(sel, pvl);
+          }
+          // Restaurar placeholder si lo cambiamos
+          var oldPh = pvl.getAttribute('data-ph');
+          if (oldPh !== null) {
+            pvl.setAttribute('placeholder', oldPh || 'auto');
+            pvl.removeAttribute('data-ph');
           }
         });
+        recalcTotals();
       } catch(_e){}
     }
 
@@ -625,7 +680,7 @@
         var tr = btnRemove.closest('tr');
         if (tr) tr.remove();
         renumber();
-        refreshPrecios();
+        scheduleRefreshPrecios();
         recalcTotals();
       }
     });
@@ -656,7 +711,7 @@
 
       var pvl = tr.querySelector('input.gv-line-pvl');
       if (pvl) pvl.addEventListener('input', function(){ markManual(pvl); });
-      refreshPrecios();
+      scheduleRefreshPrecios();
       recalcTotals();
     });
 
@@ -685,7 +740,17 @@
 
     table.addEventListener('change', function(e){
       var t = e.target;
-      if (t && t.matches('select[name*=\"[Id_Articulo]\"]')) { refreshPrecios(); recalcTotals(); }
+      if (t && t.matches('select[name*=\"[Id_Articulo]\"]')) {
+        // Instantáneo: PVL desde data-pvl del option de esa fila.
+        var tr = t.closest ? t.closest('tr') : null;
+        if (tr) {
+          var pvl = tr.querySelector('input.gv-line-pvl');
+          applyPVLFromOption(t, pvl);
+        }
+        recalcTotals();
+        // Luego ajustar por tarifa (async)
+        scheduleRefreshPrecios();
+      }
     });
 
     table.addEventListener('input', function(e){
