@@ -12,18 +12,42 @@ El CRM incluye flujos seguros para **olvidar contraseña** (por email) y **cambi
 
 ## Variables de entorno
 
-### Envío de email (recuperación de contraseña)
+### Checklist en Vercel (envío de email)
 
-Para que se envíe el correo con el enlace de restablecimiento, configura SMTP:
+En **Vercel** → tu proyecto → **Settings** → **Environment Variables**, asegúrate de tener **exactamente** estos nombres (sensibles a mayúsculas):
 
-| Variable | Descripción | Ejemplo |
-|----------|-------------|---------|
-| `SMTP_HOST` | Servidor SMTP | `smtp.gmail.com` |
-| `SMTP_PORT` | Puerto (587 TLS, 465 SSL) | `587` |
+| Variable      | Obligatorio para email | Descripción                    | Ejemplo / Notas |
+|---------------|------------------------|--------------------------------|------------------|
+| `SMTP_HOST`   | Sí                     | Servidor SMTP                  | `smtp.gmail.com`, `smtp.office365.com`, `mail.tudominio.com` |
+| `SMTP_USER`   | Sí                     | Usuario SMTP (normalmente el email) | `noreply@tudominio.com` |
+| `SMTP_PASS`   | Sí                     | Contraseña o **App Password**  | En Gmail: usar [Contraseña de aplicación](https://myaccount.google.com/apppasswords), no la contraseña normal |
+| `SMTP_PORT`   | No (por defecto 587)    | Puerto                         | `587` (TLS) o `465` (SSL) |
+| `SMTP_SECURE` | No (por defecto false)  | Usar SSL (puerto 465)         | `true` solo si usas puerto 465 |
+| `MAIL_FROM`   | No                     | Dirección "De" del correo     | Si no se define, se usa `SMTP_USER` |
+
+- **Entorno:** asigna las variables al entorno **Production** (y opcionalmente Preview si quieres que funcione en previews).
+- **Tras cambiar variables:** haz un **redeploy** (Deployments → ⋮ en el último deploy → Redeploy) para que el servidor use los nuevos valores.
+- **Gmail:** si usas Gmail, `SMTP_PASS` debe ser una **Contraseña de aplicación** (Google Account → Seguridad → Verificación en 2 pasos → Contraseñas de aplicaciones), no tu contraseña de Gmail.
+
+### Cómo comprobar si están bien configuradas
+
+1. En Vercel, **Deployments** → abre el último deployment → pestaña **Functions** → selecciona la función que sirve `/api` o la ruta de tu app y revisa **Logs**.
+2. Solicita de nuevo "¿Olvidaste tu contraseña?" con un email que exista en el CRM.
+3. En los logs deberías ver:
+   - Si **no** está configurado SMTP: `[MAILER] SMTP no configurado. Estado: {"configured":false,"hasHost":false,...}`. Entonces falta alguna de las tres variables (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`) o no se aplicaron (redeploy).
+   - Si **sí** está configurado y falla el envío: `[MAILER] Error enviando email: ...`. Ahí el mensaje indica el motivo (credenciales, red, etc.).
+   - Si se envía bien: `[MAILER] Email de recuperación enviado a xxx@...`.
+
+### Resumen de variables (referencia)
+
+| Variable | Descripción | Por defecto |
+|----------|-------------|-------------|
+| `SMTP_HOST` | Servidor SMTP | — |
+| `SMTP_PORT` | Puerto | `587` |
 | `SMTP_SECURE` | `true` para SSL (puerto 465) | `false` |
-| `SMTP_USER` | Usuario SMTP | `noreply@tudominio.com` |
-| `SMTP_PASS` | Contraseña o app password | `********` |
-| `MAIL_FROM` | Dirección "De" del correo (opcional; por defecto usa `SMTP_USER`) | `CRM Gemavip <noreply@tudominio.com>` |
+| `SMTP_USER` | Usuario SMTP | — |
+| `SMTP_PASS` | Contraseña o app password | — |
+| `MAIL_FROM` | Dirección "De" (opcional) | Valor de `SMTP_USER` |
 
 **Si no configuras SMTP:** la aplicación sigue funcionando. La respuesta al usuario es la misma (no se revela si el email existe). El enlace de restablecimiento se escribe en los **logs del servidor** para que un administrador pueda enviarlo manualmente si hace falta.
 
@@ -33,10 +57,10 @@ El enlace que se envía por email se arma con la URL base de la aplicación:
 
 | Variable | Descripción | Por defecto |
 |----------|-------------|-------------|
-| `APP_BASE_URL` | URL pública del CRM (sin barra final) | En Vercel: `https://<VERCEL_URL>`; en local: `http://localhost:3000` |
-| `VERCEL_URL` | En Vercel se usa automáticamente si no existe `APP_BASE_URL` | (definido por Vercel) |
+| `APP_BASE_URL` | URL pública del CRM **sin barra final** | En Vercel: `https://<VERCEL_URL>`; en local: `http://localhost:3000` |
+| `VERCEL_URL` | En Vercel se rellena solo; se usa si no existe `APP_BASE_URL` | (definido por Vercel) |
 
-En producción (por ejemplo Vercel) suele bastar con `VERCEL_URL`. Si el CRM se sirve por otro dominio, define `APP_BASE_URL` con esa URL (ej. `https://crm-gemavip.vercel.app`).
+En Vercel normalmente no hace falta definir `APP_BASE_URL` (se usa `https://` + `VERCEL_URL`). Si usas **dominio propio** (ej. `https://crm.tuempresa.com`), define `APP_BASE_URL=https://crm.tuempresa.com` para que el enlace del email apunte a tu dominio.
 
 ## Base de datos
 
