@@ -1,0 +1,58 @@
+<%- include('partials/header', { title: title || (mode === 'edit' ? 'Editar tramo de descuento' : 'Nuevo tramo de descuento') }) %>
+
+<section class="card" style="max-width: 860px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar tramo de descuento' : 'Nuevo tramo de descuento' %></h1>
+    <p class="card-subtitle">
+      Se aplica sobre el <b>Subtotal</b>. El tramo se evalúa como <code>subtotal ≥ desde</code> y <code>(hasta vacío o subtotal &lt; hasta)</code>.
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <form method="post" action="<%= mode === 'edit' ? ('/admin/descuentos-pedido/' + (item.id ?? item.Id) + '/edit') : '/admin/descuentos-pedido/new' %>" style="display:grid; gap: 12px;">
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:800;">
+          <span>Desde (€) *</span>
+          <input class="gv-client-picker__q" type="number" min="0" step="0.01" name="importe_desde" required value="<%= item.importe_desde ?? 0 %>" />
+          <small style="color: var(--gv-muted); font-weight:600;">Inclusivo (≥)</small>
+        </label>
+        <label style="display:grid; gap:6px; font-weight:800;">
+          <span>Hasta (€)</span>
+          <input class="gv-client-picker__q" type="number" min="0" step="0.01" name="importe_hasta" value="<%= (item.importe_hasta === null || item.importe_hasta === undefined) ? '' : item.importe_hasta %>" />
+          <small style="color: var(--gv-muted); font-weight:600;">Exclusivo (&lt;). Vacío = sin límite</small>
+        </label>
+      </div>
+
+      <div class="grid cols-3" style="gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:800;">
+          <span>Dto (%) *</span>
+          <input class="gv-client-picker__q" type="number" min="0" max="100" step="0.01" name="dto_pct" required value="<%= item.dto_pct ?? 0 %>" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:800;">
+          <span>Orden</span>
+          <input class="gv-client-picker__q" type="number" step="1" name="orden" value="<%= item.orden ?? 0 %>" />
+          <small style="color: var(--gv-muted); font-weight:600;">Menor = mayor prioridad</small>
+        </label>
+        <label style="display:grid; gap:6px; font-weight:800;">
+          <span>Activo</span>
+          <select class="gv-client-picker__q" name="activo">
+            <option value="1" <%= Number(item.activo ?? 1) === 1 ? 'selected' : '' %>>Sí</option>
+            <option value="0" <%= Number(item.activo ?? 1) === 1 ? '' : 'selected' %>>No</option>
+          </select>
+        </label>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 6px;">
+        <button class="btn secondary" type="submit"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
+        <a class="btn secondary" href="/admin/descuentos-pedido">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

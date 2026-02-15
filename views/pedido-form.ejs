@@ -282,6 +282,18 @@
     var inputNumAsociadoHefame = document.getElementById('numAsociadoHefame');
     if (!table || !btn) return;
 
+    // Tramos de descuento (desde BD). Cada tramo:
+    // - importe_desde: inclusivo (>=)
+    // - importe_hasta: exclusivo (<) o null sin límite
+    // - dto_pct: porcentaje
+    var descuentosPedido = (function(){
+      try {
+        return <%- JSON.stringify((typeof descuentosPedido !== 'undefined' && Array.isArray(descuentosPedido)) ? descuentosPedido : []) %>;
+      } catch(_e) {
+        return [];
+      }
+    })();
+
     document.querySelectorAll('.gv-field-info').forEach(function(btnInfo){
       btnInfo.addEventListener('click', function(e){
         e.preventDefault();
@@ -653,14 +665,30 @@
     }
     function fmtEurES(n){ var s = fmtNumES(n, 2); return s ? (s + '€') : ''; }
 
-    // Regla de descuentos por importe (sobre el Subtotal):
-    // 150-300€ => 5% | 300-500€ => 7.5% | +500€ => 10%
+    // Descuento automático basado en la tabla (descuentosPedido) - sin valores hardcodeados.
     function getDtoPedidoAuto(subtotal){
       var x = Number(subtotal);
       if (!isFinite(x) || x <= 0) return 0;
-      if (x >= 500) return 10;
-      if (x >= 300) return 7.5;
-      if (x >= 150) return 5;
+      if (!Array.isArray(descuentosPedido) || !descuentosPedido.length) return 0;
+      // Orden estable: por orden y por importe_desde asc
+      var sorted = descuentosPedido.slice().sort(function(a,b){
+        var ao = Number(a && a.orden != null ? a.orden : 0) || 0;
+        var bo = Number(b && b.orden != null ? b.orden : 0) || 0;
+        if (ao !== bo) return ao - bo;
+        var ad = Number(a && a.importe_desde != null ? a.importe_desde : 0) || 0;
+        var bd = Number(b && b.importe_desde != null ? b.importe_desde : 0) || 0;
+        return ad - bd;
+      });
+      for (var i=0; i<sorted.length; i++){
+        var t = sorted[i] || {};
+        var desde = Number(t.importe_desde);
+        var hasta = (t.importe_hasta === null || t.importe_hasta === undefined || String(t.importe_hasta).trim() === '') ? null : Number(t.importe_hasta);
+        var dto = Number(t.dto_pct);
+        if (!isFinite(desde) || !isFinite(dto)) continue;
+        if (x >= desde && (hasta === null || (isFinite(hasta) && x < hasta))) {
+          return Math.max(0, Math.min(100, dto));
+        }
+      }
       return 0;
     }
 

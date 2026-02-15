@@ -570,6 +570,167 @@ app.get('/comerciales', requireAdmin, async (req, res, next) => {
   }
 });
 
+// ===========================
+// DESCUENTOS PEDIDO (HTML) - Admin CRUD
+// ===========================
+app.get('/admin/descuentos-pedido', requireAdmin, async (_req, res, next) => {
+  try {
+    const items = await db.getDescuentosPedidoAdmin().catch(() => null);
+    if (items === null) {
+      return res.render('descuentos-pedido', {
+        title: 'Descuentos de pedido',
+        items: [],
+        error: 'No se pudo leer la tabla descuentos_pedido. ¿Has ejecutado el script scripts/crear-tabla-descuentos-pedido.sql?'
+      });
+    }
+    return res.render('descuentos-pedido', { title: 'Descuentos de pedido', items: items || [], error: null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/admin/descuentos-pedido/new', requireAdmin, async (_req, res, next) => {
+  try {
+    return res.render('descuento-pedido-form', {
+      title: 'Nuevo tramo de descuento',
+      mode: 'create',
+      item: { importe_desde: 0, importe_hasta: null, dto_pct: 0, activo: 1, orden: 10 },
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/admin/descuentos-pedido/new', requireAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const n = (v) => {
+      const s = String(v ?? '').trim();
+      if (!s) return null;
+      const x = Number(String(s).replace(',', '.'));
+      return Number.isFinite(x) ? x : null;
+    };
+    const i = (v) => {
+      const s = String(v ?? '').trim();
+      if (!s) return 0;
+      const x = parseInt(s, 10);
+      return Number.isFinite(x) ? x : 0;
+    };
+
+    const payload = {
+      importe_desde: n(body.importe_desde),
+      importe_hasta: n(body.importe_hasta),
+      dto_pct: n(body.dto_pct),
+      orden: i(body.orden),
+      activo: String(body.activo ?? '1') === '1' ? 1 : 0
+    };
+
+    const bad =
+      payload.importe_desde === null ||
+      payload.dto_pct === null ||
+      payload.importe_desde < 0 ||
+      payload.dto_pct < 0 ||
+      payload.dto_pct > 100 ||
+      (payload.importe_hasta !== null && payload.importe_hasta <= payload.importe_desde);
+    if (bad) {
+      return res.status(400).render('descuento-pedido-form', {
+        title: 'Nuevo tramo de descuento',
+        mode: 'create',
+        item: payload,
+        error: 'Revisa los valores: "Desde" es obligatorio, "Hasta" debe ser mayor que "Desde" (o vacío), y el % debe estar entre 0 y 100.'
+      });
+    }
+
+    await db.createDescuentoPedido(payload);
+    return res.redirect('/admin/descuentos-pedido');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/admin/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const item = await db.getDescuentoPedidoById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    return res.render('descuento-pedido-form', { title: 'Editar tramo de descuento', mode: 'edit', item, error: null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/admin/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const existing = await db.getDescuentoPedidoById(id);
+    if (!existing) return res.status(404).send('No encontrado');
+
+    const body = req.body || {};
+    const n = (v) => {
+      const s = String(v ?? '').trim();
+      if (!s) return null;
+      const x = Number(String(s).replace(',', '.'));
+      return Number.isFinite(x) ? x : null;
+    };
+    const i = (v) => {
+      const s = String(v ?? '').trim();
+      if (!s) return 0;
+      const x = parseInt(s, 10);
+      return Number.isFinite(x) ? x : 0;
+    };
+
+    const payload = {
+      importe_desde: n(body.importe_desde),
+      importe_hasta: n(body.importe_hasta),
+      dto_pct: n(body.dto_pct),
+      orden: i(body.orden),
+      activo: String(body.activo ?? '1') === '1' ? 1 : 0
+    };
+
+    const bad =
+      payload.importe_desde === null ||
+      payload.dto_pct === null ||
+      payload.importe_desde < 0 ||
+      payload.dto_pct < 0 ||
+      payload.dto_pct > 100 ||
+      (payload.importe_hasta !== null && payload.importe_hasta <= payload.importe_desde);
+    if (bad) {
+      return res.status(400).render('descuento-pedido-form', {
+        title: 'Editar tramo de descuento',
+        mode: 'edit',
+        item: { ...existing, ...payload, id },
+        error: 'Revisa los valores: "Desde" es obligatorio, "Hasta" debe ser mayor que "Desde" (o vacío), y el % debe estar entre 0 y 100.'
+      });
+    }
+
+    await db.updateDescuentoPedido(id, payload);
+    return res.redirect('/admin/descuentos-pedido');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/admin/descuentos-pedido/:id(\\d+)/toggle', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    await db.toggleDescuentoPedidoActivo(id);
+    return res.redirect('/admin/descuentos-pedido');
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/admin/descuentos-pedido/:id(\\d+)/delete', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    await db.deleteDescuentoPedido(id);
+    return res.redirect('/admin/descuentos-pedido');
+  } catch (e) {
+    next(e);
+  }
+});
+
 app.get('/clientes', requireLogin, async (req, res, next) => {
   try {
     const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
@@ -926,11 +1087,12 @@ function parseLineasFromBody(body) {
 
 app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago, tiposPedido] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
-      db.getTiposPedido().catch(() => [])
+      db.getTiposPedido().catch(() => []),
+      db.getDescuentosPedidoActivos().catch(() => [])
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
@@ -949,6 +1111,7 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       tarifas: Array.isArray(tarifas) ? tarifas : [],
       formasPago: Array.isArray(formasPago) ? formasPago : [],
       tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
+      descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
       articulos: Array.isArray(articulos) ? articulos : [],
       item: {
         Id_Cial: res.locals.user?.id ?? null,
@@ -970,11 +1133,12 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
 
 app.post('/pedidos/new', requireLogin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago, tiposPedido] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
-      db.getTiposPedido().catch(() => [])
+      db.getTiposPedido().catch(() => []),
+      db.getDescuentosPedidoActivos().catch(() => [])
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
     const body = req.body || {};
@@ -988,7 +1152,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
       // Serie fija para pedidos en este CRM
       Serie: 'P',
-      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
+      // Dto pedido: se calcula automáticamente desde tabla (descuentos_pedido) en backend.
       NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
@@ -1006,6 +1170,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
         tarifas,
         formasPago,
         tiposPedido: tiposPedido || [],
+        descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         articulos,
         item: pedidoPayload,
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
@@ -1530,11 +1695,12 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    const [tarifas, formasPago, comerciales, tiposPedido] = await Promise.all([
+    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => []),
-      db.getTiposPedido().catch(() => [])
+      db.getTiposPedido().catch(() => []),
+      db.getDescuentosPedidoActivos().catch(() => [])
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
@@ -1616,6 +1782,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       tarifas,
       formasPago,
       tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
+      descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
       comerciales,
       articulos,
       clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
@@ -1648,11 +1815,12 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
       });
     }
 
-    const [tarifas, formasPago, comerciales, tiposPedido] = await Promise.all([
+    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => []),
-      db.getTiposPedido().catch(() => [])
+      db.getTiposPedido().catch(() => []),
+      db.getDescuentosPedidoActivos().catch(() => [])
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
 
@@ -1665,7 +1833,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
       Id_TipoPedido: body.Id_TipoPedido ? (Number(body.Id_TipoPedido) || 0) : 0,
       Id_Tarifa: body.Id_Tarifa ? (Number(body.Id_Tarifa) || 0) : 0,
       Serie: 'P',
-      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
+      // Dto pedido: se calcula automáticamente desde tabla (descuentos_pedido) en backend.
       NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
@@ -1684,6 +1852,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
         tarifas,
         formasPago,
         tiposPedido: tiposPedido || [],
+        descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         comerciales,
         articulos,
         error: 'Id_Cial e Id_Cliente son obligatorios'

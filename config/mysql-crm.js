@@ -671,6 +671,208 @@ class MySQLCRM {
     return meta;
   }
 
+  async _ensureDescuentosPedidoMeta() {
+    if (this._metaCache?.descuentosPedidoMeta) return this._metaCache.descuentosPedidoMeta;
+
+    const t = await this._resolveTableNameCaseInsensitive('descuentos_pedido');
+    const cols = await this._getColumns(t).catch(() => []);
+    const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+
+    const pk = pickCI(['id', 'Id']) || 'id';
+    const colDesde = pickCI(['importe_desde', 'Importe_Desde', 'ImporteDesde', 'desde', 'importe_min', 'min']);
+    const colHasta = pickCI(['importe_hasta', 'Importe_Hasta', 'ImporteHasta', 'hasta', 'importe_max', 'max']);
+    const colDto = pickCI(['dto_pct', 'DtoPct', 'dto', 'Dto', 'porcentaje', 'Porcentaje']);
+    const colActivo = pickCI(['activo', 'Activo']) || 'activo';
+    const colOrden = pickCI(['orden', 'Orden', 'prioridad', 'Prioridad']) || 'orden';
+
+    const meta = { table: t, pk, colDesde, colHasta, colDto, colActivo, colOrden };
+    this._metaCache.descuentosPedidoMeta = meta;
+    return meta;
+  }
+
+  async getDescuentosPedidoActivos(conn = null) {
+    // Devuelve tramos activos ordenados por "orden" y por importe_desde ascendente.
+    // Cada tramo se evalúa como: subtotal >= desde && (hasta IS NULL || subtotal < hasta)
+    try {
+      const meta = await this._ensureDescuentosPedidoMeta();
+      if (!meta?.table || !meta.colDesde || !meta.colDto) return [];
+
+      const selectCols = [
+        meta.colDesde ? `\`${meta.colDesde}\` AS importe_desde` : null,
+        meta.colHasta ? `\`${meta.colHasta}\` AS importe_hasta` : 'NULL AS importe_hasta',
+        meta.colDto ? `\`${meta.colDto}\` AS dto_pct` : null,
+        meta.colOrden ? `\`${meta.colOrden}\` AS orden` : '0 AS orden'
+      ].filter(Boolean);
+
+      const where = meta.colActivo ? `WHERE \`${meta.colActivo}\` = 1` : '';
+      const orderBy = `ORDER BY orden ASC, importe_desde ASC`;
+      const sql = `SELECT ${selectCols.join(', ')} FROM \`${meta.table}\` ${where} ${orderBy}`;
+
+      let rows = [];
+      if (conn) {
+        const [r] = await conn.execute(sql);
+        rows = r;
+      } else {
+        rows = await this.query(sql).catch(() => []);
+      }
+      const out = [];
+      for (const row of (rows || [])) {
+        const desde = Number(String(row.importe_desde ?? '').replace(',', '.'));
+        const hastaRaw = row.importe_hasta;
+        const hasta =
+          hastaRaw === null || hastaRaw === undefined || String(hastaRaw).trim() === ''
+            ? null
+            : Number(String(hastaRaw).replace(',', '.'));
+        const dto = Number(String(row.dto_pct ?? '').replace(',', '.'));
+        if (!Number.isFinite(desde)) continue;
+        if (hasta !== null && !Number.isFinite(hasta)) continue;
+        if (!Number.isFinite(dto)) continue;
+        out.push({ importe_desde: desde, importe_hasta: hasta, dto_pct: dto, orden: Number(row.orden || 0) || 0 });
+      }
+      return out;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async getDtoPedidoPctForSubtotal(subtotal, conn = null) {
+    const x = Number(subtotal);
+    if (!Number.isFinite(x) || x <= 0) return 0;
+    const tramos = await this.getDescuentosPedidoActivos(conn);
+    for (const t of (tramos || [])) {
+      const desde = Number(t.importe_desde);
+      const hasta = t.importe_hasta === null || t.importe_hasta === undefined ? null : Number(t.importe_hasta);
+      if (!Number.isFinite(desde)) continue;
+      if (x >= desde && (hasta === null || (!Number.isNaN(hasta) && x < hasta))) {
+        const dto = Number(t.dto_pct);
+        return Number.isFinite(dto) ? Math.max(0, Math.min(100, dto)) : 0;
+      }
+    }
+    return 0;
+  }
+
+  // ===========================
+  // DESCUENTOS PEDIDO (Admin CRUD)
+  // ===========================
+  async getDescuentosPedidoAdmin() {
+    // Devuelve todos los tramos (activos e inactivos) para administración.
+    try {
+      const meta = await this._ensureDescuentosPedidoMeta();
+      if (!meta?.table) return null;
+      const cols = await this._getColumns(meta.table).catch(() => []);
+      if (!Array.isArray(cols) || cols.length === 0) return null;
+      const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+      const pk = meta.pk || pickCI(['id', 'Id']) || 'id';
+      const colDesde = meta.colDesde || pickCI(['importe_desde']);
+      const colHasta = meta.colHasta || pickCI(['importe_hasta']);
+      const colDto = meta.colDto || pickCI(['dto_pct']);
+      const colActivo = meta.colActivo || pickCI(['activo']);
+      const colOrden = meta.colOrden || pickCI(['orden']);
+
+      const selectCols = [
+        `\`${pk}\` AS id`,
+        colDesde ? `\`${colDesde}\` AS importe_desde` : '0 AS importe_desde',
+        colHasta ? `\`${colHasta}\` AS importe_hasta` : 'NULL AS importe_hasta',
+        colDto ? `\`${colDto}\` AS dto_pct` : '0 AS dto_pct',
+        colActivo ? `\`${colActivo}\` AS activo` : '1 AS activo',
+        colOrden ? `\`${colOrden}\` AS orden` : '0 AS orden'
+      ];
+      const sql = `SELECT ${selectCols.join(', ')} FROM \`${meta.table}\` ORDER BY orden ASC, importe_desde ASC`;
+      const rows = await this.query(sql).catch(() => null);
+      return rows;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async getDescuentoPedidoById(id) {
+    try {
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) return null;
+      const meta = await this._ensureDescuentosPedidoMeta();
+      if (!meta?.table) return null;
+      const sql = `SELECT * FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`;
+      const rows = await this.query(sql, [idNum]).catch(() => []);
+      return rows && rows[0] ? rows[0] : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async createDescuentoPedido(payload) {
+    const meta = await this._ensureDescuentosPedidoMeta();
+    if (!meta?.table) throw new Error('Tabla descuentos_pedido no disponible');
+    const data = payload && typeof payload === 'object' ? payload : {};
+    const cols = await this._getColumns(meta.table).catch(() => []);
+    const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
+    const put = (key, value) => {
+      const real = colsLower.get(String(key).toLowerCase());
+      if (real) out[real] = value;
+    };
+    const out = {};
+    put('importe_desde', data.importe_desde);
+    put('importe_hasta', data.importe_hasta);
+    put('dto_pct', data.dto_pct);
+    put('activo', data.activo ?? 1);
+    put('orden', data.orden ?? 0);
+    const keys = Object.keys(out);
+    if (!keys.length) throw new Error('Payload vacío');
+    const fields = keys.map((c) => `\`${c}\``).join(', ');
+    const placeholders = keys.map(() => '?').join(', ');
+    const values = keys.map((c) => out[c]);
+    const sql = `INSERT INTO \`${meta.table}\` (${fields}) VALUES (${placeholders})`;
+    return await this.query(sql, values);
+  }
+
+  async updateDescuentoPedido(id, payload) {
+    const meta = await this._ensureDescuentosPedidoMeta();
+    if (!meta?.table) throw new Error('Tabla descuentos_pedido no disponible');
+    const idNum = Number(id);
+    if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+    const data = payload && typeof payload === 'object' ? payload : {};
+    const cols = await this._getColumns(meta.table).catch(() => []);
+    const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
+    const out = {};
+    for (const [k, v] of Object.entries(data)) {
+      const real = colsLower.get(String(k).toLowerCase());
+      if (!real) continue;
+      if (String(real).toLowerCase() === String(meta.pk).toLowerCase()) continue;
+      out[real] = v;
+    }
+    const keys = Object.keys(out);
+    if (!keys.length) return { affectedRows: 0 };
+    const fields = keys.map((c) => `\`${c}\` = ?`).join(', ');
+    const values = keys.map((c) => out[c]);
+    values.push(idNum);
+    const sql = `UPDATE \`${meta.table}\` SET ${fields} WHERE \`${meta.pk}\` = ?`;
+    return await this.query(sql, values);
+  }
+
+  async toggleDescuentoPedidoActivo(id) {
+    const meta = await this._ensureDescuentosPedidoMeta();
+    if (!meta?.table) throw new Error('Tabla descuentos_pedido no disponible');
+    const idNum = Number(id);
+    if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+    const item = await this.getDescuentoPedidoById(idNum);
+    if (!item) throw new Error('No encontrado');
+    const cols = await this._getColumns(meta.table).catch(() => []);
+    const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
+    const colActivo = meta.colActivo || pickCI(['activo', 'Activo']) || 'activo';
+    const cur = Number(item[colActivo] ?? item.activo ?? 0) === 1 ? 1 : 0;
+    const next = cur ? 0 : 1;
+    const sql = `UPDATE \`${meta.table}\` SET \`${colActivo}\` = ? WHERE \`${meta.pk}\` = ?`;
+    return await this.query(sql, [next, idNum]);
+  }
+
+  async deleteDescuentoPedido(id) {
+    const meta = await this._ensureDescuentosPedidoMeta();
+    if (!meta?.table) throw new Error('Tabla descuentos_pedido no disponible');
+    const idNum = Number(id);
+    if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('ID no válido');
+    const sql = `DELETE FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ?`;
+    return await this.query(sql, [idNum]);
+  }
+
   async _ensureDireccionesEnvioMeta() {
     if (this._metaCache?.direccionesEnvioMeta) return this._metaCache.direccionesEnvioMeta;
 
@@ -5372,10 +5574,8 @@ class MySQLCRM {
         const tarifaId = Number.parseInt(String(tarifaIdRaw ?? '').trim(), 10);
         const hasTarifaId = Number.isFinite(tarifaId) && tarifaId > 0;
 
-        const dtoPedidoRaw =
-          (colDtoPedido && Object.prototype.hasOwnProperty.call(filteredPedido, colDtoPedido)) ? filteredPedido[colDtoPedido]
-          : (colDtoPedido ? current[colDtoPedido] : null);
-        const dtoPedido = Number.isFinite(Number(dtoPedidoRaw)) ? Number(dtoPedidoRaw) : (dtoPedidoRaw !== null && dtoPedidoRaw !== undefined ? (Number.parseFloat(String(dtoPedidoRaw).replace(',', '.')) || 0) : 0);
+        // Dto pedido se calcula automáticamente a partir de la tabla descuentos_pedido (sobre Subtotal),
+        // por lo que NO lo leemos del payload ni del pedido actual para cálculos.
 
         // Resolver tarifa activa (tarifasClientes) + vigencia (best-effort).
         // Si no está activa o está fuera de rango, hacemos fallback a PVL (Id=0).
@@ -5661,10 +5861,10 @@ class MySQLCRM {
             if (colPrecioUnit) mysqlData[colPrecioUnit] = 0;
           }
 
-          // DTO de pedido (general) y DTO de línea (específico) se aplican acumulativamente:
-          // base = bruto * (1 - dtoLinea) * (1 - dtoPedido)
+          // DTO de línea (específico) se aplica en base imponible de la línea.
+          // DTO de pedido (general) se aplica a nivel pedido (sobre el Subtotal) y se calcula desde tabla,
+          // por lo que NO se aplica aquí por línea.
           // Transfer: dto línea por defecto 5% (informativo, editable)
-          const dtoPedidoPct = clampPct(getNum(dtoPedido, 0));
           const defaultDtoLinea = isTransfer ? 5 : (linea.Dto ?? linea.Descuento ?? 0);
           const dtoLineaPct = clampPct(
             colDtoLinea
@@ -5673,7 +5873,7 @@ class MySQLCRM {
           );
 
           const bruto = round2(qty * precioUnit);
-          const base = round2(bruto * (1 - dtoLineaPct / 100) * (1 - dtoPedidoPct / 100));
+          const base = round2(bruto * (1 - dtoLineaPct / 100));
 
           // IVA porcentaje (prioridad: línea explícita -> artículo -> 0)
           let ivaPct = 0;
@@ -5725,12 +5925,19 @@ class MySQLCRM {
           if (insRes?.insertId) insertedIds.push(insRes.insertId);
         }
 
-        // 4) Actualizar totales del pedido (best-effort, sólo columnas existentes)
+        // 4) DTO pedido automático por tramos (desde tabla) y totales del pedido (sobre Subtotal)
+        const dtoPedidoPct = isTransfer ? 0 : await this.getDtoPedidoPctForSubtotal(sumTotal, conn).catch(() => 0);
+        const pedidoDtoPct = clampPct(getNum(dtoPedidoPct, 0));
+        const descuentoPedido = round2(sumTotal * (pedidoDtoPct / 100));
+        const totalFinal = round2(sumTotal - descuentoPedido);
+
+        // Totales best-effort, sólo columnas existentes.
         const totalsUpdate = {};
-        if (colTotalPedido) totalsUpdate[colTotalPedido] = round2(sumTotal);
+        if (colTotalPedido) totalsUpdate[colTotalPedido] = totalFinal;
         if (colBasePedido) totalsUpdate[colBasePedido] = round2(sumBase);
         if (colIvaPedido) totalsUpdate[colIvaPedido] = round2(sumIva);
-        if (colDescuentoPedido) totalsUpdate[colDescuentoPedido] = round2(sumDescuento);
+        if (colDescuentoPedido) totalsUpdate[colDescuentoPedido] = round2(sumDescuento + descuentoPedido);
+        if (colDtoPedido) totalsUpdate[colDtoPedido] = pedidoDtoPct;
         const totalKeys = Object.keys(totalsUpdate);
         if (totalKeys.length) {
           const fields = totalKeys.map((c) => `\`${c}\` = ?`).join(', ');
@@ -5746,7 +5953,7 @@ class MySQLCRM {
           insertedLineas: insertedIds.length,
           insertedIds,
           numPedido: finalNumPedido,
-          totals: { base: round2(sumBase), iva: round2(sumIva), total: round2(sumTotal), descuento: round2(sumDescuento) },
+          totals: { base: round2(sumBase), iva: round2(sumIva), subtotal: round2(sumTotal), dtoPct: pedidoDtoPct, descuentoPedido: descuentoPedido, total: totalFinal, descuentoLineas: round2(sumDescuento), descuentoTotal: round2(sumDescuento + descuentoPedido) },
           tarifa: { Id_Tarifa: effectiveTarifaId, info: tarifaInfo || null }
         };
       } catch (e) {

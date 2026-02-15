@@ -1,0 +1,65 @@
+<%- include('partials/header', { title: title || 'Descuentos de pedido' }) %>
+
+<section class="card" style="max-width: 1100px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Descuentos de pedido</h1>
+    <p class="card-subtitle">
+      Tramos aplicados automáticamente sobre el <b>Subtotal</b> del pedido.
+      Cada tramo se evalúa como: <code>subtotal ≥ desde</code> y <code>(hasta es vacío o subtotal &lt; hasta)</code>.
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn"><%= error %></div>
+      <div style="height: 10px;"></div>
+    <% } %>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap:wrap; margin-bottom: 12px;">
+      <a class="btn" href="/admin/descuentos-pedido/new">Nuevo tramo</a>
+      <div style="color: var(--gv-muted); font-size: 13px;">
+        Consejo: usa <b>orden</b> para priorizar tramos si hubiera solapes.
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left;">Desde (€)</th>
+            <th style="text-align:left;">Hasta (€)</th>
+            <th style="text-align:left;">Dto (%)</th>
+            <th style="text-align:left;">Activo</th>
+            <th style="text-align:left;">Orden</th>
+            <th style="width: 280px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!items || !items.length) { %>
+            <tr><td colspan="6" style="color: var(--gv-muted); padding: 14px;">No hay tramos configurados.</td></tr>
+          <% } %>
+          <% (items || []).forEach((it) => { %>
+            <tr>
+              <td><%= fmtNumES(it.importe_desde ?? it.Importe_Desde ?? it.desde ?? 0, 2) %></td>
+              <td><%= (it.importe_hasta === null || it.importe_hasta === undefined || String(it.importe_hasta).trim()==='') ? '—' : fmtNumES(it.importe_hasta, 2) %></td>
+              <td><%= fmtNumES(it.dto_pct ?? it.DtoPct ?? it.dto ?? 0, 2) %></td>
+              <td><%= (Number(it.activo ?? it.Activo ?? 0) === 1) ? 'Sí' : 'No' %></td>
+              <td><%= (it.orden ?? it.Orden ?? 0) %></td>
+              <td style="text-align:right;">
+                <a class="btn secondary" href="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/edit">Editar</a>
+                <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/toggle" style="display:inline;">
+                  <button class="btn secondary" type="submit"><%= (Number(it.activo ?? it.Activo ?? 0) === 1) ? 'Desactivar' : 'Activar' %></button>
+                </form>
+                <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/delete" style="display:inline;" onsubmit="return confirm('¿Borrar este tramo?');">
+                  <button class="btn secondary" type="submit">Borrar</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
