@@ -6364,7 +6364,8 @@ class MySQLCRM {
         if (colCliente && Number.isFinite(clienteId) && clienteId > 0 && (!hasTarifa || !hasDto)) {
           const cliente = await this.getClienteById(clienteId);
           if (cliente) {
-            const tarifaCliente = cliente.Tarifa ?? cliente.tarifa ?? 0;
+            const tarifaCliente =
+              cliente.Id_Tarifa ?? cliente.id_tarifa ?? cliente.Tarifa ?? cliente.tarifa ?? 0;
             const dtoCliente = cliente.Dto ?? cliente.dto ?? null;
             if (!hasTarifa) {
               if (colTarifaId) mysqlData[colTarifaId] = Number.isFinite(Number(tarifaCliente)) ? Number(tarifaCliente) : 0;

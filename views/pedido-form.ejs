@@ -352,6 +352,54 @@
       }
     }
 
+    function normalizeTarifaId(raw){
+      if (raw === null || raw === undefined) return null;
+      if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+      var s = String(raw || '').trim();
+      if (!s) return null;
+      // Si es numérico puro
+      if (/^\\d+$/.test(s)) return parseInt(s, 10);
+      // Si viene como "3 - TARIFA X" o similar
+      var m = s.match(/(\\d+)/);
+      if (m && m[1]) return parseInt(m[1], 10);
+      return null;
+    }
+
+    function setTarifaFromCliente(tarRaw){
+      if (!selTarifa) return;
+      var tid = normalizeTarifaId(tarRaw);
+      // Si no es numérico, intentar match por texto en etiquetas.
+      if (!tid) {
+        var s = String(tarRaw || '').trim().toLowerCase();
+        if (!s) return;
+        var opts = Array.prototype.slice.call(selTarifa.options || []);
+        var found = opts.find(function(o){
+          var label = String(o.getAttribute('data-label') || o.textContent || '').trim().toLowerCase();
+          return label && (label === s || label.includes(s));
+        });
+        if (found && found.value != null) {
+          selTarifa.value = String(found.value);
+          scheduleRefreshPrecios();
+        }
+        return;
+      }
+
+      // Asegurar que exista opción (si por cualquier motivo no viene en la lista, la añadimos)
+      var exists = false;
+      for (var i=0; i<(selTarifa.options || []).length; i++){
+        if (String(selTarifa.options[i].value) === String(tid)) { exists = true; break; }
+      }
+      if (!exists) {
+        var opt = document.createElement('option');
+        opt.value = String(tid);
+        opt.textContent = String(tid) + ' · (Tarifa cliente)';
+        opt.setAttribute('data-label', '(Tarifa cliente)');
+        selTarifa.appendChild(opt);
+      }
+      selTarifa.value = String(tid);
+      scheduleRefreshPrecios();
+    }
+
     function markManual(el){
       if (!el) return;
       el.setAttribute('data-manual', '1');
@@ -558,7 +606,7 @@
         }
 
         // Tarifa: actualizar al cambiar cliente (sin tocar si el cliente no trae tarifa)
-        if (selTarifa && tar !== undefined && tar !== null && String(tar).trim() !== '') selTarifa.value = String(tar);
+        if (tar !== undefined && tar !== null && String(tar).trim() !== '') setTarifaFromCliente(tar);
         if (dto !== undefined && dto !== null && String(dto).trim() !== '') defaultDto = clampPct(Number(String(dto).replace(',', '.')));
         // Rellenar dto en líneas vacías
         table.querySelectorAll('input.gv-line-dto').forEach(function (inp) {
