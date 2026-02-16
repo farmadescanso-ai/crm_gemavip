@@ -10,7 +10,36 @@ const { isAdminUser } = require('../../lib/auth');
  * @openapi
  * /api/clientes:
  *   get:
+ *     tags:
+ *       - Clientes
  *     summary: Listar clientes (paginado por defecto)
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 500
+ *           default: 50
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: "Texto de búsqueda (alias: search)"
+ *     responses:
+ *       200:
+ *         description: OK
  */
 router.get(
   '/',
@@ -51,7 +80,24 @@ router.get(
  * @openapi
  * /api/clientes/suggest:
  *   get:
+ *     tags:
+ *       - Clientes
  *     summary: Autocomplete rápido de clientes (compacto)
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: OK
  */
 router.get(
   '/suggest',
@@ -85,8 +131,26 @@ router.get(
 );
 
 /**
- * GET /api/clientes/:id/cooperativas
- * Cooperativas del cliente con número de asociado (para Transfer Hefame, etc.)
+ * @openapi
+ * /api/clientes/{id}/cooperativas:
+ *   get:
+ *     tags:
+ *       - Clientes
+ *     summary: Cooperativas del cliente con número de asociado
+ *     description: Útil para integraciones tipo Transfer Hefame, etc.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       404:
+ *         description: No encontrado
  */
 router.get(
   '/:id/cooperativas',
@@ -154,6 +218,34 @@ router.get(
   })
 );
 
+/**
+ * @openapi
+ * /api/clientes/{id}/direcciones-envio:
+ *   get:
+ *     tags:
+ *       - Clientes
+ *     summary: Direcciones de envío del cliente
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: compact
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Si true, devuelve items compactos {id,label}
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       404:
+ *         description: No encontrado
+ */
+
 // Crear 1 dirección de envío desde fiscal si no hay ninguna (best-effort).
 router.post(
   '/:id/direcciones-envio/ensure-fiscal',
@@ -177,6 +269,29 @@ router.post(
   })
 );
 
+/**
+ * @openapi
+ * /api/clientes/{id}/direcciones-envio/ensure-fiscal:
+ *   post:
+ *     tags:
+ *       - Clientes
+ *     summary: Asegura una dirección de envío “fiscal” si no hay ninguna
+ *     description: Best-effort. Si el cliente no tiene direcciones, crea una basada en datos fiscales.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       404:
+ *         description: No encontrado
+ */
+
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -188,6 +303,28 @@ router.get(
   })
 );
 
+/**
+ * @openapi
+ * /api/clientes/{id}:
+ *   get:
+ *     tags:
+ *       - Clientes
+ *     summary: Obtener cliente por ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       404:
+ *         description: No encontrado
+ */
+
 router.post(
   '/',
   asyncHandler(async (req, res) => {
@@ -195,6 +332,24 @@ router.post(
     res.status(201).json({ ok: true, result });
   })
 );
+
+/**
+ * @openapi
+ * /api/clientes:
+ *   post:
+ *     tags:
+ *       - Clientes
+ *     summary: Crear cliente
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 
 router.put(
   '/:id',
@@ -240,6 +395,39 @@ router.put(
   })
 );
 
+/**
+ * @openapi
+ * /api/clientes/{id}:
+ *   put:
+ *     tags:
+ *       - Clientes
+ *     summary: Actualizar cliente
+ *     description: |
+ *       Si hay sesión y el usuario NO es admin, solo permite reclamar el cliente asignando `Id_Cial`
+ *       a su propio usuario (si estaba libre o en pool).
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: No encontrado
+ */
+
 router.patch(
   '/:id/okko',
   asyncHandler(async (req, res) => {
@@ -252,6 +440,38 @@ router.patch(
   })
 );
 
+/**
+ * @openapi
+ * /api/clientes/{id}/okko:
+ *   patch:
+ *     tags:
+ *       - Clientes
+ *     summary: Marcar cliente OK/KO
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [value]
+ *             properties:
+ *               value:
+ *                 oneOf:
+ *                   - type: integer
+ *                   - type: boolean
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: Error de validación
+ */
+
 router.post(
   '/:id/papelera',
   asyncHandler(async (req, res) => {
@@ -262,6 +482,34 @@ router.post(
     res.json({ ok: true, result });
   })
 );
+
+/**
+ * @openapi
+ * /api/clientes/{id}/papelera:
+ *   post:
+ *     tags:
+ *       - Clientes
+ *     summary: Mover cliente a papelera
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               eliminadoPor:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ */
 
 module.exports = router;
 

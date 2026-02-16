@@ -2977,6 +2977,17 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     tags:
+ *       - Health
+ *     summary: Healthcheck básico del servicio
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 app.get('/health', (_req, res) => {
   res.status(200).json({
     ok: true,
@@ -2987,6 +2998,20 @@ app.get('/health', (_req, res) => {
 
 // Comprueba conectividad con la BD configurada en variables de entorno.
 // No devuelve credenciales; solo un diagnóstico básico.
+/**
+ * @openapi
+ * /health/db:
+ *   get:
+ *     tags:
+ *       - Health
+ *     summary: Healthcheck de base de datos (requiere API key si está configurada)
+ *     description: Diagnóstico de conectividad a MySQL. No expone credenciales.
+ *     responses:
+ *       200:
+ *         description: OK
+ *       500:
+ *         description: Error
+ */
 app.get('/health/db', requireApiKeyIfConfigured, async (_req, res) => {
   const host = process.env.DB_HOST;
   const port = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
@@ -3037,11 +3062,26 @@ app.get('/health/db', requireApiKeyIfConfigured, async (_req, res) => {
   }
 });
 
+// OpenAPI JSON + Swagger UI (público)
+// Importante: deben ir ANTES de app.use('/api', ...) para no quedar detrás de requireApiKeyIfConfigured.
+app.get('/api/openapi.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.json(swaggerSpec);
+});
+
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: 'CRM Gemavip · API Docs',
+    swaggerOptions: {
+      persistAuthorization: true
+    }
+  })
+);
+
 // API REST (protegida con API_KEY si está configurada)
 app.use('/api', requireApiKeyIfConfigured, apiRouter);
-
-// Swagger UI (solo admins)
-app.use('/api/docs', requireAdmin, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 404 estándar (HTML bonito + JSON consistente)
 app.use((req, res) => {

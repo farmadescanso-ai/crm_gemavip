@@ -6,8 +6,34 @@ const { isAdminUser } = require('../../lib/auth');
 const router = express.Router();
 
 /**
- * GET /api/notificaciones
- * Lista notificaciones (solicitudes de asignación). Solo administrador.
+ * @openapi
+ * /api/notificaciones:
+ *   get:
+ *     tags:
+ *       - Notificaciones
+ *     summary: Listar notificaciones (solicitudes de asignación)
+ *     description: Solo administrador (requiere sesión).
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Tamaño de página
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Número de página
+ *     responses:
+ *       200:
+ *         description: OK
+ *       403:
+ *         description: Forbidden
  */
 router.get(
   '/',
@@ -24,8 +50,18 @@ router.get(
 );
 
 /**
- * GET /api/notificaciones/pendientes-count
- * Número de solicitudes pendientes. Solo administrador.
+ * @openapi
+ * /api/notificaciones/pendientes-count:
+ *   get:
+ *     tags:
+ *       - Notificaciones
+ *     summary: Número de solicitudes pendientes
+ *     description: Solo administrador (requiere sesión).
+ *     responses:
+ *       200:
+ *         description: OK
+ *       403:
+ *         description: Forbidden
  */
 router.get(
   '/pendientes-count',

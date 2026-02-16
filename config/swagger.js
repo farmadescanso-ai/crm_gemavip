@@ -6,12 +6,12 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Farmadescaso CRM API',
+      title: 'CRM Gemavip API',
       version: '1.0.0',
-      description: 'API REST para el sistema CRM de Farmadescaso',
+      description: 'API REST para el CRM comercial de Gemavip.',
       contact: {
-        name: 'Farmadescaso 2021 SL',
-        email: 'info@farmadescaso.com'
+        name: 'Gemavip',
+        email: 'soporte@gemavip.com'
       },
       license: {
         name: 'MIT',
@@ -20,12 +20,16 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000/api',
-        description: 'Servidor de desarrollo'
+        url: '/api',
+        description: 'Misma instancia (relativo al host)'
       },
       {
-        url: 'https://api.farmadescaso.com/api',
-        description: 'Servidor de producción'
+        url: 'http://localhost:3000/api',
+        description: 'Desarrollo local'
+      },
+      {
+        url: 'https://crm-gemavip.vercel.app/api',
+        description: 'Producción (Vercel)'
       }
     ],
     components: {
@@ -34,7 +38,14 @@ const options = {
           type: 'apiKey',
           in: 'header',
           name: 'X-API-Key',
-          description: 'API Key para autenticación. Obtén tu API key desde /api/keys/generate'
+          description:
+            'API Key para acceso programático (si está configurada en el servidor). En Swagger UI usa "Authorize" y pega tu API key.'
+        },
+        SessionCookie: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'crm_session',
+          description: 'Cookie de sesión (login web).'
         }
       },
       schemas: {
@@ -151,7 +162,11 @@ const options = {
       }
     ]
   },
-  apis: [path.join(__dirname, '..', 'routes', 'api', '**', '*.js')]
+  apis: [
+    path.join(__dirname, '..', 'routes', 'api', '**', '*.js'),
+    // Documentar también endpoints globales como /health
+    path.join(__dirname, '..', 'api', 'index.js')
+  ]
 };
 
 const swaggerSpec = swaggerJsdoc(options);

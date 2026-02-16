@@ -6,6 +6,8 @@ const router = express.Router();
  * @openapi
  * /api:
  *   get:
+ *     tags:
+ *       - Meta
  *     summary: Raíz de la API
  *     responses:
  *       200:
@@ -17,6 +19,7 @@ router.get('/', (_req, res) => {
 
 router.use('/comerciales', require('./comerciales'));
 router.use('/clientes', require('./clientes'));
+router.use('/db', require('./db'));
 router.use('/notificaciones', require('./notificaciones'));
 router.use('/pedidos', require('./pedidos'));
 router.use('/visitas', require('./visitas'));

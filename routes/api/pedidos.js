@@ -37,7 +37,21 @@ async function assertPedidoAccess(req, pedidoId, { write = false } = {}) {
  * @openapi
  * /api/pedidos:
  *   get:
+ *     tags:
+ *       - Pedidos
  *     summary: Listar pedidos (opcionalmente filtrar por comercialId/clienteId)
+ *     parameters:
+ *       - in: query
+ *         name: comercialId
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: clienteId
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
  */
 router.get(
   '/',
@@ -70,6 +84,29 @@ router.get(
 
 // Precio unitario (PVL) por tarifa para artículos (para formularios HTML)
 // Importante: este endpoint debe ir ANTES de '/:id' para no colisionar.
+/**
+ * @openapi
+ * /api/pedidos/precios:
+ *   get:
+ *     tags:
+ *       - Pedidos
+ *     summary: Precios PVL por tarifa para artículos
+ *     parameters:
+ *       - in: query
+ *         name: tarifaId
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: ID de tarifa (0 = PVL base)
+ *       - in: query
+ *         name: articuloIds
+ *         schema:
+ *           type: string
+ *         description: Lista CSV de IDs de artículo (máx. 200)
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 router.get(
   '/precios',
   asyncHandler(async (req, res) => {
@@ -107,6 +144,35 @@ router.get(
   })
 );
 
+/**
+ * @openapi
+ * /api/pedidos/{id}:
+ *   get:
+ *     tags:
+ *       - Pedidos
+ *     summary: Obtener pedido por ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: includeLineas
+ *         schema:
+ *           type: string
+ *         description: Si incluye 'lineas' devuelve también las líneas
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: No encontrado
+ */
+
 router.get(
   '/:id/articulos',
   asyncHandler(async (req, res) => {
@@ -118,6 +184,30 @@ router.get(
     res.json({ ok: true, items });
   })
 );
+
+/**
+ * @openapi
+ * /api/pedidos/{id}/articulos:
+ *   get:
+ *     tags:
+ *       - Pedidos
+ *     summary: Listar líneas/artículos de un pedido
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: No encontrado
+ */
 
 router.post(
   '/',
@@ -145,6 +235,27 @@ router.post(
   })
 );
 
+/**
+ * @openapi
+ * /api/pedidos:
+ *   post:
+ *     tags:
+ *       - Pedidos
+ *     summary: Crear pedido
+ *     description: |
+ *       Soporta payload legacy (pedido plano) o wrapper:
+ *       `{ pedido: {...}, lineas: [...] }`.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Created
+ */
+
 router.put(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -169,6 +280,39 @@ router.put(
   })
 );
 
+/**
+ * @openapi
+ * /api/pedidos/{id}:
+ *   put:
+ *     tags:
+ *       - Pedidos
+ *     summary: Actualizar pedido
+ *     description: |
+ *       Opcional wrapper `{ pedido, lineas, replaceLineas }`.
+ *       Reglas de edición dependen de rol y estado.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: No encontrado
+ */
+
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -181,6 +325,30 @@ router.delete(
   })
 );
 
+/**
+ * @openapi
+ * /api/pedidos/{id}:
+ *   delete:
+ *     tags:
+ *       - Pedidos
+ *     summary: Eliminar pedido
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: No encontrado
+ */
+
 router.post(
   '/:id/lineas',
   asyncHandler(async (req, res) => {
@@ -192,6 +360,34 @@ router.post(
     res.status(201).json({ ok: true, result });
   })
 );
+
+/**
+ * @openapi
+ * /api/pedidos/{id}/lineas:
+ *   post:
+ *     tags:
+ *       - Pedidos
+ *     summary: Crear línea de pedido
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Created
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: No encontrado
+ */
 
 router.put(
   '/lineas/:id',
@@ -209,6 +405,34 @@ router.put(
   })
 );
 
+/**
+ * @openapi
+ * /api/pedidos/lineas/{id}:
+ *   put:
+ *     tags:
+ *       - Pedidos
+ *     summary: Actualizar línea de pedido
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       403:
+ *         description: Forbidden
+ */
+
 router.delete(
   '/lineas/:id',
   asyncHandler(async (req, res) => {
@@ -224,6 +448,33 @@ router.delete(
   })
 );
 
+/**
+ * @openapi
+ * /api/pedidos/lineas/{id}:
+ *   delete:
+ *     tags:
+ *       - Pedidos
+ *     summary: Eliminar línea de pedido
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: PedidoId
+ *         schema:
+ *           type: integer
+ *         description: ID del pedido (para validación de permisos best-effort)
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       403:
+ *         description: Forbidden
+ */
+
 router.get(
   '/tarifas/list',
   asyncHandler(async (_req, res) => {
@@ -231,6 +482,18 @@ router.get(
     res.json({ ok: true, items });
   })
 );
+
+/**
+ * @openapi
+ * /api/pedidos/tarifas/list:
+ *   get:
+ *     tags:
+ *       - Pedidos
+ *     summary: Listar tarifas
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 
 module.exports = router;
 

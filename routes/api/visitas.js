@@ -10,7 +10,21 @@ const { isAdminUser } = require('../../lib/auth');
  * @openapi
  * /api/visitas:
  *   get:
+ *     tags:
+ *       - Visitas
  *     summary: Listar visitas (opcionalmente filtrar por comercialId/clienteId)
+ *     parameters:
+ *       - in: query
+ *         name: comercialId
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: clienteId
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
  */
 router.get(
   '/',
@@ -36,7 +50,25 @@ router.get(
  * @openapi
  * /api/visitas/events:
  *   get:
+ *     tags:
+ *       - Visitas
  *     summary: Eventos de visitas para calendario (rango start/end)
+ *     parameters:
+ *       - in: query
+ *         name: start
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Fecha inicio (YYYY-MM-DD o ISO)
+ *       - in: query
+ *         name: end
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Fecha fin (YYYY-MM-DD o ISO)
+ *     responses:
+ *       200:
+ *         description: OK
  */
 router.get(
   '/events',
@@ -183,6 +215,28 @@ router.get(
   })
 );
 
+/**
+ * @openapi
+ * /api/visitas/{id}:
+ *   get:
+ *     tags:
+ *       - Visitas
+ *     summary: Obtener visita por ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ *       404:
+ *         description: No encontrado
+ */
+
 router.post(
   '/',
   asyncHandler(async (req, res) => {
@@ -190,6 +244,24 @@ router.post(
     res.status(201).json({ ok: true, result });
   })
 );
+
+/**
+ * @openapi
+ * /api/visitas:
+ *   post:
+ *     tags:
+ *       - Visitas
+ *     summary: Crear visita
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 
 router.put(
   '/:id',
@@ -201,6 +273,32 @@ router.put(
   })
 );
 
+/**
+ * @openapi
+ * /api/visitas/{id}:
+ *   put:
+ *     tags:
+ *       - Visitas
+ *     summary: Actualizar visita
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ */
+
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -210,6 +308,26 @@ router.delete(
     res.json({ ok: true, result });
   })
 );
+
+/**
+ * @openapi
+ * /api/visitas/{id}:
+ *   delete:
+ *     tags:
+ *       - Visitas
+ *     summary: Eliminar visita
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: ID no válido
+ */
 
 module.exports = router;
 
