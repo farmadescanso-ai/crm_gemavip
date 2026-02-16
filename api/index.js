@@ -3069,16 +3069,20 @@ app.get('/api/openapi.json', (_req, res) => {
   res.json(swaggerSpec);
 });
 
-app.use(
-  '/api/docs',
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: 'CRM Gemavip · API Docs',
-    swaggerOptions: {
-      persistAuthorization: true
-    }
-  })
-);
+// Swagger UI (público)
+// Nota: en Vercel, servir assets con swaggerUi.serve dentro del mismo app.use(...)
+// puede acabar devolviendo el HTML para las rutas de assets. Separamos HTML y assets.
+const swaggerUiOpts = {
+  customSiteTitle: 'CRM Gemavip · API Docs',
+  swaggerOptions: {
+    persistAuthorization: true
+  }
+};
+const swaggerUiHtml = swaggerUi.setup(swaggerSpec, swaggerUiOpts);
+
+app.get('/api/docs', (_req, res) => res.redirect(301, '/api/docs/'));
+app.get('/api/docs/', swaggerUiHtml);
+app.use('/api/docs', swaggerUi.serve);
 
 // API REST (protegida con API_KEY si está configurada)
 app.use('/api', requireApiKeyIfConfigured, apiRouter);
