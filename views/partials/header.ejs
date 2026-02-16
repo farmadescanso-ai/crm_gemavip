@@ -62,7 +62,7 @@
           <nav class="nav" aria-label="Principal">
             <% if (user) { %>
               <% (navLinks || []).forEach((l) => { %>
-                <a href="<%= l.href %>"><%= l.label %></a>
+                <a href="<%= l.href %>" <%= l && l.target ? `target="${l.target}"` : '' %> <%= l && l.rel ? `rel="${l.rel}"` : '' %>><%= l.label %></a>
               <% }) %>
             <% } %>
           </nav>
@@ -101,7 +101,7 @@
                       </div>
                     <% } else { %>
                       <% (roleNavLinks || []).forEach((l) => { %>
-                        <a href="<%= l.href %>"><%= l.label %></a>
+                        <a href="<%= l.href %>" <%= l && l.target ? `target="${l.target}"` : '' %> <%= l && l.rel ? `rel="${l.rel}"` : '' %>><%= l.label %></a>
                       <% }) %>
                     <% } %>
                   </div>
