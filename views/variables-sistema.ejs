@@ -9,16 +9,47 @@
   </div>
   <div class="card-bd">
     <% if (error) { %>
-      <div class="gv-alert error" style="margin: 0 0 12px 0;">
-        <strong>No se pudo cargar la configuración</strong>
-        <div style="margin-top:6px; white-space:pre-wrap;"><%= error %></div>
+      <div id="gv-sysvar-notice" class="gv-alert error" style="margin: 0 0 12px 0;" role="alert" aria-live="assertive">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+          <div>
+            <strong>No se pudo cargar la configuración</strong>
+            <div style="margin-top:6px; white-space:pre-wrap;"><%= error %></div>
+          </div>
+          <button type="button" class="btn secondary icon warn" id="gv-sysvar-notice-close" title="Cerrar" aria-label="Cerrar mensaje">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 6L6 18"></path>
+              <path d="M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     <% } %>
     <% if (success) { %>
-      <div class="gv-alert success" style="margin: 0 0 12px 0;">
+      <div id="gv-sysvar-notice" class="gv-alert success" style="margin: 0 0 12px 0;" role="status" aria-live="polite">
         <strong>Guardado</strong>
         <div style="margin-top:6px; white-space:pre-wrap;"><%= success %></div>
       </div>
+    <% } %>
+    <% if (error || success) { %>
+      <script>
+        (() => {
+          const box = document.getElementById('gv-sysvar-notice');
+          if (!box) return;
+          const isSuccess = <%= success ? 'true' : 'false' %>;
+          if (isSuccess) {
+            window.setTimeout(() => {
+              if (box && box.parentNode) box.parentNode.removeChild(box);
+            }, 5000);
+            return;
+          }
+          const btn = document.getElementById('gv-sysvar-notice-close');
+          if (btn) {
+            btn.addEventListener('click', () => {
+              if (box && box.parentNode) box.parentNode.removeChild(box);
+            });
+          }
+        })();
+      </script>
     <% } %>
 
     <div style="display:flex; flex-direction:column; gap:12px;">

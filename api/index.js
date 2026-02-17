@@ -22,7 +22,7 @@ const {
   createLoadPedidoAndCheckOwner
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
-const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, APP_BASE_URL } = require('../lib/mailer');
+const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail, APP_BASE_URL } = require('../lib/mailer');
 
 // Emails de notificaciones: desactivado por defecto (hasta configurar SMTP correctamente).
 const NOTIF_EMAILS_ENABLED =
@@ -2097,29 +2097,114 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
       }
     };
 
-    const resp = await axios.post(webhookUrl, payload, {
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      timeout: 30000,
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-      validateStatus: () => true
+    // === ENVÍO POR EMAIL (modo actual) ===
+    // Nota: mantenemos el código de N8N más abajo, pero no se ejecuta por defecto.
+    const mailTo = String(process.env.PEDIDOS_MAIL_TO || 'p.lara@gemavip.com').trim() || 'p.lara@gemavip.com';
+    const pedidoNum = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? id).trim();
+    const clienteNombre =
+      (payload?.pedido?.cliente?.nombre ? String(payload.pedido.cliente.nombre) : '') ||
+      String(item?.ClienteNombre ?? item?.ClienteNombreCial ?? '').trim() ||
+      '';
+    const totalLabel = item?.TotalPedido ?? item?.Total ?? null;
+    const pedidoUrl = `${APP_BASE_URL}/pedidos/${id}`;
+    const subject = `Pedido ${pedidoNum}${clienteNombre ? ` · ${clienteNombre}` : ''} · CRM Gemavip`;
+
+    const signatureText = [
+      '--',
+      'GEMAVIP',
+      'Paco Lara',
+      'Key Account Manager',
+      'GEMAVIP',
+      'Email: p.lara@gemavip.com',
+      'Tel: +34 610 72 13 69',
+      'Web: gemavip.com/es/ | farmadescanso.com',
+      'LinkedIn',
+      'Valoraciones Trustpilot',
+      '',
+      'Aviso de confidencialidad: La información contenida en esta comunicación electrónica y en sus archivos adjuntos es confidencial, privilegiada y está dirigida exclusivamente a la persona o entidad a la que va destinada. Si usted no es el destinatario previsto, se le notifica que cualquier lectura, uso, copia, distribución, divulgación o reproducción de este mensaje y sus anexos está estrictamente prohibida y puede constituir un delito. Si ha recibido este correo por error, le rogamos que lo notifique inmediatamente al remitente respondiendo a este mensaje y proceda a su eliminación de su sistema.',
+      '',
+      'Protección de datos: De conformidad con el Reglamento (UE) 2016/679 del Parlamento Europeo y del Consejo (RGPD) y la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos Personales y garantía de los derechos digitales (LOPDGDD), garantizo la adopción de todas las medidas técnicas y organizativas necesarias para el tratamiento seguro y confidencial de sus datos personales. Puede ejercer sus derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición escribiendo a p.lara@gemavip.com.',
+      '',
+      'Exención de responsabilidad: No me hago responsable de la transmisión íntegra y puntual de este mensaje, ni de posibles retrasos, errores, alteraciones o pérdidas que pudieran producirse en su recepción. Este mensaje no constituye ningún compromiso, salvo que exista un acuerdo expreso y por escrito entre las partes.'
+    ].join('\n');
+
+    const linesText = (payload.lineas || [])
+      .slice(0, 60)
+      .map((l) => `- ${l.codigo || l.articuloId || '—'} · ${l.nombre || ''} · uds: ${l.cantidad ?? 0}`)
+      .join('\n');
+
+    const text = [
+      'Pedido enviado desde CRM Gemavip.',
+      '',
+      `Pedido: ${pedidoNum}`,
+      clienteNombre ? `Cliente: ${clienteNombre}` : null,
+      totalLabel != null ? `Total: ${String(totalLabel)}` : null,
+      `Enlace: ${pedidoUrl}`,
+      '',
+      (linesText ? `Líneas (resumen):\n${linesText}\n` : ''),
+      signatureText
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const html = `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.45;color:#111827;">
+        <h2 style="margin:0 0 10px 0;font-size:16px;">Pedido enviado desde CRM Gemavip</h2>
+        <div style="margin:0 0 12px 0;">
+          <div><strong>Pedido:</strong> ${escapeHtmlUtil(pedidoNum)}</div>
+          ${clienteNombre ? `<div><strong>Cliente:</strong> ${escapeHtmlUtil(clienteNombre)}</div>` : ''}
+          ${totalLabel != null ? `<div><strong>Total:</strong> ${escapeHtmlUtil(String(totalLabel))}</div>` : ''}
+          <div><strong>Enlace:</strong> <a href="${escapeHtmlUtil(pedidoUrl)}">${escapeHtmlUtil(pedidoUrl)}</a></div>
+        </div>
+        ${
+          linesText
+            ? `<div style="margin: 0 0 12px 0;"><strong>Líneas (resumen)</strong><div style="white-space:pre-wrap;margin-top:6px;">${escapeHtmlUtil(linesText)}</div></div>`
+            : ''
+        }
+        <hr style="border:0;border-top:1px solid #e5e7eb;margin:16px 0;" />
+        <div style="white-space:pre-wrap;color:#111827;">${escapeHtmlUtil(signatureText)}</div>
+      </div>
+    `.trim();
+
+    const mailRes = await sendPedidoEmail(mailTo, {
+      subject,
+      text,
+      html,
+      attachments: [
+        {
+          filename: excel.filename,
+          content: excel.buf,
+          contentType: XLSX_MIME
+        }
+      ]
     });
 
-    const ok = resp.status >= 200 && resp.status < 300;
-    if (!ok) {
-      const details =
-        typeof resp.data === 'string'
-          ? resp.data.slice(0, 300)
-          : (resp.data && typeof resp.data === 'object')
-            ? JSON.stringify(resp.data).slice(0, 300)
-            : '';
+    if (!mailRes?.sent) {
       return res.redirect(
-        `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent(`Webhook respondió HTTP ${resp.status}${details ? ` · ${details}` : ''}`)}`
+        `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent(`No se pudo enviar el email: ${mailRes?.error || 'error desconocido'}`)}`
       );
     }
 
+    // Resultado OK por email
+    // (Reutilizamos el aviso existente en /pedidos, aunque internamente no hayamos llamado a N8N)
+    if (process.env.N8N_PEDIDOS_ENABLED === '1' && webhookUrl) {
+      // Código N8N preservado (opcional). Por defecto, NO se ejecuta.
+      // Si en algún momento se reactiva, revisar el formato esperado en el webhook.
+      void (async () => {
+        try {
+          await axios.post(webhookUrl, payload, {
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            timeout: 30000,
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+            validateStatus: () => true
+          });
+        } catch (_) {}
+      })();
+    }
+
     return res.redirect(
-      `/pedidos?n8n=ok&pid=${encodeURIComponent(String(id))}&file=${encodeURIComponent(excel.filename)}&msg=${encodeURIComponent(`Webhook OK (HTTP ${resp.status})`)}` 
+      `/pedidos?n8n=ok&pid=${encodeURIComponent(String(id))}&file=${encodeURIComponent(excel.filename)}&msg=${encodeURIComponent(`Email enviado a ${mailTo}`)}`
     );
   } catch (e) {
     console.error('Enviar pedido a N8N: error', e?.message);
