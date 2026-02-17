@@ -216,6 +216,91 @@ async function loadMarcasForSelect(db) {
   }
 }
 
+async function loadSimpleCatalogForSelect(db, tableKey, { labelCandidates } = {}) {
+  // Best-effort: si no existe la tabla o faltan permisos, devolver [].
+  try {
+    const t = await db._resolveTableNameCaseInsensitive(tableKey);
+    const cols = await db._getColumns(t);
+    const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+    const pick = (cands) => (cands || []).find((c) => colsLower.has(String(c).toLowerCase())) || null;
+    const colId = pick(['id', 'Id', 'ID']) || 'id';
+    const colLabel = pick(labelCandidates || ['Nombre', 'nombre', 'Descripcion', 'descripcion', 'Tipo', 'tipo', 'FormaPago', 'formaPago']);
+    const selectLabel = colLabel ? `\`${colLabel}\` AS nombre` : `CAST(\`${colId}\` AS CHAR) AS nombre`;
+    const rows = await db.query(`SELECT * , \`${colId}\` AS id, ${selectLabel} FROM \`${t}\` ORDER BY nombre ASC`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function findRowByCode(rows, codeCandidates) {
+  const codes = (codeCandidates || []).map((c) => String(c).toUpperCase());
+  for (const r of (rows || [])) {
+    for (const v of Object.values(r || {})) {
+      const sv = String(v ?? '').trim().toUpperCase();
+      if (sv && codes.includes(sv)) return r;
+    }
+  }
+  return null;
+}
+
+function findRowByNameContains(rows, substrCandidates) {
+  const subs = (substrCandidates || []).map((s) => String(s).toLowerCase());
+  for (const r of (rows || [])) {
+    for (const v of Object.values(r || {})) {
+      const sv = String(v ?? '').toLowerCase();
+      if (!sv) continue;
+      if (subs.some((sub) => sv.includes(sub))) return r;
+    }
+  }
+  return null;
+}
+
+function applySpainDefaultsIfEmpty(item, { meta, paises, idiomas, monedas } = {}) {
+  if (!item || typeof item !== 'object') return item;
+  const cols = Array.isArray(meta?.cols) ? meta.cols : [];
+  const colsLower = new Set(cols.map((c) => String(c).toLowerCase()));
+
+  const hasCol = (name) => colsLower.has(String(name).toLowerCase());
+  const isEmpty = (val) => val === undefined || val === null || String(val).trim() === '';
+
+  // País: España (ISO ES)
+  if (hasCol('Id_Pais') && isEmpty(item.Id_Pais)) {
+    const esp = (paises || []).find((p) => String(p?.Id_pais ?? p?.id_pais ?? '').toUpperCase() === 'ES')
+      || findRowByNameContains(paises, ['españa', 'espana']);
+    const espId = Number(esp?.id ?? esp?.Id ?? esp?.ID ?? 0) || 0;
+    if (espId) item.Id_Pais = espId;
+  }
+
+  // Idioma: Español (ES)
+  if (hasCol('Id_Idioma') && isEmpty(item.Id_Idioma)) {
+    const direct =
+      (idiomas || []).find((r) => String(r?.Codigo ?? r?.codigo ?? '').trim().toLowerCase() === 'es')
+      || null;
+    const es =
+      direct
+      || findRowByCode(idiomas, ['ES'])
+      || findRowByNameContains(idiomas, ['español', 'espanol', 'castellano', 'spanish']);
+    const esId = Number(es?.id ?? es?.Id ?? es?.ID ?? 0) || 0;
+    if (esId) item.Id_Idioma = esId;
+  }
+
+  // Moneda: Euro (EUR)
+  if (hasCol('Id_Moneda') && isEmpty(item.Id_Moneda)) {
+    const direct =
+      (monedas || []).find((r) => String(r?.Codigo ?? r?.codigo ?? '').trim().toUpperCase() === 'EUR')
+      || null;
+    const eur =
+      direct
+      || findRowByCode(monedas, ['EUR'])
+      || findRowByNameContains(monedas, ['euro', '€']);
+    const eurId = Number(eur?.id ?? eur?.Id ?? eur?.ID ?? 0) || 0;
+    if (eurId) item.Id_Moneda = eurId;
+  }
+
+  return item;
+}
+
 // Locals para todas las vistas
 app.use((req, _res, next) => {
   const user = req.session?.user || null;
@@ -986,7 +1071,7 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
 // ===========================
 // CLIENTES (HTML) - Admin CRUD
 // ===========================
-function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provincias, paises, canChangeComercial, missingFields }) {
+function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, canChangeComercial, missingFields }) {
   const cols = Array.isArray(meta?.cols) ? meta.cols : [];
   const pk = meta?.pk || 'Id';
   const ignore = new Set(
@@ -1026,6 +1111,12 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     if (n === 'tarifa' || n === 'id_tarifa') return { kind: 'select', options: 'tarifas' };
     if (n === 'id_pais') return { kind: 'select', options: 'paises' };
     if (n === 'id_provincia') return { kind: 'select', options: 'provincias' };
+    if (n === 'id_formapago' || n === 'id_forma_pago') return { kind: 'select', options: 'formas_pago' };
+    if (n === 'id_tipocliente' || n === 'id_tipo_cliente') return { kind: 'select', options: 'tipos_clientes' };
+    if (n === 'id_idioma') return { kind: 'select', options: 'idiomas' };
+    if (n === 'id_moneda') return { kind: 'select', options: 'monedas' };
+    if (n === 'id_cooperativa') return { kind: 'select', options: 'cooperativas' };
+    if (n === 'id_grupocompras' || n === 'id_grupo_compras') return { kind: 'select', options: 'grupos_compras' };
     if (n.includes('email')) return { kind: 'input', type: 'email' };
     if (n.includes('telefono') || n.includes('movil') || n.includes('fax')) return { kind: 'input', type: 'tel' };
     if (n.includes('web') || n.includes('url')) return { kind: 'input', type: 'url' };
@@ -1081,7 +1172,7 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
   byId.get('ident').fields = promote(byId.get('ident').fields, ['Nombre_Razon_Social', 'Nombre_Cial', 'TipoContacto', 'DNI_CIF', 'OK_KO']);
   byId.get('contacto').fields = promote(byId.get('contacto').fields, ['Email', 'Telefono', 'Movil', 'Web']);
   byId.get('direccion').fields = promote(byId.get('direccion').fields, ['Direccion', 'Direccion2', 'CodigoPostal', 'Poblacion', 'Id_Provincia', 'Id_Pais']);
-  byId.get('condiciones').fields = promote(byId.get('condiciones').fields, [meta?.colComercial || 'Id_Cial', 'Tarifa', 'Dto']);
+  byId.get('condiciones').fields = promote(byId.get('condiciones').fields, [meta?.colComercial || 'Id_Cial', 'Tarifa', 'Dto', 'Id_TipoCliente', 'Id_FormaPago', 'Id_Idioma', 'Id_Moneda']);
 
   // Eliminar pestañas sin campos salvo Avanzado
   const tabsFiltered = tabs.filter((t) => t.id === 'avanzado' || (t.fields && t.fields.length));
@@ -1094,6 +1185,12 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     tarifas,
     provincias,
     paises,
+    formasPago,
+    tiposClientes,
+    idiomas,
+    monedas,
+    cooperativas,
+    gruposCompras,
     canChangeComercial: !!canChangeComercial,
     missingFields: Array.isArray(missingFields) ? missingFields : []
   };
@@ -1127,21 +1224,37 @@ function coerceClienteValue(fieldName, raw) {
 }
 app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, meta] = await Promise.all([
+    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getProvincias?.().catch(() => []) ?? [],
       db.getPaises?.().catch(() => []) ?? [],
+      db.getFormasPago?.().catch(() => []) ?? [],
+      loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      db.getCooperativas?.().catch(() => []) ?? [],
+      db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
     ]);
+    const baseItem = applySpainDefaultsIfEmpty(
+      { OK_KO: 1, Tarifa: 0, Dto: 0 },
+      { meta, paises, idiomas, monedas }
+    );
     const model = buildClienteFormModel({
       mode: 'create',
       meta,
-      item: { OK_KO: 1, Tarifa: 0, Dto: 0 },
+      item: baseItem,
       comerciales: Array.isArray(comerciales) ? comerciales : [],
       tarifas: Array.isArray(tarifas) ? tarifas : [],
       provincias: Array.isArray(provincias) ? provincias : [],
       paises: Array.isArray(paises) ? paises : [],
+      formasPago: Array.isArray(formasPago) ? formasPago : [],
+      tiposClientes: Array.isArray(tiposClientes) ? tiposClientes : [],
+      idiomas: Array.isArray(idiomas) ? idiomas : [],
+      monedas: Array.isArray(monedas) ? monedas : [],
+      cooperativas: Array.isArray(cooperativas) ? cooperativas : [],
+      gruposCompras: Array.isArray(gruposCompras) ? gruposCompras : [],
       canChangeComercial: true
     });
     res.render('cliente-form', { ...model, error: null });
@@ -1152,11 +1265,17 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
 
 app.post('/clientes/new', requireAdmin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, meta] = await Promise.all([
+    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getProvincias?.().catch(() => []) ?? [],
       db.getPaises?.().catch(() => []) ?? [],
+      db.getFormasPago?.().catch(() => []) ?? [],
+      loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      db.getCooperativas?.().catch(() => []) ?? [],
+      db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
     ]);
     const body = req.body || {};
@@ -1173,6 +1292,7 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
     // Defaults mínimos
     if (payload.OK_KO === null || payload.OK_KO === undefined) payload.OK_KO = 1;
     if (payload.Tarifa === null || payload.Tarifa === undefined) payload.Tarifa = 0;
+    applySpainDefaultsIfEmpty(payload, { meta, paises, idiomas, monedas });
 
     const missingFieldsNew = [];
     if (!payload.Nombre_Razon_Social) missingFieldsNew.push('Nombre_Razon_Social');
@@ -1185,6 +1305,12 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
         tarifas,
         provincias,
         paises,
+        formasPago,
+        tiposClientes,
+        idiomas,
+        monedas,
+        cooperativas,
+        gruposCompras,
         canChangeComercial: true,
         missingFields: missingFieldsNew
       });
@@ -1221,12 +1347,18 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, comerciales, tarifas, provincias, paises, meta] = await Promise.all([
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getProvincias?.().catch(() => []) ?? [],
       db.getPaises?.().catch(() => []) ?? [],
+      db.getFormasPago?.().catch(() => []) ?? [],
+      loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      db.getCooperativas?.().catch(() => []) ?? [],
+      db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
     ]);
     if (!item) return res.status(404).send('No encontrado');
@@ -1239,6 +1371,12 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       tarifas,
       provincias,
       paises,
+      formasPago,
+      tiposClientes,
+      idiomas,
+      monedas,
+      cooperativas,
+      gruposCompras,
       canChangeComercial: admin
     });
     res.render('cliente-form', { ...model, error: null, admin, puedeSolicitarAsignacion, contactoId: id });
@@ -1253,11 +1391,17 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, meta, provincias, paises] = await Promise.all([
+    const [item, meta, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras] = await Promise.all([
       db.getClienteById(id),
       db._ensureClientesMeta().catch(() => null),
       db.getProvincias?.().catch(() => []) ?? [],
-      db.getPaises?.().catch(() => []) ?? []
+      db.getPaises?.().catch(() => []) ?? [],
+      db.getFormasPago?.().catch(() => []) ?? [],
+      loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      db.getCooperativas?.().catch(() => []) ?? [],
+      db.getGruposCompras?.().catch(() => []) ?? []
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const comerciales = await db.getComerciales().catch(() => []);
@@ -1290,6 +1434,12 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
         tarifas,
         provincias,
         paises,
+        formasPago,
+        tiposClientes,
+        idiomas,
+        monedas,
+        cooperativas,
+        gruposCompras,
         canChangeComercial: !!admin,
         missingFields
       });
