@@ -1423,6 +1423,113 @@ table.calendar td.is-empty{
   font-weight: 600;
 }
 
+/* ===========================
+   Cliente form: tabs + acciones
+   =========================== */
+.gv-form-actions-sticky{
+  position: sticky;
+  top: 10px;
+  z-index: 10;
+}
+.gv-form-actions-sticky__inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(255,255,255,.90);
+  backdrop-filter: blur(8px);
+}
+.gv-tabs{
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid var(--gv-border);
+  background: rgba(248,250,252,.8);
+}
+.gv-tab{
+  appearance:none;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  color: var(--gv-ink);
+  cursor:pointer;
+}
+.gv-tab:hover{ background: rgba(0,139,210,.06); }
+.gv-tab.is-active{
+  background: #fff;
+  border-color: rgba(0,139,210,.25);
+  box-shadow: 0 8px 16px rgba(12,20,58,.06);
+}
+.gv-tabpanel{ display:none; }
+.gv-tabpanel.is-active{ display:block; }
+.gv-readonly{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--gv-border);
+  background: rgba(248,250,252,.7);
+  color: var(--gv-ink);
+  font-weight: 700;
+}
+
+/* ===========================
+   Modal estándar (confirmación)
+   =========================== */
+.gv-modal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.45);
+  z-index: 50;
+}
+.gv-modal{
+  position: fixed;
+  inset: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+  z-index: 51;
+}
+.gv-modal-card{
+  width: min(520px, 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: #fff;
+  box-shadow: 0 20px 40px rgba(2,6,23,.22);
+  overflow:hidden;
+}
+.gv-modal-hd{
+  padding: 14px 16px;
+  background:
+    radial-gradient(700px 320px at 15% 0%, rgba(0,139,210,.10), transparent 55%),
+    radial-gradient(700px 320px at 90% 0%, rgba(255,186,0,.10), transparent 52%),
+    #fff;
+}
+.gv-modal-title{
+  font-weight: 900;
+  color: var(--gv-ink);
+  font-size: 16px;
+}
+.gv-modal-subtitle{
+  margin-top: 6px;
+  color: var(--gv-muted);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.gv-modal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 16px 16px 16px;
+}
+
 /* Página de error (estándar) */
 .gv-error{
   max-width: 960px;

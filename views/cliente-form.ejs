@@ -1,155 +1,267 @@
 <%- include('partials/header', { title: mode === 'edit' ? 'Editar contacto' : 'Nuevo contacto' }) %>
 
-<section class="card" style="max-width: 980px; margin: 0 auto;">
+<% const missingFieldsList = (typeof missingFields !== 'undefined' && Array.isArray(missingFields)) ? missingFields : []; %>
+<% const formAction = mode === 'edit' ? ('/clientes/' + (item.Id || item.id) + '/edit') : '/clientes/new'; %>
+<% const cancelHref = mode === 'edit' ? ('/clientes/' + (item.Id || item.id)) : '/clientes'; %>
+
+<section class="card gv-cliente-form" style="max-width: 1080px; margin: 0 auto;">
   <div class="card-hd">
     <h1 class="card-title"><%= mode === 'edit' ? 'Editar contacto' : 'Nuevo contacto' %></h1>
-    <p class="card-subtitle">Completa la información básica. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.</p>
+    <p class="card-subtitle">Revisa y completa la ficha del cliente. Puedes moverte por pestañas sin perder cambios.</p>
   </div>
   <div class="card-bd">
-    <% const missingFieldsList = (typeof missingFields !== 'undefined' && Array.isArray(missingFields)) ? missingFields : []; %>
     <% if (error) { %>
-      <div class="gv-alert gv-alert--warn"><%= error %></div>
-      <div style="height: 10px;"></div>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= error %></div>
     <% } %>
 
-    <form method="post" action="<%= mode === 'edit' ? ('/clientes/' + (item.Id || item.id) + '/edit') : '/clientes/new' %>" style="display:grid; gap: 12px;">
-      <div class="grid cols-2" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;" class="<%= missingFieldsList.indexOf('Nombre_Razon_Social') !== -1 ? 'gv-field-error' : '' %>">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre / Razón Social *</span>
-          <input name="Nombre_Razon_Social" required value="<%= item.Nombre_Razon_Social ?? item.Nombre ?? '' %>" aria-invalid="<%= missingFieldsList.indexOf('Nombre_Razon_Social') !== -1 ? 'true' : 'false' %>" />
-          <% if (missingFieldsList.indexOf('Nombre_Razon_Social') !== -1) { %><small class="gv-field-error-msg">Campo obligatorio</small><% } %>
-        </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tipo de contacto</span>
-          <select name="TipoContacto">
-            <option value="">— Seleccionar —</option>
-            <option value="Empresa" <%= (item.TipoContacto || '').toString() === 'Empresa' ? 'selected' : '' %>>Empresa</option>
-            <option value="Persona" <%= (item.TipoContacto || '').toString() === 'Persona' ? 'selected' : '' %>>Persona</option>
-            <option value="Otros" <%= (item.TipoContacto || '').toString() === 'Otros' ? 'selected' : '' %>>Otros</option>
-          </select>
-        </label>
+    <form id="gvClienteForm" method="post" action="<%= formAction %>" class="gv-form" style="display:grid; gap: 12px;">
+      <div class="gv-form-actions-sticky">
+        <div class="gv-form-actions-sticky__inner">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <a class="btn secondary" href="<%= cancelHref %>" id="gvCancelBtn">Cancelar</a>
+            <button class="btn" type="submit" id="gvSaveBtn"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
+          </div>
+          <div id="gvDirtyHint" style="display:none; color: var(--gv-muted); font-weight:800;">Tienes cambios sin guardar.</div>
+        </div>
       </div>
 
-      <div class="grid cols-2" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">DNI/CIF</span>
-          <input name="DNI_CIF" id="gv-dni-cif" value="<%= item.DNI_CIF ?? '' %>" placeholder="Obligatorio para pedidos y estado activo" />
-        </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Email</span>
-          <input type="email" name="Email" value="<%= item.Email ?? '' %>" />
-        </label>
+      <div class="gv-tabs" role="tablist" aria-label="Secciones del contacto">
+        <% (tabs || []).forEach((t, idx) => { %>
+          <button
+            type="button"
+            class="gv-tab <%= idx === 0 ? 'is-active' : '' %>"
+            role="tab"
+            aria-selected="<%= idx === 0 ? 'true' : 'false' %>"
+            aria-controls="tab_<%= t.id %>"
+            data-tab="<%= t.id %>"
+          ><%= t.label %></button>
+        <% }) %>
       </div>
 
-      <div class="grid cols-3" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Teléfono</span>
-          <input name="Telefono" value="<%= item.Telefono ?? '' %>" />
-        </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Móvil</span>
-          <input name="Movil" value="<%= item.Movil ?? '' %>" />
-        </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Estado</span>
-          <select name="OK_KO" id="gv-ok-ko">
-            <option value="1" <%= String(item.OK_KO ?? '1') === '1' ? 'selected' : '' %>>Activo</option>
-            <option value="0" <%= String(item.OK_KO ?? '1') === '0' ? 'selected' : '' %>>Inactivo</option>
-          </select>
-          <small style="color: var(--gv-muted, #6c757d);">Solo se puede estar activo con DNI/CIF informado.</small>
-        </label>
-      </div>
+      <% const pickVal = (name) => { const v = (item && item[name] !== undefined) ? item[name] : ''; return (v === null || v === undefined) ? '' : String(v); }; %>
+      <% const numVal = (name) => { const v = pickVal(name); return v === '' ? '' : v; }; %>
 
-      <div class="grid cols-2" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Dirección</span>
-          <input name="Direccion" value="<%= item.Direccion ?? '' %>" />
-        </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Población</span>
-          <input name="Poblacion" value="<%= item.Poblacion ?? '' %>" />
-        </label>
-      </div>
+      <% (tabs || []).forEach((t, idx) => { %>
+        <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
+          <div class="grid cols-2" style="gap: 12px;">
+            <% (t.fields || []).forEach((f) => { %>
+              <% const name = f.name; %>
+              <% const label = f.label; %>
+              <% const required = !!f.required; %>
+              <% const spec = f.spec || {}; %>
+              <% const isMissing = missingFieldsList.indexOf(name) !== -1; %>
+              <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
 
-      <div class="grid cols-3" style="gap: 12px;">
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Código Postal</span>
-          <input name="CodigoPostal" value="<%= item.CodigoPostal ?? '' %>" />
-        </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Tarifa</span>
-          <select name="Tarifa">
-            <% const curTar = Number(item.Tarifa ?? item.Id_Tarifa ?? 0) || 0; %>
-            <% (tarifas || []).forEach((t) => { %>
-              <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
-              <% const label = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
-              <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= label %></option>
+              <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %>">
+                <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %></span>
+
+                <% if (spec.kind === 'readonly') { %>
+                  <div class="gv-readonly"><%= pickVal(name) || '—' %></div>
+                <% } else if (spec.kind === 'textarea') { %>
+                  <textarea id="<%= inputId %>" name="<%= name %>" rows="4" <%= required ? 'required' : '' %> aria-invalid="<%= isMissing ? 'true' : 'false' %>"><%= pickVal(name) %></textarea>
+                <% } else if (spec.kind === 'checkbox') { %>
+                  <input type="hidden" name="<%= name %>" value="0" />
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <input id="<%= inputId %>" type="checkbox" name="<%= name %>" value="1" <%= (pickVal(name) === '1' || pickVal(name).toLowerCase() === 'true') ? 'checked' : '' %> />
+                    <span style="color: var(--gv-muted); font-weight:700;">Sí</span>
+                  </div>
+                <% } else if (spec.kind === 'select' && spec.options === 'ok_ko') { %>
+                  <select id="gv-ok-ko" name="<%= name %>">
+                    <option value="1" <%= pickVal(name) === '1' ? 'selected' : '' %>>Activo</option>
+                    <option value="0" <%= pickVal(name) === '0' ? 'selected' : '' %>>Inactivo</option>
+                  </select>
+                  <small style="color: var(--gv-muted);">Solo se puede estar activo con DNI/CIF informado.</small>
+                <% } else if (spec.kind === 'select' && spec.options === 'tipo_contacto') { %>
+                  <select id="<%= inputId %>" name="<%= name %>">
+                    <option value="">— Seleccionar —</option>
+                    <option value="Empresa" <%= pickVal(name) === 'Empresa' ? 'selected' : '' %>>Empresa</option>
+                    <option value="Persona" <%= pickVal(name) === 'Persona' ? 'selected' : '' %>>Persona</option>
+                    <option value="Otros" <%= pickVal(name) === 'Otros' ? 'selected' : '' %>>Otros</option>
+                  </select>
+                <% } else if (spec.kind === 'select' && spec.options === 'comerciales') { %>
+                  <% const cur = Number(pickVal(name) || 0) || 0; %>
+                  <% if (canChangeComercial) { %>
+                    <select id="<%= inputId %>" name="<%= name %>">
+                      <option value="">(sin asignar)</option>
+                      <% (comerciales || []).forEach((c) => { %>
+                        <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
+                        <option value="<%= cid %>" <%= cid === cur ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+                      <% }) %>
+                    </select>
+                  <% } else { %>
+                    <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.id ?? c.Id ?? 0) === cur; }); %>
+                    <div class="gv-readonly"><%= comercialAsignado ? (comercialAsignado.Nombre ?? '') : 'Sin asignar' %></div>
+                    <input type="hidden" name="<%= name %>" value="<%= pickVal(name) %>" />
+                  <% } %>
+                <% } else if (spec.kind === 'select' && spec.options === 'tarifas') { %>
+                  <% const curTar = Number(pickVal(name) || 0) || 0; %>
+                  <select id="<%= inputId %>" name="<%= name %>">
+                    <% (tarifas || []).forEach((t) => { %>
+                      <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
+                      <% const tlabel = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
+                      <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= tlabel %></option>
+                    <% }) %>
+                  </select>
+                <% } else if (spec.kind === 'select' && spec.options === 'paises') { %>
+                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <select id="<%= inputId %>" name="<%= name %>">
+                    <option value="">—</option>
+                    <% (paises || []).forEach((p) => { %>
+                      <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
+                      <% const plabel = p.Nombre_pais ?? p.Nombre ?? p.nombre ?? p.Pais ?? ('País ' + pid); %>
+                      <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
+                    <% }) %>
+                  </select>
+                <% } else if (spec.kind === 'select' && spec.options === 'provincias') { %>
+                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <select id="<%= inputId %>" name="<%= name %>">
+                    <option value="">—</option>
+                    <% (provincias || []).forEach((p) => { %>
+                      <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
+                      <% const plabel = p.Nombre_provincia ?? p.Nombre ?? p.nombre ?? p.Provincia ?? ('Provincia ' + pid); %>
+                      <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
+                    <% }) %>
+                  </select>
+                <% } else { %>
+                  <% const type = spec.type || 'text'; %>
+                  <input
+                    id="<%= inputId %>"
+                    name="<%= name %>"
+                    type="<%= type %>"
+                    <%= required ? 'required' : '' %>
+                    value="<%= (type === 'number') ? numVal(name) : pickVal(name) %>"
+                    aria-invalid="<%= isMissing ? 'true' : 'false' %>"
+                    <%= type === 'number' ? 'step="0.01"' : '' %>
+                  />
+                <% } %>
+
+                <% if (isMissing) { %><small class="gv-field-error-msg">Campo obligatorio</small><% } %>
+              </label>
             <% }) %>
-          </select>
-        </label>
-        <label style="display:grid; gap: 6px;">
-          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Dto (%)</span>
-          <input type="number" step="0.01" min="0" max="100" name="Dto" value="<%= item.Dto ?? 0 %>" />
-        </label>
-      </div>
-
-      <% /* Comercial asignado: se muestra como "Nombre · Email" (ej. Farmadescanso 2021 SL · pedidos@farmadescanso.com). El ID del comercial se puede obtener con db.getComercialIdFromDisplayString(eseTexto). */ %>
-      <label style="display:grid; gap: 6px;">
-        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Comercial asignado</span>
-        <% const curCial = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? 0) || 0; %>
-        <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.id ?? c.Id ?? 0) === curCial; }); %>
-        <% const mostrarDropdown = mode !== 'edit' || (typeof canChangeComercial !== 'undefined' && canChangeComercial); %>
-        <% if (mostrarDropdown) { %>
-          <select name="Id_Cial">
-            <option value="">(sin asignar)</option>
-            <% (comerciales || []).forEach((c) => { %>
-              <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
-              <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
-            <% }) %>
-          </select>
-          <% if (mode === 'edit' && canChangeComercial) { %>
-            <small style="color: var(--gv-muted, #6c757d);">Cambia al comercial que debe quedar asignado y guarda. Las solicitudes pendientes se gestionan en Solicitudes.</small>
-          <% } %>
-        <% } else { %>
-          <p style="margin:0; padding: 8px 12px; background: var(--gv-muted-bg, #f1f3f5); border-radius: 8px; color: var(--gv-ink);"><%= comercialAsignado ? (comercialAsignado.Nombre ?? '') + (comercialAsignado.Email || comercialAsignado.email ? ' · ' + (comercialAsignado.Email || comercialAsignado.email) : '') : 'Sin asignar' %></p>
-          <input type="hidden" name="Id_Cial" value="<%= item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? '' %>" />
-          <% if (puedeSolicitarAsignacion && contactoId) { %>
-            <div style="margin-top: 8px;">
-              <form method="post" action="/clientes/<%= contactoId %>/solicitar-asignacion" style="display:inline;">
-                <button class="btn" type="submit">Solicitar que me asignen este contacto</button>
-              </form>
-              <small style="display:block; margin-top: 6px; color: var(--gv-muted, #6c757d);">Se enviará una solicitud al administrador; si la aprueba, el contacto quedará asignado a ti.</small>
-            </div>
-          <% } %>
-        <% } %>
-      </label>
-
-      <label style="display:grid; gap: 6px;">
-        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Observaciones</span>
-        <textarea name="Observaciones" rows="4"><%= item.Observaciones ?? item.Notas ?? '' %></textarea>
-      </label>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-        <a class="btn secondary" href="/clientes">Cancelar</a>
-        <button class="btn" type="submit"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
-      </div>
+          </div>
+        </section>
+      <% }) %>
     </form>
+
+    <div class="gv-modal-backdrop" id="gvUnsavedBackdrop" hidden></div>
+    <div class="gv-modal" id="gvUnsavedModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvUnsavedTitle">
+      <div class="gv-modal-card">
+        <div class="gv-modal-hd">
+          <div class="gv-modal-title" id="gvUnsavedTitle">Salir sin guardar</div>
+          <div class="gv-modal-subtitle">Has modificado campos. Si sales ahora, perderás los cambios.</div>
+        </div>
+        <div class="gv-modal-actions">
+          <button type="button" class="btn secondary" id="gvUnsavedStay">Seguir editando</button>
+          <a class="btn" href="<%= cancelHref %>" id="gvUnsavedLeave">Salir sin guardar</a>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
+
 <script>
 (function () {
-  var dni = document.getElementById('gv-dni-cif');
-  var okKo = document.getElementById('gv-ok-ko');
-  if (!dni || !okKo) return;
-  function sync() {
-    var vacio = !String(dni.value || '').trim();
-    okKo.querySelector('option[value="1"]').disabled = vacio;
-    if (vacio && okKo.value === '1') okKo.value = '0';
+  var form = document.getElementById('gvClienteForm');
+  if (!form) return;
+
+  // Tabs
+  var tabButtons = Array.prototype.slice.call(document.querySelectorAll('.gv-tab[data-tab]'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.gv-tabpanel[data-tabpanel]'));
+  function setTab(id) {
+    tabButtons.forEach(function (b) {
+      var active = b.getAttribute('data-tab') === id;
+      b.classList.toggle('is-active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    panels.forEach(function (p) {
+      var active = p.getAttribute('data-tabpanel') === id;
+      p.classList.toggle('is-active', active);
+    });
   }
-  dni.addEventListener('input', sync);
-  dni.addEventListener('change', sync);
-  sync();
+  tabButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      setTab(b.getAttribute('data-tab'));
+    });
+  });
+
+  // Dirty tracking
+  var dirtyHint = document.getElementById('gvDirtyHint');
+  var initial = null;
+  function snapshot() {
+    var fd = new FormData(form);
+    var obj = {};
+    fd.forEach(function (v, k) {
+      // Si hay múltiples entradas con mismo nombre (ej hidden+checkbox), quedarnos con la última
+      obj[k] = String(v);
+    });
+    return obj;
+  }
+  initial = snapshot();
+  function isDirty() {
+    var cur = snapshot();
+    var keys = Object.keys(initial);
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (String(cur[k] || '') !== String(initial[k] || '')) return true;
+    }
+    // nuevos campos
+    var curKeys = Object.keys(cur);
+    for (var j = 0; j < curKeys.length; j++) {
+      var kk = curKeys[j];
+      if (initial[kk] === undefined && String(cur[kk] || '') !== '') return true;
+    }
+    return false;
+  }
+  function updateDirtyUi() {
+    var d = isDirty();
+    if (dirtyHint) dirtyHint.style.display = d ? 'block' : 'none';
+  }
+  form.addEventListener('input', updateDirtyUi);
+  form.addEventListener('change', updateDirtyUi);
+  updateDirtyUi();
+
+  // Cancel confirm modal
+  var cancelBtn = document.getElementById('gvCancelBtn');
+  var backdrop = document.getElementById('gvUnsavedBackdrop');
+  var modal = document.getElementById('gvUnsavedModal');
+  var stay = document.getElementById('gvUnsavedStay');
+
+  function showModal() {
+    if (backdrop) backdrop.hidden = false;
+    if (modal) modal.hidden = false;
+    if (stay) stay.focus();
+  }
+  function hideModal() {
+    if (backdrop) backdrop.hidden = true;
+    if (modal) modal.hidden = true;
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function (e) {
+      if (!isDirty()) return;
+      e.preventDefault();
+      showModal();
+    });
+  }
+  if (backdrop) backdrop.addEventListener('click', hideModal);
+  if (stay) stay.addEventListener('click', hideModal);
+
+  // DNI/CIF -> no permitir OK si vacío
+  var dni = document.getElementById('gv_DNI_CIF') || document.getElementById('gv-dni-cif');
+  var okKo = document.getElementById('gv-ok-ko');
+  if (dni && okKo) {
+    function sync() {
+      var vacio = !String(dni.value || '').trim();
+      var opt = okKo.querySelector('option[value=\"1\"]');
+      if (opt) opt.disabled = vacio;
+      if (vacio && okKo.value === '1') okKo.value = '0';
+    }
+    dni.addEventListener('input', sync);
+    dni.addEventListener('change', sync);
+    sync();
+  }
 })();
 </script>
+
 <%- include('partials/footer') %>
 

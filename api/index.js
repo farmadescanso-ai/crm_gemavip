@@ -986,16 +986,165 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
 // ===========================
 // CLIENTES (HTML) - Admin CRUD
 // ===========================
+function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provincias, paises, canChangeComercial, missingFields }) {
+  const cols = Array.isArray(meta?.cols) ? meta.cols : [];
+  const pk = meta?.pk || 'Id';
+  const ignore = new Set(
+    [pk, 'created_at', 'updated_at', 'CreatedAt', 'UpdatedAt', 'FechaAlta', 'Fecha_Alta', 'FechaBaja', 'Fecha_Baja']
+      .map(String)
+  );
+
+  const labelize = (name) => {
+    const raw = String(name || '');
+    const cleaned = raw
+      .replace(/_/g, ' ')
+      .replace(/\bId\b/g, 'ID')
+      .replace(/\bDNI\b/g, 'DNI')
+      .replace(/\bCIF\b/g, 'CIF')
+      .replace(/\bCP\b/g, 'CP')
+      .replace(/\bIVA\b/g, 'IVA')
+      .trim();
+    // Title case suave
+    return cleaned.length ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : raw;
+  };
+
+  const toTab = (name) => {
+    const n = String(name || '').toLowerCase();
+    if (['nombre_razon_social', 'nombre_cial', 'dni_cif', 'tipocontacto', 'ok_ko', 'id_estdocliente', 'id_estadocliente'].includes(n)) return 'ident';
+    if (n.includes('direccion') || n.includes('poblacion') || n.includes('codigopostal') || n.includes('provincia') || n.includes('pais')) return 'direccion';
+    if (n.includes('email') || n.includes('telefono') || n.includes('movil') || n.includes('web') || n.includes('fax')) return 'contacto';
+    if (n.includes('tarifa') || n === 'dto' || n.includes('descuento') || n.includes('comercial') || n.includes('id_cial')) return 'condiciones';
+    if (n.includes('observ') || n.includes('notas') || n.includes('coment')) return 'notas';
+    return 'avanzado';
+  };
+
+  const fieldKind = (name) => {
+    const n = String(name || '').toLowerCase();
+    if (n === 'ok_ko') return { kind: 'select', options: 'ok_ko' };
+    if (n === 'tipocontacto' || n === 'tipo_contacto') return { kind: 'select', options: 'tipo_contacto' };
+    if (n === String(meta?.colComercial || '').toLowerCase() || n === 'id_cial' || n === 'comercialid') return { kind: 'select', options: 'comerciales' };
+    if (n === 'tarifa' || n === 'id_tarifa') return { kind: 'select', options: 'tarifas' };
+    if (n === 'id_pais') return { kind: 'select', options: 'paises' };
+    if (n === 'id_provincia') return { kind: 'select', options: 'provincias' };
+    if (n.includes('email')) return { kind: 'input', type: 'email' };
+    if (n.includes('telefono') || n.includes('movil') || n.includes('fax')) return { kind: 'input', type: 'tel' };
+    if (n.includes('web') || n.includes('url')) return { kind: 'input', type: 'url' };
+    if (n.includes('fecha')) return { kind: 'input', type: 'date' };
+    if (n === 'dto' || n.includes('descuento') || n.includes('importe') || n.includes('factur') || n.includes('saldo')) return { kind: 'input', type: 'number' };
+    if (n === 'observaciones' || n === 'notas' || n.includes('coment')) return { kind: 'textarea' };
+    if (n.startsWith('es_') || n.startsWith('es') || n.includes('activo') || n.includes('activa')) return { kind: 'checkbox' };
+    return { kind: 'input', type: 'text' };
+  };
+
+  const tabs = [
+    { id: 'ident', label: 'Identificación', fields: [] },
+    { id: 'contacto', label: 'Contacto', fields: [] },
+    { id: 'direccion', label: 'Dirección', fields: [] },
+    { id: 'condiciones', label: 'Condiciones', fields: [] },
+    { id: 'notas', label: 'Notas', fields: [] },
+    { id: 'avanzado', label: 'Avanzado', fields: [] }
+  ];
+  const byId = new Map(tabs.map((t) => [t.id, t]));
+
+  for (const col of cols) {
+    if (!col) continue;
+    if (ignore.has(String(col))) continue;
+    const tabId = toTab(col);
+    const spec = fieldKind(col);
+    const required = String(col) === 'Nombre_Razon_Social';
+    const field = {
+      name: col,
+      label: labelize(col),
+      required,
+      spec
+    };
+    byId.get(tabId)?.fields.push(field);
+  }
+
+  // Campos técnicos (solo lectura)
+  const readonlyFields = [];
+  for (const col of cols) {
+    const lc = String(col).toLowerCase();
+    if (lc === String(pk).toLowerCase() || lc === 'created_at' || lc === 'updated_at') {
+      readonlyFields.push({ name: col, label: labelize(col) });
+    }
+  }
+  if (readonlyFields.length) byId.get('avanzado')?.fields.unshift(...readonlyFields.map((f) => ({ ...f, spec: { kind: 'readonly' } })));
+
+  // Orden preferido dentro de pestañas (promover algunos campos arriba)
+  const promote = (arr, names) => {
+    const set = new Set(names);
+    const top = arr.filter((f) => set.has(f.name));
+    const rest = arr.filter((f) => !set.has(f.name));
+    return [...top, ...rest];
+  };
+  byId.get('ident').fields = promote(byId.get('ident').fields, ['Nombre_Razon_Social', 'Nombre_Cial', 'TipoContacto', 'DNI_CIF', 'OK_KO']);
+  byId.get('contacto').fields = promote(byId.get('contacto').fields, ['Email', 'Telefono', 'Movil', 'Web']);
+  byId.get('direccion').fields = promote(byId.get('direccion').fields, ['Direccion', 'Direccion2', 'CodigoPostal', 'Poblacion', 'Id_Provincia', 'Id_Pais']);
+  byId.get('condiciones').fields = promote(byId.get('condiciones').fields, [meta?.colComercial || 'Id_Cial', 'Tarifa', 'Dto']);
+
+  // Eliminar pestañas sin campos salvo Avanzado
+  const tabsFiltered = tabs.filter((t) => t.id === 'avanzado' || (t.fields && t.fields.length));
+
+  return {
+    mode,
+    item,
+    tabs: tabsFiltered,
+    comerciales,
+    tarifas,
+    provincias,
+    paises,
+    canChangeComercial: !!canChangeComercial,
+    missingFields: Array.isArray(missingFields) ? missingFields : []
+  };
+}
+
+function coerceClienteValue(fieldName, raw) {
+  if (raw === undefined) return undefined;
+  if (raw === null) return null;
+  const name = String(fieldName || '');
+  const n = name.toLowerCase();
+  const s = String(raw);
+  const trimmed = s.trim();
+  if (trimmed === '') return null;
+
+  // ids / ints
+  if (n === 'ok_ko' || n.endsWith('_id') || n.startsWith('id_') || n.endsWith('id')) {
+    const x = parseInt(trimmed, 10);
+    return Number.isFinite(x) ? x : null;
+  }
+  // numbers
+  if (n === 'dto' || n.includes('descuento') || n.includes('importe') || n.includes('factur') || n.includes('saldo')) {
+    const x = Number(String(trimmed).replace(',', '.'));
+    return Number.isFinite(x) ? x : null;
+  }
+  // booleans stored as 0/1 in some cols
+  if (n.startsWith('es_') || n.includes('activo')) {
+    if (trimmed === '1' || trimmed.toLowerCase() === 'true' || trimmed.toLowerCase() === 'si') return 1;
+    if (trimmed === '0' || trimmed.toLowerCase() === 'false' || trimmed.toLowerCase() === 'no') return 0;
+  }
+  return trimmed;
+}
 app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas] = await Promise.all([db.getComerciales().catch(() => []), db.getTarifas().catch(() => [])]);
-    res.render('cliente-form', {
+    const [comerciales, tarifas, provincias, paises, meta] = await Promise.all([
+      db.getComerciales().catch(() => []),
+      db.getTarifas().catch(() => []),
+      db.getProvincias?.().catch(() => []) ?? [],
+      db.getPaises?.().catch(() => []) ?? [],
+      db._ensureClientesMeta().catch(() => null)
+    ]);
+    const model = buildClienteFormModel({
       mode: 'create',
+      meta,
+      item: { OK_KO: 1, Tarifa: 0, Dto: 0 },
       comerciales: Array.isArray(comerciales) ? comerciales : [],
       tarifas: Array.isArray(tarifas) ? tarifas : [],
-      item: { OK_KO: 1, Tarifa: 0, Dto: 0 },
-      error: null
+      provincias: Array.isArray(provincias) ? provincias : [],
+      paises: Array.isArray(paises) ? paises : [],
+      canChangeComercial: true
     });
+    res.render('cliente-form', { ...model, error: null });
   } catch (e) {
     next(e);
   }
@@ -1003,32 +1152,43 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
 
 app.post('/clientes/new', requireAdmin, async (req, res, next) => {
   try {
-    const comerciales = await db.getComerciales().catch(() => []);
-    const tarifas = await db.getTarifas().catch(() => []);
+    const [comerciales, tarifas, provincias, paises, meta] = await Promise.all([
+      db.getComerciales().catch(() => []),
+      db.getTarifas().catch(() => []),
+      db.getProvincias?.().catch(() => []) ?? [],
+      db.getPaises?.().catch(() => []) ?? [],
+      db._ensureClientesMeta().catch(() => null)
+    ]);
     const body = req.body || {};
-    const dniTrim = String(body.DNI_CIF || '').trim();
-    const payload = {
-      Id_Cial: body.Id_Cial ? Number(body.Id_Cial) || null : null,
-      Nombre_Razon_Social: String(body.Nombre_Razon_Social || '').trim(),
-      Nombre_Cial: String(body.Nombre_Cial || '').trim() || null,
-      DNI_CIF: dniTrim || null,
-      Direccion: String(body.Direccion || '').trim() || null,
-      Poblacion: String(body.Poblacion || '').trim() || null,
-      CodigoPostal: String(body.CodigoPostal || '').trim() || null,
-      Telefono: String(body.Telefono || '').trim() || null,
-      Movil: String(body.Movil || '').trim() || null,
-      Email: String(body.Email || '').trim() || null,
-      Tarifa: body.Tarifa !== undefined ? (Number(body.Tarifa) || 0) : 0,
-      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
-      OK_KO: (String(body.OK_KO || '1') === '1' && dniTrim) ? 1 : 0,
-      Observaciones: String(body.Observaciones || '').trim() || null,
-      TipoContacto: (body.TipoContacto === 'Empresa' || body.TipoContacto === 'Persona' || body.TipoContacto === 'Otros') ? body.TipoContacto : null
-    };
+    const cols = Array.isArray(meta?.cols) ? meta.cols : [];
+    const pk = meta?.pk || 'Id';
+    const colsLower = new Map(cols.map((c) => [String(c).toLowerCase(), c]));
+    const payload = {};
+    for (const [k, v] of Object.entries(body)) {
+      const real = colsLower.get(String(k).toLowerCase());
+      if (!real) continue;
+      if (String(real).toLowerCase() === String(pk).toLowerCase()) continue;
+      payload[real] = coerceClienteValue(real, v);
+    }
+    // Defaults mínimos
+    if (payload.OK_KO === null || payload.OK_KO === undefined) payload.OK_KO = 1;
+    if (payload.Tarifa === null || payload.Tarifa === undefined) payload.Tarifa = 0;
 
     const missingFieldsNew = [];
     if (!payload.Nombre_Razon_Social) missingFieldsNew.push('Nombre_Razon_Social');
     if (missingFieldsNew.length > 0) {
-      return res.status(400).render('cliente-form', { mode: 'create', comerciales, tarifas, item: payload, error: 'Completa los campos obligatorios marcados.', missingFields: missingFieldsNew });
+      const model = buildClienteFormModel({
+        mode: 'create',
+        meta,
+        item: payload,
+        comerciales,
+        tarifas,
+        provincias,
+        paises,
+        canChangeComercial: true,
+        missingFields: missingFieldsNew
+      });
+      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.' });
     }
 
     await db.createCliente(payload);
@@ -1061,14 +1221,27 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, comerciales, tarifas] = await Promise.all([
+    const [item, comerciales, tarifas, provincias, paises, meta] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
-      db.getTarifas().catch(() => [])
+      db.getTarifas().catch(() => []),
+      db.getProvincias?.().catch(() => []) ?? [],
+      db.getPaises?.().catch(() => []) ?? [],
+      db._ensureClientesMeta().catch(() => null)
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
-    res.render('cliente-form', { mode: 'edit', item, comerciales, tarifas, error: null, admin, canChangeComercial: admin, puedeSolicitarAsignacion, contactoId: id });
+    const model = buildClienteFormModel({
+      mode: 'edit',
+      meta,
+      item,
+      comerciales,
+      tarifas,
+      provincias,
+      paises,
+      canChangeComercial: admin
+    });
+    res.render('cliente-form', { ...model, error: null, admin, puedeSolicitarAsignacion, contactoId: id });
   } catch (e) {
     next(e);
   }
@@ -1080,48 +1253,47 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const item = await db.getClienteById(id);
+    const [item, meta, provincias, paises] = await Promise.all([
+      db.getClienteById(id),
+      db._ensureClientesMeta().catch(() => null),
+      db.getProvincias?.().catch(() => []) ?? [],
+      db.getPaises?.().catch(() => []) ?? []
+    ]);
     if (!item) return res.status(404).send('No encontrado');
     const comerciales = await db.getComerciales().catch(() => []);
     const tarifas = await db.getTarifas().catch(() => []);
     const body = req.body || {};
     const canChangeComercial = admin;
 
-    const dniTrimEdit = body.DNI_CIF !== undefined ? String(body.DNI_CIF || '').trim() : (item.DNI_CIF ? String(item.DNI_CIF).trim() : '');
-    const payload = {
-      Id_Cial: canChangeComercial && body.Id_Cial !== undefined ? (body.Id_Cial ? Number(body.Id_Cial) || null : null) : undefined,
-      Nombre_Razon_Social: body.Nombre_Razon_Social !== undefined ? String(body.Nombre_Razon_Social || '').trim() : undefined,
-      Nombre_Cial: body.Nombre_Cial !== undefined ? (String(body.Nombre_Cial || '').trim() || null) : undefined,
-      DNI_CIF: body.DNI_CIF !== undefined ? (String(body.DNI_CIF || '').trim() || null) : undefined,
-      Direccion: body.Direccion !== undefined ? (String(body.Direccion || '').trim() || null) : undefined,
-      Poblacion: body.Poblacion !== undefined ? (String(body.Poblacion || '').trim() || null) : undefined,
-      CodigoPostal: body.CodigoPostal !== undefined ? (String(body.CodigoPostal || '').trim() || null) : undefined,
-      Telefono: body.Telefono !== undefined ? (String(body.Telefono || '').trim() || null) : undefined,
-      Movil: body.Movil !== undefined ? (String(body.Movil || '').trim() || null) : undefined,
-      Email: body.Email !== undefined ? (String(body.Email || '').trim() || null) : undefined,
-      Tarifa: body.Tarifa !== undefined ? (Number(body.Tarifa) || 0) : undefined,
-      Dto: body.Dto !== undefined ? (Number(String(body.Dto).replace(',', '.')) || 0) : undefined,
-      OK_KO: body.OK_KO !== undefined ? ((String(body.OK_KO || '1') === '1' && dniTrimEdit) ? 1 : 0) : undefined,
-      Observaciones: body.Observaciones !== undefined ? (String(body.Observaciones || '').trim() || null) : undefined,
-      TipoContacto: (body.TipoContacto === 'Empresa' || body.TipoContacto === 'Persona' || body.TipoContacto === 'Otros') ? body.TipoContacto : (body.TipoContacto !== undefined ? null : undefined)
-    };
+    const cols = Array.isArray(meta?.cols) ? meta.cols : [];
+    const pk = meta?.pk || 'Id';
+    const colsLower = new Map(cols.map((c) => [String(c).toLowerCase(), c]));
+    const payload = {};
+    for (const [k, v] of Object.entries(body)) {
+      const real = colsLower.get(String(k).toLowerCase());
+      if (!real) continue;
+      if (String(real).toLowerCase() === String(pk).toLowerCase()) continue;
+      // No admin: no permitir cambiar comercial asignado (colComercial)
+      if (!canChangeComercial && meta?.colComercial && String(real).toLowerCase() === String(meta.colComercial).toLowerCase()) continue;
+      payload[real] = coerceClienteValue(real, v);
+    }
 
     const missingFields = [];
     if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) missingFields.push('Nombre_Razon_Social');
     if (missingFields.length > 0) {
       const puedeSolicitar = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
-      return res.status(400).render('cliente-form', {
+      const model = buildClienteFormModel({
         mode: 'edit',
+        meta,
         item: { ...item, ...payload },
         comerciales,
         tarifas,
-        error: 'Completa los campos obligatorios marcados.',
-        missingFields,
-        admin,
+        provincias,
+        paises,
         canChangeComercial: !!admin,
-        puedeSolicitarAsignacion: puedeSolicitar,
-        contactoId: id
+        missingFields
       });
+      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, puedeSolicitarAsignacion: puedeSolicitar, contactoId: id });
     }
 
     await db.updateCliente(id, payload);
