@@ -12,12 +12,43 @@
       <a class="btn" href="/pedidos/new">Nuevo pedido</a>
     </div>
     <% if (typeof n8nNotice !== 'undefined' && n8nNotice) { %>
-      <div class="gv-alert <%= n8nNotice.ok ? 'success' : 'error' %>" style="margin: 0 0 12px 0;">
-        <strong><%= n8nNotice.ok ? 'Pedido enviado a N8N' : 'No se pudo enviar el pedido' %></strong>
-        <% if (n8nNotice.message) { %>
-          <div style="margin-top:6px; white-space:pre-wrap;"><%= n8nNotice.message %></div>
-        <% } %>
+      <div id="gv-n8n-notice" class="gv-alert <%= n8nNotice.ok ? 'success' : 'error' %>" style="margin: 0 0 12px 0;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 10px;">
+          <div>
+            <strong><%= n8nNotice.ok ? 'Pedido enviado a N8N' : 'No se pudo enviar el pedido' %></strong>
+            <% if (n8nNotice.message) { %>
+              <div style="margin-top:6px; white-space:pre-wrap;"><%= n8nNotice.message %></div>
+            <% } %>
+          </div>
+          <% if (!n8nNotice.ok) { %>
+            <button type="button" class="btn secondary icon warn" id="gv-n8n-notice-close" title="Cerrar" aria-label="Cerrar mensaje">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 6L6 18"></path>
+                <path d="M6 6l12 12"></path>
+              </svg>
+            </button>
+          <% } %>
+        </div>
       </div>
+      <script>
+        (() => {
+          const box = document.getElementById('gv-n8n-notice');
+          if (!box) return;
+          const isOk = <%= n8nNotice.ok ? 'true' : 'false' %>;
+          if (isOk) {
+            window.setTimeout(() => {
+              if (box && box.parentNode) box.parentNode.removeChild(box);
+            }, 5000);
+            return;
+          }
+          const btn = document.getElementById('gv-n8n-notice-close');
+          if (btn) {
+            btn.addEventListener('click', () => {
+              if (box && box.parentNode) box.parentNode.removeChild(box);
+            });
+          }
+        })();
+      </script>
     <% } %>
     <form method="get" action="/pedidos" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 0 0 12px 0;">
       <label for="year" style="font-weight:700; color: var(--gv-ink);">Año</label>
@@ -55,6 +86,8 @@
             <% const pid = p.Id ?? p.id; %>
             <% const owner = Number(p.Id_Cial ?? p.id_cial ?? p.ComercialId ?? p.comercialId ?? 0) || 0; %>
             <% const canWrite = admin || (userId && Number(userId) === owner); %>
+            <% const noticePid = (typeof n8nNotice !== 'undefined' && n8nNotice && n8nNotice.pid != null) ? String(n8nNotice.pid) : null; %>
+            <% const isNoticeRow = noticePid && String(pid) === noticePid; %>
             <tr>
               <td>
                 <div class="gv-actions">
@@ -72,7 +105,7 @@
                       </svg>
                     </a>
                     <form method="post" action="/pedidos/<%= pid %>/enviar-n8n" onsubmit="return confirm('¿Enviar este pedido a N8N (con Excel adjunto)?');">
-                      <button class="btn secondary icon" type="submit" title="Enviar a N8N" aria-label="Enviar pedido <%= pid %> a N8N">
+                      <button class="btn secondary icon <%= isNoticeRow ? (n8nNotice.ok ? 'success' : 'warn') : '' %>" type="submit" title="Enviar a N8N" aria-label="Enviar pedido <%= pid %> a N8N">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <path d="M22 2L11 13"></path>
                           <path d="M22 2l-7 20-4-9-9-4z"></path>

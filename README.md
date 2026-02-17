@@ -17,7 +17,8 @@ En `/pedidos` hay un icono de **enviar** por fila para mandar el pedido a un web
 
 Configura el webhook en la variable de entorno `N8N_PEDIDOS_WEBHOOK_URL` (ver `.env.example`).
 
-El envío al webhook se realiza en `multipart/form-data` con:
+El envío al webhook se realiza en **JSON** (`application/json`) e incluye el Excel como Base64:
 
-- `payload`: **JSON** (parte con `Content-Type: application/json`)
-- `excel`: **fichero .xlsx** adjunto
+- `excel.filename`
+- `excel.mime`
+- `excel.base64`

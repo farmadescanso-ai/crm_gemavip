@@ -9,7 +9,6 @@ const bcrypt = require('bcryptjs');
 const MySQLStoreFactory = require('express-mysql-session');
 const ExcelJS = require('exceljs');
 const axios = require('axios');
-const FormData = require('form-data');
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
 const publicRouter = require('../routes/public');
@@ -1193,11 +1192,14 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       n8nFlag === 'ok'
         ? {
             ok: true,
+            pid: n8nPid || null,
+            file: n8nFile || null,
             message: `Pedido${n8nPid ? ` ${n8nPid}` : ''} enviado correctamente${n8nFile ? `.\nExcel: ${n8nFile}` : '.'}${n8nMsg ? `\n${n8nMsg}` : ''}`
           }
         : n8nFlag === 'err'
           ? {
               ok: false,
+              pid: n8nPid || null,
               message: `No se pudo enviar el pedido${n8nPid ? ` ${n8nPid}` : ''} a N8N.${n8nMsg ? `\n${n8nMsg}` : ''}`
             }
           : null;
@@ -2014,23 +2016,89 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
       requestId: req.requestId,
       sentAt: new Date().toISOString(),
       excelTipo,
-      pedido: item,
-      lineas: Array.isArray(lineas) ? lineas : [],
-      cliente,
-      direccionEnvio
+      pedido: (() => {
+        const pedidoId = Number(item?.Id ?? item?.id ?? id) || id;
+        const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+        const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
+        const idCliente = Number(item?.Id_Cliente ?? item?.id_cliente ?? cliente?.Id ?? cliente?.id ?? 0) || null;
+        const idComercial = Number(item?.Id_Cial ?? item?.id_cial ?? item?.ComercialId ?? item?.comercialId ?? 0) || null;
+        const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0) || null;
+        const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? 0) || null;
+        const idTarifa = (item?.Id_Tarifa ?? item?.id_tarifa);
+        const tarifaIdNum = idTarifa === null || idTarifa === undefined || String(idTarifa).trim() === '' ? null : (Number(idTarifa) || null);
+        const idEstado = Number(item?.Id_EstadoPedido ?? item?.id_estado_pedido ?? 0) || null;
+
+        const clienteNombre =
+          cliente?.Nombre_Razon_Social || cliente?.Nombre || cliente?.nombre || item?.ClienteNombre || item?.ClienteNombreCial || '';
+        const comercialNombre = item?.ComercialNombre || item?.NombreComercial || '';
+
+        // Best-effort: resolver nombres de catálogos (no romper si falla)
+        const formaPagoNombre = (item?.FormaPagoNombre || '').toString().trim();
+        const tipoPedidoNombre = (item?.TipoPedidoNombre || '').toString().trim();
+        const tarifaNombre = (item?.TarifaNombre || '').toString().trim();
+        const estadoNombre = (item?.EstadoPedidoNombre || item?.EstadoPedido || item?.Estado || '').toString().trim();
+
+        return {
+          id: pedidoId,
+          numero: numPedido || String(pedidoId),
+          fecha: item?.FechaPedido ?? item?.Fecha ?? null,
+          entrega: item?.FechaEntrega ?? null,
+          total: item?.TotalPedido ?? item?.Total ?? null,
+          subtotal: item?.SubtotalPedido ?? item?.Subtotal ?? null,
+          descuentoPct: item?.Dto ?? item?.Descuento ?? null,
+          observaciones: item?.Observaciones ?? null,
+          numPedidoCliente: numPedidoCliente || null,
+          numAsociadoHefame: item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? null,
+          cliente: {
+            id: idCliente,
+            nombre: clienteNombre || (idCliente ? String(idCliente) : null),
+            cif: cliente?.DNI_CIF ?? cliente?.DniCif ?? null,
+            poblacion: cliente?.Poblacion ?? null,
+            cp: cliente?.CodigoPostal ?? null,
+            telefono: cliente?.Telefono ?? cliente?.Movil ?? null,
+            email: cliente?.Email ?? null
+          },
+          comercial: {
+            id: idComercial,
+            nombre: comercialNombre || (idComercial ? String(idComercial) : null)
+          },
+          formaPago: { id: idFormaPago, nombre: formaPagoNombre || null },
+          tipoPedido: { id: idTipoPedido, nombre: tipoPedidoNombre || null },
+          tarifa: { id: tarifaIdNum, nombre: tarifaNombre || null },
+          estado: { id: idEstado, nombre: estadoNombre || null }
+        };
+      })(),
+      lineas: (Array.isArray(lineas) ? lineas : []).map((l) => ({
+        articuloId: Number(l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? 0) || null,
+        codigo: String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim() || null,
+        nombre: String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim() || null,
+        cantidad: Number(l.Cantidad ?? l.Unidades ?? 0) || 0,
+        precioUnitario: Number(l.Linea_PVP ?? l.PVP ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? 0) || 0,
+        descuentoPct: Number(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0) || 0,
+        ivaPct: Number(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? 0) || 0
+      })),
+      cliente: cliente
+        ? {
+            id: cliente?.Id ?? cliente?.id ?? null,
+            nombre: cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? cliente?.nombre ?? null,
+            cif: cliente?.DNI_CIF ?? cliente?.DniCif ?? null,
+            direccion: cliente?.Direccion ?? null,
+            poblacion: cliente?.Poblacion ?? null,
+            cp: cliente?.CodigoPostal ?? null,
+            telefono: cliente?.Telefono ?? cliente?.Movil ?? null,
+            email: cliente?.Email ?? null
+          }
+        : null,
+      direccionEnvio,
+      excel: {
+        filename: excel.filename,
+        mime: XLSX_MIME,
+        base64: excel.buf.toString('base64')
+      }
     };
 
-    const form = new FormData();
-    // Enviar el payload como JSON real (parte application/json), no como string "normal".
-    form.append('payload', Buffer.from(JSON.stringify(payload), 'utf-8'), {
-      filename: 'payload.json',
-      contentType: 'application/json; charset=utf-8'
-    });
-    // Excel como fichero adjunto independiente
-    form.append('excel', excel.buf, { filename: excel.filename, contentType: XLSX_MIME });
-
-    const resp = await axios.post(webhookUrl, form, {
-      headers: { ...form.getHeaders() },
+    const resp = await axios.post(webhookUrl, payload, {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
       timeout: 30000,
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
