@@ -116,17 +116,50 @@
                 <form method="post" action="<%= actionUrl %>" style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;">
                   <input type="hidden" name="clave" value="<%= key %>" />
                   <input type="hidden" name="returnTo" value="<%= returnToUrl %>" />
-                  <textarea
-                    id="<%= idBase %>_valor"
-                    name="valor"
-                    class="gv-client-picker__q"
-                    rows="2"
-                    style="min-width: min(720px, 100%); width: 100%; max-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"
-                    placeholder="(vacío para borrar)"
-                    aria-describedby="<%= idBase %>_help"
-                    autocomplete="off"
-                    spellcheck="false"
-                  ><%= String(v.valor ?? '') %></textarea>
+                  <% const isSecret = Boolean(v.secret); %>
+                  <% const wantsTextarea = Boolean(v.multiline); %>
+                  <% if (isSecret) { %>
+                    <input type="hidden" name="keepIfEmpty" value="1" />
+                    <div style="display:flex; flex-direction:column; gap:8px; width: 100%;">
+                      <input
+                        id="<%= idBase %>_valor"
+                        name="valor"
+                        type="password"
+                        class="gv-client-picker__q"
+                        style="min-width: min(720px, 100%); width: 100%; max-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"
+                        placeholder="•••••• (dejar vacío = sin cambios)"
+                        aria-describedby="<%= idBase %>_help"
+                        autocomplete="new-password"
+                      />
+                      <label style="display:flex; align-items:center; gap:8px; color: var(--gv-muted); font-weight:800;">
+                        <input type="checkbox" name="clear" value="1" />
+                        Borrar valor guardado en BD (volver a usar .env)
+                      </label>
+                    </div>
+                  <% } else if (wantsTextarea) { %>
+                    <textarea
+                      id="<%= idBase %>_valor"
+                      name="valor"
+                      class="gv-client-picker__q"
+                      rows="2"
+                      style="min-width: min(720px, 100%); width: 100%; max-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"
+                      placeholder="<%= v.placeholder ? String(v.placeholder) : '(vacío para borrar)' %>"
+                      aria-describedby="<%= idBase %>_help"
+                      autocomplete="off"
+                      spellcheck="false"
+                    ><%= String(v.valor ?? '') %></textarea>
+                  <% } else { %>
+                    <input
+                      id="<%= idBase %>_valor"
+                      name="valor"
+                      type="<%= v.inputType ? String(v.inputType) : 'text' %>"
+                      class="gv-client-picker__q"
+                      value="<%= String(v.valor ?? '') %>"
+                      placeholder="<%= v.placeholder ? String(v.placeholder) : '(vacío para borrar)' %>"
+                      aria-describedby="<%= idBase %>_help"
+                      autocomplete="off"
+                    />
+                  <% } %>
                   <button class="btn secondary" type="submit">Guardar</button>
                 </form>
               </div>

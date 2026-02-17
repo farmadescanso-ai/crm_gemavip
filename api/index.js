@@ -756,6 +756,12 @@ app.post('/admin/descuentos-pedido/:id(\\d+)/delete', requireAdmin, async (req, 
 // ===========================
 const SYSVAR_N8N_PEDIDOS_WEBHOOK_URL = 'N8N_PEDIDOS_WEBHOOK_URL';
 const SYSVAR_PEDIDOS_MAIL_TO = 'PEDIDOS_MAIL_TO';
+const SYSVAR_SMTP_HOST = 'SMTP_HOST';
+const SYSVAR_SMTP_PORT = 'SMTP_PORT';
+const SYSVAR_SMTP_SECURE = 'SMTP_SECURE';
+const SYSVAR_SMTP_USER = 'SMTP_USER';
+const SYSVAR_SMTP_PASS = 'SMTP_PASS';
+const SYSVAR_MAIL_FROM = 'MAIL_FROM';
 
 function buildSysVarMergedList(itemsRaw, knownKeys) {
   const byKey = new Map((itemsRaw || []).map((r) => [String(r?.clave || '').trim(), r]));
@@ -772,6 +778,11 @@ function buildSysVarMergedList(itemsRaw, knownKeys) {
       effectiveValue,
       updated_at: row.updated_at ?? null,
       updated_by: row.updated_by ?? null
+      ,
+      secret: Boolean(k.secret),
+      inputType: k.inputType || null,
+      multiline: Boolean(k.multiline),
+      placeholder: k.placeholder || null
     };
   });
 }
@@ -869,12 +880,23 @@ app.get('/admin/configuracion-email', requireAdmin, async (req, res, next) => {
         returnTo: '/admin/configuracion-email'
       });
     }
-    const known = [{ clave: SYSVAR_PEDIDOS_MAIL_TO, descripcion: 'Destinatario del email al pulsar ENVIAR en /pedidos.' }];
+    const known = [
+      { clave: SYSVAR_PEDIDOS_MAIL_TO, descripcion: 'Destinatario del email al pulsar ENVIAR en /pedidos.' },
+      { clave: SYSVAR_SMTP_HOST, descripcion: 'Servidor SMTP (host). Ej: smtp.office365.com' },
+      { clave: SYSVAR_SMTP_PORT, descripcion: 'Puerto SMTP. Ej: 587' },
+      { clave: SYSVAR_SMTP_SECURE, descripcion: 'SMTP seguro (true/false). Normalmente false para 587 (STARTTLS).' },
+      { clave: SYSVAR_SMTP_USER, descripcion: 'Usuario SMTP (email del remitente).' },
+      { clave: SYSVAR_SMTP_PASS, descripcion: 'Contraseña SMTP / contraseña de aplicación.', secret: true, inputType: 'password' },
+      { clave: SYSVAR_MAIL_FROM, descripcion: 'From visible. Si vacío, usa SMTP_USER.' }
+    ];
     const flag = String(req.query.saved || '').trim().toLowerCase();
     return res.render('variables-sistema', {
       title: 'Configuración Email',
       subtitle: 'Destinatarios y ajustes funcionales (no incluye credenciales SMTP).',
-      sections: [{ title: null, description: null, items: buildSysVarMergedList(itemsRaw, known) }],
+      sections: [
+        { title: 'Envío de pedidos', description: 'Destino por defecto del botón ENVIAR.', items: buildSysVarMergedList(itemsRaw, known.slice(0, 1)) },
+        { title: 'SMTP', description: 'Credenciales del servidor de correo (se leen desde BD o .env).', items: buildSysVarMergedList(itemsRaw, known.slice(1)) }
+      ],
       notes: [
         'El envío por email requiere SMTP configurado (SMTP_HOST/SMTP_USER/SMTP_PASS).',
         'Si PEDIDOS_MAIL_TO está vacío, se usa p.lara@gemavip.com.'
@@ -899,7 +921,11 @@ app.post('/admin/variables-sistema/update', requireAdmin, async (req, res, next)
     const val = rawVal === null || rawVal === undefined ? '' : String(rawVal);
     const trimmed = val.trim();
 
+    const keepIfEmpty = String(req.body?.keepIfEmpty || '').trim() === '1';
+    const clearSecret = String(req.body?.clear || '').trim() === '1';
+
     // Guardamos vacío como NULL para que el fallback a .env funcione.
+    if (keepIfEmpty && !trimmed && !clearSecret) return res.redirect(`${returnTo}?saved=1`);
     const storeVal = trimmed ? trimmed : null;
 
     const descripcion =
@@ -907,6 +933,18 @@ app.post('/admin/variables-sistema/update', requireAdmin, async (req, res, next)
         ? 'Webhook de N8N para envío de pedidos + Excel (multipart/form-data).'
         : clave === SYSVAR_PEDIDOS_MAIL_TO
           ? 'Destinatario del email al pulsar ENVIAR en /pedidos.'
+          : clave === SYSVAR_SMTP_HOST
+            ? 'Servidor SMTP (host).'
+            : clave === SYSVAR_SMTP_PORT
+              ? 'Puerto SMTP.'
+              : clave === SYSVAR_SMTP_SECURE
+                ? 'SMTP seguro (true/false).'
+                : clave === SYSVAR_SMTP_USER
+                  ? 'Usuario SMTP.'
+                  : clave === SYSVAR_SMTP_PASS
+                    ? 'Contraseña SMTP / app password.'
+                    : clave === SYSVAR_MAIL_FROM
+                      ? 'From visible.'
         : null;
 
     const updatedBy = res.locals.user?.email || res.locals.user?.id || 'admin';
