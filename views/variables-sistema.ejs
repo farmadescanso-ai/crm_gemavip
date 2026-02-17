@@ -106,7 +106,7 @@
     <div style="margin-top: 12px; color: var(--gv-muted); font-weight:700; line-height:1.45;">
       <div><strong>Notas</strong></div>
       <div>- Si una variable está vacía en BD, el sistema usará el valor de <code>.env</code> si existe.</div>
-      <div>- En el webhook de N8N el envío va en <code>application/json</code> e incluye el Excel en Base64.</div>
+      <div>- En el webhook de N8N el envío va en <code>multipart/form-data</code>: <code>payload</code> (JSON) + <code>excel</code> (archivo .xlsx).</div>
     </div>
   </div>
 </section>

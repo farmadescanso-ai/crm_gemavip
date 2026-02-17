@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const MySQLStoreFactory = require('express-mysql-session');
 const ExcelJS = require('exceljs');
 const axios = require('axios');
+const FormData = require('form-data');
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
 const publicRouter = require('../routes/public');
@@ -2016,16 +2017,20 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
       pedido: item,
       lineas: Array.isArray(lineas) ? lineas : [],
       cliente,
-      direccionEnvio,
-      excel: {
-        filename: excel.filename,
-        mime: XLSX_MIME,
-        base64: excel.buf.toString('base64')
-      }
+      direccionEnvio
     };
 
-    const resp = await axios.post(webhookUrl, payload, {
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    const form = new FormData();
+    // Enviar el payload como JSON real (parte application/json), no como string "normal".
+    form.append('payload', Buffer.from(JSON.stringify(payload), 'utf-8'), {
+      filename: 'payload.json',
+      contentType: 'application/json; charset=utf-8'
+    });
+    // Excel como fichero adjunto independiente
+    form.append('excel', excel.buf, { filename: excel.filename, contentType: XLSX_MIME });
+
+    const resp = await axios.post(webhookUrl, form, {
+      headers: { ...form.getHeaders() },
       timeout: 30000,
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
