@@ -1496,6 +1496,10 @@ table.calendar td.is-empty{
   padding: 18px;
   z-index: 51;
 }
+.gv-modal[hidden],
+.gv-modal-backdrop[hidden]{
+  display:none !important;
+}
 .gv-modal-card{
   width: min(520px, 100%);
   border-radius: 16px;
