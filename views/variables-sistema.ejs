@@ -2,10 +2,14 @@
 
 <section class="card">
   <div class="card-hd">
-    <h1 class="card-title">Variables del sistema</h1>
-    <p class="card-subtitle">
-      Configuración centralizada para que no haya que tocar código ni variables de entorno.
-    </p>
+    <h1 class="card-title"><%= title || 'Variables del sistema' %></h1>
+    <% if (subtitle) { %>
+      <p class="card-subtitle"><%= subtitle %></p>
+    <% } else { %>
+      <p class="card-subtitle">
+        Configuración centralizada para que no haya que tocar código ni variables de entorno.
+      </p>
+    <% } %>
   </div>
   <div class="card-bd">
     <% if (error) { %>
@@ -52,8 +56,25 @@
       </script>
     <% } %>
 
+    <% const actionUrl = (typeof updateAction !== 'undefined' && updateAction) ? updateAction : '/admin/variables-sistema/update'; %>
+    <% const returnToUrl = (typeof returnTo !== 'undefined' && returnTo) ? returnTo : '/admin/variables-sistema'; %>
+    <% const sectionsToRender = (typeof sections !== 'undefined' && Array.isArray(sections)) ? sections : [{ title: null, description: null, items: items || [] }]; %>
+    <% const totalItems = sectionsToRender.reduce((acc, s) => acc + (Array.isArray(s?.items) ? s.items.length : 0), 0); %>
+
     <div style="display:flex; flex-direction:column; gap:12px;">
-      <% (items || []).forEach((v) => { %>
+      <% sectionsToRender.forEach((sec) => { %>
+        <% const secTitle = sec && sec.title ? String(sec.title) : ''; %>
+        <% const secDesc = sec && sec.description ? String(sec.description) : ''; %>
+        <% const secItems = sec && Array.isArray(sec.items) ? sec.items : []; %>
+
+        <% if (secTitle) { %>
+          <div style="margin-top: 6px;">
+            <div style="font-weight: 900; color: var(--gv-ink); font-size: 13px; letter-spacing:.2px;"><%= secTitle %></div>
+            <% if (secDesc) { %><div style="margin-top:4px; color: var(--gv-muted); font-weight:700;"><%= secDesc %></div><% } %>
+          </div>
+        <% } %>
+
+        <% secItems.forEach((v) => { %>
         <% const key = String(v.clave || '').trim(); %>
         <% const idBase = `sysvar_${key.replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
         <% const dbVal = String(v.valor ?? '').trim(); %>
@@ -92,8 +113,9 @@
                 <div id="<%= idBase %>_help" style="color: var(--gv-muted); font-weight:700; margin-bottom:8px; line-height:1.35;">
                   Deja el campo vacío para “borrar” el valor en BD y usar el fallback de <code>.env</code> si existe.
                 </div>
-                <form method="post" action="/admin/variables-sistema/update" style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+                <form method="post" action="<%= actionUrl %>" style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;">
                   <input type="hidden" name="clave" value="<%= key %>" />
+                  <input type="hidden" name="returnTo" value="<%= returnToUrl %>" />
                   <textarea
                     id="<%= idBase %>_valor"
                     name="valor"
@@ -124,20 +146,33 @@
             </div>
           </div>
         </section>
-      <% }) %>
+        <% }) %>
 
-      <% if (!items || items.length === 0) { %>
-        <div class="gv-alert info">
-          <strong>No hay variables</strong>
-          <div style="margin-top:6px;">Aún no se han definido variables del sistema.</div>
-        </div>
-      <% } %>
+        <% if (!secItems || secItems.length === 0) { %>
+          <div class="gv-alert info">
+            <strong>No hay variables</strong>
+            <div style="margin-top:6px;">No hay variables definidas en esta sección.</div>
+          </div>
+        <% } %>
+      <% }) %>
     </div>
+    <% if (!totalItems) { %>
+      <div class="gv-alert info" style="margin-top: 12px;">
+        <strong>No hay variables</strong>
+        <div style="margin-top:6px;">Aún no se han definido variables para este apartado.</div>
+      </div>
+    <% } %>
 
     <div style="margin-top: 12px; color: var(--gv-muted); font-weight:700; line-height:1.45;">
       <div><strong>Notas</strong></div>
       <div>- Si una variable está vacía en BD, el sistema usará el valor de <code>.env</code> si existe.</div>
-      <div>- En el webhook de N8N el envío va en <code>application/json</code> e incluye el Excel en <code>excel.base64</code>.</div>
+      <% if (typeof notes !== 'undefined' && Array.isArray(notes) && notes.length) { %>
+        <% notes.forEach((n) => { %>
+          <div>- <%= n %></div>
+        <% }) %>
+      <% } else { %>
+        <div>- Los cambios se aplican al instante al guardar.</div>
+      <% } %>
     </div>
   </div>
 </section>

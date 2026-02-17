@@ -755,53 +755,135 @@ app.post('/admin/descuentos-pedido/:id(\\d+)/delete', requireAdmin, async (req, 
 // VARIABLES DEL SISTEMA (HTML) - Admin
 // ===========================
 const SYSVAR_N8N_PEDIDOS_WEBHOOK_URL = 'N8N_PEDIDOS_WEBHOOK_URL';
+const SYSVAR_PEDIDOS_MAIL_TO = 'PEDIDOS_MAIL_TO';
+
+function buildSysVarMergedList(itemsRaw, knownKeys) {
+  const byKey = new Map((itemsRaw || []).map((r) => [String(r?.clave || '').trim(), r]));
+  return (knownKeys || []).map((k) => {
+    const row = byKey.get(k.clave) || {};
+    const dbVal = row.valor === null || row.valor === undefined ? '' : String(row.valor);
+    const envVal = String(process.env[k.clave] || '').trim();
+    const effectiveValue = (dbVal || '').trim() || envVal || '';
+    return {
+      id: row.id ?? null,
+      clave: k.clave,
+      descripcion: row.descripcion || k.descripcion || '',
+      valor: dbVal,
+      effectiveValue,
+      updated_at: row.updated_at ?? null,
+      updated_by: row.updated_by ?? null
+    };
+  });
+}
+
+async function loadVariablesSistemaRaw() {
+  await db.ensureVariablesSistemaTable?.().catch(() => false);
+  return await db.getVariablesSistemaAdmin?.().catch(() => null);
+}
 
 app.get('/admin/variables-sistema', requireAdmin, async (req, res, next) => {
   try {
-    // Asegurar que exista (si hay permisos). Si no, el sistema seguirá funcionando vía .env
-    await db.ensureVariablesSistemaTable?.().catch(() => false);
-
-    const itemsRaw = await db.getVariablesSistemaAdmin?.().catch(() => null);
+    const itemsRaw = await loadVariablesSistemaRaw();
     if (itemsRaw === null) {
       return res.render('variables-sistema', {
         title: 'Variables del sistema',
-        items: [],
+        subtitle: 'Configuración centralizada para que no haya que tocar código ni variables de entorno.',
+        sections: [],
         error:
           'No se pudo leer/crear la tabla variables_sistema. Si tu entorno no permite CREATE TABLE, crea la tabla manualmente (ver scripts/crear-tabla-variables-sistema.sql) o usa .env como fallback.',
         success: null
       });
     }
 
-    const known = [
-      {
-        clave: SYSVAR_N8N_PEDIDOS_WEBHOOK_URL,
-        descripcion: 'Webhook de N8N para envío de pedidos + Excel (multipart/form-data).'
-      }
+    const knownWebhooks = [
+      { clave: SYSVAR_N8N_PEDIDOS_WEBHOOK_URL, descripcion: 'Webhook de N8N para envío de pedidos.' }
     ];
-
-    // Merge: preferir BD; si no existe la fila, mostrarla igualmente para que se pueda guardar.
-    const byKey = new Map((itemsRaw || []).map((r) => [String(r?.clave || '').trim(), r]));
-    const merged = known.map((k) => {
-      const row = byKey.get(k.clave) || {};
-      const dbVal = row.valor === null || row.valor === undefined ? '' : String(row.valor);
-      const envVal = String(process.env[k.clave] || '').trim();
-      const effectiveValue = (dbVal || '').trim() || envVal || '';
-      return {
-        id: row.id ?? null,
-        clave: k.clave,
-        descripcion: row.descripcion || k.descripcion || '',
-        valor: dbVal,
-        effectiveValue,
-        updated_at: row.updated_at ?? null,
-        updated_by: row.updated_by ?? null
-      };
-    });
+    const knownEmail = [
+      { clave: SYSVAR_PEDIDOS_MAIL_TO, descripcion: 'Destinatario del email al pulsar ENVIAR en /pedidos.' }
+    ];
 
     const flag = String(req.query.saved || '').trim().toLowerCase();
     const success = flag === '1' ? 'Variable actualizada.' : null;
     const error = flag === '0' ? 'No se pudo guardar la variable.' : null;
 
-    return res.render('variables-sistema', { title: 'Variables del sistema', items: merged, error, success });
+    return res.render('variables-sistema', {
+      title: 'Variables del sistema',
+      subtitle: 'Vista general (agrupada por apartados).',
+      sections: [
+        { title: 'Webhooks', description: 'Integraciones vía URL.', items: buildSysVarMergedList(itemsRaw, knownWebhooks) },
+        { title: 'Configuración Email', description: 'Envío directo por correo.', items: buildSysVarMergedList(itemsRaw, knownEmail) }
+      ],
+      notes: ['Para SMTP (host/usuario/contraseña) se recomienda usar variables de entorno en Vercel.'],
+      updateAction: '/admin/variables-sistema/update',
+      returnTo: '/admin/variables-sistema',
+      error,
+      success
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/admin/webhooks', requireAdmin, async (req, res, next) => {
+  try {
+    const itemsRaw = await loadVariablesSistemaRaw();
+    if (itemsRaw === null) {
+      return res.render('variables-sistema', {
+        title: 'Webhooks',
+        subtitle: 'Configura URLs de integraciones (N8N, etc.).',
+        sections: [],
+        error:
+          'No se pudo leer/crear la tabla variables_sistema. Si tu entorno no permite CREATE TABLE, crea la tabla manualmente (ver scripts/crear-tabla-variables-sistema.sql) o usa .env como fallback.',
+        success: null,
+        returnTo: '/admin/webhooks'
+      });
+    }
+    const known = [{ clave: SYSVAR_N8N_PEDIDOS_WEBHOOK_URL, descripcion: 'Webhook de N8N para envío de pedidos.' }];
+    const flag = String(req.query.saved || '').trim().toLowerCase();
+    return res.render('variables-sistema', {
+      title: 'Webhooks',
+      subtitle: 'URLs de integración. Si está vacío en BD, se usa .env.',
+      sections: [{ title: null, description: null, items: buildSysVarMergedList(itemsRaw, known) }],
+      notes: ['En este momento el envío a N8N está desactivado (código preservado, no se ejecuta).'],
+      updateAction: '/admin/variables-sistema/update',
+      returnTo: '/admin/webhooks',
+      error: flag === '0' ? 'No se pudo guardar la variable.' : null,
+      success: flag === '1' ? 'Variable actualizada.' : null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/admin/configuracion-email', requireAdmin, async (req, res, next) => {
+  try {
+    const itemsRaw = await loadVariablesSistemaRaw();
+    if (itemsRaw === null) {
+      return res.render('variables-sistema', {
+        title: 'Configuración Email',
+        subtitle: 'Parámetros para el envío directo por correo.',
+        sections: [],
+        error:
+          'No se pudo leer/crear la tabla variables_sistema. Si tu entorno no permite CREATE TABLE, crea la tabla manualmente (ver scripts/crear-tabla-variables-sistema.sql) o usa .env como fallback.',
+        success: null,
+        returnTo: '/admin/configuracion-email'
+      });
+    }
+    const known = [{ clave: SYSVAR_PEDIDOS_MAIL_TO, descripcion: 'Destinatario del email al pulsar ENVIAR en /pedidos.' }];
+    const flag = String(req.query.saved || '').trim().toLowerCase();
+    return res.render('variables-sistema', {
+      title: 'Configuración Email',
+      subtitle: 'Destinatarios y ajustes funcionales (no incluye credenciales SMTP).',
+      sections: [{ title: null, description: null, items: buildSysVarMergedList(itemsRaw, known) }],
+      notes: [
+        'El envío por email requiere SMTP configurado (SMTP_HOST/SMTP_USER/SMTP_PASS).',
+        'Si PEDIDOS_MAIL_TO está vacío, se usa p.lara@gemavip.com.'
+      ],
+      updateAction: '/admin/variables-sistema/update',
+      returnTo: '/admin/configuracion-email',
+      error: flag === '0' ? 'No se pudo guardar la variable.' : null,
+      success: flag === '1' ? 'Variable actualizada.' : null
+    });
   } catch (e) {
     next(e);
   }
@@ -810,7 +892,8 @@ app.get('/admin/variables-sistema', requireAdmin, async (req, res, next) => {
 app.post('/admin/variables-sistema/update', requireAdmin, async (req, res, next) => {
   try {
     const clave = String(req.body?.clave || '').trim();
-    if (!clave) return res.redirect('/admin/variables-sistema?saved=0');
+    const returnTo = String(req.body?.returnTo || '').trim() || '/admin/variables-sistema';
+    if (!clave) return res.redirect(`${returnTo}?saved=0`);
 
     const rawVal = req.body?.valor;
     const val = rawVal === null || rawVal === undefined ? '' : String(rawVal);
@@ -822,11 +905,13 @@ app.post('/admin/variables-sistema/update', requireAdmin, async (req, res, next)
     const descripcion =
       clave === SYSVAR_N8N_PEDIDOS_WEBHOOK_URL
         ? 'Webhook de N8N para envío de pedidos + Excel (multipart/form-data).'
+        : clave === SYSVAR_PEDIDOS_MAIL_TO
+          ? 'Destinatario del email al pulsar ENVIAR en /pedidos.'
         : null;
 
     const updatedBy = res.locals.user?.email || res.locals.user?.id || 'admin';
     await db.upsertVariableSistema(clave, storeVal, { descripcion, updatedBy });
-    return res.redirect('/admin/variables-sistema?saved=1');
+    return res.redirect(`${returnTo}?saved=1`);
   } catch (e) {
     next(e);
   }
@@ -1958,16 +2043,11 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner,
 
 app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
-    const webhookFromDb = await db.getVariableSistema?.(SYSVAR_N8N_PEDIDOS_WEBHOOK_URL).catch(() => null);
-    const webhookUrl = String(webhookFromDb || process.env.N8N_PEDIDOS_WEBHOOK_URL || '').trim();
+    // Webhook N8N (preservado para futuro). No se usa en el flujo actual.
+    // const webhookFromDb = await db.getVariableSistema?.(SYSVAR_N8N_PEDIDOS_WEBHOOK_URL).catch(() => null);
+    // const webhookUrl = String(webhookFromDb || process.env.N8N_PEDIDOS_WEBHOOK_URL || '').trim();
     const item = res.locals.pedido;
     const id = Number(req.params.id);
-
-    if (!webhookUrl) {
-      return res.redirect(
-        `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent('Falta configurar el webhook de N8N (Variables del sistema o N8N_PEDIDOS_WEBHOOK_URL en .env).')}`
-      );
-    }
 
     const [lineas, cliente] = await Promise.all([
       db.getArticulosByPedido(id).catch(() => []),
@@ -2099,7 +2179,8 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
 
     // === ENVÍO POR EMAIL (modo actual) ===
     // Nota: mantenemos el código de N8N más abajo, pero no se ejecuta por defecto.
-    const mailTo = String(process.env.PEDIDOS_MAIL_TO || 'p.lara@gemavip.com').trim() || 'p.lara@gemavip.com';
+    const mailToFromDb = await db.getVariableSistema?.(SYSVAR_PEDIDOS_MAIL_TO).catch(() => null);
+    const mailTo = String(mailToFromDb || process.env.PEDIDOS_MAIL_TO || 'p.lara@gemavip.com').trim() || 'p.lara@gemavip.com';
     const pedidoNum = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? id).trim();
     const clienteNombre =
       (payload?.pedido?.cliente?.nombre ? String(payload.pedido.cliente.nombre) : '') ||
@@ -2187,21 +2268,12 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
 
     // Resultado OK por email
     // (Reutilizamos el aviso existente en /pedidos, aunque internamente no hayamos llamado a N8N)
-    if (process.env.N8N_PEDIDOS_ENABLED === '1' && webhookUrl) {
-      // Código N8N preservado (opcional). Por defecto, NO se ejecuta.
-      // Si en algún momento se reactiva, revisar el formato esperado en el webhook.
-      void (async () => {
-        try {
-          await axios.post(webhookUrl, payload, {
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            timeout: 30000,
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-            validateStatus: () => true
-          });
-        } catch (_) {}
-      })();
-    }
+    /*
+    // === CÓDIGO N8N (PRESERVADO, NO EJECUTAR) ===
+    // Si se quisiera reactivar en el futuro:
+    // 1) resolver webhookUrl (BD o .env)
+    // 2) enviar axios.post(webhookUrl, payload, { headers: { 'Content-Type': 'application/json' }, ... })
+    */
 
     return res.redirect(
       `/pedidos?n8n=ok&pid=${encodeURIComponent(String(id))}&file=${encodeURIComponent(excel.filename)}&msg=${encodeURIComponent(`Email enviado a ${mailTo}`)}`
