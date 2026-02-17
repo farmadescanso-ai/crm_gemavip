@@ -16,3 +16,5 @@ En `/pedidos` hay un icono de **enviar** por fila para mandar el pedido a un web
 - En caso contrario, se adjunta el **Excel estándar** (`/pedidos/:id.xlsx`).
 
 Configura el webhook en la variable de entorno `N8N_PEDIDOS_WEBHOOK_URL` (ver `.env.example`).
+
+El envío al webhook se realiza en **JSON** e incluye el Excel como **Base64** en `excel.base64` junto con `excel.filename` y `excel.mime`.

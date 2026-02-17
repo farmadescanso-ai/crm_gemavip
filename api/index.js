@@ -9,7 +9,6 @@ const bcrypt = require('bcryptjs');
 const MySQLStoreFactory = require('express-mysql-session');
 const ExcelJS = require('exceljs');
 const axios = require('axios');
-const FormData = require('form-data');
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
 const publicRouter = require('../routes/public');
@@ -2017,17 +2016,19 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
       pedido: item,
       lineas: Array.isArray(lineas) ? lineas : [],
       cliente,
-      direccionEnvio
+      direccionEnvio,
+      excel: {
+        filename: excel.filename,
+        mime: XLSX_MIME,
+        base64: excel.buf.toString('base64')
+      }
     };
 
-    const form = new FormData();
-    form.append('payload', JSON.stringify(payload), { contentType: 'application/json; charset=utf-8' });
-    form.append('excel', excel.buf, { filename: excel.filename, contentType: XLSX_MIME });
-
-    const resp = await axios.post(webhookUrl, form, {
-      headers: { ...form.getHeaders() },
+    const resp = await axios.post(webhookUrl, payload, {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
       timeout: 30000,
       maxBodyLength: Infinity,
+      maxContentLength: Infinity,
       validateStatus: () => true
     });
 

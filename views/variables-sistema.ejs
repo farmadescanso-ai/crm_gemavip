@@ -21,59 +21,92 @@
       </div>
     <% } %>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Clave</th>
-            <th>Descripción</th>
-            <th>Valor</th>
-            <th>Valor efectivo</th>
-            <th>Actualizado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% (items || []).forEach((v) => { %>
-            <tr>
-              <td style="font-weight:800;"><%= v.clave %></td>
-              <td style="color: var(--gv-muted); font-weight:700;"><%= v.descripcion || '—' %></td>
-              <td style="max-width: 460px; word-break: break-word;"><%= (v.valor ?? '').toString() || '—' %></td>
-              <td style="max-width: 460px; word-break: break-word; font-weight:800;"><%= (v.effectiveValue ?? '').toString() || '—' %></td>
-              <td style="color: var(--gv-muted); font-weight:700;">
-                <%= v.updated_at ? String(v.updated_at).replace('T', ' ').slice(0, 19) : '—' %>
-                <%= v.updated_by ? ` · ${v.updated_by}` : '' %>
-              </td>
-              <td>
-                <form method="post" action="/admin/variables-sistema/update" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                  <input type="hidden" name="clave" value="<%= v.clave %>" />
-                  <input
-                    class="gv-client-picker__q"
-                    type="text"
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <% (items || []).forEach((v) => { %>
+        <% const key = String(v.clave || '').trim(); %>
+        <% const idBase = `sysvar_${key.replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
+        <% const dbVal = String(v.valor ?? '').trim(); %>
+        <% const effectiveVal = String(v.effectiveValue ?? '').trim(); %>
+        <% const source = dbVal ? 'BD' : (effectiveVal ? '.env' : '—'); %>
+
+        <section class="card" style="margin:0;">
+          <div class="card-hd" style="padding-bottom: 10px;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <div style="min-width: 260px;">
+                <div style="font-weight:900; color: var(--gv-ink); font-size: 14px; letter-spacing: .2px;">
+                  <%= key %>
+                </div>
+                <div style="margin-top:6px; color: var(--gv-muted); font-weight:700; line-height:1.35;">
+                  <%= v.descripcion || '—' %>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <span class="badge info" title="Origen del valor efectivo" aria-label="Origen del valor efectivo: <%= source %>">
+                  Origen: <%= source %>
+                </span>
+                <% if (v.updated_at || v.updated_by) { %>
+                  <span class="badge info" title="Última actualización" aria-label="Última actualización">
+                    <%= v.updated_at ? String(v.updated_at).replace('T', ' ').slice(0, 19) : '—' %><%= v.updated_by ? ` · ${v.updated_by}` : '' %>
+                  </span>
+                <% } %>
+              </div>
+            </div>
+          </div>
+          <div class="card-bd">
+            <div style="display:grid; grid-template-columns: 1fr; gap:10px;">
+              <div>
+                <label for="<%= idBase %>_valor" style="display:block; font-weight:900; color: var(--gv-ink); margin-bottom:6px;">
+                  Valor (editable)
+                </label>
+                <div id="<%= idBase %>_help" style="color: var(--gv-muted); font-weight:700; margin-bottom:8px; line-height:1.35;">
+                  Deja el campo vacío para “borrar” el valor en BD y usar el fallback de <code>.env</code> si existe.
+                </div>
+                <form method="post" action="/admin/variables-sistema/update" style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+                  <input type="hidden" name="clave" value="<%= key %>" />
+                  <textarea
+                    id="<%= idBase %>_valor"
                     name="valor"
-                    value="<%= (v.valor ?? '').toString() %>"
+                    class="gv-client-picker__q"
+                    rows="2"
+                    style="min-width: min(720px, 100%); width: 100%; max-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"
                     placeholder="(vacío para borrar)"
-                    style="min-width: 320px;"
+                    aria-describedby="<%= idBase %>_help"
                     autocomplete="off"
-                  />
+                    spellcheck="false"
+                  ><%= String(v.valor ?? '') %></textarea>
                   <button class="btn secondary" type="submit">Guardar</button>
                 </form>
-              </td>
-            </tr>
-          <% }) %>
-          <% if (!items || items.length === 0) { %>
-            <tr>
-              <td colspan="6" style="color: var(--gv-muted); font-weight:700;">No hay variables.</td>
-            </tr>
-          <% } %>
-        </tbody>
-      </table>
+              </div>
+
+              <div>
+                <div style="font-weight:900; color: var(--gv-ink); margin-bottom:6px;">Valor efectivo (lo que usa la app)</div>
+                <div style="padding:10px 12px; border: 1px solid rgba(148,163,184,.35); border-radius: 10px; background: rgba(248,250,252,.6);">
+                  <% if (effectiveVal) { %>
+                    <div style="word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
+                      <%= effectiveVal %>
+                    </div>
+                  <% } else { %>
+                    <div style="color: var(--gv-muted); font-weight:800;">—</div>
+                  <% } %>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      <% }) %>
+
+      <% if (!items || items.length === 0) { %>
+        <div class="gv-alert info">
+          <strong>No hay variables</strong>
+          <div style="margin-top:6px;">Aún no se han definido variables del sistema.</div>
+        </div>
+      <% } %>
     </div>
 
     <div style="margin-top: 12px; color: var(--gv-muted); font-weight:700; line-height:1.45;">
       <div><strong>Notas</strong></div>
       <div>- Si una variable está vacía en BD, el sistema usará el valor de <code>.env</code> si existe.</div>
-      <div>- En el webhook de N8N se envía <code>payload</code> (JSON) y <code>excel</code> (archivo .xlsx) en <code>multipart/form-data</code>.</div>
+      <div>- En el webhook de N8N el envío va en <code>application/json</code> e incluye el Excel en Base64.</div>
     </div>
   </div>
 </section>
