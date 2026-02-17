@@ -1199,6 +1199,13 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
 function coerceClienteValue(fieldName, raw) {
   if (raw === undefined) return undefined;
   if (raw === null) return null;
+  // Cuando el formulario envía múltiples valores con el mismo nombre
+  // (típico patrón hidden(0)+checkbox(1)), body-parser puede devolver un array.
+  // Nos quedamos con el último valor.
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return null;
+    raw = raw[raw.length - 1];
+  }
   const name = String(fieldName || '');
   const n = name.toLowerCase();
   const s = String(raw);
