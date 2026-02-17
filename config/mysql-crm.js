@@ -995,6 +995,122 @@ class MySQLCRM {
     return await this.query(sql, [idNum]);
   }
 
+  // ===========================
+  // VARIABLES DEL SISTEMA (Admin)
+  // ===========================
+  async ensureVariablesSistemaTable() {
+    // Best-effort: crear tabla si no existe. Si no hay permisos, no romper.
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`variables_sistema\` (
+          \`id\` INT NOT NULL AUTO_INCREMENT,
+          \`clave\` VARCHAR(120) NOT NULL,
+          \`valor\` TEXT NULL,
+          \`descripcion\` VARCHAR(255) NULL,
+          \`updated_by\` VARCHAR(180) NULL,
+          \`created_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`uq_variables_sistema_clave\` (\`clave\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      return true;
+    } catch (e) {
+      console.warn('⚠️ [SCHEMA] No se pudo asegurar variables_sistema:', e?.message || e);
+      return false;
+    }
+  }
+
+  async _ensureVariablesSistemaMeta() {
+    if (this._metaCache?.variablesSistemaMeta) return this._metaCache.variablesSistemaMeta;
+    let table = null;
+    try {
+      table = await this._resolveTableNameCaseInsensitive('variables_sistema');
+    } catch (_) {
+      table = 'variables_sistema';
+    }
+    const cols = await this._getColumns(table).catch(() => []);
+    const pick = (cands) => this._pickCIFromColumns(cols, cands);
+    const pk = pick(['id', 'Id']) || 'id';
+    const colClave = pick(['clave', 'Clave', 'key', 'Key']) || 'clave';
+    const colValor = pick(['valor', 'Valor', 'value', 'Value']) || 'valor';
+    const colDescripcion = pick(['descripcion', 'Descripción', 'Descripcion', 'description', 'Description']) || 'descripcion';
+    const colUpdatedAt = pick(['updated_at', 'UpdatedAt', 'actualizado', 'Actualizado']) || 'updated_at';
+    const colUpdatedBy = pick(['updated_by', 'UpdatedBy', 'actualizado_por', 'ActualizadoPor']) || 'updated_by';
+    const meta = { table, pk, colClave, colValor, colDescripcion, colUpdatedAt, colUpdatedBy };
+    this._metaCache.variablesSistemaMeta = meta;
+    return meta;
+  }
+
+  async getVariablesSistemaAdmin() {
+    await this.ensureVariablesSistemaTable();
+    try {
+      const meta = await this._ensureVariablesSistemaMeta().catch(() => null);
+      if (!meta?.table) return null;
+      const rows = await this.query(
+        `
+          SELECT
+            \`${meta.pk}\` AS id,
+            \`${meta.colClave}\` AS clave,
+            \`${meta.colValor}\` AS valor,
+            \`${meta.colDescripcion}\` AS descripcion,
+            \`${meta.colUpdatedBy}\` AS updated_by,
+            \`${meta.colUpdatedAt}\` AS updated_at
+          FROM \`${meta.table}\`
+          ORDER BY \`${meta.colClave}\` ASC
+        `
+      ).catch(() => null);
+      return rows;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async getVariableSistema(clave) {
+    const key = String(clave || '').trim();
+    if (!key) return null;
+    await this.ensureVariablesSistemaTable();
+    try {
+      const meta = await this._ensureVariablesSistemaMeta().catch(() => null);
+      if (!meta?.table) return null;
+      const rows = await this.query(
+        `SELECT \`${meta.colValor}\` AS valor FROM \`${meta.table}\` WHERE \`${meta.colClave}\` = ? LIMIT 1`,
+        [key]
+      ).catch(() => []);
+      const val = rows?.[0]?.valor;
+      if (val === null || val === undefined) return null;
+      const s = String(val).trim();
+      return s ? s : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async upsertVariableSistema(clave, valor, { descripcion = null, updatedBy = null } = {}) {
+    const key = String(clave || '').trim();
+    if (!key) throw new Error('Clave no válida');
+    await this.ensureVariablesSistemaTable();
+    const meta = await this._ensureVariablesSistemaMeta().catch(() => null);
+    if (!meta?.table) throw new Error('Tabla variables_sistema no disponible');
+
+    const val = (valor === null || valor === undefined) ? null : String(valor);
+    const desc = (descripcion === null || descripcion === undefined) ? null : String(descripcion);
+    const by = (updatedBy === null || updatedBy === undefined) ? null : String(updatedBy);
+
+    // Upsert compatible con MySQL (UNIQUE(clave))
+    return await this.query(
+      `
+        INSERT INTO \`${meta.table}\` (\`${meta.colClave}\`, \`${meta.colValor}\`, \`${meta.colDescripcion}\`, \`${meta.colUpdatedBy}\`)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          \`${meta.colValor}\` = VALUES(\`${meta.colValor}\`),
+          \`${meta.colDescripcion}\` = VALUES(\`${meta.colDescripcion}\`),
+          \`${meta.colUpdatedBy}\` = VALUES(\`${meta.colUpdatedBy}\`)
+      `,
+      [key, val, desc, by]
+    );
+  }
+
   async _ensureDireccionesEnvioMeta() {
     if (this._metaCache?.direccionesEnvioMeta) return this._metaCache.direccionesEnvioMeta;
 

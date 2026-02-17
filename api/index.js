@@ -8,6 +8,8 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const MySQLStoreFactory = require('express-mysql-session');
 const ExcelJS = require('exceljs');
+const axios = require('axios');
+const FormData = require('form-data');
 const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
 const publicRouter = require('../routes/public');
@@ -750,6 +752,87 @@ app.post('/admin/descuentos-pedido/:id(\\d+)/delete', requireAdmin, async (req, 
   }
 });
 
+// ===========================
+// VARIABLES DEL SISTEMA (HTML) - Admin
+// ===========================
+const SYSVAR_N8N_PEDIDOS_WEBHOOK_URL = 'N8N_PEDIDOS_WEBHOOK_URL';
+
+app.get('/admin/variables-sistema', requireAdmin, async (req, res, next) => {
+  try {
+    // Asegurar que exista (si hay permisos). Si no, el sistema seguirá funcionando vía .env
+    await db.ensureVariablesSistemaTable?.().catch(() => false);
+
+    const itemsRaw = await db.getVariablesSistemaAdmin?.().catch(() => null);
+    if (itemsRaw === null) {
+      return res.render('variables-sistema', {
+        title: 'Variables del sistema',
+        items: [],
+        error:
+          'No se pudo leer/crear la tabla variables_sistema. Si tu entorno no permite CREATE TABLE, crea la tabla manualmente (ver scripts/crear-tabla-variables-sistema.sql) o usa .env como fallback.',
+        success: null
+      });
+    }
+
+    const known = [
+      {
+        clave: SYSVAR_N8N_PEDIDOS_WEBHOOK_URL,
+        descripcion: 'Webhook de N8N para envío de pedidos + Excel (multipart/form-data).'
+      }
+    ];
+
+    // Merge: preferir BD; si no existe la fila, mostrarla igualmente para que se pueda guardar.
+    const byKey = new Map((itemsRaw || []).map((r) => [String(r?.clave || '').trim(), r]));
+    const merged = known.map((k) => {
+      const row = byKey.get(k.clave) || {};
+      const dbVal = row.valor === null || row.valor === undefined ? '' : String(row.valor);
+      const envVal = String(process.env[k.clave] || '').trim();
+      const effectiveValue = (dbVal || '').trim() || envVal || '';
+      return {
+        id: row.id ?? null,
+        clave: k.clave,
+        descripcion: row.descripcion || k.descripcion || '',
+        valor: dbVal,
+        effectiveValue,
+        updated_at: row.updated_at ?? null,
+        updated_by: row.updated_by ?? null
+      };
+    });
+
+    const flag = String(req.query.saved || '').trim().toLowerCase();
+    const success = flag === '1' ? 'Variable actualizada.' : null;
+    const error = flag === '0' ? 'No se pudo guardar la variable.' : null;
+
+    return res.render('variables-sistema', { title: 'Variables del sistema', items: merged, error, success });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/admin/variables-sistema/update', requireAdmin, async (req, res, next) => {
+  try {
+    const clave = String(req.body?.clave || '').trim();
+    if (!clave) return res.redirect('/admin/variables-sistema?saved=0');
+
+    const rawVal = req.body?.valor;
+    const val = rawVal === null || rawVal === undefined ? '' : String(rawVal);
+    const trimmed = val.trim();
+
+    // Guardamos vacío como NULL para que el fallback a .env funcione.
+    const storeVal = trimmed ? trimmed : null;
+
+    const descripcion =
+      clave === SYSVAR_N8N_PEDIDOS_WEBHOOK_URL
+        ? 'Webhook de N8N para envío de pedidos + Excel (multipart/form-data).'
+        : null;
+
+    const updatedBy = res.locals.user?.email || res.locals.user?.id || 'admin';
+    await db.upsertVariableSistema(clave, storeVal, { descripcion, updatedBy });
+    return res.redirect('/admin/variables-sistema?saved=1');
+  } catch (e) {
+    next(e);
+  }
+});
+
 app.get('/clientes', requireLogin, async (req, res, next) => {
   try {
     const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
@@ -1102,6 +1185,23 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       );
     }
 
+    const n8nFlag = String(req.query.n8n || '').trim().toLowerCase();
+    const n8nPid = String(req.query.pid || '').trim();
+    const n8nFile = String(req.query.file || '').trim();
+    const n8nMsg = String(req.query.msg || '').trim();
+    const n8nNotice =
+      n8nFlag === 'ok'
+        ? {
+            ok: true,
+            message: `Pedido${n8nPid ? ` ${n8nPid}` : ''} enviado correctamente${n8nFile ? `.\nExcel: ${n8nFile}` : '.'}${n8nMsg ? `\n${n8nMsg}` : ''}`
+          }
+        : n8nFlag === 'err'
+          ? {
+              ok: false,
+              message: `No se pudo enviar el pedido${n8nPid ? ` ${n8nPid}` : ''} a N8N.${n8nMsg ? `\n${n8nMsg}` : ''}`
+            }
+          : null;
+
     res.render('pedidos', {
       items: items || [],
       years,
@@ -1109,7 +1209,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
       admin,
-      userId: res.locals.user?.id ?? null
+      userId: res.locals.user?.id ?? null,
+      n8nNotice
     });
   } catch (e) {
     next(e);
@@ -1403,6 +1504,16 @@ async function canShowHefameForPedido(item) {
   return /transfer/i.test(formaPagoNombre) && /hefame/i.test(tipoNombre);
 }
 
+// Para envíos (N8N): usar plantilla "Transfer" en cuanto la forma de pago sea Transfer,
+// aunque el tipo no sea HEFAME (si falta, quedará el campo vacío en la plantilla).
+async function isTransferPedido(item) {
+  const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0);
+  if (!idFormaPago) return false;
+  const formaPago = await db.getFormaPagoById(idFormaPago).catch(() => null);
+  const formaPagoNombre = String(formaPago?.FormaPago ?? formaPago?.Nombre ?? formaPago?.nombre ?? '').trim();
+  return /transfer/i.test(formaPagoNombre);
+}
+
 app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
@@ -1426,6 +1537,251 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
   }
 });
 
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+async function buildStandardPedidoXlsxBuffer({ item, id, lineas, cliente, direccionEnvio, fmtDateES }) {
+  const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  const dtoPedidoPct = Math.max(0, Math.min(100, toNumUtil(item.Dto ?? item.Descuento ?? 0, 0)));
+
+  const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+  const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
+
+  const wbNew = new ExcelJS.Workbook();
+  wbNew.creator = 'CRM Gemavip';
+  wbNew.created = new Date();
+
+  const ws = wbNew.addWorksheet('Pedido', {
+    pageSetup: {
+      paperSize: 9, // A4
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.31, right: 0.31, top: 0.35, bottom: 0.35, header: 0.2, footer: 0.2 }
+    }
+  });
+
+  // Columnas: A-H (tabla de líneas)
+  ws.columns = [
+    { key: 'codigo', width: 12 },
+    { key: 'concepto', width: 42 },
+    { key: 'pvl', width: 11 },
+    { key: 'unds', width: 9 },
+    { key: 'dto', width: 9 },
+    { key: 'subtotal', width: 13 },
+    { key: 'iva', width: 9 },
+    { key: 'total', width: 13 }
+  ];
+
+  const thin = { style: 'thin', color: { argb: 'FFD1D5DB' } };
+  const boxBorder = { top: thin, left: thin, bottom: thin, right: thin };
+  const titleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+
+  // Cabecera (empresa / meta)
+  ws.mergeCells('A1:D5');
+  ws.mergeCells('E1:H5');
+  const cLeft = ws.getCell('A1');
+  cLeft.value = 'GEMAVIP ESPAÑA SL.\nB19427004\nCALLE DE LA SEÑA 2\nCARTAGENA (30201), Murcia, España\npedidosespana@gemavip.com · +34 686 48 36 84';
+  cLeft.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+  cLeft.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+
+  const cRight = ws.getCell('E1');
+  const fecha = fmtDateES ? fmtDateES(item.FechaPedido ?? item.Fecha ?? '') : '';
+  const entrega = item?.FechaEntrega && fmtDateES ? fmtDateES(item.FechaEntrega) : '';
+  const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
+  cRight.value =
+    `PEDIDO #${numPedido || id}\n` +
+    `Fecha: ${fecha || ''}\n` +
+    (entrega ? `Entrega: ${entrega}\n` : '') +
+    (numPedidoCliente ? `Nº Pedido Cliente: ${numPedidoCliente}\n` : '');
+  cRight.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+  cRight.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0F172A' } };
+
+  ws.getRow(6).height = 6;
+
+  // Direcciones: 50% + 50%
+  ws.mergeCells('A7:D12');
+  ws.mergeCells('E7:H12');
+  const clienteNombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
+  const clienteCif = cliente?.DNI_CIF || cliente?.DniCif || '';
+  const clienteDir = cliente?.Direccion || '';
+  const clientePob = cliente?.Poblacion || '';
+  const clienteCp = cliente?.CodigoPostal || '';
+  const clienteEmail = cliente?.Email || '';
+  const clienteTel = cliente?.Telefono || cliente?.Movil || '';
+
+  const a1 = ws.getCell('A7');
+  a1.value =
+    `CLIENTE\n` +
+    `${clienteNombre || item?.Id_Cliente || ''}\n` +
+    (clienteCif ? `${clienteCif}\n` : '') +
+    (clienteDir ? `${clienteDir}\n` : '') +
+    ([clienteCp, clientePob].filter(Boolean).join(' ') ? `${[clienteCp, clientePob].filter(Boolean).join(' ')}\n` : '') +
+    ([clienteEmail, clienteTel].filter(Boolean).join(' · ') ? `${[clienteEmail, clienteTel].filter(Boolean).join(' · ')}` : '');
+  a1.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+  a1.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+
+  const b1 = ws.getCell('E7');
+  const dir = direccionEnvio || null;
+  const envioTitle = 'DIRECCIÓN DE ENVÍO';
+  b1.value =
+    `${envioTitle}\n` +
+    (dir
+      ? [
+          dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—',
+          dir.Nombre_Destinatario && dir.Alias ? dir.Nombre_Destinatario : '',
+          dir.Direccion || '',
+          dir.Direccion2 || '',
+          [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' '),
+          dir.Pais || '',
+          [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · '),
+          dir.Observaciones || ''
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : `${clienteNombre || '—'}\n(Sin dirección de envío)`);
+  b1.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+  b1.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+
+  // Bordes cajas
+  for (const addr of ['A7', 'E7']) {
+    ws.getCell(addr).border = boxBorder;
+    ws.getCell(addr).fill = titleFill;
+  }
+  // Excel aplica borde solo a la celda superior izquierda en merged; dibujamos perímetro por rango
+  const boxRanges = [
+    { r1: 7, c1: 1, r2: 12, c2: 4 },
+    { r1: 7, c1: 5, r2: 12, c2: 8 }
+  ];
+  for (const rg of boxRanges) {
+    for (let r = rg.r1; r <= rg.r2; r++) {
+      for (let c = rg.c1; c <= rg.c2; c++) {
+        const cell = ws.getCell(r, c);
+        const b = {};
+        if (r === rg.r1) b.top = thin;
+        if (r === rg.r2) b.bottom = thin;
+        if (c === rg.c1) b.left = thin;
+        if (c === rg.c2) b.right = thin;
+        cell.border = { ...(cell.border || {}), ...b };
+      }
+    }
+  }
+
+  ws.getRow(13).height = 6;
+
+  // Tabla líneas
+  const headerRowNum = 14;
+  const header = ws.getRow(headerRowNum);
+  header.values = ['CÓDIGO', 'CONCEPTO', 'PVL', 'UNDS', 'DTO', 'SUBTOTAL', 'IVA', 'TOTAL'];
+  header.height = 18;
+  header.eachCell((cell) => {
+    cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+    cell.fill = titleFill;
+    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    cell.border = boxBorder;
+  });
+  header.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
+  header.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+  header.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+  header.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+  header.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+  header.getCell(8).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  let rowNum = headerRowNum + 1;
+  let sumBase = 0;
+  let sumIva = 0;
+  let sumTotal = 0;
+
+  const moneyFmt = '#,##0.00"€"';
+  const pctFmt = '0.00"%"';
+
+  (Array.isArray(lineas) ? lineas : []).forEach((l) => {
+    const codigo = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
+    const concepto = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
+    const qty = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
+    const pvl = Math.max(0, toNumUtil(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
+    const dto = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+    let ivaPct = toNumUtil(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+    if (ivaPct > 100) ivaPct = 0;
+
+    const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
+    const ivaCalc = round2(baseCalc * ivaPct / 100);
+    const totalCalc = round2(baseCalc + ivaCalc);
+
+    sumBase += baseCalc;
+    sumIva += ivaCalc;
+    sumTotal += totalCalc;
+
+    const r = ws.getRow(rowNum++);
+    r.getCell(1).value = codigo || '';
+    r.getCell(2).value = concepto || '';
+    r.getCell(3).value = pvl || null;
+    r.getCell(4).value = qty || null;
+    r.getCell(5).value = dto || null;
+    r.getCell(6).value = baseCalc || null;
+    r.getCell(7).value = ivaPct || null;
+    r.getCell(8).value = totalCalc || null;
+
+    r.getCell(2).alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+    for (const c of [1, 3, 4, 5, 6, 7, 8]) {
+      r.getCell(c).alignment = { vertical: 'top', horizontal: c === 1 ? 'left' : 'right', wrapText: false };
+    }
+    r.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 11, color: { argb: 'FF111827' } };
+      cell.border = boxBorder;
+    });
+    r.getCell(3).numFmt = moneyFmt;
+    r.getCell(6).numFmt = moneyFmt;
+    r.getCell(8).numFmt = moneyFmt;
+    r.getCell(5).numFmt = pctFmt;
+    r.getCell(7).numFmt = pctFmt;
+  });
+
+  // Totales
+  const totalsStart = rowNum + 1;
+  ws.getRow(totalsStart).height = 6;
+  const tRow1 = ws.getRow(totalsStart + 1);
+  tRow1.getCell(6).value = 'BASE IMPONIBLE';
+  tRow1.getCell(8).value = round2(sumBase);
+  tRow1.getCell(8).numFmt = moneyFmt;
+  const tRow2 = ws.getRow(totalsStart + 2);
+  tRow2.getCell(6).value = 'IVA';
+  tRow2.getCell(8).value = round2(sumIva);
+  tRow2.getCell(8).numFmt = moneyFmt;
+  const tRow3 = ws.getRow(totalsStart + 3);
+  tRow3.getCell(6).value = 'TOTAL';
+  tRow3.getCell(8).value = round2(sumTotal);
+  tRow3.getCell(8).numFmt = moneyFmt;
+
+  const styleTotals = (r) => {
+    [6, 7, 8].forEach((c) => {
+      const cell = r.getCell(c);
+      cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'right' };
+    });
+    r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+    r.getCell(8).font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0F172A' } };
+  };
+  styleTotals(tRow1);
+  styleTotals(tRow2);
+  styleTotals(tRow3);
+
+  if (dtoPedidoPct) {
+    const tRow0 = ws.getRow(totalsStart);
+    tRow0.getCell(6).value = 'DTO PEDIDO';
+    tRow0.getCell(8).value = dtoPedidoPct;
+    tRow0.getCell(8).numFmt = pctFmt;
+    styleTotals(tRow0);
+    tRow0.getCell(8).font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+  }
+
+  const endRow = totalsStart + 3;
+  ws.pageSetup.printArea = `A1:H${endRow}`;
+
+  const buf = await wbNew.xlsx.writeBuffer();
+  return { buf: Buffer.from(buf), filename: `PEDIDO_${safeNum}.xlsx` };
+}
+
 app.get('/pedidos/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
@@ -1443,251 +1799,18 @@ app.get('/pedidos/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async 
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
 
-    const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-    const dtoPedidoPct = Math.max(0, Math.min(100, toNumUtil(item.Dto ?? item.Descuento ?? 0, 0)));
-
-    const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
-    const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
-
-    const wbNew = new ExcelJS.Workbook();
-    wbNew.creator = 'CRM Gemavip';
-    wbNew.created = new Date();
-
-    const ws = wbNew.addWorksheet('Pedido', {
-      pageSetup: {
-        paperSize: 9, // A4
-        orientation: 'portrait',
-        fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,
-        margins: { left: 0.31, right: 0.31, top: 0.35, bottom: 0.35, header: 0.2, footer: 0.2 }
-      }
+    const { buf, filename } = await buildStandardPedidoXlsxBuffer({
+      item,
+      id,
+      lineas,
+      cliente,
+      direccionEnvio,
+      fmtDateES: res.locals.fmtDateES
     });
 
-    // Columnas: A-H (tabla de líneas)
-    ws.columns = [
-      { key: 'codigo', width: 12 },
-      { key: 'concepto', width: 42 },
-      { key: 'pvl', width: 11 },
-      { key: 'unds', width: 9 },
-      { key: 'dto', width: 9 },
-      { key: 'subtotal', width: 13 },
-      { key: 'iva', width: 9 },
-      { key: 'total', width: 13 }
-    ];
-
-    const thin = { style: 'thin', color: { argb: 'FFD1D5DB' } };
-    const boxBorder = { top: thin, left: thin, bottom: thin, right: thin };
-    const titleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
-
-    // Cabecera (empresa / meta)
-    ws.mergeCells('A1:D5');
-    ws.mergeCells('E1:H5');
-    const cLeft = ws.getCell('A1');
-    cLeft.value = 'GEMAVIP ESPAÑA SL.\nB19427004\nCALLE DE LA SEÑA 2\nCARTAGENA (30201), Murcia, España\npedidosespana@gemavip.com · +34 686 48 36 84';
-    cLeft.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
-    cLeft.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
-
-    const cRight = ws.getCell('E1');
-    const fecha = res.locals.fmtDateES ? res.locals.fmtDateES(item.FechaPedido ?? item.Fecha ?? '') : '';
-    const entrega = item?.FechaEntrega && res.locals.fmtDateES ? res.locals.fmtDateES(item.FechaEntrega) : '';
-    const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
-    cRight.value =
-      `PEDIDO #${numPedido || id}\n` +
-      `Fecha: ${fecha || ''}\n` +
-      (entrega ? `Entrega: ${entrega}\n` : '') +
-      (numPedidoCliente ? `Nº Pedido Cliente: ${numPedidoCliente}\n` : '');
-    cRight.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
-    cRight.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0F172A' } };
-
-    ws.getRow(6).height = 6;
-
-    // Direcciones: 50% + 50%
-    ws.mergeCells('A7:D12');
-    ws.mergeCells('E7:H12');
-    const clienteNombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
-    const clienteCif = cliente?.DNI_CIF || cliente?.DniCif || '';
-    const clienteDir = cliente?.Direccion || '';
-    const clientePob = cliente?.Poblacion || '';
-    const clienteCp = cliente?.CodigoPostal || '';
-    const clienteEmail = cliente?.Email || '';
-    const clienteTel = cliente?.Telefono || cliente?.Movil || '';
-
-    const a1 = ws.getCell('A7');
-    a1.value =
-      `CLIENTE\n` +
-      `${clienteNombre || item?.Id_Cliente || ''}\n` +
-      (clienteCif ? `${clienteCif}\n` : '') +
-      (clienteDir ? `${clienteDir}\n` : '') +
-      ([clienteCp, clientePob].filter(Boolean).join(' ') ? `${[clienteCp, clientePob].filter(Boolean).join(' ')}\n` : '') +
-      ([clienteEmail, clienteTel].filter(Boolean).join(' · ') ? `${[clienteEmail, clienteTel].filter(Boolean).join(' · ')}` : '');
-    a1.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
-    a1.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-
-    const b1 = ws.getCell('E7');
-    const dir = direccionEnvio || null;
-    const envioTitle = 'DIRECCIÓN DE ENVÍO';
-    b1.value =
-      `${envioTitle}\n` +
-      (dir
-        ? [
-            dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—',
-            dir.Nombre_Destinatario && dir.Alias ? dir.Nombre_Destinatario : '',
-            dir.Direccion || '',
-            dir.Direccion2 || '',
-            [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' '),
-            dir.Pais || '',
-            [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · '),
-            dir.Observaciones || ''
-          ]
-            .filter(Boolean)
-            .join('\n')
-        : `${clienteNombre || '—'}\n(Sin dirección de envío)` );
-    b1.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
-    b1.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-
-    // Bordes cajas
-    for (const addr of ['A7', 'E7']) {
-      ws.getCell(addr).border = boxBorder;
-      ws.getCell(addr).fill = titleFill;
-    }
-    // Excel aplica borde solo a la celda superior izquierda en merged; dibujamos perímetro por rango
-    const boxRanges = [
-      { r1: 7, c1: 1, r2: 12, c2: 4 },
-      { r1: 7, c1: 5, r2: 12, c2: 8 }
-    ];
-    for (const rg of boxRanges) {
-      for (let r = rg.r1; r <= rg.r2; r++) {
-        for (let c = rg.c1; c <= rg.c2; c++) {
-          const cell = ws.getCell(r, c);
-          const b = {};
-          if (r === rg.r1) b.top = thin;
-          if (r === rg.r2) b.bottom = thin;
-          if (c === rg.c1) b.left = thin;
-          if (c === rg.c2) b.right = thin;
-          cell.border = { ...(cell.border || {}), ...b };
-        }
-      }
-    }
-
-    ws.getRow(13).height = 6;
-
-    // Tabla líneas
-    const headerRowNum = 14;
-    const header = ws.getRow(headerRowNum);
-    header.values = ['CÓDIGO', 'CONCEPTO', 'PVL', 'UNDS', 'DTO', 'SUBTOTAL', 'IVA', 'TOTAL'];
-    header.height = 18;
-    header.eachCell((cell) => {
-      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-      cell.fill = titleFill;
-      cell.alignment = { vertical: 'middle', horizontal: 'left' };
-      cell.border = boxBorder;
-    });
-    header.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
-    header.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
-    header.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
-    header.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
-    header.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
-    header.getCell(8).alignment = { vertical: 'middle', horizontal: 'right' };
-
-    let rowNum = headerRowNum + 1;
-    let sumBase = 0;
-    let sumIva = 0;
-    let sumTotal = 0;
-
-    const moneyFmt = '#,##0.00"€"';
-    const pctFmt = '0.00"%"';
-
-    (Array.isArray(lineas) ? lineas : []).forEach((l) => {
-      const codigo = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
-      const concepto = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-      const qty = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
-      const pvl = Math.max(0, toNumUtil(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
-      const dto = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
-      let ivaPct = toNumUtil(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
-      if (ivaPct > 100) ivaPct = 0;
-
-      const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
-      const ivaCalc = round2(baseCalc * ivaPct / 100);
-      const totalCalc = round2(baseCalc + ivaCalc);
-
-      sumBase += baseCalc;
-      sumIva += ivaCalc;
-      sumTotal += totalCalc;
-
-      const r = ws.getRow(rowNum++);
-      r.getCell(1).value = codigo || '';
-      r.getCell(2).value = concepto || '';
-      r.getCell(3).value = pvl || null;
-      r.getCell(4).value = qty || null;
-      r.getCell(5).value = dto || null;
-      r.getCell(6).value = baseCalc || null;
-      r.getCell(7).value = ivaPct || null;
-      r.getCell(8).value = totalCalc || null;
-
-      r.getCell(2).alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
-      for (const c of [1, 3, 4, 5, 6, 7, 8]) {
-        r.getCell(c).alignment = { vertical: 'top', horizontal: c === 1 ? 'left' : 'right', wrapText: false };
-      }
-      r.eachCell((cell) => {
-        cell.font = { name: 'Calibri', size: 11, color: { argb: 'FF111827' } };
-        cell.border = boxBorder;
-      });
-      r.getCell(3).numFmt = moneyFmt;
-      r.getCell(6).numFmt = moneyFmt;
-      r.getCell(8).numFmt = moneyFmt;
-      r.getCell(5).numFmt = pctFmt;
-      r.getCell(7).numFmt = pctFmt;
-    });
-
-    // Totales
-    const totalsStart = rowNum + 1;
-    ws.getRow(totalsStart).height = 6;
-    const tRow1 = ws.getRow(totalsStart + 1);
-    tRow1.getCell(6).value = 'BASE IMPONIBLE';
-    tRow1.getCell(8).value = round2(sumBase);
-    tRow1.getCell(8).numFmt = moneyFmt;
-    const tRow2 = ws.getRow(totalsStart + 2);
-    tRow2.getCell(6).value = 'IVA';
-    tRow2.getCell(8).value = round2(sumIva);
-    tRow2.getCell(8).numFmt = moneyFmt;
-    const tRow3 = ws.getRow(totalsStart + 3);
-    tRow3.getCell(6).value = 'TOTAL';
-    tRow3.getCell(8).value = round2(sumTotal);
-    tRow3.getCell(8).numFmt = moneyFmt;
-
-    const styleTotals = (r) => {
-      [6, 7, 8].forEach((c) => {
-        const cell = r.getCell(c);
-        cell.font = { name: 'Calibri', size: 12, bold: c !== 8 ? true : true, color: { argb: 'FF0F172A' } };
-        cell.alignment = { vertical: 'middle', horizontal: c === 6 ? 'right' : 'right' };
-      });
-      r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
-      r.getCell(8).font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0F172A' } };
-    };
-    styleTotals(tRow1);
-    styleTotals(tRow2);
-    styleTotals(tRow3);
-
-    if (dtoPedidoPct) {
-      const tRow0 = ws.getRow(totalsStart);
-      tRow0.getCell(6).value = 'DTO PEDIDO';
-      tRow0.getCell(8).value = dtoPedidoPct;
-      tRow0.getCell(8).numFmt = pctFmt;
-      styleTotals(tRow0);
-      tRow0.getCell(8).font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
-    }
-
-    const endRow = totalsStart + 3;
-    ws.pageSetup.printArea = `A1:H${endRow}`;
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader('Content-Disposition', `attachment; filename="PEDIDO_${safeNum}.xlsx"`);
-    const buf = await wbNew.xlsx.writeBuffer();
-    return res.end(Buffer.from(buf));
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.end(buf);
   } catch (e) {
     next(e);
   }
@@ -1721,6 +1844,95 @@ function renderHefameInfoPage(ok, details, pedidoId) {
 </body></html>`;
 }
 
+async function buildHefameXlsxBuffer({ item, id, lineas, cliente }) {
+  const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+
+  const hefameTemplatePath =
+    process.env.HEFAME_EXCEL_TEMPLATE_PATH ||
+    path.join(__dirname, '..', 'templates', 'PLANTILLA TRANSFER DIRECTO CRM.xlsx');
+
+  let wb;
+  try {
+    await fs.access(hefameTemplatePath);
+    wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(hefameTemplatePath);
+  } catch (e) {
+    console.warn('Plantilla Hefame no encontrada:', hefameTemplatePath, e?.message);
+    return { ok: false, status: 404, error: 'Plantilla Excel Hefame no encontrada. Coloca PLANTILLA TRANSFER DIRECTO CRM.xlsx en templates/.' };
+  }
+
+  if (!wb || !wb.worksheets || wb.worksheets.length === 0) {
+    return { ok: false, status: 500, error: 'Plantilla Hefame sin hojas.' };
+  }
+
+  const ws = wb.worksheets[0];
+
+  const todayDDMMYYYY = () => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  const valorF5 = numPedido || todayDDMMYYYY();
+  const nombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || '';
+  const codigoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
+  const telefono = cliente?.Telefono || cliente?.Movil || cliente?.Teléfono || '';
+  const cp = String(cliente?.CodigoPostal ?? '').trim();
+  const poblacion = String(cliente?.Poblacion ?? '').trim();
+  const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
+
+  try {
+    ws.getCell('F5').value = valorF5;
+    ws.getCell('C13').value = nombre;
+    ws.getCell('C14').value = codigoHefame;
+    ws.getCell('C15').value = telefono;
+    ws.getCell('C16').value = poblacionConCP;
+  } catch (e) {
+    console.warn('Hefame Excel: error escribiendo cabecera', e?.message);
+  }
+
+  const lineasArr = Array.isArray(lineas) ? lineas : [];
+  const firstDataRow = 21;
+  lineasArr.forEach((l, idx) => {
+    const row = firstDataRow + idx;
+    const cantidad = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
+    const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
+    const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
+    const descuentoPct = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+    const descuentoExcel = descuentoPct / 100;
+
+    try {
+      ws.getRow(row).getCell(2).value = cantidad;
+      ws.getRow(row).getCell(3).value = cn;
+      ws.getRow(row).getCell(4).value = descripcion;
+      ws.getRow(row).getCell(5).value = descuentoExcel;
+    } catch (e) {
+      console.warn('Hefame Excel: error escribiendo línea', row, e?.message);
+    }
+  });
+
+  const buf = await wb.xlsx.writeBuffer();
+
+  const today = new Date();
+  const yyyymmdd =
+    today.getFullYear() +
+    String(today.getMonth() + 1).padStart(2, '0') +
+    String(today.getDate()).padStart(2, '0');
+  const nombreClienteRaw = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
+  const nombreClienteSafe = String(nombreClienteRaw)
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[\\/:*?"<>|]/g, '')
+    .replace(/\s/g, '_')
+    .slice(0, 80) || 'cliente';
+  const pedidoNum = numPedido || `pedido_${id}`;
+  const attachmentFileName = `${yyyymmdd}_${nombreClienteSafe}-${pedidoNum}.xlsx`;
+
+  return { ok: true, buf: Buffer.from(buf), filename: attachmentFileName };
+}
+
 app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
@@ -1731,109 +1943,115 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner,
     const id = Number(req.params.id);
     const lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente });
+    if (!built.ok) return res.status(built.status || 500).send(built.error || 'No se pudo generar el Excel Hefame.');
 
-    const toNum = (v, dflt = 0) => {
-      if (v === null || v === undefined) return dflt;
-      const s = String(v).trim();
-      if (!s) return dflt;
-      const n = Number(String(s).replace(',', '.'));
-      return Number.isFinite(n) ? n : dflt;
-    };
-
-    const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
-    const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
-
-    const hefameTemplatePath =
-      process.env.HEFAME_EXCEL_TEMPLATE_PATH ||
-      path.join(__dirname, '..', 'templates', 'PLANTILLA TRANSFER DIRECTO CRM.xlsx');
-
-    let wb;
-    try {
-      await fs.access(hefameTemplatePath);
-      wb = new ExcelJS.Workbook();
-      await wb.xlsx.readFile(hefameTemplatePath);
-    } catch (e) {
-      console.warn('Plantilla Hefame no encontrada:', hefameTemplatePath, e?.message);
-      return res.status(404).send('Plantilla Excel Hefame no encontrada. Coloca PLANTILLA TRANSFER DIRECTO CRM.xlsx en templates/.');
-    }
-
-    if (!wb || !wb.worksheets || wb.worksheets.length === 0) {
-      return res.status(500).send('Plantilla Hefame sin hojas.');
-    }
-
-    const ws = wb.worksheets[0];
-
-    const todayDDMMYYYY = () => {
-      const d = new Date();
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      return `${day}-${month}-${year}`;
-    };
-
-    const valorF5 = numPedido || todayDDMMYYYY();
-    const nombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || '';
-    const codigoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
-    const telefono = cliente?.Telefono || cliente?.Movil || cliente?.Teléfono || '';
-    const cp = String(cliente?.CodigoPostal ?? '').trim();
-    const poblacion = String(cliente?.Poblacion ?? '').trim();
-    const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
-
-    try {
-      ws.getCell('F5').value = valorF5;
-      ws.getCell('C13').value = nombre;
-      ws.getCell('C14').value = codigoHefame;
-      ws.getCell('C15').value = telefono;
-      ws.getCell('C16').value = poblacionConCP;
-    } catch (e) {
-      console.warn('Hefame Excel: error escribiendo cabecera', e?.message);
-    }
-
-    const lineasArr = Array.isArray(lineas) ? lineas : [];
-    const firstDataRow = 21;
-    lineasArr.forEach((l, idx) => {
-      const row = firstDataRow + idx;
-      const cantidad = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
-      const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
-      const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-      const descuentoPct = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
-      const descuentoExcel = descuentoPct / 100;
-
-      try {
-        ws.getRow(row).getCell(2).value = cantidad;
-        ws.getRow(row).getCell(3).value = cn;
-        ws.getRow(row).getCell(4).value = descripcion;
-        ws.getRow(row).getCell(5).value = descuentoExcel;
-      } catch (e) {
-        console.warn('Hefame Excel: error escribiendo línea', row, e?.message);
-      }
-    });
-
-    const buf = await wb.xlsx.writeBuffer();
-
-    const today = new Date();
-    const yyyymmdd =
-      today.getFullYear() +
-      String(today.getMonth() + 1).padStart(2, '0') +
-      String(today.getDate()).padStart(2, '0');
-    const nombreClienteRaw = cliente?.Nombre_Razon_Social || cliente?.Nombre || '';
-    const nombreClienteSafe = String(nombreClienteRaw)
-      .trim()
-      .replace(/\s+/g, '_')
-      .replace(/[\\/:*?"<>|]/g, '')
-      .replace(/\s/g, '_')
-      .slice(0, 80) || 'cliente';
-    const pedidoNum = numPedido || `pedido_${id}`;
-    const attachmentFileName = `${yyyymmdd}_${nombreClienteSafe}-${pedidoNum}.xlsx`;
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader('Content-Disposition', `attachment; filename="${attachmentFileName}"`);
-    return res.end(Buffer.from(buf));
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader('Content-Disposition', `attachment; filename="${built.filename}"`);
+    return res.end(built.buf);
   } catch (e) {
     next(e);
+  }
+});
+
+app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+  try {
+    const webhookFromDb = await db.getVariableSistema?.(SYSVAR_N8N_PEDIDOS_WEBHOOK_URL).catch(() => null);
+    const webhookUrl = String(webhookFromDb || process.env.N8N_PEDIDOS_WEBHOOK_URL || '').trim();
+    const item = res.locals.pedido;
+    const id = Number(req.params.id);
+
+    if (!webhookUrl) {
+      return res.redirect(
+        `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent('Falta configurar el webhook de N8N (Variables del sistema o N8N_PEDIDOS_WEBHOOK_URL en .env).')}`
+      );
+    }
+
+    const [lineas, cliente] = await Promise.all([
+      db.getArticulosByPedido(id).catch(() => []),
+      item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : Promise.resolve(null)
+    ]);
+
+    let direccionEnvio = null;
+    try {
+      direccionEnvio = item?.Id_DireccionEnvio
+        ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
+        : null;
+      if (!direccionEnvio && cliente?.Id) {
+        const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
+        if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
+      }
+    } catch (_) {
+      direccionEnvio = null;
+    }
+
+    const isTransfer = await isTransferPedido(item).catch(() => false);
+    let excel;
+    let excelTipo = 'estandar';
+    if (isTransfer) {
+      const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente });
+      if (!built.ok) {
+        return res.redirect(
+          `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent(built.error || 'No se pudo generar el Excel (Transfer).')}`
+        );
+      }
+      excel = { buf: built.buf, filename: built.filename };
+      excelTipo = 'transfer';
+    } else {
+      const built = await buildStandardPedidoXlsxBuffer({
+        item,
+        id,
+        lineas,
+        cliente,
+        direccionEnvio,
+        fmtDateES: res.locals.fmtDateES
+      });
+      excel = { buf: built.buf, filename: built.filename };
+      excelTipo = 'directo';
+    }
+
+    const payload = {
+      requestId: req.requestId,
+      sentAt: new Date().toISOString(),
+      excelTipo,
+      pedido: item,
+      lineas: Array.isArray(lineas) ? lineas : [],
+      cliente,
+      direccionEnvio
+    };
+
+    const form = new FormData();
+    form.append('payload', JSON.stringify(payload), { contentType: 'application/json; charset=utf-8' });
+    form.append('excel', excel.buf, { filename: excel.filename, contentType: XLSX_MIME });
+
+    const resp = await axios.post(webhookUrl, form, {
+      headers: { ...form.getHeaders() },
+      timeout: 30000,
+      maxBodyLength: Infinity,
+      validateStatus: () => true
+    });
+
+    const ok = resp.status >= 200 && resp.status < 300;
+    if (!ok) {
+      const details =
+        typeof resp.data === 'string'
+          ? resp.data.slice(0, 300)
+          : (resp.data && typeof resp.data === 'object')
+            ? JSON.stringify(resp.data).slice(0, 300)
+            : '';
+      return res.redirect(
+        `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent(`Webhook respondió HTTP ${resp.status}${details ? ` · ${details}` : ''}`)}`
+      );
+    }
+
+    return res.redirect(
+      `/pedidos?n8n=ok&pid=${encodeURIComponent(String(id))}&file=${encodeURIComponent(excel.filename)}&msg=${encodeURIComponent(`Webhook OK (HTTP ${resp.status})`)}` 
+    );
+  } catch (e) {
+    console.error('Enviar pedido a N8N: error', e?.message);
+    return res.redirect(
+      `/pedidos?n8n=err&pid=${encodeURIComponent(String(req.params.id || ''))}&msg=${encodeURIComponent('Error enviando a N8N. Revisa logs/soporte.')}`
+    );
   }
 });
 
