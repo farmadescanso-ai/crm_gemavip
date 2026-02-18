@@ -241,6 +241,25 @@
         </div>
       </div>
     </div>
+
+    <% if (mode === 'create') { %>
+      <div class="gv-modal-backdrop" id="gvDupBackdrop" hidden></div>
+      <div class="gv-modal" id="gvDupModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvDupTitle">
+        <div class="gv-modal-card" style="max-width: 760px;">
+          <div class="gv-modal-hd">
+            <div class="gv-modal-title" id="gvDupTitle">Este contacto puede estar ya dado de alta</div>
+            <div class="gv-modal-subtitle">Hemos encontrado coincidencias por CIF/NIF o por nombre. Revisa antes de crear un duplicado.</div>
+          </div>
+          <div class="gv-modal-bd" style="padding: 0 16px 10px 16px;">
+            <div id="gvDupList" style="display:grid; gap: 10px;"></div>
+          </div>
+          <div class="gv-modal-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+            <button type="button" class="btn secondary" id="gvDupContinue">Seguir creando</button>
+            <a class="btn" href="/clientes" id="gvDupCancel">Cancelar alta</a>
+          </div>
+        </div>
+      </div>
+    <% } %>
   </div>
 </section>
 
@@ -344,6 +363,168 @@
     dni.addEventListener('input', sync);
     dni.addEventListener('change', sync);
     sync();
+  }
+
+  // Duplicados (solo alta)
+  var mode = "<%= mode %>";
+  if (mode === 'create') {
+    var dupBackdrop = document.getElementById('gvDupBackdrop');
+    var dupModal = document.getElementById('gvDupModal');
+    var dupList = document.getElementById('gvDupList');
+    var dupContinue = document.getElementById('gvDupContinue');
+
+    var lastKeyShown = '';
+    var aborter = null;
+
+    function showDupModal() {
+      if (dupBackdrop) dupBackdrop.hidden = false;
+      if (dupModal) dupModal.hidden = false;
+      if (dupContinue) dupContinue.focus();
+    }
+    function hideDupModal() {
+      if (dupBackdrop) dupBackdrop.hidden = true;
+      if (dupModal) dupModal.hidden = true;
+    }
+    if (dupBackdrop) dupBackdrop.addEventListener('click', hideDupModal);
+    if (dupContinue) dupContinue.addEventListener('click', hideDupModal);
+
+    function debounce(fn, wait) {
+      var t = null;
+      return function () {
+        var args = arguments;
+        if (t) window.clearTimeout(t);
+        t = window.setTimeout(function () { fn.apply(null, args); }, wait);
+      };
+    }
+    function escapeHtml(s) {
+      return String(s || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+    function normDni(s) {
+      return String(s || '')
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '')
+        .replace(/-/g, '');
+    }
+    function normName(s) {
+      try {
+        return String(s || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ');
+      } catch (_) {
+        return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      }
+    }
+    async function suggest(q) {
+      var url = "/api/clientes/suggest?q=" + encodeURIComponent(String(q || '')) + "&limit=8";
+      var opts = { headers: { Accept: 'application/json' } };
+      if (aborter) aborter.abort();
+      aborter = new AbortController();
+      opts.signal = aborter.signal;
+      var r = await fetch(url, opts);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      var json = await r.json();
+      if (!json || json.ok !== true) return [];
+      return Array.isArray(json.items) ? json.items : [];
+    }
+    function renderMatches(items, qLabel) {
+      if (!dupList) return;
+      if (!items || !items.length) {
+        dupList.innerHTML = '<div class="gv-alert gv-alert--warn" style="margin:0;">No se han encontrado coincidencias.</div>';
+        return;
+      }
+      dupList.innerHTML = items.map(function (it) {
+        var id = it.Id || it.id || '';
+        var rs = it.Nombre_Razon_Social || it.Nombre || '';
+        var nc = it.Nombre_Cial || '';
+        var cif = it.DNI_CIF || '';
+        var cp = it.CodigoPostal || '';
+        var pob = it.Poblacion || '';
+        var title = [rs, nc].filter(Boolean).join(' / ') || ('Contacto ' + id);
+        var meta = [cif, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+        return (
+          '<div style="display:flex; gap:10px; align-items:flex-start; justify-content:space-between; border:1px solid var(--gv-border); border-radius:12px; padding:12px; background: rgba(255,255,255,.85);">' +
+            '<div style="min-width:0;">' +
+              '<div style="font-weight:900; color:var(--gv-ink);">' + escapeHtml(id) + ' · ' + escapeHtml(title) + '</div>' +
+              (meta ? ('<div style="margin-top:4px; color:var(--gv-muted); font-weight:700;">' + escapeHtml(meta) + '</div>') : '') +
+            '</div>' +
+            '<div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">' +
+              '<a class="btn secondary" href="/clientes/' + encodeURIComponent(String(id)) + '">Ver</a>' +
+              '<a class="btn" href="/clientes/' + encodeURIComponent(String(id)) + '/edit">Modificar</a>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    var dniInput = document.getElementById('gv_DNI_CIF');
+    var nameInput = document.getElementById('gv_Nombre_Razon_Social');
+    var comercialNameInput = document.getElementById('gv_Nombre_Cial');
+
+    var run = debounce(async function () {
+      try {
+        var dniVal = normDni(dniInput ? dniInput.value : '');
+        var nameVal = normName(nameInput ? nameInput.value : '');
+        var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
+
+        var key = [dniVal, nameVal, cialVal].join('|');
+        // no re-lanzar si no cambió nada desde que ya lo mostramos
+        if (key && key === lastKeyShown) return;
+
+        var q = '';
+        var strongByDni = false;
+        if (dniVal && dniVal.length >= 8) {
+          q = dniVal;
+          strongByDni = true;
+        } else if (nameVal && nameVal.length >= 12) {
+          q = nameVal;
+        } else if (cialVal && cialVal.length >= 12) {
+          q = cialVal;
+        } else {
+          return;
+        }
+
+        var items = await suggest(q);
+        if (!items.length) return;
+
+        var matches = items.slice(0, 6);
+        if (strongByDni) {
+          var dn = dniVal;
+          var exact = items.filter(function (it) { return normDni(it.DNI_CIF || '') === dn; });
+          if (!exact.length) return;
+          matches = exact.slice(0, 6);
+        } else {
+          // Por nombre: filtrar por coincidencia clara (contiene la cadena normalizada)
+          var qn = q;
+          var filtered = items.filter(function (it) {
+            var a = normName(it.Nombre_Razon_Social || it.Nombre || '');
+            var b = normName(it.Nombre_Cial || '');
+            return (a && a.includes(qn)) || (b && b.includes(qn));
+          });
+          if (!filtered.length) return;
+          matches = filtered.slice(0, 6);
+        }
+
+        lastKeyShown = key;
+        renderMatches(matches, q);
+        showDupModal();
+      } catch (_e) {
+        // silencioso: no bloquear el alta si falla el lookup
+      }
+    }, 350);
+
+    [dniInput, nameInput, comercialNameInput].filter(Boolean).forEach(function (el) {
+      el.addEventListener('input', run);
+      el.addEventListener('change', run);
+    });
   }
 })();
 </script>
