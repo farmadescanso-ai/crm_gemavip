@@ -233,6 +233,17 @@ async function loadSimpleCatalogForSelect(db, tableKey, { labelCandidates } = {}
   }
 }
 
+async function loadEstadosClienteForSelect(db) {
+  // Tabla: estdoClientes (id, Nombre)
+  try {
+    const t = await db._resolveTableNameCaseInsensitive('estdoClientes');
+    const rows = await db.query(`SELECT id, Nombre FROM \`${t}\` ORDER BY id ASC`);
+    return Array.isArray(rows) ? rows : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 function findRowByCode(rows, codeCandidates) {
   const codes = (codeCandidates || []).map((c) => String(c).toUpperCase());
   for (const r of (rows || [])) {
@@ -1071,16 +1082,21 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
 // ===========================
 // CLIENTES (HTML) - Admin CRUD
 // ===========================
-function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, canChangeComercial, missingFields }) {
+function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, canChangeComercial, missingFields }) {
   const cols = Array.isArray(meta?.cols) ? meta.cols : [];
   const pk = meta?.pk || 'Id';
+  const hasEstadoCliente = !!meta?.colEstadoCliente;
   const ignore = new Set(
     [pk, 'created_at', 'updated_at', 'CreatedAt', 'UpdatedAt', 'FechaAlta', 'Fecha_Alta', 'FechaBaja', 'Fecha_Baja']
       .map(String)
   );
+  // Si existe estdoClientes, OK_KO queda derivado del estado (evita solape en UI)
+  if (hasEstadoCliente) ignore.add('OK_KO');
 
   const labelize = (name) => {
     const raw = String(name || '');
+    const lower = raw.toLowerCase();
+    if (lower === 'id_estdocliente' || lower === 'id_estadocliente') return 'Estado Cliente';
     const cleaned = raw
       .replace(/_/g, ' ')
       .replace(/\bId\b/g, 'ID')
@@ -1107,6 +1123,7 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     const n = String(name || '').toLowerCase();
     if (n === 'ok_ko') return { kind: 'select', options: 'ok_ko' };
     if (n === 'tipocontacto' || n === 'tipo_contacto') return { kind: 'select', options: 'tipo_contacto' };
+    if (n === 'id_estdocliente' || n === 'id_estadocliente') return { kind: 'select', options: 'estados_cliente' };
     if (n === String(meta?.colComercial || '').toLowerCase() || n === 'id_cial' || n === 'comercialid') return { kind: 'select', options: 'comerciales' };
     if (n === 'tarifa' || n === 'id_tarifa') return { kind: 'select', options: 'tarifas' };
     if (n === 'id_pais') return { kind: 'select', options: 'paises' };
@@ -1189,6 +1206,7 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     tiposClientes,
     idiomas,
     monedas,
+    estadosCliente,
     cooperativas,
     gruposCompras,
     canChangeComercial: !!canChangeComercial,
@@ -1231,7 +1249,7 @@ function coerceClienteValue(fieldName, raw) {
 }
 app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, meta] = await Promise.all([
+    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getProvincias?.().catch(() => []) ?? [],
@@ -1240,6 +1258,7 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      loadEstadosClienteForSelect(db),
       db.getCooperativas?.().catch(() => []) ?? [],
       db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
@@ -1260,6 +1279,7 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
       tiposClientes: Array.isArray(tiposClientes) ? tiposClientes : [],
       idiomas: Array.isArray(idiomas) ? idiomas : [],
       monedas: Array.isArray(monedas) ? monedas : [],
+      estadosCliente: Array.isArray(estadosCliente) ? estadosCliente : [],
       cooperativas: Array.isArray(cooperativas) ? cooperativas : [],
       gruposCompras: Array.isArray(gruposCompras) ? gruposCompras : [],
       canChangeComercial: true
@@ -1272,7 +1292,7 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
 
 app.post('/clientes/new', requireAdmin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, meta] = await Promise.all([
+    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getProvincias?.().catch(() => []) ?? [],
@@ -1281,6 +1301,7 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      loadEstadosClienteForSelect(db),
       db.getCooperativas?.().catch(() => []) ?? [],
       db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
@@ -1316,6 +1337,7 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
         tiposClientes,
         idiomas,
         monedas,
+        estadosCliente,
         cooperativas,
         gruposCompras,
         canChangeComercial: true,
@@ -1354,7 +1376,7 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras, meta] = await Promise.all([
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
@@ -1364,6 +1386,7 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      loadEstadosClienteForSelect(db),
       db.getCooperativas?.().catch(() => []) ?? [],
       db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
@@ -1382,6 +1405,7 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       tiposClientes,
       idiomas,
       monedas,
+      estadosCliente,
       cooperativas,
       gruposCompras,
       canChangeComercial: admin
@@ -1398,7 +1422,7 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, meta, provincias, paises, formasPago, tiposClientes, idiomas, monedas, cooperativas, gruposCompras] = await Promise.all([
+    const [item, meta, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras] = await Promise.all([
       db.getClienteById(id),
       db._ensureClientesMeta().catch(() => null),
       db.getProvincias?.().catch(() => []) ?? [],
@@ -1407,6 +1431,7 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      loadEstadosClienteForSelect(db),
       db.getCooperativas?.().catch(() => []) ?? [],
       db.getGruposCompras?.().catch(() => []) ?? []
     ]);
@@ -1445,6 +1470,7 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
         tiposClientes,
         idiomas,
         monedas,
+        estadosCliente,
         cooperativas,
         gruposCompras,
         canChangeComercial: !!admin,

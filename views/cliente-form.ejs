@@ -71,6 +71,17 @@
                     <option value="0" <%= pickVal(name) === '0' ? 'selected' : '' %>>Inactivo</option>
                   </select>
                   <small style="color: var(--gv-muted);">Solo se puede estar activo con DNI/CIF informado.</small>
+                <% } else if (spec.kind === 'select' && spec.options === 'estados_cliente') { %>
+                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <select id="<%= inputId %>" name="<%= name %>">
+                    <option value="">—</option>
+                    <% (estadosCliente || []).forEach((r) => { %>
+                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                      <% const rlabel = r.Nombre ?? r.nombre ?? ('Estado ' + rid); %>
+                      <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
+                    <% }) %>
+                  </select>
+                  <small style="color: var(--gv-muted);">Si seleccionas Activo sin DNI/CIF válido, se guardará como Potencial.</small>
                 <% } else if (spec.kind === 'select' && spec.options === 'tipo_contacto') { %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">— Seleccionar —</option>

@@ -3995,9 +3995,21 @@ class MySQLCRM {
             ? Number(payload.Id_EstdoCliente)
             : null;
 
-          const estadoFinal = (estadoReq === ids.inactivo || esInactivoPorOkKo)
-            ? ids.inactivo
-            : (dniValido ? ids.activo : ids.potencial);
+          // Resolver estado final:
+          // - Inactivo siempre gana.
+          // - Si el usuario elige Potencial, respetarlo (no "auto-promocionar" a Activo).
+          // - Si el usuario elige Activo pero no hay DNI/CIF válido, bajar a Potencial.
+          // - Si no hay elección, aplicar regla automática por DNI/CIF (y OK_KO).
+          let estadoFinal;
+          if (estadoReq === ids.inactivo || esInactivoPorOkKo) {
+            estadoFinal = ids.inactivo;
+          } else if (estadoReq === ids.potencial) {
+            estadoFinal = ids.potencial;
+          } else if (estadoReq === ids.activo) {
+            estadoFinal = dniValido ? ids.activo : ids.potencial;
+          } else {
+            estadoFinal = dniValido ? ids.activo : ids.potencial;
+          }
 
           payload.Id_EstdoCliente = estadoFinal;
           payload.OK_KO = (estadoFinal === ids.inactivo) ? 0 : 1;
@@ -4156,11 +4168,21 @@ class MySQLCRM {
         const okKo = payload.OK_KO;
         const esInactivo = (okKo === 0 || okKo === '0' || okKo === false);
 
-        // Si viene estado explícito y es Inactivo, respetar; el resto se recalcula por regla.
-        const estadoReq = payload.Id_EstdoCliente !== undefined ? Number(payload.Id_EstdoCliente) : null;
-        const estadoFinal = (estadoReq === ids.inactivo || esInactivo)
-          ? ids.inactivo
-          : (dniValido ? ids.activo : ids.potencial);
+        // Si viene estado explícito, respetar Potencial/Inactivo.
+        // Si viene Activo sin DNI/CIF válido, degradar a Potencial.
+        const estadoReq = payload.Id_EstdoCliente !== undefined && payload.Id_EstdoCliente !== null && String(payload.Id_EstdoCliente).trim() !== ''
+          ? Number(payload.Id_EstdoCliente)
+          : null;
+        let estadoFinal;
+        if (estadoReq === ids.inactivo || esInactivo) {
+          estadoFinal = ids.inactivo;
+        } else if (estadoReq === ids.potencial) {
+          estadoFinal = ids.potencial;
+        } else if (estadoReq === ids.activo) {
+          estadoFinal = dniValido ? ids.activo : ids.potencial;
+        } else {
+          estadoFinal = dniValido ? ids.activo : ids.potencial;
+        }
 
         payload.Id_EstdoCliente = estadoFinal;
         // Mantener compatibilidad con OK_KO: inactivo->0; resto->1
