@@ -1093,20 +1093,69 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
   // Si existe estdoClientes, OK_KO queda derivado del estado (evita solape en UI)
   if (hasEstadoCliente) ignore.add('OK_KO');
 
+  const titleCaseEs = (s) => {
+    const parts = String(s || '')
+      .trim()
+      .split(/\s+/g)
+      .filter(Boolean);
+    const lowerWords = new Set(['de', 'del', 'la', 'el', 'y', 'o', 'a', 'en', 'por', 'para', 'con']);
+    return parts
+      .map((w, idx) => {
+        const lw = w.toLowerCase();
+        if (idx > 0 && lowerWords.has(lw)) return lw;
+        return lw.length ? (lw.charAt(0).toUpperCase() + lw.slice(1)) : lw;
+      })
+      .join(' ');
+  };
+
   const labelize = (name) => {
     const raw = String(name || '');
     const lower = raw.toLowerCase();
-    if (lower === 'id_estdocliente' || lower === 'id_estadocliente') return 'Estado Cliente';
-    const cleaned = raw
+    const overrides = {
+      id_estdocliente: 'Estado Cliente',
+      id_estadocliente: 'Estado Cliente',
+      ok_ko: 'Estado',
+      id_cial: 'Delegado',
+      comercialid: 'Delegado',
+      tipocontacto: 'Tipo Contacto',
+      tipo_contacto: 'Tipo Contacto',
+      nombre_razon_social: 'Nombre / Razón social',
+      nombre_cial: 'Nombre comercial',
+      dni_cif: 'DNI/CIF',
+      codigopostal: 'Código postal',
+      id_provincia: 'Provincia',
+      id_pais: 'País',
+      id_idioma: 'Idioma',
+      id_moneda: 'Moneda',
+      id_formapago: 'Forma de pago',
+      id_forma_pago: 'Forma de pago',
+      id_tipocliente: 'Tipo cliente',
+      id_tipo_cliente: 'Tipo cliente',
+      numcontacto: 'Nombre contacto',
+      numeroFarmacia: 'Nº farmacia'
+    };
+    if (overrides[lower]) return overrides[lower];
+
+    // Humanizar: snake_case + camelCase
+    let cleaned = raw
       .replace(/_/g, ' ')
-      .replace(/\bId\b/g, 'ID')
-      .replace(/\bDNI\b/g, 'DNI')
-      .replace(/\bCIF\b/g, 'CIF')
-      .replace(/\bCP\b/g, 'CP')
-      .replace(/\bIVA\b/g, 'IVA')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
       .trim();
-    // Title case suave
-    return cleaned.length ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : raw;
+
+    // Quitar "ID"/"Id" de etiquetas (p.ej. "ID País" -> "País")
+    cleaned = cleaned.replace(/\bID\b/gi, '').replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(/^\b(id)\b\s+/i, '').trim();
+
+    // Abreviaturas
+    cleaned = cleaned
+      .replace(/\bDni\b/g, 'DNI')
+      .replace(/\bCif\b/g, 'CIF')
+      .replace(/\bCp\b/g, 'CP')
+      .replace(/\bIva\b/g, 'IVA')
+      .replace(/\bIban\b/g, 'IBAN')
+      .replace(/\bRe\b/g, 'RE');
+
+    return titleCaseEs(cleaned) || raw;
   };
 
   const toTab = (name) => {
@@ -1146,7 +1195,7 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
 
   const tabs = [
     { id: 'ident', label: 'Identificación', fields: [] },
-    { id: 'contacto', label: 'Contacto', fields: [] },
+    { id: 'contacto', label: 'Comunicación', fields: [] },
     { id: 'direccion', label: 'Dirección', fields: [] },
     { id: 'condiciones', label: 'Condiciones', fields: [] },
     { id: 'notas', label: 'Notas', fields: [] },

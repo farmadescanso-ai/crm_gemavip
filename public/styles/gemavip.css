@@ -224,6 +224,21 @@ main.container{
   box-shadow: var(--gv-shadow);
   overflow:hidden;
 }
+
+/* Aviso "Tienes cambios sin guardar." (form clientes) */
+.gv-dirty-hint{
+  font-weight: 900;
+  color: var(--gv-yellow);
+  text-shadow: 0 1px 0 rgba(12,20,58,.08);
+  animation: gvDirtyBlink 1.1s ease-in-out infinite;
+}
+@keyframes gvDirtyBlink{
+  0%, 100%{ opacity: 1; }
+  50%{ opacity: .25; }
+}
+@media (prefers-reduced-motion: reduce){
+  .gv-dirty-hint{ animation: none; }
+}
 .user-dropdown-hd{
   padding: 12px 12px 10px 12px;
   background: linear-gradient(180deg, rgba(0,139,210,.10), rgba(255,255,255,0));
