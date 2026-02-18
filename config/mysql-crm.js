@@ -4020,12 +4020,20 @@ class MySQLCRM {
           const dniToCheck = (payload.DNI_CIF !== undefined) ? payload.DNI_CIF : (clienteActual?.DNI_CIF);
           const dniValido = this._isValidDniCif(dniToCheck);
 
-          const okKoToCheck = (payload.OK_KO !== undefined) ? payload.OK_KO : (clienteActual?.OK_KO);
-          const esInactivoPorOkKo = (okKoToCheck === 0 || okKoToCheck === '0' || okKoToCheck === false || (typeof okKoToCheck === 'string' && okKoToCheck.toUpperCase().trim() === 'KO'));
-
           const estadoReq = (payload.Id_EstdoCliente !== undefined && payload.Id_EstdoCliente !== null && String(payload.Id_EstdoCliente).trim() !== '')
             ? Number(payload.Id_EstdoCliente)
             : null;
+
+          // IMPORTANTE:
+          // Si el usuario selecciona explícitamente Estado Cliente (estadoReq), ese valor manda.
+          // No debemos forzar "Inactivo" solo porque el OK_KO previo del registro sea KO/0.
+          const okKoToCheck = (payload.OK_KO !== undefined) ? payload.OK_KO : (clienteActual?.OK_KO);
+          const esInactivoPorOkKo = (estadoReq === null) && (
+            okKoToCheck === 0
+            || okKoToCheck === '0'
+            || okKoToCheck === false
+            || (typeof okKoToCheck === 'string' && okKoToCheck.toUpperCase().trim() === 'KO')
+          );
 
           // Resolver estado final:
           // - Inactivo siempre gana.
