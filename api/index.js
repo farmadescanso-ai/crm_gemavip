@@ -1086,6 +1086,12 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
   const cols = Array.isArray(meta?.cols) ? meta.cols : [];
   const pk = meta?.pk || 'Id';
   const hasEstadoCliente = !!meta?.colEstadoCliente;
+  const colsLower = new Set((cols || []).map((c) => String(c || '').toLowerCase()));
+  const hasIdTipoCliente =
+    colsLower.has('id_tipocliente')
+    || colsLower.has('id_tipo_cliente')
+    || colsLower.has('id_tipocliente_id')
+    || colsLower.has('id_tipo_cliente_id');
   const ignore = new Set(
     [pk, 'created_at', 'updated_at', 'CreatedAt', 'UpdatedAt', 'FechaAlta', 'Fecha_Alta', 'FechaBaja', 'Fecha_Baja']
       .map(String)
@@ -1095,9 +1101,10 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
   // Id_CodigoPostal es un FK/lookup técnico a Codigos_Postales y suele duplicar "CodigoPostal" (texto).
   // Evitar mostrarlo en el formulario para no confundir.
   try {
-    const colsLower = new Set((cols || []).map((c) => String(c || '').toLowerCase()));
     if (colsLower.has('id_codigopostal') && colsLower.has('codigopostal')) ignore.add('Id_CodigoPostal');
   } catch (_) {}
+  // Si existe Id_TipoCliente (FK), ocultar el texto legacy TipoCliente para no duplicar.
+  if (hasIdTipoCliente && colsLower.has('tipocliente')) ignore.add('TipoCliente');
 
   const titleCaseEs = (s) => {
     const parts = String(s || '')
@@ -1185,6 +1192,8 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     if (n === 'id_provincia') return { kind: 'select', options: 'provincias' };
     if (n === 'id_formapago' || n === 'id_forma_pago') return { kind: 'select', options: 'formas_pago' };
     if (n === 'id_tipocliente' || n === 'id_tipo_cliente') return { kind: 'select', options: 'tipos_clientes' };
+    // Legacy: si solo existe TipoCliente (texto) y no existe Id_TipoCliente, renderizar select por nombre.
+    if ((n === 'tipocliente' || n === 'tipo_cliente') && !hasIdTipoCliente) return { kind: 'select', options: 'tipos_clientes_nombre' };
     if (n === 'id_idioma') return { kind: 'select', options: 'idiomas' };
     if (n === 'id_moneda') return { kind: 'select', options: 'monedas' };
     if (n === 'id_cooperativa') return { kind: 'select', options: 'cooperativas' };

@@ -3354,13 +3354,45 @@ class MySQLCRM {
 
   async getClienteById(id) {
     try {
-      const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-      const sql = `SELECT * FROM \`${tClientes}\` WHERE Id = ? LIMIT 1`;
+      const meta = await this._ensureClientesMeta().catch(() => null);
+      const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
+      const pk = meta?.pk || 'Id';
+      const colComercial = meta?.colComercial || null;
+      const colEstadoCliente = meta?.colEstadoCliente || null;
+
+      const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes').catch(() => null) : null;
+      const tTiposClientes = await this._resolveTableNameCaseInsensitive('tipos_clientes').catch(() => null);
+      const tProvincias = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
+      const tComerciales = colComercial ? await this._resolveTableNameCaseInsensitive('comerciales').catch(() => null) : null;
+
+      const sql = `
+        SELECT
+          c.*,
+          ${tProvincias ? 'p.Nombre as ProvinciaNombre' : 'NULL as ProvinciaNombre'},
+          ${tTiposClientes ? 'tc.Tipo as TipoClienteNombre' : 'NULL as TipoClienteNombre'},
+          ${(colComercial && tComerciales) ? 'cial.Nombre as ComercialNombre' : 'NULL as ComercialNombre'},
+          ${(colEstadoCliente && tEstados) ? 'ec.Nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
+          ${(colEstadoCliente) ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
+        FROM \`${tClientes}\` c
+        ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.Id_Provincia = p.id` : ''}
+        ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.Id_TipoCliente = tc.id` : ''}
+        ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.id` : ''}
+        ${(colEstadoCliente && tEstados) ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.id` : ''}
+        WHERE c.\`${pk}\` = ?
+        LIMIT 1
+      `;
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
-      return null;
+      // Fallback mínimo
+      try {
+        const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
+        const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE Id = ? LIMIT 1`, [id]);
+        return rows.length > 0 ? rows[0] : null;
+      } catch (_) {
+        return null;
+      }
     }
   }
 

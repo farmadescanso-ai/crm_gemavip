@@ -6,10 +6,23 @@
     <p class="card-subtitle"><%= item.Nombre_Razon_Social ?? item.Nombre ?? 'Detalle de contacto' %></p>
   </div>
   <div class="card-bd">
+    <%
+      const okKoToEstado = (v) => {
+        const s = String(v ?? '').trim().toLowerCase();
+        if (!s) return '';
+        if (s === '1' || s === 'ok' || s === 'activo' || s === 'true') return 'Activo';
+        if (s === '0' || s === 'ko' || s === 'inactivo' || s === 'false') return 'Inactivo';
+        return String(v);
+      };
+      const estadoVisible =
+        item.EstadoClienteNombre
+        || okKoToEstado(item.OK_KO)
+        || (String(item.Activo ?? '').trim() === '1' ? 'Activo' : (String(item.Activo ?? '').trim() === '0' ? 'Inactivo' : ''));
+    %>
     <div class="kpi">
       <span class="pill">Tarifa: <%= item.Tarifa ?? item.Id_Tarifa ?? 0 %></span>
       <span class="pill">Dto: <%= item.Dto ?? 0 %>%</span>
-      <span class="pill">Estado: <%= item.OK_KO ?? '' %></span>
+      <span class="pill">Estado: <%= estadoVisible || '—' %></span>
     </div>
 
     <div style="margin-top: 14px;" class="table-wrap">

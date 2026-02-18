@@ -153,6 +153,16 @@
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
+                <% } else if (spec.kind === 'select' && spec.options === 'tipos_clientes_nombre') { %>
+                  <% const cur = String(pickVal(name) || '').trim().toLowerCase(); %>
+                  <select id="<%= inputId %>" name="<%= name %>">
+                    <option value="">—</option>
+                    <% (tiposClientes || []).forEach((r) => { %>
+                      <% const rlabel = String(r.Tipo ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? '').trim(); %>
+                      <% const rval = rlabel; %>
+                      <option value="<%= rval %>" <%= (rlabel && rlabel.trim().toLowerCase() === cur) ? 'selected' : '' %>><%= rlabel || '—' %></option>
+                    <% }) %>
+                  </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'idiomas') { %>
                   <% const curId = Number(pickVal(name) || 0) || 0; %>
                   <select id="<%= inputId %>" name="<%= name %>">
