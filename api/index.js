@@ -1311,7 +1311,7 @@ function coerceClienteValue(fieldName, raw) {
   }
   return trimmed;
 }
-app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
+app.get('/clientes/new', requireLogin, async (_req, res, next) => {
   try {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
@@ -1327,6 +1327,7 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
       db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
     ]);
+    const isAdmin = isAdminUser(res.locals.user);
     const baseItem = applySpainDefaultsIfEmpty(
       { OK_KO: 1, Tarifa: 0, Dto: 0 },
       { meta, paises, idiomas, monedas }
@@ -1346,7 +1347,7 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
       estadosCliente: Array.isArray(estadosCliente) ? estadosCliente : [],
       cooperativas: Array.isArray(cooperativas) ? cooperativas : [],
       gruposCompras: Array.isArray(gruposCompras) ? gruposCompras : [],
-      canChangeComercial: true
+      canChangeComercial: !!isAdmin
     });
     res.render('cliente-form', { ...model, error: null });
   } catch (e) {
@@ -1354,7 +1355,7 @@ app.get('/clientes/new', requireAdmin, async (_req, res, next) => {
   }
 });
 
-app.post('/clientes/new', requireAdmin, async (req, res, next) => {
+app.post('/clientes/new', requireLogin, async (req, res, next) => {
   try {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
@@ -1370,6 +1371,7 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
       db.getGruposCompras?.().catch(() => []) ?? [],
       db._ensureClientesMeta().catch(() => null)
     ]);
+    const isAdmin = isAdminUser(res.locals.user);
     const body = req.body || {};
     const cols = Array.isArray(meta?.cols) ? meta.cols : [];
     const pk = meta?.pk || 'Id';
@@ -1379,8 +1381,16 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
       const real = colsLower.get(String(k).toLowerCase());
       if (!real) continue;
       if (String(real).toLowerCase() === String(pk).toLowerCase()) continue;
+      // No admin: no permitir cambiar delegado/comercial
+      if (!isAdmin && meta?.colComercial && String(real).toLowerCase() === String(meta.colComercial).toLowerCase()) continue;
       payload[real] = coerceClienteValue(real, v);
     }
+
+    // No admin: auto-asignar delegado/comercial al usuario actual
+    if (!isAdmin && meta?.colComercial && res.locals.user?.id) {
+      payload[meta.colComercial] = Number(res.locals.user.id);
+    }
+
     // Defaults mínimos
     if (payload.OK_KO === null || payload.OK_KO === undefined) payload.OK_KO = 1;
     if (payload.Tarifa === null || payload.Tarifa === undefined) payload.Tarifa = 0;
@@ -1404,7 +1414,7 @@ app.post('/clientes/new', requireAdmin, async (req, res, next) => {
         estadosCliente,
         cooperativas,
         gruposCompras,
-        canChangeComercial: true,
+        canChangeComercial: !!isAdmin,
         missingFields: missingFieldsNew
       });
       return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.' });
