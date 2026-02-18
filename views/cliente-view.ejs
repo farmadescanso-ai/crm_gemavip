@@ -1,0 +1,144 @@
+<%- include('partials/header', { title: 'Contacto' }) %>
+
+<% const cid = (item && (item.Id ?? item.id)) ? (item.Id ?? item.id) : ''; %>
+
+<section class="card gv-cliente-form" style="max-width: 1080px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Contacto #<%= cid %></h1>
+    <p class="card-subtitle"><%= item?.Nombre_Razon_Social ?? item?.Nombre ?? 'Detalle de contacto' %></p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof solicitud !== 'undefined' && solicitud === 'ok') { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom:12px;">
+        Solicitud enviada. Un administrador la revisará y te asignará el contacto si la aprueba.
+      </div>
+    <% } %>
+
+    <div class="gv-form-actions-sticky">
+      <div class="gv-form-actions-sticky__inner">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <a class="btn secondary" href="/clientes">Volver</a>
+          <% if (canEdit) { %>
+            <a class="btn" href="/clientes/<%= cid %>/edit">Editar</a>
+          <% } %>
+          <% if (typeof puedeSolicitarAsignacion !== 'undefined' && puedeSolicitarAsignacion) { %>
+            <form method="post" action="/clientes/<%= cid %>/solicitar-asignacion" style="display:inline;">
+              <button class="btn secondary" type="submit">Solicitar que me asignen este contacto</button>
+            </form>
+          <% } %>
+          <% if (admin) { %>
+            <form method="post" action="/clientes/<%= cid %>/delete" style="display:inline;" onsubmit="return confirm('¿Mover este contacto a la papelera?');">
+              <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Papelera</button>
+            </form>
+          <% } %>
+        </div>
+        <div style="color: var(--gv-muted); font-weight:800;">
+          Estado: <%= item?.EstadoClienteNombre ?? item?.OK_KO ?? '—' %>
+        </div>
+      </div>
+    </div>
+
+    <div class="gv-tabs" role="tablist" aria-label="Secciones del contacto" style="margin-top: 8px;">
+      <% (tabs || []).forEach((t, idx) => { %>
+        <button
+          type="button"
+          class="gv-tab <%= idx === 0 ? 'is-active' : '' %>"
+          role="tab"
+          aria-selected="<%= idx === 0 ? 'true' : 'false' %>"
+          aria-controls="tab_<%= t.id %>"
+          data-tab="<%= t.id %>"
+        ><%= t.label %></button>
+      <% }) %>
+    </div>
+
+    <%
+      const pickVal = (name) => {
+        const v = (item && item[name] !== undefined) ? item[name] : '';
+        return (v === null || v === undefined) ? '' : v;
+      };
+      const findById = (rows, id) => {
+        const cur = Number(id ?? 0) || 0;
+        if (!cur) return null;
+        return (rows || []).find((r) => Number(r?.id ?? r?.Id ?? r?.ID ?? 0) === cur) || null;
+      };
+      const displayForField = (f) => {
+        const name = f?.name;
+        const spec = f?.spec || {};
+        const raw = pickVal(name);
+        const rawStr = (raw === null || raw === undefined) ? '' : String(raw);
+        if (spec.kind === 'checkbox') {
+          const s = rawStr.trim().toLowerCase();
+          if (s === '1' || s === 'true' || s === 'si') return 'Sí';
+          if (s === '0' || s === 'false' || s === 'no') return 'No';
+        }
+        if (spec.kind === 'select' && spec.options === 'estados_cliente') return item?.EstadoClienteNombre ?? (rawStr || '—');
+        if (spec.kind === 'select' && spec.options === 'comerciales') return item?.ComercialNombre ?? (rawStr || '—');
+        if (spec.kind === 'select' && spec.options === 'tipos_clientes') return item?.TipoClienteNombre ?? (rawStr || '—');
+        if (spec.kind === 'select' && spec.options === 'provincias') return item?.ProvinciaNombre ?? (rawStr || '—');
+        if (spec.kind === 'select' && spec.options === 'paises') {
+          const row = findById(paises, raw);
+          return row?.Nombre_pais ?? item?.Pais ?? (rawStr || '—');
+        }
+        if (spec.kind === 'select' && spec.options === 'formas_pago') {
+          const row = findById(formasPago, raw);
+          return (row?.FormaPago ?? row?.Nombre ?? row?.nombre) ?? (rawStr || '—');
+        }
+        if (spec.kind === 'select' && spec.options === 'idiomas') {
+          const row = findById(idiomas, raw);
+          const code = String(row?.Codigo ?? row?.codigo ?? '').trim();
+          const lbl = row?.Nombre ?? row?.nombre ?? '';
+          return (code && lbl) ? `${code} · ${lbl}` : (lbl || rawStr || '—');
+        }
+        if (spec.kind === 'select' && spec.options === 'monedas') {
+          const row = findById(monedas, raw);
+          const code = String(row?.Codigo ?? row?.codigo ?? '').trim();
+          const lbl = row?.Nombre ?? row?.nombre ?? '';
+          return (code && lbl) ? `${code} · ${lbl}` : (lbl || rawStr || '—');
+        }
+        if (spec.kind === 'select' && spec.options === 'tipos_clientes_nombre') return rawStr || '—';
+        if (spec.type === 'date') return (typeof fmtDateES === 'function') ? (fmtDateES(raw) || '—') : (rawStr || '—');
+        const out = rawStr.trim();
+        return out ? out : '—';
+      };
+    %>
+
+    <% (tabs || []).forEach((t, idx) => { %>
+      <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
+        <div class="grid cols-2" style="gap: 12px;">
+          <% (t.fields || []).forEach((f) => { %>
+            <div style="display:grid; gap: 6px;">
+              <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= f.label %></span>
+              <div class="gv-readonly" style="<%= (f.spec && f.spec.kind === 'textarea') ? 'white-space:pre-wrap;' : '' %>"><%= displayForField(f) %></div>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+    <% }) %>
+  </div>
+</section>
+
+<script>
+(function () {
+  var tabButtons = Array.prototype.slice.call(document.querySelectorAll('.gv-tab[data-tab]'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.gv-tabpanel[data-tabpanel]'));
+  function setTab(id) {
+    tabButtons.forEach(function (b) {
+      var active = b.getAttribute('data-tab') === id;
+      b.classList.toggle('is-active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    panels.forEach(function (p) {
+      var active = p.getAttribute('data-tabpanel') === id;
+      p.classList.toggle('is-active', active);
+    });
+  }
+  tabButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      setTab(b.getAttribute('data-tab'));
+    });
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>
+

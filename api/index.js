@@ -1421,14 +1421,46 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getClienteById(id);
-    if (!item) return res.status(404).send('No encontrado');
     const admin = isAdminUser(res.locals.user);
-    if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para ver este contacto.');
+    const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
+    if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
+      db.getClienteById(id),
+      db.getComerciales().catch(() => []),
+      db.getTarifas().catch(() => []),
+      db.getProvincias?.().catch(() => []) ?? [],
+      db.getPaises?.().catch(() => []) ?? [],
+      db.getFormasPago?.().catch(() => []) ?? [],
+      loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
+      loadEstadosClienteForSelect(db),
+      db.getCooperativas?.().catch(() => []) ?? [],
+      db.getGruposCompras?.().catch(() => []) ?? [],
+      db._ensureClientesMeta().catch(() => null)
+    ]);
+    if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const poolId = await db.getComercialIdPool();
     const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
-    res.render('cliente', { item, admin, canEdit: admin || (await db.canComercialEditCliente(id, res.locals.user?.id)), puedeSolicitarAsignacion, poolId, solicitud });
+    const model = buildClienteFormModel({
+      mode: 'view',
+      meta,
+      item,
+      comerciales,
+      tarifas,
+      provincias,
+      paises,
+      formasPago,
+      tiposClientes,
+      idiomas,
+      monedas,
+      estadosCliente,
+      cooperativas,
+      gruposCompras,
+      canChangeComercial: false
+    });
+    res.render('cliente-view', { ...model, admin, canEdit, puedeSolicitarAsignacion, poolId, solicitud, contactoId: id });
   } catch (e) {
     next(e);
   }
