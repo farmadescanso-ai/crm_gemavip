@@ -1092,6 +1092,12 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
   );
   // Si existe estdoClientes, OK_KO queda derivado del estado (evita solape en UI)
   if (hasEstadoCliente) ignore.add('OK_KO');
+  // Id_CodigoPostal es un FK/lookup técnico a Codigos_Postales y suele duplicar "CodigoPostal" (texto).
+  // Evitar mostrarlo en el formulario para no confundir.
+  try {
+    const colsLower = new Set((cols || []).map((c) => String(c || '').toLowerCase()));
+    if (colsLower.has('id_codigopostal') && colsLower.has('codigopostal')) ignore.add('Id_CodigoPostal');
+  } catch (_) {}
 
   const titleCaseEs = (s) => {
     const parts = String(s || '')

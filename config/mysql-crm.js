@@ -4073,6 +4073,49 @@ class MySQLCRM {
         const t = String(payload.TipoContacto).trim();
         payload.TipoContacto = (t === 'Empresa' || t === 'Persona' || t === 'Otros') ? t : null;
       }
+
+      // Id_CodigoPostal: FK a Codigos_Postales/codigos_postales.
+      // En muchos registros antiguos puede venir NULL aunque exista CodigoPostal (texto).
+      // Si cambia CodigoPostal (o si se envía) resolvemos/creamos el lookup para mejorar integridad.
+      try {
+        const colsList = metaUpdate?.cols || [];
+        const hasIdCodigoPostal = colsList.some((c) => String(c || '').toLowerCase() === 'id_codigopostal');
+        if (hasIdCodigoPostal && payload.CodigoPostal !== undefined) {
+          const cpRaw = String(payload.CodigoPostal ?? '').trim();
+          if (!cpRaw) {
+            payload.Id_CodigoPostal = null;
+          } else if (payload.Id_CodigoPostal === undefined) {
+            const codigosPostalesTable = await this._getCodigosPostalesTableName();
+            if (codigosPostalesTable) {
+              const cpLimpio = cpRaw.replace(/\s+/g, '');
+              const rows = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]).catch(() => []);
+              if (rows && rows.length > 0) {
+                payload.Id_CodigoPostal = rows[0].id;
+              } else {
+                // Crear registro mínimo (evita dejar Id_CodigoPostal huérfano cuando se usa en asignaciones)
+                const provinciaPick = provinciaId ? (provincias || []).find((p) => Number(p?.id ?? p?.Id ?? 0) === Number(provinciaId)) : null;
+                const provinciaNombre = provinciaPick?.Nombre ?? provinciaPick?.nombre ?? null;
+                const localidad = (payload.Poblacion !== undefined) ? payload.Poblacion : (clienteActual?.Poblacion ?? null);
+                const creado = await this.createCodigoPostal({
+                  CodigoPostal: cpLimpio,
+                  Localidad: localidad || null,
+                  Provincia: provinciaNombre || null,
+                  Id_Provincia: provinciaId || null,
+                  Activo: 1
+                }).catch(() => null);
+                if (creado?.insertId) {
+                  payload.Id_CodigoPostal = creado.insertId;
+                } else {
+                  const retry = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]).catch(() => []);
+                  if (retry && retry.length > 0) payload.Id_CodigoPostal = retry[0].id;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️  [UPDATE] No se pudo resolver Id_CodigoPostal:', e?.message || e);
+      }
       
       const fields = [];
       const values = [];
@@ -4264,6 +4307,43 @@ class MySQLCRM {
             console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
           }
         }
+      }
+
+      // Id_CodigoPostal: FK a Codigos_Postales/codigos_postales.
+      // Si existe la columna en clientes, intentar resolverlo a partir de CodigoPostal.
+      try {
+        const colsList = Array.isArray(meta?.cols) ? meta.cols : [];
+        const hasIdCodigoPostal = colsList.some((c) => String(c || '').toLowerCase() === 'id_codigopostal');
+        if (hasIdCodigoPostal && payload.CodigoPostal && payload.Id_CodigoPostal === undefined) {
+          const codigosPostalesTable = await this._getCodigosPostalesTableName();
+          if (codigosPostalesTable) {
+            const cpLimpio = String(payload.CodigoPostal || '').trim().replace(/\s+/g, '');
+            if (cpLimpio) {
+              const rows = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]).catch(() => []);
+              if (rows && rows.length > 0) {
+                payload.Id_CodigoPostal = rows[0].id;
+              } else {
+                const provinciaPick = payload.Id_Provincia ? (provincias || []).find((p) => Number(p?.id ?? p?.Id ?? 0) === Number(payload.Id_Provincia)) : null;
+                const provinciaNombre = provinciaPick?.Nombre ?? provinciaPick?.nombre ?? null;
+                const creado = await this.createCodigoPostal({
+                  CodigoPostal: cpLimpio,
+                  Localidad: payload.Poblacion || null,
+                  Provincia: provinciaNombre || null,
+                  Id_Provincia: payload.Id_Provincia || null,
+                  Activo: 1
+                }).catch(() => null);
+                if (creado?.insertId) {
+                  payload.Id_CodigoPostal = creado.insertId;
+                } else {
+                  const retry = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]).catch(() => []);
+                  if (retry && retry.length > 0) payload.Id_CodigoPostal = retry[0].id;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️  [CREATE] No se pudo resolver Id_CodigoPostal:', e?.message || e);
       }
 
       // TipoContacto (Empresa/Persona): solo incluir si la columna existe
