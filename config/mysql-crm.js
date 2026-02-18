@@ -3426,6 +3426,120 @@ class MySQLCRM {
     return poolId != null && asignado === Number(poolId);
   }
 
+  async findPosiblesDuplicadosClientes({ dniCif, nombre, nombreCial } = {}, { limit = 6, userId = null, isAdmin = false } = {}) {
+    const out = { matches: [], otherCount: 0 };
+    try {
+      const meta = await this._ensureClientesMeta().catch(() => null);
+      const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
+      const pk = meta?.pk || 'Id';
+      const colComercial = meta?.colComercial || null;
+
+      const normDni = (s) => String(s ?? '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+      const normName = (s) => {
+        try {
+          return String(s ?? '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
+        } catch (_) {
+          return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+      };
+
+      const dni = normDni(dniCif);
+      const n1 = normName(nombre);
+      const n2 = normName(nombreCial);
+
+      const whereOr = [];
+      const paramsOr = [];
+
+      // DNI/CIF: match exacto (normalizado)
+      if (dni && dni.length >= 8) {
+        whereOr.push(`REPLACE(REPLACE(UPPER(COALESCE(c.DNI_CIF,'')),' ',''),'-','') = ?`);
+        paramsOr.push(dni);
+      }
+
+      // Nombre: solo a partir de 6 caracteres para evitar falsos positivos masivos
+      if (n1 && n1.length >= 6) {
+        whereOr.push(`LOWER(TRIM(COALESCE(c.Nombre_Razon_Social,''))) LIKE ?`);
+        paramsOr.push(`%${n1}%`);
+      }
+      if (n2 && n2.length >= 6) {
+        whereOr.push(`LOWER(TRIM(COALESCE(c.Nombre_Cial,''))) LIKE ?`);
+        paramsOr.push(`%${n2}%`);
+      }
+
+      if (!whereOr.length) return out;
+
+      const baseWhere = `(${whereOr.join(' OR ')})`;
+      const lim = Math.max(1, Math.min(20, Number(limit) || 6));
+
+      // Admin: sin restricciones
+      if (isAdmin || !userId || !colComercial) {
+        const rows = await this.query(
+          `
+          SELECT
+            c.\`${pk}\` as Id,
+            c.Nombre_Razon_Social,
+            c.Nombre_Cial,
+            c.DNI_CIF,
+            c.CodigoPostal,
+            c.Poblacion
+          FROM \`${tClientes}\` c
+          WHERE ${baseWhere}
+          ORDER BY c.\`${pk}\` DESC
+          LIMIT ?
+          `,
+          [...paramsOr, lim]
+        );
+        out.matches = Array.isArray(rows) ? rows : [];
+        out.otherCount = 0;
+        return out;
+      }
+
+      const poolId = await this.getComercialIdPool().catch(() => null);
+      const allowed = [Number(userId), ...(poolId ? [Number(poolId)] : []), 0].filter((x) => Number.isFinite(x));
+      const allowedPlaceholders = allowed.map(() => '?').join(',');
+
+      const rows = await this.query(
+        `
+        SELECT
+          c.\`${pk}\` as Id,
+          c.Nombre_Razon_Social,
+          c.Nombre_Cial,
+          c.DNI_CIF,
+          c.CodigoPostal,
+          c.Poblacion
+        FROM \`${tClientes}\` c
+        WHERE ${baseWhere}
+          AND (c.\`${colComercial}\` IN (${allowedPlaceholders}) OR c.\`${colComercial}\` IS NULL)
+        ORDER BY c.\`${pk}\` DESC
+        LIMIT ?
+        `,
+        [...paramsOr, ...allowed, lim]
+      );
+      out.matches = Array.isArray(rows) ? rows : [];
+
+      // Conteo de duplicados fuera del alcance del comercial (sin filtrar por datos)
+      const other = await this.query(
+        `
+        SELECT COUNT(*) as n
+        FROM \`${tClientes}\` c
+        WHERE ${baseWhere}
+          AND (c.\`${colComercial}\` NOT IN (${allowedPlaceholders}) AND c.\`${colComercial}\` IS NOT NULL)
+        `,
+        [...paramsOr, ...allowed]
+      ).catch(() => []);
+      out.otherCount = Number(other?.[0]?.n ?? 0) || 0;
+      return out;
+    } catch (e) {
+      console.warn('⚠️ [DUPLICADOS CLIENTES] No se pudo buscar duplicados:', e?.message || e);
+      return out;
+    }
+  }
+
   async getClientesByComercial(comercialId) {
     try {
       const sql = 'SELECT * FROM clientes WHERE ComercialId = ? OR comercialId = ? ORDER BY Id ASC';

@@ -130,6 +130,25 @@ router.get(
   })
 );
 
+router.get(
+  '/duplicates',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const limit = Math.max(1, Math.min(10, toInt(req.query.limit, 6) ?? 6));
+    const dni = typeof req.query.dni === 'string' ? String(req.query.dni) : '';
+    const nombre = typeof req.query.nombre === 'string' ? String(req.query.nombre) : '';
+    const nombreCial = typeof req.query.nombreCial === 'string' ? String(req.query.nombreCial) : '';
+
+    const result = await db.findPosiblesDuplicadosClientes(
+      { dniCif: dni, nombre, nombreCial },
+      { limit, userId: sessionUser?.id ?? null, isAdmin }
+    );
+
+    res.json({ ok: true, ...result });
+  })
+);
+
 /**
  * @openapi
  * /api/clientes/{id}/cooperativas:

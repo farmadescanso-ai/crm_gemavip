@@ -15,6 +15,9 @@
     <% } %>
 
     <form id="gvClienteForm" method="post" action="<%= formAction %>" class="gv-form" style="display:grid; gap: 12px;">
+      <% if (mode === 'create') { %>
+        <input type="hidden" name="dup_confirmed" id="gvDupConfirmed" value="0" />
+      <% } %>
       <div class="gv-form-actions-sticky">
         <div class="gv-form-actions-sticky__inner">
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -372,6 +375,7 @@
     var dupModal = document.getElementById('gvDupModal');
     var dupList = document.getElementById('gvDupList');
     var dupContinue = document.getElementById('gvDupContinue');
+    var dupConfirmed = document.getElementById('gvDupConfirmed');
 
     var lastKeyShown = '';
     var aborter = null;
@@ -386,7 +390,12 @@
       if (dupModal) dupModal.hidden = true;
     }
     if (dupBackdrop) dupBackdrop.addEventListener('click', hideDupModal);
-    if (dupContinue) dupContinue.addEventListener('click', hideDupModal);
+    if (dupContinue) dupContinue.addEventListener('click', function () {
+      if (dupConfirmed) dupConfirmed.value = '1';
+      hideDupModal();
+      // si el usuario estaba intentando guardar, reenviar submit
+      try { form.requestSubmit ? form.requestSubmit() : form.submit(); } catch (_) {}
+    });
 
     function debounce(fn, wait) {
       var t = null;
@@ -423,8 +432,11 @@
         return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
       }
     }
-    async function suggest(q) {
-      var url = "/api/clientes/suggest?q=" + encodeURIComponent(String(q || '')) + "&limit=8";
+    async function duplicates(dni, nombre, nombreCial) {
+      var url = "/api/clientes/duplicates?limit=6"
+        + "&dni=" + encodeURIComponent(String(dni || ''))
+        + "&nombre=" + encodeURIComponent(String(nombre || ''))
+        + "&nombreCial=" + encodeURIComponent(String(nombreCial || ''));
       var opts = { headers: { Accept: 'application/json' } };
       if (aborter) aborter.abort();
       aborter = new AbortController();
@@ -433,15 +445,22 @@
       if (!r.ok) throw new Error("HTTP " + r.status);
       var json = await r.json();
       if (!json || json.ok !== true) return [];
-      return Array.isArray(json.items) ? json.items : [];
+      return {
+        matches: Array.isArray(json.matches) ? json.matches : [],
+        otherCount: Number(json.otherCount || 0) || 0
+      };
     }
-    function renderMatches(items, qLabel) {
+    function renderMatches(items, otherCount) {
       if (!dupList) return;
-      if (!items || !items.length) {
+      if ((!items || !items.length) && !otherCount) {
         dupList.innerHTML = '<div class="gv-alert gv-alert--warn" style="margin:0;">No se han encontrado coincidencias.</div>';
         return;
       }
-      dupList.innerHTML = items.map(function (it) {
+      var html = '';
+      if (otherCount && (!items || !items.length)) {
+        html += '<div class="gv-alert gv-alert--warn" style="margin:0;">Se han detectado coincidencias en otros contactos a los que no tienes acceso (' + escapeHtml(otherCount) + '). Contacta con un administrador.</div>';
+      }
+      html += (items || []).map(function (it) {
         var id = it.Id || it.id || '';
         var rs = it.Nombre_Razon_Social || it.Nombre || '';
         var nc = it.Nombre_Cial || '';
@@ -463,6 +482,7 @@
           '</div>'
         );
       }).join('');
+      dupList.innerHTML = html || '<div class="gv-alert gv-alert--warn" style="margin:0;">No se han encontrado coincidencias.</div>';
     }
 
     var dniInput = document.getElementById('gv_DNI_CIF');
@@ -479,42 +499,16 @@
         // no re-lanzar si no cambió nada desde que ya lo mostramos
         if (key && key === lastKeyShown) return;
 
-        var q = '';
-        var strongByDni = false;
-        if (dniVal && dniVal.length >= 8) {
-          q = dniVal;
-          strongByDni = true;
-        } else if (nameVal && nameVal.length >= 12) {
-          q = nameVal;
-        } else if (cialVal && cialVal.length >= 12) {
-          q = cialVal;
-        } else {
-          return;
-        }
+        // Solo lanzar cuando haya señales suficientes
+        if (!(dniVal && dniVal.length >= 8) && !(nameVal && nameVal.length >= 6) && !(cialVal && cialVal.length >= 6)) return;
 
-        var items = await suggest(q);
-        if (!items.length) return;
-
-        var matches = items.slice(0, 6);
-        if (strongByDni) {
-          var dn = dniVal;
-          var exact = items.filter(function (it) { return normDni(it.DNI_CIF || '') === dn; });
-          if (!exact.length) return;
-          matches = exact.slice(0, 6);
-        } else {
-          // Por nombre: filtrar por coincidencia clara (contiene la cadena normalizada)
-          var qn = q;
-          var filtered = items.filter(function (it) {
-            var a = normName(it.Nombre_Razon_Social || it.Nombre || '');
-            var b = normName(it.Nombre_Cial || '');
-            return (a && a.includes(qn)) || (b && b.includes(qn));
-          });
-          if (!filtered.length) return;
-          matches = filtered.slice(0, 6);
-        }
+        var result = await duplicates(dniVal, nameVal, cialVal);
+        var matches = result.matches || [];
+        var otherCount = Number(result.otherCount || 0) || 0;
+        if (!matches.length && !otherCount) return;
 
         lastKeyShown = key;
-        renderMatches(matches, q);
+        renderMatches(matches.slice(0, 6), otherCount);
         showDupModal();
       } catch (_e) {
         // silencioso: no bloquear el alta si falla el lookup
@@ -525,6 +519,40 @@
       el.addEventListener('input', run);
       el.addEventListener('change', run);
     });
+
+    // Bloquear submit si hay duplicados y no se ha confirmado aún
+    form.addEventListener('submit', async function (e) {
+      try {
+        if (dupConfirmed && String(dupConfirmed.value) === '1') return;
+        var dniVal = normDni(dniInput ? dniInput.value : '');
+        var nameVal = normName(nameInput ? nameInput.value : '');
+        var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
+        if (!(dniVal && dniVal.length >= 8) && !(nameVal && nameVal.length >= 6) && !(cialVal && cialVal.length >= 6)) return;
+        e.preventDefault();
+        var result = await duplicates(dniVal, nameVal, cialVal);
+        var matches = result.matches || [];
+        var otherCount = Number(result.otherCount || 0) || 0;
+        if (!matches.length && !otherCount) {
+          if (dupConfirmed) dupConfirmed.value = '1'; // no hay duplicados: permitir crear
+          try { form.requestSubmit ? form.requestSubmit() : form.submit(); } catch (_) {}
+          return;
+        }
+        renderMatches(matches.slice(0, 6), otherCount);
+        showDupModal();
+      } catch (_err) {
+        // si falla, no bloquear el alta (fallback a validación servidor)
+      }
+    });
+
+    // Si el servidor re-renderiza con coincidencias, mostrarlas al cargar
+    try {
+      var serverMatches = <%- JSON.stringify(typeof dupMatches !== 'undefined' ? dupMatches : []) %>;
+      var serverOther = <%- JSON.stringify(typeof dupOtherCount !== 'undefined' ? dupOtherCount : 0) %>;
+      if ((serverMatches && serverMatches.length) || (serverOther && Number(serverOther) > 0)) {
+        renderMatches((serverMatches || []).slice(0, 6), Number(serverOther || 0) || 0);
+        showDupModal();
+      }
+    } catch (_) {}
   }
 })();
 </script>

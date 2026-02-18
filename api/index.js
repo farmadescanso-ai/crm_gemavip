@@ -1373,6 +1373,7 @@ app.post('/clientes/new', requireLogin, async (req, res, next) => {
     ]);
     const isAdmin = isAdminUser(res.locals.user);
     const body = req.body || {};
+    const dupConfirmed = String(body.dup_confirmed || '').trim() === '1';
     const cols = Array.isArray(meta?.cols) ? meta.cols : [];
     const pk = meta?.pk || 'Id';
     const colsLower = new Map(cols.map((c) => [String(c).toLowerCase(), c]));
@@ -1395,6 +1396,43 @@ app.post('/clientes/new', requireLogin, async (req, res, next) => {
     if (payload.OK_KO === null || payload.OK_KO === undefined) payload.OK_KO = 1;
     if (payload.Tarifa === null || payload.Tarifa === undefined) payload.Tarifa = 0;
     applySpainDefaultsIfEmpty(payload, { meta, paises, idiomas, monedas });
+
+    // Bloqueo/aviso de duplicados (servidor): no permitir guardar sin mostrar aviso.
+    const dup = await db.findPosiblesDuplicadosClientes(
+      {
+        dniCif: payload.DNI_CIF,
+        nombre: payload.Nombre_Razon_Social,
+        nombreCial: payload.Nombre_Cial
+      },
+      { limit: 6, userId: res.locals.user?.id ?? null, isAdmin }
+    );
+    const hasDup = (dup && Array.isArray(dup.matches) && dup.matches.length > 0) || (dup && Number(dup.otherCount || 0) > 0);
+    if (hasDup && !dupConfirmed) {
+      const model = buildClienteFormModel({
+        mode: 'create',
+        meta,
+        item: payload,
+        comerciales,
+        tarifas,
+        provincias,
+        paises,
+        formasPago,
+        tiposClientes,
+        idiomas,
+        monedas,
+        estadosCliente,
+        cooperativas,
+        gruposCompras,
+        canChangeComercial: !!isAdmin,
+        missingFields: []
+      });
+      return res.status(409).render('cliente-form', {
+        ...model,
+        error: 'Este contacto puede estar ya dado de alta. Revisa coincidencias y confirma si quieres continuar.',
+        dupMatches: dup.matches || [],
+        dupOtherCount: Number(dup.otherCount || 0) || 0
+      });
+    }
 
     const missingFieldsNew = [];
     if (!payload.Nombre_Razon_Social) missingFieldsNew.push('Nombre_Razon_Social');
