@@ -1322,7 +1322,11 @@ app.post('/agenda/:id(\\d+)/clientes/link', requireLogin, async (req, res, next)
       if (!can) return res.status(404).send('No encontrado');
     }
     const esPrincipal = String(req.body?.Es_Principal || '').trim() === '1' || String(req.body?.Es_Principal || '').toLowerCase() === 'on';
-    await db.vincularContactoACliente(clienteId, contactoId, { Rol: null, Es_Principal: esPrincipal });
+    // Si no se indica rol en el vínculo (UI de Agenda), usar Cargo del contacto como valor por defecto.
+    // Mantiene integridad: el rol "oficial" sigue estando en clientes_contactos.Rol.
+    const contacto = await db.getContactoById(contactoId).catch(() => null);
+    const rolDefault = contacto?.Cargo ? String(contacto.Cargo).trim().slice(0, 120) : null;
+    await db.vincularContactoACliente(clienteId, contactoId, { Rol: rolDefault, Es_Principal: esPrincipal });
     return res.redirect(`/agenda/${contactoId}`);
   } catch (e) {
     next(e);

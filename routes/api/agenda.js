@@ -226,6 +226,10 @@ router.post(
     if (rol) {
       const r = await db.createAgendaRol(rol).catch(() => null);
       if (r?.nombre) rol = r.nombre;
+    } else {
+      // Si no se indica rol en el vínculo, usar Cargo del contacto como valor por defecto.
+      const contacto = await db.getContactoById(contactoId).catch(() => null);
+      rol = contacto?.Cargo ? String(contacto.Cargo).trim().slice(0, 120) : null;
     }
     const result = await db.vincularContactoACliente(clienteId, contactoId, { Rol: rol, Notas: notas, Es_Principal: esPrincipal });
     res.status(201).json({ ok: true, result });

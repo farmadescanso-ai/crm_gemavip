@@ -8041,7 +8041,10 @@ class MySQLCRM {
           cc.Id AS Id_Relacion,
           cc.Id_Cliente,
           cc.Id_Contacto,
-          cc.Rol,
+          -- Rol en la RELACIÓN (persona puede tener rol distinto por cliente).
+          -- Fallback de visualización: si no hay rol en relación, mostrar Cargo del contacto (Agenda).
+          COALESCE(NULLIF(TRIM(cc.Rol), ''), NULLIF(TRIM(c.Cargo), '')) AS Rol,
+          cc.Rol AS RolRelacion,
           cc.Es_Principal,
           cc.Notas AS NotasRelacion,
           cc.VigenteDesde,
