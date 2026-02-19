@@ -65,6 +65,7 @@
             <% }) %>
             <option value="__add__">+ Añadir</option>
           </select>
+          <!-- Fallback sin JS (se mantiene compatibilidad con servidor) -->
           <input name="CargoNew" id="gvCargoNew" value="" maxlength="120" placeholder="Escribe un nuevo cargo..." style="display:none;" />
         </label>
         <label style="display:grid; gap:6px;">
@@ -78,6 +79,7 @@
             <% }) %>
             <option value="__add__">+ Añadir</option>
           </select>
+          <!-- Fallback sin JS (se mantiene compatibilidad con servidor) -->
           <input name="EspecialidadNew" id="gvEspecNew" value="" maxlength="120" placeholder="Escribe una nueva especialidad..." style="display:none;" />
         </label>
 
@@ -102,42 +104,164 @@
   </div>
 </section>
 
+<!-- Modal reutilizable para "+ Añadir" -->
+<div class="gv-modal-backdrop" id="gvCatalogBackdrop" hidden></div>
+<div class="gv-modal" id="gvCatalogModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvCatalogTitle">
+  <div class="gv-modal-card" style="max-width: 680px;">
+    <div class="gv-modal-hd">
+      <div class="gv-modal-title" id="gvCatalogTitle">Añadir</div>
+      <div class="gv-modal-subtitle" id="gvCatalogSubtitle">Crear una nueva opción y seleccionarla.</div>
+    </div>
+    <div class="gv-modal-bd" style="padding: 0 16px 10px 16px;">
+      <label style="display:grid; gap:6px; margin-top: 10px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;" id="gvCatalogLabel">Nombre</span>
+        <input id="gvCatalogInput" maxlength="120" placeholder="Escribe el nuevo valor..." />
+      </label>
+      <div id="gvCatalogError" class="gv-alert gv-alert--warn" style="margin-top:10px; display:none;"></div>
+    </div>
+    <div class="gv-modal-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+      <button type="button" class="btn secondary" id="gvCatalogCancel">Salir</button>
+      <button type="button" class="btn" id="gvCatalogSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
-  function setup(selectId, inputId, currentVal) {
+  function ensureOptionSelected(sel, value) {
+    var v = String(value || '').trim();
+    if (!v) return;
+    var opts = Array.prototype.slice.call(sel.querySelectorAll('option')).map(function (o) { return String(o.value || '').trim(); });
+    var idx = opts.findIndex(function (x) { return x.toLowerCase() === v.toLowerCase(); });
+    if (idx >= 0) {
+      sel.value = opts[idx];
+      return;
+    }
+    // Insertar antes de "+ Añadir" si existe
+    var addOpt = sel.querySelector('option[value="__add__"]');
+    var o = document.createElement('option');
+    o.value = v;
+    o.textContent = v;
+    if (addOpt && addOpt.parentNode) addOpt.parentNode.insertBefore(o, addOpt);
+    else sel.appendChild(o);
+    sel.value = v;
+  }
+
+  var backdrop = document.getElementById('gvCatalogBackdrop');
+  var modal = document.getElementById('gvCatalogModal');
+  var title = document.getElementById('gvCatalogTitle');
+  var label = document.getElementById('gvCatalogLabel');
+  var input = document.getElementById('gvCatalogInput');
+  var err = document.getElementById('gvCatalogError');
+  var btnCancel = document.getElementById('gvCatalogCancel');
+  var btnSave = document.getElementById('gvCatalogSave');
+
+  var current = { kind: null, selectEl: null, prevValue: '' };
+
+  function showError(msg) {
+    if (!err) return;
+    err.style.display = msg ? '' : 'none';
+    err.textContent = msg || '';
+  }
+
+  function openCatalog(kind, sel, prevValue) {
+    current.kind = kind;
+    current.selectEl = sel;
+    current.prevValue = prevValue || '';
+    if (title) title.textContent = kind === 'cargo' ? 'Añadir Cargo' : 'Añadir Especialidad';
+    if (label) label.textContent = kind === 'cargo' ? 'Cargo' : 'Especialidad';
+    if (input) input.value = '';
+    showError('');
+    if (backdrop) backdrop.hidden = false;
+    if (modal) modal.hidden = false;
+    try { if (input) input.focus(); } catch (_) {}
+  }
+
+  function closeCatalog() {
+    if (backdrop) backdrop.hidden = true;
+    if (modal) modal.hidden = true;
+    showError('');
+    current.kind = null;
+    current.selectEl = null;
+    current.prevValue = '';
+  }
+
+  async function saveCatalog() {
+    if (!current.kind || !current.selectEl) return closeCatalog();
+    var raw = String((input && input.value) || '').trim();
+    if (!raw) return showError('Escribe un valor.');
+    btnSave && (btnSave.disabled = true);
+    try {
+      var url = current.kind === 'cargo' ? '/api/agenda/catalog/roles' : '/api/agenda/catalog/especialidades';
+      var r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ Nombre: raw })
+      });
+      var json = null;
+      try { json = await r.json(); } catch (_) {}
+      if (!r.ok || !json || json.ok !== true) {
+        return showError((json && json.error) ? String(json.error) : ('No se pudo guardar (HTTP ' + r.status + ')'));
+      }
+      var nombre = (json.result && (json.result.nombre || json.result.Nombre)) || raw;
+      ensureOptionSelected(current.selectEl, nombre);
+      closeCatalog();
+    } catch (_e) {
+      showError('No se pudo guardar. Inténtalo de nuevo.');
+    } finally {
+      btnSave && (btnSave.disabled = false);
+    }
+  }
+
+  if (btnCancel) btnCancel.addEventListener('click', function () {
+    // restaurar selección previa
+    if (current.selectEl) current.selectEl.value = current.prevValue || '';
+    closeCatalog();
+  });
+  if (backdrop) backdrop.addEventListener('click', function () {
+    if (current.selectEl) current.selectEl.value = current.prevValue || '';
+    closeCatalog();
+  });
+  if (btnSave) btnSave.addEventListener('click', saveCatalog);
+  if (input) input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); saveCatalog(); }
+    if (e.key === 'Escape') { e.preventDefault(); if (current.selectEl) current.selectEl.value = current.prevValue || ''; closeCatalog(); }
+  });
+
+  function setup(selectId, inputId, currentVal, kind) {
     var sel = document.getElementById(selectId);
     var inp = document.getElementById(inputId);
     if (!sel || !inp) return;
 
     function sync() {
       var v = String(sel.value || '');
-      var isAdd = (v === '__add__');
-      inp.style.display = isAdd ? '' : 'none';
-      if (isAdd) {
-        inp.required = false;
-        inp.focus();
-      } else {
-        inp.required = false;
-        inp.value = '';
+      if (v === '__add__') {
+        // Abrir modal y restaurar selección previa (para no dejar __add__ seleccionado si cancelan)
+        var prev = sel.getAttribute('data-prev') || '';
+        openCatalog(kind, sel, prev);
+        return;
       }
+      sel.setAttribute('data-prev', v);
+      // Mantener inputs fallback ocultos
+      inp.style.display = 'none';
+      inp.required = false;
+      inp.value = '';
     }
 
-    // Si el valor actual no está en el catálogo, dejarlo como "Añadir" y precargar el input.
+    // Si el valor actual no está en el catálogo, lo añadimos como opción seleccionada (no forzamos modal).
     var cur = String(currentVal || '').trim();
     if (cur) {
-      var opts = Array.prototype.slice.call(sel.querySelectorAll('option')).map(function(o){ return String(o.value || '').trim().toLowerCase(); });
-      if (opts.indexOf(cur.toLowerCase()) === -1) {
-        sel.value = '__add__';
-        inp.value = cur;
-      }
+      ensureOptionSelected(sel, cur);
     }
 
     sel.addEventListener('change', sync);
+    // Inicializar prev
+    sel.setAttribute('data-prev', String(sel.value || ''));
     sync();
   }
 
-  setup('gvCargoSelect', 'gvCargoNew', "<%= pickVal('Cargo').replace(/\"/g, '&quot;') %>");
-  setup('gvEspecSelect', 'gvEspecNew', "<%= pickVal('Especialidad').replace(/\"/g, '&quot;') %>");
+  setup('gvCargoSelect', 'gvCargoNew', "<%= pickVal('Cargo').replace(/\"/g, '&quot;') %>", 'cargo');
+  setup('gvEspecSelect', 'gvEspecNew', "<%= pickVal('Especialidad').replace(/\"/g, '&quot;') %>", 'especialidad');
 })();
 </script>
 

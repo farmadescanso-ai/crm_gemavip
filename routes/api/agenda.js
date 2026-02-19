@@ -118,6 +118,14 @@ router.get(
   })
 );
 
+router.get(
+  '/especialidades',
+  asyncHandler(async (_req, res) => {
+    const items = await db.getAgendaEspecialidades().catch(() => []);
+    res.json({ ok: true, items: items || [] });
+  })
+);
+
 router.post(
   '/roles',
   asyncHandler(async (req, res) => {
@@ -125,6 +133,29 @@ router.post(
     if (!user || !isAdminUser(user)) return res.status(403).json({ ok: false, error: 'Solo administrador' });
     const nombre = String(req.body?.Nombre ?? req.body?.nombre ?? '').trim();
     const result = await db.createAgendaRol(nombre);
+    res.status(201).json({ ok: true, result });
+  })
+);
+
+// Catálogo (uso UI): permite a usuarios con sesión añadir opciones "al vuelo"
+router.post(
+  '/catalog/roles',
+  asyncHandler(async (req, res) => {
+    const user = req.session?.user || null;
+    if (!user) return res.status(403).json({ ok: false, error: 'Requiere sesión' });
+    const nombre = String(req.body?.Nombre ?? req.body?.nombre ?? '').trim();
+    const result = await db.createAgendaRol(nombre);
+    res.status(201).json({ ok: true, result });
+  })
+);
+
+router.post(
+  '/catalog/especialidades',
+  asyncHandler(async (req, res) => {
+    const user = req.session?.user || null;
+    if (!user) return res.status(403).json({ ok: false, error: 'Requiere sesión' });
+    const nombre = String(req.body?.Nombre ?? req.body?.nombre ?? '').trim();
+    const result = await db.createAgendaEspecialidad(nombre);
     res.status(201).json({ ok: true, result });
   })
 );
