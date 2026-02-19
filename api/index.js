@@ -2518,11 +2518,42 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    const [lineas, cliente, canShowHefame] = await Promise.all([
+    const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0) || 0;
+    const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? 0) || 0;
+    const idTarifa = Number(item?.Id_Tarifa ?? item?.id_tarifa ?? 0) || 0;
+    const idEstadoPedido = Number(item?.Id_EstadoPedido ?? item?.id_estado_pedido ?? 0) || 0;
+    const idComercial = Number(item?.Id_Cial ?? item?.id_cial ?? item?.ComercialId ?? item?.comercialId ?? 0) || 0;
+
+    const needTiposPedido = idTipoPedido > 0;
+    const needTarifas = idTarifa > 0;
+
+    const [
+      lineas,
+      cliente,
+      canShowHefame,
+      formaPago,
+      estadoPedido,
+      comercial,
+      tiposPedido,
+      tarifas
+    ] = await Promise.all([
       db.getArticulosByPedido(id).catch(() => []),
       item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null,
-      canShowHefameForPedido(item)
+      canShowHefameForPedido(item),
+      idFormaPago ? db.getFormaPagoById(idFormaPago).catch(() => null) : null,
+      idEstadoPedido ? db.getEstadoPedidoById(idEstadoPedido).catch(() => null) : null,
+      idComercial ? db.getComercialById(idComercial).catch(() => null) : null,
+      needTiposPedido ? db.getTiposPedido().catch(() => []) : [],
+      needTarifas ? db.getTarifas().catch(() => []) : []
     ]);
+
+    const tipoPedido = needTiposPedido
+      ? (tiposPedido || []).find((t) => Number(t?.id ?? t?.Id ?? 0) === idTipoPedido) || null
+      : null;
+    const tarifa = needTarifas
+      ? (tarifas || []).find((t) => Number(t?.Id ?? t?.id ?? 0) === idTarifa) || null
+      : null;
+
     let direccionEnvio = item?.Id_DireccionEnvio
       ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
       : null;
@@ -2530,7 +2561,19 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
       const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id)).catch(() => []);
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
-    res.render('pedido', { item, lineas: lineas || [], cliente, direccionEnvio, admin, canShowHefame });
+    res.render('pedido', {
+      item,
+      lineas: lineas || [],
+      cliente,
+      direccionEnvio,
+      admin,
+      canShowHefame,
+      formaPago,
+      tipoPedido,
+      tarifa,
+      estadoPedido,
+      comercial
+    });
   } catch (e) {
     next(e);
   }

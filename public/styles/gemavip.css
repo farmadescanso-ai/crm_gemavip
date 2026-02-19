@@ -679,6 +679,9 @@ tr:hover td{ background: rgba(0,139,210,.04); }
 @media print{
   body{ background:#fff !important; }
   .topbar, footer, .gv-no-print{ display:none !important; }
+  /* Tabs: imprimir todas las secciones (sin barra de pestañas) */
+  .gv-tabs{ display:none !important; }
+  .gv-tabpanel{ display:block !important; }
   main.container{ padding-top: 0 !important; }
   .gv-doc-page{
     box-shadow: none !important;

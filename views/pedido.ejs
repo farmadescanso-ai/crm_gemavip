@@ -42,6 +42,28 @@
   const clienteTel = cliente?.Telefono || cliente?.Movil || '';
   const dir = direccionEnvio || null;
   const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.Dto ?? item.Descuento ?? 0, 0)));
+  const serie = String(item?.Serie ?? item?.serie ?? 'P').trim();
+  const idDireccionEnvio = Number(item?.Id_DireccionEnvio ?? item?.id_direccion_envio ?? 0) || 0;
+
+  const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0) || 0;
+  const formaPagoLabel = String(formaPago?.Nombre ?? formaPago?.FormaPago ?? formaPago?.nombre ?? '').trim() || (idFormaPago ? String(idFormaPago) : '');
+
+  const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? 0) || 0;
+  const tipoPedidoLabel = String(tipoPedido?.Nombre ?? tipoPedido?.Tipo ?? tipoPedido?.nombre ?? tipoPedido?.tipo ?? '').trim() || (idTipoPedido ? String(idTipoPedido) : '');
+
+  const idTarifa = Number(item?.Id_Tarifa ?? item?.id_tarifa ?? 0) || 0;
+  const tarifaLabel = String(tarifa?.NombreTarifa ?? tarifa?.Nombre ?? tarifa?.nombre ?? '').trim() || (idTarifa ? String(idTarifa) : '');
+
+  const idEstadoPedido = Number(item?.Id_EstadoPedido ?? item?.id_estado_pedido ?? 0) || 0;
+  const estadoLabel = String(estadoPedido?.nombre ?? estadoPedido?.Nombre ?? item?.EstadoPedido ?? item?.Estado ?? '').trim();
+  const estadoColor = String(estadoPedido?.color ?? estadoPedido?.Color ?? item?.EstadoColor ?? '').trim().toLowerCase();
+  const st = estadoLabel.toLowerCase();
+  const estadoCls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info')));
+
+  const idComercial = Number(item?.Id_Cial ?? item?.id_cial ?? item?.ComercialId ?? item?.comercialId ?? 0) || 0;
+  const comercialLabel = String(comercial?.Nombre ?? comercial?.nombre ?? item?.ComercialNombre ?? '').trim() || (idComercial ? String(idComercial) : '');
+
+  const observaciones = String(item?.Observaciones ?? item?.observaciones ?? '').trim();
 %>
 
 <div class="gv-doc-page">
@@ -121,171 +143,265 @@
     </div>
   </div>
 
-  <div class="gv-print-body">
-  <div class="gv-doc-parties">
-    <div class="gv-doc-box">
-      <h3>Cliente</h3>
-      <div class="gv-doc-lines">
-        <div><%= clienteNombre || (item.Id_Cliente ?? '') %></div>
-        <% if (clienteCif) { %><small><%= clienteCif %></small><% } %>
-        <% if (clienteDir) { %><small><%= clienteDir %></small><% } %>
-        <% if (clienteCp || clientePob) { %><small><%= [clienteCp, clientePob].filter(Boolean).join(' ') %></small><% } %>
-        <% if (clienteEmail || clienteTel) { %><small><%= [clienteEmail, clienteTel].filter(Boolean).join(' · ') %></small><% } %>
-      </div>
+  <div class="gv-print-body" id="gvPedidoTabs">
+    <div class="gv-tabs gv-no-print" role="tablist" aria-label="Secciones del pedido" style="margin: 10px 0 14px 0;">
+      <button type="button" class="gv-tab is-active" role="tab" aria-selected="true" aria-controls="tab_cabecera" data-tab="cabecera">Cabecera</button>
+      <button type="button" class="gv-tab" role="tab" aria-selected="false" aria-controls="tab_envio" data-tab="envio">Envío</button>
+      <button type="button" class="gv-tab" role="tab" aria-selected="false" aria-controls="tab_lineas" data-tab="lineas">Líneas y totales</button>
     </div>
 
-    <div class="gv-doc-box">
-      <h3>Dirección de envío</h3>
-      <div class="gv-doc-lines">
-        <% if (dir) { %>
-          <div><%= dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—' %></div>
-          <% if (dir.Nombre_Destinatario && dir.Alias) { %><small><%= dir.Nombre_Destinatario %></small><% } %>
-          <% if (dir.Direccion) { %><small><%= dir.Direccion %></small><% } %>
-          <% if (dir.Direccion2) { %><small><%= dir.Direccion2 %></small><% } %>
-          <% if (dir.CodigoPostal || dir.Poblacion) { %><small><%= [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' ') %></small><% } %>
-          <% if (dir.Pais) { %><small><%= dir.Pais %></small><% } %>
-          <% if (dir.Email || dir.Telefono || dir.Movil) { %><small><%= [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · ') %></small><% } %>
-          <% if (dir.Observaciones) { %><small><%= dir.Observaciones %></small><% } %>
-        <% } else { %>
-          <div><%= clienteNombre || '—' %></div>
-          <small>(Sin dirección de envío: asigna `Id_DireccionEnvio` en el pedido)</small>
-        <% } %>
-      </div>
-    </div>
-  </div>
+    <section id="tab_cabecera" class="gv-tabpanel is-active" role="tabpanel" data-tabpanel="cabecera">
+      <div class="gv-doc-parties" style="margin-top: 0;">
+        <div class="gv-doc-box">
+          <h3>Cliente</h3>
+          <div class="gv-doc-lines">
+            <div><%= clienteNombre || (item.Id_Cliente ?? '') %></div>
+            <% if (clienteCif) { %><small><%= clienteCif %></small><% } %>
+            <% if (clienteDir) { %><small><%= clienteDir %></small><% } %>
+            <% if (clienteCp || clientePob) { %><small><%= [clienteCp, clientePob].filter(Boolean).join(' ') %></small><% } %>
+            <% if (clienteEmail || clienteTel) { %><small><%= [clienteEmail, clienteTel].filter(Boolean).join(' · ') %></small><% } %>
+          </div>
+        </div>
 
-  <div class="gv-doc-table-wrap">
-    <table class="gv-doc-table">
-      <colgroup>
-        <col style="width:12%">
-        <col style="width:38%">
-        <col style="width:10%">
-        <col style="width:8%">
-        <col style="width:7%">
-        <col style="width:10%">
-        <col style="width:5%">
-        <col style="width:10%">
-      </colgroup>
-      <thead>
-        <tr>
-          <th>CÓDIGO</th>
-          <th>CONCEPTO</th>
-          <th class="is-right">PVL</th>
-          <th class="is-right">UNDS</th>
-          <th class="is-right">DTO</th>
-          <th class="is-right">SUBTOTAL</th>
-          <th class="is-right">IVA</th>
-          <th class="is-right">TOTAL</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% let sumBase = 0, sumIva = 0, sumTotal = 0; const ivaByPct = {}; %>
-        <% (lineas || []).forEach((l) => { %>
+        <div class="gv-doc-box">
+          <h3>Cabecera</h3>
+          <div class="gv-doc-kv" style="margin-top: 0;">
+            <div><span>Serie</span><b><%= serie || '—' %></b></div>
+            <div><span>Estado</span><b>
+              <% if (estadoLabel) { %>
+                <span class="badge <%= estadoCls %>"><%= estadoLabel %></span>
+              <% } else { %>
+                —
+              <% } %>
+            </b></div>
+            <div><span>Comercial</span><b><%= comercialLabel || '—' %></b></div>
+            <div><span>Tarifa</span><b><%= tarifaLabel || '—' %></b></div>
+            <div><span>Forma pago</span><b><%= formaPagoLabel || '—' %></b></div>
+            <div><span>Tipo pedido</span><b><%= tipoPedidoLabel || '—' %></b></div>
+            <div><span>Nº cliente</span><b><%= (item.NumPedidoCliente ?? item.Num_Pedido_Cliente) || '—' %></b></div>
+            <div><span>Dto pedido</span><b><%= dtoPedidoPct ? `${fmtNumES(dtoPedidoPct, 2)}%` : '—' %></b></div>
+            <div><span>Especial</span><b><%= Number(item.EsEspecial ?? item.es_especial ?? 0) === 1 ? 'Sí' : '—' %></b></div>
+            <% if (Number(item.EsEspecial ?? item.es_especial ?? 0) === 1) { %>
+              <% const est = String(item.EspecialEstado ?? item.especial_estado ?? 'pendiente').trim().toLowerCase() || 'pendiente'; %>
+              <div><span>Estado esp.</span><b><%= est === 'aprobado' ? 'Aprobado' : (est === 'rechazado' ? 'Rechazado' : 'Pendiente') %></b></div>
+            <% } %>
+            <% if ((item.NumAsociadoHefame ?? item.num_asociado_hefame)) { %>
+              <div><span>Nº Hefame</span><b><%= (item.NumAsociadoHefame ?? item.num_asociado_hefame) %></b></div>
+            <% } %>
+            <% if (idEstadoPedido) { %>
+              <div><span>ID estado</span><b><%= idEstadoPedido %></b></div>
+            <% } %>
+            <% if (idFormaPago) { %>
+              <div><span>ID forma</span><b><%= idFormaPago %></b></div>
+            <% } %>
+            <% if (idTipoPedido) { %>
+              <div><span>ID tipo</span><b><%= idTipoPedido %></b></div>
+            <% } %>
+            <% if (idTarifa) { %>
+              <div><span>ID tarifa</span><b><%= idTarifa %></b></div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <% if (observaciones) { %>
+        <div class="grid" style="margin-top: 14px;">
+          <div class="gv-doc-box">
+            <h3>Observaciones</h3>
+            <div class="gv-doc-lines" style="font-weight: 600; color: var(--gv-text);">
+              <div style="white-space:pre-wrap;"><%= observaciones %></div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+    </section>
+
+    <section id="tab_envio" class="gv-tabpanel" role="tabpanel" data-tabpanel="envio">
+      <div class="grid" style="gap: 14px;">
+        <div class="gv-doc-box">
+          <h3>Datos de envío</h3>
+          <div class="gv-doc-lines">
+            <% if (dir) { %>
+              <div><%= dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—' %></div>
+              <% if (idDireccionEnvio) { %><small>ID dirección: <%= idDireccionEnvio %></small><% } %>
+              <% if (dir.Nombre_Destinatario && dir.Alias) { %><small><%= dir.Nombre_Destinatario %></small><% } %>
+              <% if (dir.Direccion) { %><small><%= dir.Direccion %></small><% } %>
+              <% if (dir.Direccion2) { %><small><%= dir.Direccion2 %></small><% } %>
+              <% if (dir.CodigoPostal || dir.Poblacion) { %><small><%= [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' ') %></small><% } %>
+              <% if (dir.Pais) { %><small><%= dir.Pais %></small><% } %>
+              <% if (dir.Email || dir.Telefono || dir.Movil) { %><small><%= [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · ') %></small><% } %>
+              <% if (dir.Observaciones) { %><small><%= dir.Observaciones %></small><% } %>
+            <% } else { %>
+              <div><%= clienteNombre || '—' %></div>
+              <% if (idDireccionEnvio) { %><small>ID dirección: <%= idDireccionEnvio %></small><% } %>
+              <small>(Sin dirección de envío asociada)</small>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab_lineas" class="gv-tabpanel" role="tabpanel" data-tabpanel="lineas">
+      <div class="gv-doc-table-wrap" style="margin-top: 0;">
+        <table class="gv-doc-table">
+          <colgroup>
+            <col style="width:12%">
+            <col style="width:38%">
+            <col style="width:10%">
+            <col style="width:8%">
+            <col style="width:7%">
+            <col style="width:10%">
+            <col style="width:5%">
+            <col style="width:10%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>CÓDIGO</th>
+              <th>CONCEPTO</th>
+              <th class="is-right">PVL</th>
+              <th class="is-right">UNDS</th>
+              <th class="is-right">DTO</th>
+              <th class="is-right">SUBTOTAL</th>
+              <th class="is-right">IVA</th>
+              <th class="is-right">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% let sumBase = 0, sumIva = 0, sumTotal = 0; const ivaByPct = {}; %>
+            <% (lineas || []).forEach((l) => { %>
+              <%
+                const codigo = (l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').toString();
+                const concepto = (l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').toString();
+                const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+                const pvl = Math.max(
+                  0,
+                  toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0)
+                );
+                const dto = Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    toNum(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? l.descuento ?? 0, 0)
+                  )
+                );
+
+                const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
+                const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
+                const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
+
+                const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
+                let ivaPct = toNum(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+                if (ivaPct > 100) ivaPct = 0;
+                const ivaImpCalc = round2(base * ivaPct / 100);
+                const ivaImp = Number.isFinite(ivaImpStored) ? round2(ivaImpStored) : ivaImpCalc;
+
+                const totalStored = toNum(l.Total ?? l.TotalLinea ?? l.ImporteTotal ?? l.total_linea ?? NaN, NaN);
+                const totalCalc = round2(base + ivaImp);
+                const total = Number.isFinite(totalStored) ? round2(totalStored) : totalCalc;
+
+                sumBase += base;
+                sumIva += ivaImp;
+                sumTotal += total;
+                if (ivaPct > 0) {
+                  const pctKey = String(round2(ivaPct));
+                  if (!ivaByPct[pctKey]) ivaByPct[pctKey] = { pct: ivaPct, sum: 0 };
+                  ivaByPct[pctKey].sum += ivaImp;
+                }
+              %>
+              <tr>
+                <td><%= codigo %></td>
+                <td class="is-wrap">
+                  <div class="gv-doc-concept"><%= concepto || (codigo ? `Artículo ${codigo}` : '—') %></div>
+                </td>
+                <td class="is-right"><%= fmtEur(pvl) %></td>
+                <td class="is-right"><%= qty ? fmtQty(qty) : '' %></td>
+                <td class="is-right"><%= dto ? `${fmtNumES(dto, 2)}%` : '—' %></td>
+                <td class="is-right"><%= fmtEur(base) %></td>
+                <td class="is-right"><%= ivaPct ? `${fmtNumES(ivaPct, 2)}%` : '—' %></td>
+                <td class="is-right"><%= fmtEur(total) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="gv-doc-summary">
+        <table>
+          <% if (dtoPedidoPct) { %>
+            <tr>
+              <td>DTO PEDIDO</td>
+              <td class="is-right"><%= `${fmtNumES(dtoPedidoPct, 2)}%` %></td>
+            </tr>
+          <% } %>
+          <tr>
+            <td>BASE IMPONIBLE</td>
+            <td class="is-right"><%= fmtEur(round2(sumBase)) %></td>
+          </tr>
+          <% Object.keys(ivaByPct || {}).sort((a, b) => Number(a) - Number(b)).forEach((key) => { %>
+            <% const iva = ivaByPct[key]; if (iva && iva.sum) { %>
+              <tr>
+                <td>IMPUESTO (<%= fmtNumES(iva.pct, 2) %>%)</td>
+                <td class="is-right"><%= fmtEur(round2(iva.sum)) %></td>
+              </tr>
+            <% } %>
+          <% }) %>
           <%
-            const codigo = (l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').toString();
-            const concepto = (l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').toString();
-            const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
-            const pvl = Math.max(
-              0,
-              toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0)
-            );
-            const dto = Math.max(
-              0,
-              Math.min(
-                100,
-                toNum(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? l.descuento ?? 0, 0)
-              )
-            );
-
-            const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
-            const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
-            const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
-
-            const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
-            let ivaPct = toNum(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
-            if (ivaPct > 100) ivaPct = 0;
-            const ivaImpCalc = round2(base * ivaPct / 100);
-            const ivaImp = Number.isFinite(ivaImpStored) ? round2(ivaImpStored) : ivaImpCalc;
-
-            const totalStored = toNum(l.Total ?? l.TotalLinea ?? l.ImporteTotal ?? l.total_linea ?? NaN, NaN);
-            const totalCalc = round2(base + ivaImp);
-            const total = Number.isFinite(totalStored) ? round2(totalStored) : totalCalc;
-
-            sumBase += base;
-            sumIva += ivaImp;
-            sumTotal += total;
-            if (ivaPct > 0) {
-              const pctKey = String(round2(ivaPct));
-              if (!ivaByPct[pctKey]) ivaByPct[pctKey] = { pct: ivaPct, sum: 0 };
-              ivaByPct[pctKey].sum += ivaImp;
+            const retencionPct = cliente && (Number(cliente.IRPF ?? cliente.Retencion ?? cliente.retencion ?? '') || 0);
+            const importeRetencion = toNum(item.ImporteRetencion ?? item.importe_retencion ?? NaN, NaN);
+            const retenciones = [];
+            if (retencionPct > 0) {
+              const imp = Number.isFinite(importeRetencion) ? round2(importeRetencion) : round2(sumBase * retencionPct / 100);
+              retenciones.push({ pct: retencionPct, importe: imp });
+            }
+            if (cliente && Array.isArray(cliente.Retenciones) && cliente.Retenciones.length) {
+              cliente.Retenciones.forEach((r) => {
+                const p = toNum(r.porcentaje ?? r.Porcentaje ?? r.pct ?? 0, 0);
+                if (p > 0) retenciones.push({ pct: p, importe: round2((r.importe != null ? toNum(r.importe, NaN) : sumBase * p / 100)) });
+              });
             }
           %>
+          <% retenciones.forEach((r) => { %>
+            <tr>
+              <td>RETENCIÓN (<%= fmtNumES(r.pct, 2) %>%)</td>
+              <td class="is-right">−<%= fmtEur(r.importe) %></td>
+            </tr>
+          <% }) %>
           <tr>
-            <td><%= codigo %></td>
-            <td class="is-wrap">
-              <div class="gv-doc-concept"><%= concepto || (codigo ? `Artículo ${codigo}` : '—') %></div>
-            </td>
-            <td class="is-right"><%= fmtEur(pvl) %></td>
-            <td class="is-right"><%= qty ? fmtQty(qty) : '' %></td>
-            <td class="is-right"><%= dto ? `${fmtNumES(dto, 2)}%` : '—' %></td>
-            <td class="is-right"><%= fmtEur(base) %></td>
-            <td class="is-right"><%= ivaPct ? `${fmtNumES(ivaPct, 2)}%` : '—' %></td>
-            <td class="is-right"><%= fmtEur(total) %></td>
+            <td class="gv-doc-grand">TOTAL</td>
+            <td class="gv-doc-grand is-right"><%= fmtEur(round2(round2(sumTotal) - retenciones.reduce((s, r) => s + r.importe, 0))) %></td>
           </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="gv-doc-summary">
-    <table>
-      <% if (dtoPedidoPct) { %>
-        <tr>
-          <td>DTO PEDIDO</td>
-          <td class="is-right"><%= `${fmtNumES(dtoPedidoPct, 2)}%` %></td>
-        </tr>
-      <% } %>
-      <tr>
-        <td>BASE IMPONIBLE</td>
-        <td class="is-right"><%= fmtEur(round2(sumBase)) %></td>
-      </tr>
-      <% Object.keys(ivaByPct || {}).sort((a, b) => Number(a) - Number(b)).forEach((key) => { %>
-        <% const iva = ivaByPct[key]; if (iva && iva.sum) { %>
-          <tr>
-            <td>IMPUESTO (<%= fmtNumES(iva.pct, 2) %>%)</td>
-            <td class="is-right"><%= fmtEur(round2(iva.sum)) %></td>
-          </tr>
-        <% } %>
-      <% }) %>
-      <%
-        const retencionPct = cliente && (Number(cliente.IRPF ?? cliente.Retencion ?? cliente.retencion ?? '') || 0);
-        const importeRetencion = toNum(item.ImporteRetencion ?? item.importe_retencion ?? NaN, NaN);
-        const retenciones = [];
-        if (retencionPct > 0) {
-          const imp = Number.isFinite(importeRetencion) ? round2(importeRetencion) : round2(sumBase * retencionPct / 100);
-          retenciones.push({ pct: retencionPct, importe: imp });
-        }
-        if (cliente && Array.isArray(cliente.Retenciones) && cliente.Retenciones.length) {
-          cliente.Retenciones.forEach((r) => {
-            const p = toNum(r.porcentaje ?? r.Porcentaje ?? r.pct ?? 0, 0);
-            if (p > 0) retenciones.push({ pct: p, importe: round2((r.importe != null ? toNum(r.importe, NaN) : sumBase * p / 100)) });
-          });
-        }
-      %>
-      <% retenciones.forEach((r) => { %>
-        <tr>
-          <td>RETENCIÓN (<%= fmtNumES(r.pct, 2) %>%)</td>
-          <td class="is-right">−<%= fmtEur(r.importe) %></td>
-        </tr>
-      <% }) %>
-      <tr>
-        <td class="gv-doc-grand">TOTAL</td>
-        <td class="gv-doc-grand is-right"><%= fmtEur(round2(round2(sumTotal) - retenciones.reduce((s, r) => s + r.importe, 0))) %></td>
-      </tr>
-    </table>
-  </div>
+        </table>
+      </div>
+    </section>
   </div>
 </div>
+
+<script>
+(function () {
+  var root = document.getElementById('gvPedidoTabs');
+  if (!root) return;
+  var tabButtons = Array.prototype.slice.call(root.querySelectorAll('.gv-tab[data-tab]'));
+  var panels = Array.prototype.slice.call(root.querySelectorAll('.gv-tabpanel[data-tabpanel]'));
+  function setTab(id) {
+    tabButtons.forEach(function (b) {
+      var active = b.getAttribute('data-tab') === id;
+      b.classList.toggle('is-active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    panels.forEach(function (p) {
+      var active = p.getAttribute('data-tabpanel') === id;
+      p.classList.toggle('is-active', active);
+    });
+  }
+  tabButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      setTab(b.getAttribute('data-tab'));
+    });
+  });
+  var hash = String(window.location.hash || '').replace('#', '').trim().toLowerCase();
+  if (hash === 'cabecera' || hash === 'envio' || hash === 'lineas') setTab(hash);
+})();
+</script>
 
 <%- include('partials/footer') %>
 
