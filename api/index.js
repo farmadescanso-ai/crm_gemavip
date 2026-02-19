@@ -1262,12 +1262,33 @@ app.post('/agenda/:id(\\d+)/clientes/link', requireLogin, async (req, res, next)
       if (!can) return res.status(404).send('No encontrado');
     }
     let rol = String(req.body?.Rol || '').trim().slice(0, 120) || null;
+    const tipoRel = String(req.body?.TipoRelacion || '').trim();
     const esPrincipal = String(req.body?.Es_Principal || '').trim() === '1' || String(req.body?.Es_Principal || '').toLowerCase() === 'on';
     if (rol) {
       const r = await db.createAgendaRol(rol).catch(() => null);
       if (r?.nombre) rol = r.nombre;
     }
-    await db.vincularContactoACliente(clienteId, contactoId, { Rol: rol, Es_Principal: esPrincipal });
+    // Validación básica: TipoRelacion "Persona" solo para clientes tipo Persona; y viceversa.
+    try {
+      if (tipoRel) {
+        const cli = await db.getClienteById(clienteId).catch(() => null);
+        const tipoContacto = String(cli?.TipoContacto ?? cli?.tipo_contacto ?? cli?.Tipo_Contacto ?? '').trim().toLowerCase();
+        const isPersona = tipoContacto === 'persona';
+        if (String(tipoRel).toLowerCase() === 'persona' && !isPersona) {
+          return res.redirect(`/agenda/${contactoId}?error=${encodeURIComponent('El tipo seleccionado es Persona, pero el cliente no es Persona.')}`);
+        }
+        if (String(tipoRel).toLowerCase() !== 'persona' && isPersona) {
+          return res.redirect(`/agenda/${contactoId}?error=${encodeURIComponent('El cliente es Persona. Selecciona tipo Persona.')}`);
+        }
+      }
+    } catch (_) {}
+
+    const rolFinal =
+      tipoRel
+        ? `${String(tipoRel).trim()}${rol ? (' · ' + rol) : ''}`.slice(0, 120)
+        : rol;
+
+    await db.vincularContactoACliente(clienteId, contactoId, { Rol: rolFinal, Es_Principal: esPrincipal });
     return res.redirect(`/agenda/${contactoId}`);
   } catch (e) {
     next(e);

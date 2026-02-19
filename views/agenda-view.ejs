@@ -64,6 +64,13 @@
           <input type="hidden" name="contactoId" value="<%= id %>" />
           <input type="hidden" name="clienteId" id="gvClienteId" value="" />
           <input type="search" id="gvClienteSearch" placeholder="Buscar cliente..." style="min-width:260px;" />
+          <select name="TipoRelacion" id="gvTipoRelacion" style="min-width:170px;">
+            <option value="">Tipo (auto)</option>
+            <option value="Farmacia">Farmacia</option>
+            <option value="Clínica">Clínica</option>
+            <option value="Persona">Persona</option>
+            <option value="Empresa">Empresa</option>
+          </select>
           <%
             const roleNames = (roles || []).map(r => String(r?.Nombre || '').trim()).filter(Boolean);
             const examples = roleNames.slice(0, 3).join(', ');
@@ -134,6 +141,7 @@
 (function () {
   var search = document.getElementById('gvClienteSearch');
   var hidden = document.getElementById('gvClienteId');
+  var tipoSel = document.getElementById('gvTipoRelacion');
   if (!search || !hidden) return;
 
   var box = document.createElement('div');
@@ -171,16 +179,58 @@
   }
 
   var t = null;
+  var lastQuery = '';
+  var open = false;
+
+  function showMessage(msg) {
+    list.innerHTML =
+      '<div style="padding:10px 12px; color:var(--gv-muted); font-weight:800; font-size:12px;">'
+      + escapeHtml(msg)
+      + '</div>';
+    list.style.display = 'block';
+    open = true;
+  }
+
+  function shouldQuery(q) {
+    var qq = String(q || '').trim();
+    if (!qq) return { ok: false, reason: '' };
+    var digits = /^[0-9]+$/.test(qq);
+    var email = qq.indexOf('@') !== -1;
+    var spaces = /\s/.test(qq);
+    if (digits) return { ok: true };
+    if (email || spaces) return qq.length >= 2 ? { ok: true } : { ok: false, reason: 'Escribe al menos 2 caracteres.' };
+    return qq.length >= 2 ? { ok: true } : { ok: false, reason: 'Escribe al menos 2 caracteres.' };
+  }
+
+  function inferTipoFromItem(it) {
+    var tipoContacto = String(it?.TipoContacto || '').trim().toLowerCase();
+    var tipoCliente = String(it?.TipoClienteNombre || '').trim().toLowerCase();
+    if (tipoContacto === 'persona' || tipoCliente.includes('persona')) return 'Persona';
+    if (tipoCliente.includes('farmacia')) return 'Farmacia';
+    if (tipoCliente.includes('clínica') || tipoCliente.includes('clinica')) return 'Clínica';
+    return 'Empresa';
+  }
+
   async function run() {
     var q = String(search.value || '').trim();
     hidden.value = '';
-    if (q.length < 2) { hide(); return; }
+    var chk = shouldQuery(q);
+    if (!chk.ok) {
+      if (!q) { hide(); open = false; return; }
+      showMessage(chk.reason || 'Escribe más para buscar.');
+      return;
+    }
     try {
-      var r = await fetch('/api/clientes/suggest?q=' + encodeURIComponent(q) + '&limit=8', { headers: { Accept: 'application/json' } });
+      lastQuery = q;
+      // scope=all para agenda (si hay sesión). force=1 para permitir 2 caracteres.
+      var tipo = tipoSel ? String(tipoSel.value || '').trim() : '';
+      var url = '/api/clientes/suggest?q=' + encodeURIComponent(q) + '&limit=12&scope=all&force=1'
+        + (tipo ? ('&tipo=' + encodeURIComponent(tipo)) : '');
+      var r = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var json = await r.json();
       var items = (json && json.ok && Array.isArray(json.items)) ? json.items : [];
-      if (!items.length) { hide(); return; }
+      if (!items.length) { showMessage('Sin resultados. Prueba con otro texto.'); return; }
       list.innerHTML = items.map(function (it) {
         var id = it.id || it.Id || '';
         var rs = it.Nombre_Razon_Social || it.Nombre || it.label || ('Cliente ' + id);
@@ -200,6 +250,7 @@
 
         return (
           '<button type="button" data-id="' + escapeHtml(id) + '" data-label="' + escapeHtml(dataLabel) + '"'
+          + ' data-tipo="' + escapeHtml(inferTipoFromItem(it)) + '"'
           + ' style="display:block; width:100%; text-align:left; padding:10px 12px; border:0; background:#fff; cursor:pointer;">'
           +   '<div style="font-weight:900; color:var(--gv-ink);">' + escapeHtml(title) + '</div>'
           +   (meta1 ? ('<div style="margin-top:4px; color:var(--gv-muted); font-weight:800; font-size:12px;">' + escapeHtml(meta1) + '</div>') : '')
@@ -208,8 +259,9 @@
         );
       }).join('');
       list.style.display = 'block';
+      open = true;
     } catch (_e) {
-      hide();
+      showMessage('No se pudo buscar. Inténtalo de nuevo.');
     }
   }
 
@@ -218,16 +270,30 @@
     t = window.setTimeout(run, 250);
   });
 
+  if (tipoSel) {
+    tipoSel.addEventListener('change', function () {
+      // Re-lanzar búsqueda con filtro tipo (si hay texto)
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(run, 50);
+    });
+  }
+
   list.addEventListener('click', function (e) {
     var btn = e.target && e.target.closest ? e.target.closest('button[data-id]') : null;
     if (!btn) return;
     hidden.value = btn.getAttribute('data-id') || '';
     search.value = btn.getAttribute('data-label') || '';
+    if (tipoSel) {
+      var inferred = btn.getAttribute('data-tipo') || '';
+      if (inferred && !String(tipoSel.value || '').trim()) tipoSel.value = inferred;
+    }
     hide();
+    open = false;
   });
 
   document.addEventListener('click', function (e) {
     if (!box.contains(e.target)) hide();
+    if (!box.contains(e.target)) open = false;
   });
 })();
 </script>

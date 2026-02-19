@@ -116,12 +116,20 @@ router.get(
     const isDigitsOnly = /^[0-9]+$/.test(qq);
     const looksLikeEmail = qq.includes('@');
     const hasSpaces = /\s/.test(qq);
-    if (!isDigitsOnly && !looksLikeEmail && !hasSpaces && qq.length < 3) return res.json({ ok: true, items: [] });
+    const force = String(req.query.force || '').trim() === '1';
+    const minLenText = force ? 2 : 3;
+    if (!isDigitsOnly && !looksLikeEmail && !hasSpaces && qq.length < minLenText) return res.json({ ok: true, items: [] });
     if ((looksLikeEmail || hasSpaces) && qq.length < 2) return res.json({ ok: true, items: [] });
+
+    // Scope:
+    // - por defecto, si hay sesión comercial, limitar a su cartera
+    // - si scope=all y hay sesión, permitir buscar en todos (útil para asociar agenda a clientes)
+    const scope = String(req.query.scope || '').trim().toLowerCase();
+    const allowAll = !!sessionUser && scope === 'all';
 
     const filters = {
       q: qq,
-      comercial: sessionUser && !isAdmin ? sessionUser.id : undefined
+      comercial: (sessionUser && !isAdmin && !allowAll) ? sessionUser.id : undefined
     };
 
     const items = await db.getClientesOptimizadoPaged(filters, {
@@ -133,7 +141,35 @@ router.get(
       // sugerencia: limitar campos buscados a lo más relevante (la query ya usa FULLTEXT si existe)
       // la lógica en DB prioriza Nombre_Razon_Social / Nombre_Cial / DNI_CIF de forma natural por índice.
     });
-    res.json({ ok: true, items: items || [] });
+    // Filtro tipo (opcional) basado en nombres devueltos (evita query extra).
+    const tipo = String(req.query.tipo || '').trim().toLowerCase();
+    const arr = Array.isArray(items) ? items : [];
+    const norm = (s) => {
+      try {
+        return String(s || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+      } catch (_) {
+        return String(s || '').trim().toLowerCase();
+      }
+    };
+    const tipoNorm = norm(tipo);
+    const filtered =
+      !tipoNorm
+        ? arr
+        : arr.filter((it) => {
+            const tcn = norm(it?.TipoClienteNombre || '');
+            const tc = norm(it?.TipoContacto || '');
+            if (tipoNorm === 'persona') return tc === 'persona' || tcn.includes('persona');
+            if (tipoNorm === 'farmacia') return tcn.includes('farmacia');
+            if (tipoNorm === 'clinica' || tipoNorm === 'clínica') return tcn.includes('clinica') || tcn.includes('clínica');
+            if (tipoNorm === 'empresa') return tc === 'empresa' || (!tc && !tcn.includes('persona'));
+            return tcn.includes(tipoNorm) || tc.includes(tipoNorm);
+          });
+
+    res.json({ ok: true, items: filtered });
   })
 );
 
