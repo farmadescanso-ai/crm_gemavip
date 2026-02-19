@@ -64,7 +64,14 @@
           <input type="hidden" name="contactoId" value="<%= id %>" />
           <input type="hidden" name="clienteId" id="gvClienteId" value="" />
           <input type="search" id="gvClienteSearch" placeholder="Buscar cliente..." style="min-width:260px;" />
-          <input name="Rol" list="gvRoles" placeholder="Rol (opcional)" style="min-width:190px;" />
+          <%
+            const roleNames = (roles || []).map(r => String(r?.Nombre || '').trim()).filter(Boolean);
+            const examples = roleNames.slice(0, 3).join(', ');
+            const rolePlaceholder = examples
+              ? `Rol (ej: ${examples}) · Tipo (Farmacia/Clínica/Persona)`
+              : 'Rol (ej: Director, Compras, Administración) · Tipo (Farmacia/Clínica/Persona)';
+          %>
+          <input name="Rol" list="gvRoles" placeholder="<%= rolePlaceholder %>" style="min-width:320px;" />
           <datalist id="gvRoles">
             <% (roles || []).forEach((r) => { %>
               <option value="<%= r.Nombre %>"></option>
@@ -154,11 +161,20 @@
     list.innerHTML = '';
   }
 
+  function escapeHtml(s) {
+    return String(s || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
   var t = null;
   async function run() {
     var q = String(search.value || '').trim();
     hidden.value = '';
-    if (q.length < 3) { hide(); return; }
+    if (q.length < 2) { hide(); return; }
     try {
       var r = await fetch('/api/clientes/suggest?q=' + encodeURIComponent(q) + '&limit=8', { headers: { Accept: 'application/json' } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -167,10 +183,29 @@
       if (!items.length) { hide(); return; }
       list.innerHTML = items.map(function (it) {
         var id = it.id || it.Id || '';
-        var label = it.label || it.Nombre || it.Nombre_Razon_Social || ('Cliente ' + id);
-        return '<button type="button" data-id="' + String(id).split('"').join('&quot;') + '" data-label="' + String(label).split('"').join('&quot;') + '"'
-          + ' style="display:block; width:100%; text-align:left; padding:10px 12px; border:0; background:#fff; cursor:pointer; font-weight:700;">'
-          + label + '</button>';
+        var rs = it.Nombre_Razon_Social || it.Nombre || it.label || ('Cliente ' + id);
+        var cial = it.Nombre_Cial || '';
+        var dni = it.DNI_CIF || '';
+        var tipo = it.TipoClienteNombre || '';
+        var tipoContacto = it.TipoContacto || '';
+        var pob = it.Poblacion || '';
+        var prov = it.ProvinciaNombre || '';
+        var cp = it.CodigoPostal || '';
+
+        var title = [String(id || '').trim(), String(rs || '').trim()].filter(Boolean).join(' · ');
+        var meta1 = [dni, tipo, tipoContacto].filter(Boolean).join(' · ');
+        var meta2 = [[cp, pob].filter(Boolean).join(' '), prov, cial].filter(Boolean).join(' · ');
+        var label = title;
+        var dataLabel = title;
+
+        return (
+          '<button type="button" data-id="' + escapeHtml(id) + '" data-label="' + escapeHtml(dataLabel) + '"'
+          + ' style="display:block; width:100%; text-align:left; padding:10px 12px; border:0; background:#fff; cursor:pointer;">'
+          +   '<div style="font-weight:900; color:var(--gv-ink);">' + escapeHtml(title) + '</div>'
+          +   (meta1 ? ('<div style="margin-top:4px; color:var(--gv-muted); font-weight:800; font-size:12px;">' + escapeHtml(meta1) + '</div>') : '')
+          +   (meta2 ? ('<div style="margin-top:2px; color:var(--gv-muted); font-weight:700; font-size:12px;">' + escapeHtml(meta2) + '</div>') : '')
+          + '</button>'
+        );
       }).join('');
       list.style.display = 'block';
     } catch (_e) {

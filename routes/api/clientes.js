@@ -106,11 +106,18 @@ router.get(
     const isAdmin = isAdminUser(sessionUser);
     const limit = Math.max(1, Math.min(50, toInt(req.query.limit, 20) ?? 20));
     const q = typeof req.query.q === 'string' ? String(req.query.q) : typeof req.query.search === 'string' ? String(req.query.search) : '';
-    // A partir de 3 caracteres (texto) o 1 (solo dígitos: ID/CP)
     const qq = String(q || '').trim();
-    const isDigitsOnly = /^[0-9]+$/.test(qq);
     if (!qq) return res.json({ ok: true, items: [] });
-    if (!isDigitsOnly && qq.length < 3) return res.json({ ok: true, items: [] });
+    // Búsqueda "inteligente" (evitar consultas caras con entradas muy cortas)
+    // - dígitos (ID/CP): >= 1
+    // - email: >= 2
+    // - múltiples palabras: >= 2
+    // - texto general: >= 3
+    const isDigitsOnly = /^[0-9]+$/.test(qq);
+    const looksLikeEmail = qq.includes('@');
+    const hasSpaces = /\s/.test(qq);
+    if (!isDigitsOnly && !looksLikeEmail && !hasSpaces && qq.length < 3) return res.json({ ok: true, items: [] });
+    if ((looksLikeEmail || hasSpaces) && qq.length < 2) return res.json({ ok: true, items: [] });
 
     const filters = {
       q: qq,
