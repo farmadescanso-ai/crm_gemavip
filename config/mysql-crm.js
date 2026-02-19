@@ -8538,26 +8538,35 @@ class MySQLCRM {
 
   async getClientesByContacto(contactoId, options = {}) {
     try {
+      await this._ensureClientesContactosTable();
       const includeHistorico = Boolean(options.includeHistorico);
-      const params = [contactoId];
+      const id = Number(contactoId);
+      if (!Number.isFinite(id) || id <= 0) return [];
+      const params = [id];
       const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
       const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
       const { pk } = await this._ensureClientesMeta().catch(() => ({ pk: 'Id' }));
+      const tAgenda = await this._resolveAgendaTableName();
 
       let sql = `
         SELECT
           cc.Id AS Id_Relacion,
           cc.Id_Cliente,
           cc.Id_Contacto,
-          cc.Rol,
+          -- Rol en la RELACIÓN (persona puede tener rol distinto por cliente).
+          -- Fallback de visualización: si no hay rol en relación, mostrar Cargo del contacto (Agenda).
+          COALESCE(NULLIF(TRIM(cc.Rol), ''), NULLIF(TRIM(a.Cargo), '')) AS Rol,
+          cc.Rol AS RolRelacion,
           cc.Es_Principal,
           cc.Notas AS NotasRelacion,
           cc.VigenteDesde,
           cc.VigenteHasta,
           cc.MotivoBaja,
-          c.*
+          c.*,
+          a.Cargo AS ContactoCargo
         FROM \`${tClientesContactos}\` cc
         INNER JOIN \`${tClientes}\` c ON c.\`${pk}\` = cc.Id_Cliente
+        INNER JOIN \`${tAgenda}\` a ON a.Id = cc.Id_Contacto
         WHERE cc.Id_Contacto = ?
       `;
 
@@ -8565,8 +8574,9 @@ class MySQLCRM {
         sql += ' AND cc.VigenteHasta IS NULL';
       }
 
-      sql += ' ORDER BY (cc.VigenteHasta IS NULL) DESC, cc.Es_Principal DESC, c.Id ASC, cc.Id DESC';
-      return await this.query(sql, params);
+      sql += ` ORDER BY (cc.VigenteHasta IS NULL) DESC, cc.Es_Principal DESC, c.\`${pk}\` ASC, cc.Id DESC`;
+      const rows = await this.query(sql, params);
+      return Array.isArray(rows) ? rows : [];
     } catch (error) {
       console.error('❌ Error obteniendo clientes por contacto:', error.message);
       throw error;
