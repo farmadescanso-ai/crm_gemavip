@@ -186,9 +186,13 @@ router.post(
       if (!can) return res.status(404).json({ ok: false, error: 'No encontrado' });
     }
 
-    const rol = (req.body?.Rol ?? req.body?.rol ?? null) ? String(req.body?.Rol ?? req.body?.rol).trim().slice(0, 120) : null;
+    let rol = (req.body?.Rol ?? req.body?.rol ?? null) ? String(req.body?.Rol ?? req.body?.rol).trim().slice(0, 120) : null;
     const notas = (req.body?.Notas ?? req.body?.notas ?? null) ? String(req.body?.Notas ?? req.body?.notas).trim().slice(0, 500) : null;
     const esPrincipal = toBool(req.body?.Es_Principal ?? req.body?.es_principal ?? req.body?.esPrincipal, false);
+    if (rol) {
+      const r = await db.createAgendaRol(rol).catch(() => null);
+      if (r?.nombre) rol = r.nombre;
+    }
     const result = await db.vincularContactoACliente(clienteId, contactoId, { Rol: rol, Notas: notas, Es_Principal: esPrincipal });
     res.status(201).json({ ok: true, result });
   })

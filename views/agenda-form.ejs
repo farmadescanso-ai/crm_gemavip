@@ -3,6 +3,8 @@
 <% const formAction = mode === 'edit' ? ('/agenda/' + (item.Id || item.id) + '/edit') : '/agenda/new'; %>
 <% const cancelHref = mode === 'edit' ? ('/agenda/' + (item.Id || item.id)) : '/agenda'; %>
 <% const pickVal = (name) => { const v = (item && item[name] !== undefined) ? item[name] : ''; return (v === null || v === undefined) ? '' : String(v); }; %>
+<% const rolesArr = (typeof roles !== 'undefined' && Array.isArray(roles)) ? roles : []; %>
+<% const especArr = (typeof especialidades !== 'undefined' && Array.isArray(especialidades)) ? especialidades : []; %>
 
 <section class="card gv-cliente-form" style="max-width: 980px; margin: 0 auto;">
   <div class="card-hd">
@@ -54,11 +56,29 @@
 
         <label style="display:grid; gap:6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cargo (tipo/rol)</span>
-          <input name="Cargo" value="<%= pickVal('Cargo') %>" maxlength="120" placeholder="p. ej. Director, Responsable compras..." />
+          <select name="Cargo" id="gvCargoSelect">
+            <option value="">—</option>
+            <% const curCargo = pickVal('Cargo'); %>
+            <% rolesArr.forEach((r) => { %>
+              <% const v = String(r?.Nombre || '').trim(); if (!v) return; %>
+              <option value="<%= v %>" <%= (v && curCargo && v.toLowerCase() === curCargo.toLowerCase()) ? 'selected' : '' %>><%= v %></option>
+            <% }) %>
+            <option value="__add__">+ Añadir</option>
+          </select>
+          <input name="CargoNew" id="gvCargoNew" value="" maxlength="120" placeholder="Escribe un nuevo cargo..." style="display:none;" />
         </label>
         <label style="display:grid; gap:6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Especialidad</span>
-          <input name="Especialidad" value="<%= pickVal('Especialidad') %>" maxlength="120" />
+          <select name="Especialidad" id="gvEspecSelect">
+            <option value="">—</option>
+            <% const curEsp = pickVal('Especialidad'); %>
+            <% especArr.forEach((r) => { %>
+              <% const v = String(r?.Nombre || '').trim(); if (!v) return; %>
+              <option value="<%= v %>" <%= (v && curEsp && v.toLowerCase() === curEsp.toLowerCase()) ? 'selected' : '' %>><%= v %></option>
+            <% }) %>
+            <option value="__add__">+ Añadir</option>
+          </select>
+          <input name="EspecialidadNew" id="gvEspecNew" value="" maxlength="120" placeholder="Escribe una nueva especialidad..." style="display:none;" />
         </label>
 
         <label style="display:grid; gap:6px;">
@@ -81,6 +101,45 @@
     </form>
   </div>
 </section>
+
+<script>
+(function () {
+  function setup(selectId, inputId, currentVal) {
+    var sel = document.getElementById(selectId);
+    var inp = document.getElementById(inputId);
+    if (!sel || !inp) return;
+
+    function sync() {
+      var v = String(sel.value || '');
+      var isAdd = (v === '__add__');
+      inp.style.display = isAdd ? '' : 'none';
+      if (isAdd) {
+        inp.required = false;
+        inp.focus();
+      } else {
+        inp.required = false;
+        inp.value = '';
+      }
+    }
+
+    // Si el valor actual no está en el catálogo, dejarlo como "Añadir" y precargar el input.
+    var cur = String(currentVal || '').trim();
+    if (cur) {
+      var opts = Array.prototype.slice.call(sel.querySelectorAll('option')).map(function(o){ return String(o.value || '').trim().toLowerCase(); });
+      if (opts.indexOf(cur.toLowerCase()) === -1) {
+        sel.value = '__add__';
+        inp.value = cur;
+      }
+    }
+
+    sel.addEventListener('change', sync);
+    sync();
+  }
+
+  setup('gvCargoSelect', 'gvCargoNew', "<%= pickVal('Cargo').replace(/\"/g, '&quot;') %>");
+  setup('gvEspecSelect', 'gvEspecNew', "<%= pickVal('Especialidad').replace(/\"/g, '&quot;') %>");
+})();
+</script>
 
 <%- include('partials/footer') %>
 

@@ -1106,7 +1106,11 @@ app.get('/agenda', requireLogin, async (req, res, next) => {
 
 app.get('/agenda/new', requireLogin, async (_req, res, next) => {
   try {
-    res.render('agenda-form', { mode: 'create', item: {}, error: null });
+    const [roles, especialidades] = await Promise.all([
+      db.getAgendaRoles().catch(() => []),
+      db.getAgendaEspecialidades().catch(() => [])
+    ]);
+    res.render('agenda-form', { mode: 'create', item: {}, error: null, roles: roles || [], especialidades: especialidades || [] });
   } catch (e) {
     next(e);
   }
@@ -1115,11 +1119,17 @@ app.get('/agenda/new', requireLogin, async (_req, res, next) => {
 app.post('/agenda/new', requireLogin, async (req, res, next) => {
   try {
     const body = req.body || {};
+    const cargoFromSelect = String(body.Cargo || '').trim();
+    const cargoNew = String(body.CargoNew || '').trim();
+    const especFromSelect = String(body.Especialidad || '').trim();
+    const especNew = String(body.EspecialidadNew || '').trim();
+    const cargoFinal = cargoFromSelect === '__add__' ? cargoNew : cargoFromSelect;
+    const especFinal = especFromSelect === '__add__' ? especNew : especFromSelect;
     const payload = {
       Nombre: String(body.Nombre || '').trim().slice(0, 120),
       Apellidos: String(body.Apellidos || '').trim().slice(0, 180) || null,
-      Cargo: String(body.Cargo || '').trim().slice(0, 120) || null,
-      Especialidad: String(body.Especialidad || '').trim().slice(0, 120) || null,
+      Cargo: String(cargoFinal || '').trim().slice(0, 120) || null,
+      Especialidad: String(especFinal || '').trim().slice(0, 120) || null,
       Empresa: String(body.Empresa || '').trim().slice(0, 180) || null,
       Email: String(body.Email || '').trim().slice(0, 255) || null,
       Movil: String(body.Movil || '').trim().slice(0, 20) || null,
@@ -1129,7 +1139,19 @@ app.post('/agenda/new', requireLogin, async (req, res, next) => {
       Activo: (String(body.Activo || '1').trim() === '0') ? 0 : 1
     };
     if (!payload.Nombre) {
-      return res.render('agenda-form', { mode: 'create', item: payload, error: 'El campo Nombre es obligatorio' });
+      const [roles, especialidades] = await Promise.all([
+        db.getAgendaRoles().catch(() => []),
+        db.getAgendaEspecialidades().catch(() => [])
+      ]);
+      return res.render('agenda-form', { mode: 'create', item: payload, error: 'El campo Nombre es obligatorio', roles: roles || [], especialidades: especialidades || [] });
+    }
+    if (payload.Cargo) {
+      const r = await db.createAgendaRol(payload.Cargo).catch(() => null);
+      if (r?.nombre) payload.Cargo = r.nombre;
+    }
+    if (payload.Especialidad) {
+      const r = await db.createAgendaEspecialidad(payload.Especialidad).catch(() => null);
+      if (r?.nombre) payload.Especialidad = r.nombre;
     }
     const result = await db.createContacto(payload);
     const id = result?.insertId;
@@ -1168,7 +1190,11 @@ app.get('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const item = await db.getContactoById(id);
     if (!item) return res.status(404).send('No encontrado');
-    res.render('agenda-form', { mode: 'edit', item, error: null });
+    const [roles, especialidades] = await Promise.all([
+      db.getAgendaRoles().catch(() => []),
+      db.getAgendaEspecialidades().catch(() => [])
+    ]);
+    res.render('agenda-form', { mode: 'edit', item, error: null, roles: roles || [], especialidades: especialidades || [] });
   } catch (e) {
     next(e);
   }
@@ -1181,11 +1207,17 @@ app.post('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
     const current = await db.getContactoById(id);
     if (!current) return res.status(404).send('No encontrado');
     const body = req.body || {};
+    const cargoFromSelect = String(body.Cargo || '').trim();
+    const cargoNew = String(body.CargoNew || '').trim();
+    const especFromSelect = String(body.Especialidad || '').trim();
+    const especNew = String(body.EspecialidadNew || '').trim();
+    const cargoFinal = cargoFromSelect === '__add__' ? cargoNew : cargoFromSelect;
+    const especFinal = especFromSelect === '__add__' ? especNew : especFromSelect;
     const payload = {
       Nombre: String(body.Nombre || '').trim().slice(0, 120),
       Apellidos: String(body.Apellidos || '').trim().slice(0, 180) || null,
-      Cargo: String(body.Cargo || '').trim().slice(0, 120) || null,
-      Especialidad: String(body.Especialidad || '').trim().slice(0, 120) || null,
+      Cargo: String(cargoFinal || '').trim().slice(0, 120) || null,
+      Especialidad: String(especFinal || '').trim().slice(0, 120) || null,
       Empresa: String(body.Empresa || '').trim().slice(0, 180) || null,
       Email: String(body.Email || '').trim().slice(0, 255) || null,
       Movil: String(body.Movil || '').trim().slice(0, 20) || null,
@@ -1195,7 +1227,19 @@ app.post('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
       Activo: (String(body.Activo || '1').trim() === '0') ? 0 : 1
     };
     if (!payload.Nombre) {
-      return res.render('agenda-form', { mode: 'edit', item: { ...current, ...payload }, error: 'El campo Nombre es obligatorio' });
+      const [roles, especialidades] = await Promise.all([
+        db.getAgendaRoles().catch(() => []),
+        db.getAgendaEspecialidades().catch(() => [])
+      ]);
+      return res.render('agenda-form', { mode: 'edit', item: { ...current, ...payload }, error: 'El campo Nombre es obligatorio', roles: roles || [], especialidades: especialidades || [] });
+    }
+    if (payload.Cargo) {
+      const r = await db.createAgendaRol(payload.Cargo).catch(() => null);
+      if (r?.nombre) payload.Cargo = r.nombre;
+    }
+    if (payload.Especialidad) {
+      const r = await db.createAgendaEspecialidad(payload.Especialidad).catch(() => null);
+      if (r?.nombre) payload.Especialidad = r.nombre;
     }
     await db.updateContacto(id, payload);
     return res.redirect(`/agenda/${id}`);
@@ -1217,11 +1261,13 @@ app.post('/agenda/:id(\\d+)/clientes/link', requireLogin, async (req, res, next)
       const can = await db.canComercialEditCliente(clienteId, res.locals.user?.id).catch(() => false);
       if (!can) return res.status(404).send('No encontrado');
     }
-    const rol = String(req.body?.Rol || '').trim().slice(0, 120) || null;
+    let rol = String(req.body?.Rol || '').trim().slice(0, 120) || null;
     const esPrincipal = String(req.body?.Es_Principal || '').trim() === '1' || String(req.body?.Es_Principal || '').toLowerCase() === 'on';
+    if (rol) {
+      const r = await db.createAgendaRol(rol).catch(() => null);
+      if (r?.nombre) rol = r.nombre;
+    }
     await db.vincularContactoACliente(clienteId, contactoId, { Rol: rol, Es_Principal: esPrincipal });
-    // Guardar rol en catálogo (best-effort) para sugerencias futuras
-    if (rol) await db.createAgendaRol(rol).catch(() => null);
     return res.redirect(`/agenda/${contactoId}`);
   } catch (e) {
     next(e);
@@ -1850,12 +1896,15 @@ app.post('/clientes/:id/agenda/link', requireLogin, async (req, res, next) => {
       if (!can) return res.status(404).send('No encontrado');
     }
 
-    const rol = String(req.body?.Rol || '').trim().slice(0, 120) || null;
+    let rol = String(req.body?.Rol || '').trim().slice(0, 120) || null;
     const esPrincipal = String(req.body?.Es_Principal || '').trim() === '1' || String(req.body?.Es_Principal || '').toLowerCase() === 'on';
     const notas = String(req.body?.Notas || '').trim().slice(0, 500) || null;
+    if (rol) {
+      const r = await db.createAgendaRol(rol).catch(() => null);
+      if (r?.nombre) rol = r.nombre;
+    }
 
     await db.vincularContactoACliente(clienteId, contactoId, { Rol: rol, Es_Principal: esPrincipal, Notas: notas });
-    if (rol) await db.createAgendaRol(rol).catch(() => null);
     return res.redirect(`/clientes/${clienteId}?agendaOk=1`);
   } catch (e) {
     next(e);

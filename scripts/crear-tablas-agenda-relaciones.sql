@@ -37,6 +37,19 @@ CREATE TABLE IF NOT EXISTS `agenda_roles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Catálogo de roles/tipo de contacto (director, compras, etc.)';
 
+-- 2b) Catálogo simple de especialidades (para sugerencias)
+CREATE TABLE IF NOT EXISTS `agenda_especialidades` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `Nombre` VARCHAR(120) NOT NULL,
+  `Activo` TINYINT(1) NOT NULL DEFAULT 1,
+  `CreadoEn` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ActualizadoEn` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_agenda_especialidades_nombre` (`Nombre`),
+  KEY `idx_agenda_especialidades_activo_nombre` (`Activo`, `Nombre`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Catálogo de especialidades (opcional) para Agenda';
+
 -- 3) (Opcional) FKs. Actívalas si tus tablas tienen PK `Id` y quieres integridad fuerte.
 -- ALTER TABLE `clientes_contactos`
 --   ADD CONSTRAINT `fk_cc_cliente` FOREIGN KEY (`Id_Cliente`) REFERENCES `clientes`(`Id`) ON DELETE RESTRICT ON UPDATE CASCADE,

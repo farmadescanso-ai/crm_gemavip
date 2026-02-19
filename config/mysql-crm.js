@@ -7636,6 +7636,70 @@ class MySQLCRM {
     }
   }
 
+  async _ensureAgendaEspecialidadesTable() {
+    // Catálogo simple de especialidades (para sugerencias en UI).
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`agenda_especialidades\` (
+          \`id\` INT NOT NULL AUTO_INCREMENT,
+          \`Nombre\` VARCHAR(120) NOT NULL,
+          \`Activo\` TINYINT(1) NOT NULL DEFAULT 1,
+          \`CreadoEn\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          \`ActualizadoEn\` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`ux_agenda_especialidades_nombre\` (\`Nombre\`),
+          KEY \`idx_agenda_especialidades_activo_nombre\` (\`Activo\`, \`Nombre\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      return true;
+    } catch (e) {
+      console.warn('⚠️ [AGENDA] No se pudo asegurar tabla agenda_especialidades:', e?.message || e);
+      return false;
+    }
+  }
+
+  _titleCaseEs(value) {
+    const s = String(value ?? '').trim();
+    if (!s) return '';
+    const lowerWords = new Set(['de', 'del', 'la', 'el', 'y', 'o', 'a', 'en', 'por', 'para', 'con']);
+    const parts = s
+      .split(/\s+/g)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    const capWord = (w) => {
+      const lw = w.toLowerCase();
+      if (!lw) return lw;
+      // Mantener tokens numéricos tal cual
+      if (/^[0-9]+$/.test(lw)) return lw;
+      return lw.charAt(0).toUpperCase() + lw.slice(1);
+    };
+
+    const capToken = (token, idx) => {
+      // Mantener separadores dentro del token (p.ej. "I+D", "Co-Director")
+      const raw = String(token || '');
+      // Separar por '-' conservando estructura básica
+      const sub = raw.split('-').map((x) => String(x || ''));
+      const out = sub.map((x, subIdx) => {
+        const base = x.toLowerCase();
+        if (idx > 0 && subIdx === 0 && lowerWords.has(base)) return base;
+        return capWord(x);
+      });
+      return out.join('-');
+    };
+
+    return parts.map(capToken).join(' ');
+  }
+
+  _normalizeAgendaCatalogLabel(value) {
+    // Trim + colapsar espacios + capitalizar (title case ES).
+    const raw = String(value ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!raw) return '';
+    return this._titleCaseEs(raw).slice(0, 120);
+  }
+
   async getAgendaRoles(options = {}) {
     await this._ensureAgendaRolesTable();
     try {
@@ -7650,16 +7714,58 @@ class MySQLCRM {
 
   async createAgendaRol(nombre) {
     await this._ensureAgendaRolesTable();
-    const n = String(nombre || '').trim().slice(0, 120);
+    const n = this._normalizeAgendaCatalogLabel(nombre);
     if (!n) throw new Error('Nombre de rol obligatorio');
+    // Evitar duplicados antes de insertar
+    try {
+      const existing = await this.query('SELECT id, Nombre FROM `agenda_roles` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      if (existing && existing.length) {
+        return { insertId: existing[0].id ?? null, nombre: existing[0].Nombre ?? n };
+      }
+    } catch (_) {}
     try {
       const r = await this.query('INSERT INTO `agenda_roles` (Nombre, Activo) VALUES (?, 1)', [n]);
-      return { insertId: r?.insertId ?? null };
+      return { insertId: r?.insertId ?? null, nombre: n };
     } catch (e) {
       // Si ya existe, devolver id
-      const rows = await this.query('SELECT id FROM `agenda_roles` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      const rows = await this.query('SELECT id, Nombre FROM `agenda_roles` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
       const id = rows?.[0]?.id ?? null;
-      return { insertId: id };
+      const nombreOut = rows?.[0]?.Nombre ?? n;
+      return { insertId: id, nombre: nombreOut };
+    }
+  }
+
+  async getAgendaEspecialidades(options = {}) {
+    await this._ensureAgendaEspecialidadesTable();
+    try {
+      const includeInactivos = Boolean(options.includeInactivos);
+      const where = includeInactivos ? '' : 'WHERE Activo = 1';
+      const rows = await this.query(`SELECT id, Nombre, Activo FROM \`agenda_especialidades\` ${where} ORDER BY Nombre ASC`).catch(() => []);
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async createAgendaEspecialidad(nombre) {
+    await this._ensureAgendaEspecialidadesTable();
+    const n = this._normalizeAgendaCatalogLabel(nombre);
+    if (!n) throw new Error('Nombre de especialidad obligatorio');
+    // Evitar duplicados antes de insertar
+    try {
+      const existing = await this.query('SELECT id, Nombre FROM `agenda_especialidades` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      if (existing && existing.length) {
+        return { insertId: existing[0].id ?? null, nombre: existing[0].Nombre ?? n };
+      }
+    } catch (_) {}
+    try {
+      const r = await this.query('INSERT INTO `agenda_especialidades` (Nombre, Activo) VALUES (?, 1)', [n]);
+      return { insertId: r?.insertId ?? null, nombre: n };
+    } catch (_e) {
+      const rows = await this.query('SELECT id, Nombre FROM `agenda_especialidades` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      const id = rows?.[0]?.id ?? null;
+      const nombreOut = rows?.[0]?.Nombre ?? n;
+      return { insertId: id, nombre: nombreOut };
     }
   }
 
@@ -7774,6 +7880,10 @@ class MySQLCRM {
         data[k] = (v === undefined ? null : v);
       }
 
+      // Normalizar campos de catálogo si vienen informados
+      if (data.Cargo) data.Cargo = this._normalizeAgendaCatalogLabel(data.Cargo) || data.Cargo;
+      if (data.Especialidad) data.Especialidad = this._normalizeAgendaCatalogLabel(data.Especialidad) || data.Especialidad;
+
       if (!data.Nombre || String(data.Nombre).trim() === '') {
         throw new Error('El campo Nombre es obligatorio');
       }
@@ -7818,7 +7928,9 @@ class MySQLCRM {
       for (const [k, v] of Object.entries(payload || {})) {
         if (!allowed.has(k)) continue;
         fields.push(`\`${k}\` = ?`);
-        values.push(v === undefined ? null : v);
+        if (k === 'Cargo' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
+        else if (k === 'Especialidad' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
+        else values.push(v === undefined ? null : v);
       }
 
       if (!fields.length) return { affectedRows: 0 };
