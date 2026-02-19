@@ -7614,46 +7614,45 @@ class MySQLCRM {
     }
   }
 
-  async _ensureAgendaRolesTable() {
-    // Catálogo simple de roles/tipo de contacto (para sugerencias en UI: director, responsable compras, etc.).
+  async _ensureTiposCargoRolTable() {
+    // Catálogo relacional de Cargo (tipo/rol) para Agenda: `tiposcargorol`.
     try {
       await this.query(`
-        CREATE TABLE IF NOT EXISTS \`agenda_roles\` (
+        CREATE TABLE IF NOT EXISTS \`tiposcargorol\` (
           \`id\` INT NOT NULL AUTO_INCREMENT,
           \`Nombre\` VARCHAR(120) NOT NULL,
           \`Activo\` TINYINT(1) NOT NULL DEFAULT 1,
           \`CreadoEn\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           \`ActualizadoEn\` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
           PRIMARY KEY (\`id\`),
-          UNIQUE KEY \`ux_agenda_roles_nombre\` (\`Nombre\`),
-          KEY \`idx_agenda_roles_activo_nombre\` (\`Activo\`, \`Nombre\`)
+          UNIQUE KEY \`ux_tiposcargorol_nombre\` (\`Nombre\`),
+          KEY \`idx_tiposcargorol_activo_nombre\` (\`Activo\`, \`Nombre\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
       return true;
     } catch (e) {
-      console.warn('⚠️ [AGENDA] No se pudo asegurar tabla agenda_roles:', e?.message || e);
+      console.warn('⚠️ [AGENDA] No se pudo asegurar tabla tiposcargorol:', e?.message || e);
       return false;
     }
   }
 
-  async _ensureAgendaEspecialidadesTable() {
-    // Catálogo simple de especialidades (para sugerencias en UI).
+  async _ensureEspecialidadesIndexes() {
+    // Tabla existente: `especialidades` (id, Especialidad, Observaciones).
+    // Best-effort: asegurar índices para búsquedas rápidas.
     try {
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS \`agenda_especialidades\` (
-          \`id\` INT NOT NULL AUTO_INCREMENT,
-          \`Nombre\` VARCHAR(120) NOT NULL,
-          \`Activo\` TINYINT(1) NOT NULL DEFAULT 1,
-          \`CreadoEn\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          \`ActualizadoEn\` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
-          PRIMARY KEY (\`id\`),
-          UNIQUE KEY \`ux_agenda_especialidades_nombre\` (\`Nombre\`),
-          KEY \`idx_agenda_especialidades_activo_nombre\` (\`Activo\`, \`Nombre\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-      `);
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+      const idxRows = await this.query(`SHOW INDEX FROM \`${t}\``).catch(() => []);
+      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+      // Índice por nombre (no único, por compat)
+      if (!existing.has('idx_especialidades_especialidad')) {
+        try { await this.query(`CREATE INDEX \`idx_especialidades_especialidad\` ON \`${t}\` (\`Especialidad\`)`); } catch (_) {}
+      }
+      // Único (si no existe)
+      if (!existing.has('ux_especialidades_especialidad')) {
+        try { await this.query(`CREATE UNIQUE INDEX \`ux_especialidades_especialidad\` ON \`${t}\` (\`Especialidad\`)`); } catch (_) {}
+      }
       return true;
-    } catch (e) {
-      console.warn('⚠️ [AGENDA] No se pudo asegurar tabla agenda_especialidades:', e?.message || e);
+    } catch (_) {
       return false;
     }
   }
@@ -7701,11 +7700,12 @@ class MySQLCRM {
   }
 
   async getAgendaRoles(options = {}) {
-    await this._ensureAgendaRolesTable();
+    // Compat: devuelve los tipos Cargo/Rol desde `tiposcargorol` como {id, Nombre}
+    await this._ensureTiposCargoRolTable();
     try {
       const includeInactivos = Boolean(options.includeInactivos);
       const where = includeInactivos ? '' : 'WHERE Activo = 1';
-      const rows = await this.query(`SELECT id, Nombre, Activo FROM \`agenda_roles\` ${where} ORDER BY Nombre ASC`).catch(() => []);
+      const rows = await this.query(`SELECT id, Nombre, Activo FROM \`tiposcargorol\` ${where} ORDER BY Nombre ASC`).catch(() => []);
       return Array.isArray(rows) ? rows : [];
     } catch (e) {
       return [];
@@ -7713,22 +7713,23 @@ class MySQLCRM {
   }
 
   async createAgendaRol(nombre) {
-    await this._ensureAgendaRolesTable();
+    // Compat: crea tipo Cargo/Rol en `tiposcargorol`
+    await this._ensureTiposCargoRolTable();
     const n = this._normalizeAgendaCatalogLabel(nombre);
     if (!n) throw new Error('Nombre de rol obligatorio');
     // Evitar duplicados antes de insertar
     try {
-      const existing = await this.query('SELECT id, Nombre FROM `agenda_roles` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      const existing = await this.query('SELECT id, Nombre FROM `tiposcargorol` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
       if (existing && existing.length) {
         return { insertId: existing[0].id ?? null, nombre: existing[0].Nombre ?? n };
       }
     } catch (_) {}
     try {
-      const r = await this.query('INSERT INTO `agenda_roles` (Nombre, Activo) VALUES (?, 1)', [n]);
+      const r = await this.query('INSERT INTO `tiposcargorol` (Nombre, Activo) VALUES (?, 1)', [n]);
       return { insertId: r?.insertId ?? null, nombre: n };
     } catch (e) {
       // Si ya existe, devolver id
-      const rows = await this.query('SELECT id, Nombre FROM `agenda_roles` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      const rows = await this.query('SELECT id, Nombre FROM `tiposcargorol` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
       const id = rows?.[0]?.id ?? null;
       const nombreOut = rows?.[0]?.Nombre ?? n;
       return { insertId: id, nombre: nombreOut };
@@ -7736,35 +7737,43 @@ class MySQLCRM {
   }
 
   async getAgendaEspecialidades(options = {}) {
-    await this._ensureAgendaEspecialidadesTable();
+    // Compat: usa tabla existente `especialidades` (id, Especialidad, Observaciones)
+    await this._ensureEspecialidadesIndexes();
     try {
       const includeInactivos = Boolean(options.includeInactivos);
-      const where = includeInactivos ? '' : 'WHERE Activo = 1';
-      const rows = await this.query(`SELECT id, Nombre, Activo FROM \`agenda_especialidades\` ${where} ORDER BY Nombre ASC`).catch(() => []);
-      return Array.isArray(rows) ? rows : [];
+      // `especialidades` no tiene Activo, ignorar includeInactivos
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+      const rows = await this.query(`SELECT id, Especialidad FROM \`${t}\` ORDER BY Especialidad ASC`).catch(() => []);
+      const list = Array.isArray(rows) ? rows : [];
+      // Normalizar shape a {id, Nombre}
+      return list
+        .map((r) => ({ id: r?.id ?? r?.Id, Nombre: r?.Especialidad ?? r?.nombre ?? r?.Nombre ?? '' }))
+        .filter((r) => r.id && r.Nombre);
     } catch (e) {
       return [];
     }
   }
 
   async createAgendaEspecialidad(nombre) {
-    await this._ensureAgendaEspecialidadesTable();
+    // Compat: inserta en tabla existente `especialidades`
+    await this._ensureEspecialidadesIndexes();
     const n = this._normalizeAgendaCatalogLabel(nombre);
     if (!n) throw new Error('Nombre de especialidad obligatorio');
     // Evitar duplicados antes de insertar
     try {
-      const existing = await this.query('SELECT id, Nombre FROM `agenda_especialidades` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
-      if (existing && existing.length) {
-        return { insertId: existing[0].id ?? null, nombre: existing[0].Nombre ?? n };
-      }
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+      const existing = await this.query(`SELECT id, Especialidad FROM \`${t}\` WHERE Especialidad = ? LIMIT 1`, [n]).catch(() => []);
+      if (existing && existing.length) return { insertId: existing[0].id ?? null, nombre: existing[0].Especialidad ?? n };
     } catch (_) {}
     try {
-      const r = await this.query('INSERT INTO `agenda_especialidades` (Nombre, Activo) VALUES (?, 1)', [n]);
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+      const r = await this.query(`INSERT INTO \`${t}\` (Especialidad, Observaciones) VALUES (?, NULL)`, [n]);
       return { insertId: r?.insertId ?? null, nombre: n };
     } catch (_e) {
-      const rows = await this.query('SELECT id, Nombre FROM `agenda_especialidades` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+      const rows = await this.query(`SELECT id, Especialidad FROM \`${t}\` WHERE Especialidad = ? LIMIT 1`, [n]).catch(() => []);
       const id = rows?.[0]?.id ?? null;
-      const nombreOut = rows?.[0]?.Nombre ?? n;
+      const nombreOut = rows?.[0]?.Especialidad ?? n;
       return { insertId: id, nombre: nombreOut };
     }
   }
@@ -7811,13 +7820,37 @@ class MySQLCRM {
       }
 
       const tAgenda = await this._resolveAgendaTableName();
-      let sql = `SELECT * FROM \`${tAgenda}\``;
+      const colsAgenda = await this._getColumns(tAgenda).catch(() => []);
+      const colTipoCargoRol = this._pickCIFromColumns(colsAgenda, ['Id_TipoCargoRol', 'id_tipocargorol', 'IdTipoCargoRol', 'idTipoCargoRol']);
+      const colEspId = this._pickCIFromColumns(colsAgenda, ['Id_Especialidad', 'id_especialidad', 'IdEspecialidad', 'idEspecialidad']);
+
+      const joins = [];
+      const selectExtra = [];
+      if (colTipoCargoRol) {
+        joins.push('LEFT JOIN `tiposcargorol` tcr ON tcr.id = a.`' + colTipoCargoRol + '`');
+        selectExtra.push('tcr.Nombre AS CargoNombre');
+      }
+      if (colEspId) {
+        const tEsp = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+        joins.push('LEFT JOIN `' + tEsp + '` esp ON esp.id = a.`' + colEspId + '`');
+        selectExtra.push('esp.Especialidad AS EspecialidadNombre');
+      }
+
+      let sql = `SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''} FROM \`${tAgenda}\` a ${joins.length ? joins.join(' ') : ''}`;
       if (where.length) sql += ' WHERE ' + where.join(' AND ');
       sql += ' ORDER BY Apellidos ASC, Nombre ASC';
       sql += ` LIMIT ${limit} OFFSET ${offset}`;
 
       try {
-        return await this.query(sql, params);
+        const rows = await this.query(sql, params);
+        // Mapear nombres si venimos con joins (para que UI siga usando Cargo/Especialidad)
+        if (Array.isArray(rows) && (colTipoCargoRol || colEspId)) {
+          for (const r of rows) {
+            if (r && r.CargoNombre && !r.Cargo) r.Cargo = r.CargoNombre;
+            if (r && r.EspecialidadNombre && !r.Especialidad) r.Especialidad = r.EspecialidadNombre;
+          }
+        }
+        return rows;
       } catch (e) {
         // Fallback si FULLTEXT no está disponible en este entorno
         const msg = String(e?.message || '');
@@ -7827,11 +7860,18 @@ class MySQLCRM {
           where2.push('(Nombre LIKE ? OR Apellidos LIKE ? OR Empresa LIKE ? OR Email LIKE ? OR Movil LIKE ? OR Telefono LIKE ?)');
           const like = `%${search}%`;
           params2.push(like, like, like, like, like, like);
-          let sql2 = `SELECT * FROM \`${tAgenda}\``;
+          let sql2 = `SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''} FROM \`${tAgenda}\` a ${joins.length ? joins.join(' ') : ''}`;
           if (where2.length) sql2 += ' WHERE ' + where2.join(' AND ');
           sql2 += ' ORDER BY Apellidos ASC, Nombre ASC';
           sql2 += ` LIMIT ${limit} OFFSET ${offset}`;
-          return await this.query(sql2, params2);
+          const rows2 = await this.query(sql2, params2);
+          if (Array.isArray(rows2) && (colTipoCargoRol || colEspId)) {
+            for (const r of rows2) {
+              if (r && r.CargoNombre && !r.Cargo) r.Cargo = r.CargoNombre;
+              if (r && r.EspecialidadNombre && !r.Especialidad) r.Especialidad = r.EspecialidadNombre;
+            }
+          }
+          return rows2;
         }
         throw e;
       }
@@ -7845,8 +7885,37 @@ class MySQLCRM {
   async getContactoById(id) {
     try {
       const tAgenda = await this._resolveAgendaTableName();
-      const rows = await this.query(`SELECT * FROM \`${tAgenda}\` WHERE Id = ? LIMIT 1`, [id]);
-      return rows?.[0] || null;
+      const cols = await this._getColumns(tAgenda).catch(() => []);
+      const colTipoCargoRol = this._pickCIFromColumns(cols, ['Id_TipoCargoRol', 'id_tipocargorol', 'IdTipoCargoRol', 'idTipoCargoRol']);
+      const colEspId = this._pickCIFromColumns(cols, ['Id_Especialidad', 'id_especialidad', 'IdEspecialidad', 'idEspecialidad']);
+
+      const joins = [];
+      const selectExtra = [];
+
+      if (colTipoCargoRol) {
+        joins.push('LEFT JOIN `tiposcargorol` tcr ON tcr.id = a.`' + colTipoCargoRol + '`');
+        selectExtra.push('tcr.Nombre AS CargoNombre');
+      }
+
+      if (colEspId) {
+        const tEsp = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+        joins.push('LEFT JOIN `' + tEsp + '` esp ON esp.id = a.`' + colEspId + '`');
+        selectExtra.push('esp.Especialidad AS EspecialidadNombre');
+      }
+
+      const sql = `
+        SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''}
+        FROM \`${tAgenda}\` a
+        ${joins.join('\n')}
+        WHERE a.Id = ? LIMIT 1
+      `;
+      const rows = await this.query(sql, [id]);
+      const item = rows?.[0] || null;
+      if (item) {
+        if (item.CargoNombre && !item.Cargo) item.Cargo = item.CargoNombre;
+        if (item.EspecialidadNombre && !item.Especialidad) item.Especialidad = item.EspecialidadNombre;
+      }
+      return item;
     } catch (error) {
       console.error('❌ Error obteniendo contacto por ID:', error.message);
       return null;
@@ -7865,6 +7934,8 @@ class MySQLCRM {
         'Apellidos',
         'Cargo',
         'Especialidad',
+        'Id_TipoCargoRol',
+        'Id_Especialidad',
         'Empresa',
         'Email',
         'Movil',
@@ -7880,7 +7951,7 @@ class MySQLCRM {
         data[k] = (v === undefined ? null : v);
       }
 
-      // Normalizar campos de catálogo si vienen informados
+      // Normalizar campos de catálogo si vienen informados (se sigue guardando texto por compat/UI)
       if (data.Cargo) data.Cargo = this._normalizeAgendaCatalogLabel(data.Cargo) || data.Cargo;
       if (data.Especialidad) data.Especialidad = this._normalizeAgendaCatalogLabel(data.Especialidad) || data.Especialidad;
 
@@ -7888,11 +7959,16 @@ class MySQLCRM {
         throw new Error('El campo Nombre es obligatorio');
       }
 
+      const tAgenda = await this._resolveAgendaTableName();
+      const cols = await this._getColumns(tAgenda).catch(() => []);
+      const colsLower = new Set((cols || []).map(c => String(c || '').toLowerCase()));
+      for (const k of Object.keys(data)) {
+        if (!colsLower.has(String(k).toLowerCase())) delete data[k];
+      }
+
       const fields = Object.keys(data).map(k => `\`${k}\``).join(', ');
       const placeholders = Object.keys(data).map(() => '?').join(', ');
       const values = Object.values(data);
-
-      const tAgenda = await this._resolveAgendaTableName();
       const sql = `INSERT INTO \`${tAgenda}\` (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
       return { insertId: result.insertId };
@@ -7914,6 +7990,8 @@ class MySQLCRM {
         'Apellidos',
         'Cargo',
         'Especialidad',
+        'Id_TipoCargoRol',
+        'Id_Especialidad',
         'Empresa',
         'Email',
         'Movil',
@@ -7923,10 +8001,15 @@ class MySQLCRM {
         'Activo'
       ]);
 
+      const tAgenda = await this._resolveAgendaTableName();
+      const cols = await this._getColumns(tAgenda).catch(() => []);
+      const colsLower = new Set((cols || []).map(c => String(c || '').toLowerCase()));
+
       const fields = [];
       const values = [];
       for (const [k, v] of Object.entries(payload || {})) {
         if (!allowed.has(k)) continue;
+        if (!colsLower.has(String(k).toLowerCase())) continue;
         fields.push(`\`${k}\` = ?`);
         if (k === 'Cargo' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
         else if (k === 'Especialidad' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
@@ -7936,7 +8019,6 @@ class MySQLCRM {
       if (!fields.length) return { affectedRows: 0 };
 
       values.push(id);
-      const tAgenda = await this._resolveAgendaTableName();
       const sql = `UPDATE \`${tAgenda}\` SET ${fields.join(', ')} WHERE Id = ?`;
       const result = await this.query(sql, values);
       return { affectedRows: result.affectedRows || 0 };

@@ -5,6 +5,17 @@
 <% const pickVal = (name) => { const v = (item && item[name] !== undefined) ? item[name] : ''; return (v === null || v === undefined) ? '' : String(v); }; %>
 <% const rolesArr = (typeof roles !== 'undefined' && Array.isArray(roles)) ? roles : []; %>
 <% const especArr = (typeof especialidades !== 'undefined' && Array.isArray(especialidades)) ? especialidades : []; %>
+<%
+  const curCargoId = pickVal('Id_TipoCargoRol');
+  const curCargoText = pickVal('Cargo');
+  const hasCurCargoId = curCargoId && rolesArr.some((r) => String(r?.id ?? r?.Id ?? '') === String(curCargoId));
+  const legacyCargoVal = curCargoText ? ('__legacy_text__:' + curCargoText) : '';
+
+  const curEspId = pickVal('Id_Especialidad');
+  const curEspText = pickVal('Especialidad');
+  const hasCurEspId = curEspId && especArr.some((r) => String(r?.id ?? r?.Id ?? '') === String(curEspId));
+  const legacyEspVal = curEspText ? ('__legacy_text__:' + curEspText) : '';
+%>
 
 <section class="card gv-cliente-form" style="max-width: 980px; margin: 0 auto;">
   <div class="card-hd">
@@ -58,10 +69,12 @@
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cargo (tipo/rol)</span>
           <select name="Cargo" id="gvCargoSelect">
             <option value="">—</option>
-            <% const curCargo = pickVal('Cargo'); %>
+            <% if (!hasCurCargoId && curCargoText) { %>
+              <option value="<%= legacyCargoVal %>" selected><%= curCargoText %></option>
+            <% } %>
             <% rolesArr.forEach((r) => { %>
-              <% const v = String(r?.Nombre || '').trim(); if (!v) return; %>
-              <option value="<%= v %>" <%= (v && curCargo && v.toLowerCase() === curCargo.toLowerCase()) ? 'selected' : '' %>><%= v %></option>
+              <% const id = (r?.id ?? r?.Id); const v = String(r?.Nombre || '').trim(); if (!id || !v) return; %>
+              <option value="<%= id %>" <%= (hasCurCargoId && String(id) === String(curCargoId)) ? 'selected' : '' %>><%= v %></option>
             <% }) %>
             <option value="__add__">+ Añadir</option>
           </select>
@@ -72,10 +85,12 @@
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Especialidad</span>
           <select name="Especialidad" id="gvEspecSelect">
             <option value="">—</option>
-            <% const curEsp = pickVal('Especialidad'); %>
+            <% if (!hasCurEspId && curEspText) { %>
+              <option value="<%= legacyEspVal %>" selected><%= curEspText %></option>
+            <% } %>
             <% especArr.forEach((r) => { %>
-              <% const v = String(r?.Nombre || '').trim(); if (!v) return; %>
-              <option value="<%= v %>" <%= (v && curEsp && v.toLowerCase() === curEsp.toLowerCase()) ? 'selected' : '' %>><%= v %></option>
+              <% const id = (r?.id ?? r?.Id); const v = String(r?.Nombre || '').trim(); if (!id || !v) return; %>
+              <option value="<%= id %>" <%= (hasCurEspId && String(id) === String(curEspId)) ? 'selected' : '' %>><%= v %></option>
             <% }) %>
             <option value="__add__">+ Añadir</option>
           </select>
@@ -128,23 +143,24 @@
 
 <script>
 (function () {
-  function ensureOptionSelected(sel, value) {
-    var v = String(value || '').trim();
-    if (!v) return;
+  function ensureOptionSelectedById(sel, id, label) {
+    var vid = String(id || '').trim();
+    var vlabel = String(label || '').trim();
+    if (!vid || !vlabel) return;
     var opts = Array.prototype.slice.call(sel.querySelectorAll('option')).map(function (o) { return String(o.value || '').trim(); });
-    var idx = opts.findIndex(function (x) { return x.toLowerCase() === v.toLowerCase(); });
+    var idx = opts.findIndex(function (x) { return x === vid; });
     if (idx >= 0) {
-      sel.value = opts[idx];
+      sel.value = vid;
       return;
     }
     // Insertar antes de "+ Añadir" si existe
     var addOpt = sel.querySelector('option[value="__add__"]');
     var o = document.createElement('option');
-    o.value = v;
-    o.textContent = v;
+    o.value = vid;
+    o.textContent = vlabel;
     if (addOpt && addOpt.parentNode) addOpt.parentNode.insertBefore(o, addOpt);
     else sel.appendChild(o);
-    sel.value = v;
+    sel.value = vid;
   }
 
   var backdrop = document.getElementById('gvCatalogBackdrop');
@@ -203,8 +219,10 @@
       if (!r.ok || !json || json.ok !== true) {
         return showError((json && json.error) ? String(json.error) : ('No se pudo guardar (HTTP ' + r.status + ')'));
       }
+      var insertId = json && json.result && (json.result.insertId || json.result.id || json.result.Id);
       var nombre = (json.result && (json.result.nombre || json.result.Nombre)) || raw;
-      ensureOptionSelected(current.selectEl, nombre);
+      if (!insertId) return showError('No se pudo guardar (sin ID).');
+      ensureOptionSelectedById(current.selectEl, insertId, nombre);
       closeCatalog();
     } catch (_e) {
       showError('No se pudo guardar. Inténtalo de nuevo.');
@@ -228,7 +246,7 @@
     if (e.key === 'Escape') { e.preventDefault(); if (current.selectEl) current.selectEl.value = current.prevValue || ''; closeCatalog(); }
   });
 
-  function setup(selectId, inputId, currentVal, kind) {
+  function setup(selectId, inputId, kind) {
     var sel = document.getElementById(selectId);
     var inp = document.getElementById(inputId);
     if (!sel || !inp) return;
@@ -248,20 +266,14 @@
       inp.value = '';
     }
 
-    // Si el valor actual no está en el catálogo, lo añadimos como opción seleccionada (no forzamos modal).
-    var cur = String(currentVal || '').trim();
-    if (cur) {
-      ensureOptionSelected(sel, cur);
-    }
-
     sel.addEventListener('change', sync);
     // Inicializar prev
     sel.setAttribute('data-prev', String(sel.value || ''));
     sync();
   }
 
-  setup('gvCargoSelect', 'gvCargoNew', "<%= pickVal('Cargo').replace(/\"/g, '&quot;') %>", 'cargo');
-  setup('gvEspecSelect', 'gvEspecNew', "<%= pickVal('Especialidad').replace(/\"/g, '&quot;') %>", 'especialidad');
+  setup('gvCargoSelect', 'gvCargoNew', 'cargo');
+  setup('gvEspecSelect', 'gvEspecNew', 'especialidad');
 })();
 </script>
 

@@ -22,6 +22,9 @@ function pickAgendaPayload(body) {
   take('Apellidos', 180);
   take('Cargo', 120);
   take('Especialidad', 120);
+  // Nuevo modelo relacional (si existe en BD)
+  if (b.Id_TipoCargoRol !== undefined) out.Id_TipoCargoRol = toInt(b.Id_TipoCargoRol, null);
+  if (b.Id_Especialidad !== undefined) out.Id_Especialidad = toInt(b.Id_Especialidad, null);
   take('Empresa', 180);
   take('Email', 255);
   take('Movil', 20);

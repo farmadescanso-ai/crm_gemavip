@@ -1123,13 +1123,35 @@ app.post('/agenda/new', requireLogin, async (req, res, next) => {
     const cargoNew = String(body.CargoNew || '').trim();
     const especFromSelect = String(body.Especialidad || '').trim();
     const especNew = String(body.EspecialidadNew || '').trim();
-    const cargoFinal = cargoFromSelect === '__add__' ? cargoNew : cargoFromSelect;
-    const especFinal = especFromSelect === '__add__' ? especNew : especFromSelect;
+
+    const legacyPrefix = '__legacy_text__:';
+    const cargoIsLegacy = cargoFromSelect.startsWith(legacyPrefix);
+    const especIsLegacy = especFromSelect.startsWith(legacyPrefix);
+
+    const cargoFinalText =
+      cargoFromSelect === '__add__' ? cargoNew
+        : cargoIsLegacy ? cargoFromSelect.slice(legacyPrefix.length)
+          : '';
+    const especFinalText =
+      especFromSelect === '__add__' ? especNew
+        : especIsLegacy ? especFromSelect.slice(legacyPrefix.length)
+          : '';
+
+    const cargoId = (!cargoIsLegacy && cargoFromSelect && cargoFromSelect !== '__add__' && /^[0-9]+$/.test(cargoFromSelect)) ? Number(cargoFromSelect) : null;
+    const especId = (!especIsLegacy && especFromSelect && especFromSelect !== '__add__' && /^[0-9]+$/.test(especFromSelect)) ? Number(especFromSelect) : null;
+
+    const [rolesArr, especArr] = await Promise.all([
+      db.getAgendaRoles().catch(() => []),
+      db.getAgendaEspecialidades().catch(() => [])
+    ]);
+
     const payload = {
       Nombre: String(body.Nombre || '').trim().slice(0, 120),
       Apellidos: String(body.Apellidos || '').trim().slice(0, 180) || null,
-      Cargo: String(cargoFinal || '').trim().slice(0, 120) || null,
-      Especialidad: String(especFinal || '').trim().slice(0, 120) || null,
+      Cargo: null,
+      Especialidad: null,
+      Id_TipoCargoRol: cargoId || null,
+      Id_Especialidad: especId || null,
       Empresa: String(body.Empresa || '').trim().slice(0, 180) || null,
       Email: String(body.Email || '').trim().slice(0, 255) || null,
       Movil: String(body.Movil || '').trim().slice(0, 20) || null,
@@ -1139,20 +1161,29 @@ app.post('/agenda/new', requireLogin, async (req, res, next) => {
       Activo: (String(body.Activo || '1').trim() === '0') ? 0 : 1
     };
     if (!payload.Nombre) {
-      const [roles, especialidades] = await Promise.all([
-        db.getAgendaRoles().catch(() => []),
-        db.getAgendaEspecialidades().catch(() => [])
-      ]);
-      return res.render('agenda-form', { mode: 'create', item: payload, error: 'El campo Nombre es obligatorio', roles: roles || [], especialidades: especialidades || [] });
+      return res.render('agenda-form', { mode: 'create', item: payload, error: 'El campo Nombre es obligatorio', roles: rolesArr || [], especialidades: especArr || [] });
     }
-    if (payload.Cargo) {
-      const r = await db.createAgendaRol(payload.Cargo).catch(() => null);
+
+    // Cargo/tipo/rol
+    if (cargoFinalText && String(cargoFinalText).trim()) {
+      const r = await db.createAgendaRol(String(cargoFinalText).trim()).catch(() => null);
+      if (r?.insertId) payload.Id_TipoCargoRol = r.insertId;
       if (r?.nombre) payload.Cargo = r.nombre;
+    } else if (payload.Id_TipoCargoRol) {
+      const found = (rolesArr || []).find((x) => Number(x?.id) === Number(payload.Id_TipoCargoRol));
+      if (found?.Nombre) payload.Cargo = String(found.Nombre);
     }
-    if (payload.Especialidad) {
-      const r = await db.createAgendaEspecialidad(payload.Especialidad).catch(() => null);
+
+    // Especialidad
+    if (especFinalText && String(especFinalText).trim()) {
+      const r = await db.createAgendaEspecialidad(String(especFinalText).trim()).catch(() => null);
+      if (r?.insertId) payload.Id_Especialidad = r.insertId;
       if (r?.nombre) payload.Especialidad = r.nombre;
+    } else if (payload.Id_Especialidad) {
+      const found = (especArr || []).find((x) => Number(x?.id) === Number(payload.Id_Especialidad));
+      if (found?.Nombre) payload.Especialidad = String(found.Nombre);
     }
+
     const result = await db.createContacto(payload);
     const id = result?.insertId;
     return res.redirect(id ? `/agenda/${id}?created=1` : '/agenda');
@@ -1211,13 +1242,35 @@ app.post('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
     const cargoNew = String(body.CargoNew || '').trim();
     const especFromSelect = String(body.Especialidad || '').trim();
     const especNew = String(body.EspecialidadNew || '').trim();
-    const cargoFinal = cargoFromSelect === '__add__' ? cargoNew : cargoFromSelect;
-    const especFinal = especFromSelect === '__add__' ? especNew : especFromSelect;
+
+    const legacyPrefix = '__legacy_text__:';
+    const cargoIsLegacy = cargoFromSelect.startsWith(legacyPrefix);
+    const especIsLegacy = especFromSelect.startsWith(legacyPrefix);
+
+    const cargoFinalText =
+      cargoFromSelect === '__add__' ? cargoNew
+        : cargoIsLegacy ? cargoFromSelect.slice(legacyPrefix.length)
+          : '';
+    const especFinalText =
+      especFromSelect === '__add__' ? especNew
+        : especIsLegacy ? especFromSelect.slice(legacyPrefix.length)
+          : '';
+
+    const cargoId = (!cargoIsLegacy && cargoFromSelect && cargoFromSelect !== '__add__' && /^[0-9]+$/.test(cargoFromSelect)) ? Number(cargoFromSelect) : null;
+    const especId = (!especIsLegacy && especFromSelect && especFromSelect !== '__add__' && /^[0-9]+$/.test(especFromSelect)) ? Number(especFromSelect) : null;
+
+    const [rolesArr, especArr] = await Promise.all([
+      db.getAgendaRoles().catch(() => []),
+      db.getAgendaEspecialidades().catch(() => [])
+    ]);
+
     const payload = {
       Nombre: String(body.Nombre || '').trim().slice(0, 120),
       Apellidos: String(body.Apellidos || '').trim().slice(0, 180) || null,
-      Cargo: String(cargoFinal || '').trim().slice(0, 120) || null,
-      Especialidad: String(especFinal || '').trim().slice(0, 120) || null,
+      Cargo: null,
+      Especialidad: null,
+      Id_TipoCargoRol: cargoId || null,
+      Id_Especialidad: especId || null,
       Empresa: String(body.Empresa || '').trim().slice(0, 180) || null,
       Email: String(body.Email || '').trim().slice(0, 255) || null,
       Movil: String(body.Movil || '').trim().slice(0, 20) || null,
@@ -1227,20 +1280,27 @@ app.post('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
       Activo: (String(body.Activo || '1').trim() === '0') ? 0 : 1
     };
     if (!payload.Nombre) {
-      const [roles, especialidades] = await Promise.all([
-        db.getAgendaRoles().catch(() => []),
-        db.getAgendaEspecialidades().catch(() => [])
-      ]);
-      return res.render('agenda-form', { mode: 'edit', item: { ...current, ...payload }, error: 'El campo Nombre es obligatorio', roles: roles || [], especialidades: especialidades || [] });
+      return res.render('agenda-form', { mode: 'edit', item: { ...current, ...payload }, error: 'El campo Nombre es obligatorio', roles: rolesArr || [], especialidades: especArr || [] });
     }
-    if (payload.Cargo) {
-      const r = await db.createAgendaRol(payload.Cargo).catch(() => null);
+
+    if (cargoFinalText && String(cargoFinalText).trim()) {
+      const r = await db.createAgendaRol(String(cargoFinalText).trim()).catch(() => null);
+      if (r?.insertId) payload.Id_TipoCargoRol = r.insertId;
       if (r?.nombre) payload.Cargo = r.nombre;
+    } else if (payload.Id_TipoCargoRol) {
+      const found = (rolesArr || []).find((x) => Number(x?.id) === Number(payload.Id_TipoCargoRol));
+      if (found?.Nombre) payload.Cargo = String(found.Nombre);
     }
-    if (payload.Especialidad) {
-      const r = await db.createAgendaEspecialidad(payload.Especialidad).catch(() => null);
+
+    if (especFinalText && String(especFinalText).trim()) {
+      const r = await db.createAgendaEspecialidad(String(especFinalText).trim()).catch(() => null);
+      if (r?.insertId) payload.Id_Especialidad = r.insertId;
       if (r?.nombre) payload.Especialidad = r.nombre;
+    } else if (payload.Id_Especialidad) {
+      const found = (especArr || []).find((x) => Number(x?.id) === Number(payload.Id_Especialidad));
+      if (found?.Nombre) payload.Especialidad = String(found.Nombre);
     }
+
     await db.updateContacto(id, payload);
     return res.redirect(`/agenda/${id}`);
   } catch (e) {

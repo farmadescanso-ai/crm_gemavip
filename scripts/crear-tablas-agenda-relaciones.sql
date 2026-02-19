@@ -37,6 +37,20 @@ CREATE TABLE IF NOT EXISTS `agenda_roles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Catálogo de roles/tipo de contacto (director, compras, etc.)';
 
+-- 2a) (Nuevo) Catálogo relacional de Cargo (tipo/rol) para Agenda
+-- Recomendado: usar esta tabla + FK en `agenda` (Id_TipoCargoRol)
+CREATE TABLE IF NOT EXISTS `tiposcargorol` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `Nombre` VARCHAR(120) NOT NULL,
+  `Activo` TINYINT(1) NOT NULL DEFAULT 1,
+  `CreadoEn` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ActualizadoEn` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_tiposcargorol_nombre` (`Nombre`),
+  KEY `idx_tiposcargorol_activo_nombre` (`Activo`, `Nombre`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Catálogo relacional de cargos/roles (tipo/rol) para Agenda';
+
 -- 2b) Catálogo simple de especialidades (para sugerencias)
 CREATE TABLE IF NOT EXISTS `agenda_especialidades` (
   `id` INT NOT NULL AUTO_INCREMENT,
