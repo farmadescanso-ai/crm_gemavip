@@ -46,102 +46,153 @@
 
       <% (tabs || []).forEach((t, idx) => { %>
         <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
-          <div class="grid cols-2" style="gap: 12px;">
-            <% (t.fields || []).forEach((f) => { %>
-              <% const name = f.name; %>
-              <% const label = f.label; %>
-              <% const required = !!f.required; %>
-              <% const spec = f.spec || {}; %>
-              <% const isMissing = missingFieldsList.indexOf(name) !== -1; %>
-              <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
+          <% if (t.id === 'agenda') { %>
+            <% const cid = (typeof contactoId !== 'undefined' && contactoId) ? contactoId : (item.Id || item.id); %>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <h2 style="margin: 0; font-size: 1.05rem;">Agenda</h2>
+                <a class="btn secondary" href="/clientes/<%= cid %>" title="Gestionar en ficha del cliente">Gestionar</a>
+                <a class="btn secondary" href="/agenda" title="Abrir Agenda">Abrir Agenda</a>
+              </div>
+              <div style="color: var(--gv-muted); font-weight:800;">
+                <% const hist = (typeof agendaIncludeHistorico !== 'undefined' && agendaIncludeHistorico) ? true : false; %>
+                <a href="/clientes/<%= cid %>/edit?agendaHistorico=<%= hist ? '0' : '1' %>" style="text-decoration:none;">
+                  <%= hist ? 'Ocultar histórico' : 'Ver histórico' %>
+                </a>
+              </div>
+            </div>
 
-              <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %>">
-                <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %></span>
-
-                <% if (spec.kind === 'readonly') { %>
-                  <div class="gv-readonly"><%= pickVal(name) || '—' %></div>
-                <% } else if (spec.kind === 'textarea') { %>
-                  <textarea id="<%= inputId %>" name="<%= name %>" rows="4" <%= required ? 'required' : '' %> aria-invalid="<%= isMissing ? 'true' : 'false' %>"><%= pickVal(name) %></textarea>
-                <% } else if (spec.kind === 'checkbox') { %>
-                  <input type="hidden" name="<%= name %>" value="0" />
-                  <div style="display:flex; align-items:center; gap:10px;">
-                    <input id="<%= inputId %>" type="checkbox" name="<%= name %>" value="1" <%= (pickVal(name) === '1' || pickVal(name).toLowerCase() === 'true') ? 'checked' : '' %> />
-                    <span style="color: var(--gv-muted); font-weight:700;">Sí</span>
-                  </div>
-                <% } else if (spec.kind === 'select' && spec.options === 'ok_ko') { %>
-                  <select id="gv-ok-ko" name="<%= name %>">
-                    <option value="1" <%= pickVal(name) === '1' ? 'selected' : '' %>>Activo</option>
-                    <option value="0" <%= pickVal(name) === '0' ? 'selected' : '' %>>Inactivo</option>
-                  </select>
-                  <small style="color: var(--gv-muted);">Solo se puede estar activo con DNI/CIF informado.</small>
-                <% } else if (spec.kind === 'select' && spec.options === 'estados_cliente') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
-                  <select id="<%= inputId %>" name="<%= name %>">
-                    <option value="">—</option>
-                    <% (estadosCliente || []).forEach((r) => { %>
-                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const rlabel = r.Nombre ?? r.nombre ?? ('Estado ' + rid); %>
-                      <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
+            <div class="table-wrap" style="margin-top: 12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Persona</th>
+                    <th>Empresa</th>
+                    <th>Rol</th>
+                    <th>Principal</th>
+                    <th>Vigente</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!agendaContactos || agendaContactos.length === 0) { %>
+                    <tr><td colspan="5" style="color: var(--gv-muted); font-weight:800;">Sin contactos de agenda asociados.</td></tr>
+                  <% } else { %>
+                    <% agendaContactos.forEach((a) => { %>
+                      <%
+                        const aid = a?.Id_Contacto ?? a?.id_contacto ?? a?.Id ?? a?.id ?? '';
+                        const anombre = [a?.Nombre, a?.Apellidos].filter(Boolean).join(' ').trim() || ('Contacto ' + aid);
+                        const vigente = !a?.VigenteHasta;
+                        const principal = String(a?.Es_Principal ?? 0) === '1';
+                      %>
+                      <tr>
+                        <td><a href="/agenda/<%= aid %>"><%= anombre %></a></td>
+                        <td><%= a?.Empresa ?? '' %></td>
+                        <td><%= a?.Rol ?? '' %></td>
+                        <td><%= principal ? 'Sí' : '—' %></td>
+                        <td><%= vigente ? 'Sí' : 'No' %></td>
+                      </tr>
                     <% }) %>
-                  </select>
-                  <small style="color: var(--gv-muted);">Si seleccionas Activo sin DNI/CIF válido, se guardará como Potencial.</small>
-                <% } else if (spec.kind === 'select' && spec.options === 'tipo_contacto') { %>
-                  <select id="<%= inputId %>" name="<%= name %>">
-                    <option value="">— Seleccionar —</option>
-                    <option value="Empresa" <%= pickVal(name) === 'Empresa' ? 'selected' : '' %>>Empresa</option>
-                    <option value="Persona" <%= pickVal(name) === 'Persona' ? 'selected' : '' %>>Persona</option>
-                    <option value="Otros" <%= pickVal(name) === 'Otros' ? 'selected' : '' %>>Otros</option>
-                  </select>
-                <% } else if (spec.kind === 'select' && spec.options === 'comerciales') { %>
-                  <% const cur = Number(pickVal(name) || 0) || 0; %>
-                  <% if (canChangeComercial) { %>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          <% } else { %>
+            <div class="grid cols-2" style="gap: 12px;">
+              <% (t.fields || []).forEach((f) => { %>
+                <% const name = f.name; %>
+                <% const label = f.label; %>
+                <% const required = !!f.required; %>
+                <% const spec = f.spec || {}; %>
+                <% const isMissing = missingFieldsList.indexOf(name) !== -1; %>
+                <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
+
+                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %>">
+                  <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %></span>
+
+                  <% if (spec.kind === 'readonly') { %>
+                    <div class="gv-readonly"><%= pickVal(name) || '—' %></div>
+                  <% } else if (spec.kind === 'textarea') { %>
+                    <textarea id="<%= inputId %>" name="<%= name %>" rows="4" <%= required ? 'required' : '' %> aria-invalid="<%= isMissing ? 'true' : 'false' %>"><%= pickVal(name) %></textarea>
+                  <% } else if (spec.kind === 'checkbox') { %>
+                    <input type="hidden" name="<%= name %>" value="0" />
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <input id="<%= inputId %>" type="checkbox" name="<%= name %>" value="1" <%= (pickVal(name) === '1' || pickVal(name).toLowerCase() === 'true') ? 'checked' : '' %> />
+                      <span style="color: var(--gv-muted); font-weight:700;">Sí</span>
+                    </div>
+                  <% } else if (spec.kind === 'select' && spec.options === 'ok_ko') { %>
+                    <select id="gv-ok-ko" name="<%= name %>">
+                      <option value="1" <%= pickVal(name) === '1' ? 'selected' : '' %>>Activo</option>
+                      <option value="0" <%= pickVal(name) === '0' ? 'selected' : '' %>>Inactivo</option>
+                    </select>
+                    <small style="color: var(--gv-muted);">Solo se puede estar activo con DNI/CIF informado.</small>
+                  <% } else if (spec.kind === 'select' && spec.options === 'estados_cliente') { %>
+                    <% const curId = Number(pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
-                      <option value="">(sin asignar)</option>
-                      <% (comerciales || []).forEach((c) => { %>
-                        <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
-                        <option value="<%= cid %>" <%= cid === cur ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+                      <option value="">—</option>
+                      <% (estadosCliente || []).forEach((r) => { %>
+                        <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                        <% const rlabel = r.Nombre ?? r.nombre ?? ('Estado ' + rid); %>
+                        <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                       <% }) %>
                     </select>
-                  <% } else { %>
-                    <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.id ?? c.Id ?? 0) === cur; }); %>
-                    <div class="gv-readonly"><%= comercialAsignado ? (comercialAsignado.Nombre ?? '') : 'Sin asignar' %></div>
-                    <input type="hidden" name="<%= name %>" value="<%= pickVal(name) %>" />
-                  <% } %>
-                <% } else if (spec.kind === 'select' && spec.options === 'tarifas') { %>
-                  <% const curTar = Number(pickVal(name) || 0) || 0; %>
-                  <select id="<%= inputId %>" name="<%= name %>">
-                    <% (tarifas || []).forEach((t) => { %>
-                      <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
-                      <% const tlabel = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
-                      <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= tlabel %></option>
-                    <% }) %>
-                  </select>
-                <% } else if (spec.kind === 'select' && spec.options === 'paises') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
-                  <select id="<%= inputId %>" name="<%= name %>">
-                    <option value="">—</option>
-                    <% (paises || []).forEach((p) => { %>
-                      <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
-                      <% const plabel = p.Nombre_pais ?? p.Nombre ?? p.nombre ?? p.Pais ?? ('País ' + pid); %>
-                      <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
-                    <% }) %>
-                  </select>
-                <% } else if (spec.kind === 'select' && spec.options === 'provincias') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
-                  <select id="<%= inputId %>" name="<%= name %>">
-                    <option value="">—</option>
-                    <% (provincias || []).forEach((p) => { %>
-                      <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
-                      <% const plabel = p.Nombre_provincia ?? p.Nombre ?? p.nombre ?? p.Provincia ?? ('Provincia ' + pid); %>
-                      <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
-                    <% }) %>
-                  </select>
-                <% } else if (spec.kind === 'select' && spec.options === 'formas_pago') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
-                  <select id="<%= inputId %>" name="<%= name %>">
-                    <option value="">—</option>
-                    <% (formasPago || []).forEach((r) => { %>
-                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                    <small style="color: var(--gv-muted);">Si seleccionas Activo sin DNI/CIF válido, se guardará como Potencial.</small>
+                  <% } else if (spec.kind === 'select' && spec.options === 'tipo_contacto') { %>
+                    <select id="<%= inputId %>" name="<%= name %>">
+                      <option value="">— Seleccionar —</option>
+                      <option value="Empresa" <%= pickVal(name) === 'Empresa' ? 'selected' : '' %>>Empresa</option>
+                      <option value="Persona" <%= pickVal(name) === 'Persona' ? 'selected' : '' %>>Persona</option>
+                      <option value="Otros" <%= pickVal(name) === 'Otros' ? 'selected' : '' %>>Otros</option>
+                    </select>
+                  <% } else if (spec.kind === 'select' && spec.options === 'comerciales') { %>
+                    <% const cur = Number(pickVal(name) || 0) || 0; %>
+                    <% if (canChangeComercial) { %>
+                      <select id="<%= inputId %>" name="<%= name %>">
+                        <option value="">(sin asignar)</option>
+                        <% (comerciales || []).forEach((c) => { %>
+                          <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
+                          <option value="<%= cid %>" <%= cid === cur ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+                        <% }) %>
+                      </select>
+                    <% } else { %>
+                      <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.id ?? c.Id ?? 0) === cur; }); %>
+                      <div class="gv-readonly"><%= comercialAsignado ? (comercialAsignado.Nombre ?? '') : 'Sin asignar' %></div>
+                      <input type="hidden" name="<%= name %>" value="<%= pickVal(name) %>" />
+                    <% } %>
+                  <% } else if (spec.kind === 'select' && spec.options === 'tarifas') { %>
+                    <% const curTar = Number(pickVal(name) || 0) || 0; %>
+                    <select id="<%= inputId %>" name="<%= name %>">
+                      <% (tarifas || []).forEach((t) => { %>
+                        <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
+                        <% const tlabel = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
+                        <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= tlabel %></option>
+                      <% }) %>
+                    </select>
+                  <% } else if (spec.kind === 'select' && spec.options === 'paises') { %>
+                    <% const curId = Number(pickVal(name) || 0) || 0; %>
+                    <select id="<%= inputId %>" name="<%= name %>">
+                      <option value="">—</option>
+                      <% (paises || []).forEach((p) => { %>
+                        <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
+                        <% const plabel = p.Nombre_pais ?? p.Nombre ?? p.nombre ?? p.Pais ?? ('País ' + pid); %>
+                        <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
+                      <% }) %>
+                    </select>
+                  <% } else if (spec.kind === 'select' && spec.options === 'provincias') { %>
+                    <% const curId = Number(pickVal(name) || 0) || 0; %>
+                    <select id="<%= inputId %>" name="<%= name %>">
+                      <option value="">—</option>
+                      <% (provincias || []).forEach((p) => { %>
+                        <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
+                        <% const plabel = p.Nombre_provincia ?? p.Nombre ?? p.nombre ?? p.Provincia ?? ('Provincia ' + pid); %>
+                        <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
+                      <% }) %>
+                    </select>
+                  <% } else if (spec.kind === 'select' && spec.options === 'formas_pago') { %>
+                    <% const curId = Number(pickVal(name) || 0) || 0; %>
+                    <select id="<%= inputId %>" name="<%= name %>">
+                      <option value="">—</option>
+                      <% (formasPago || []).forEach((r) => { %>
+                        <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
                       <% const rlabel = r.FormaPago ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? r.nombre ?? ('Forma pago ' + rid); %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
@@ -227,6 +278,7 @@
               </label>
             <% }) %>
           </div>
+          <% } %>
         </section>
       <% }) %>
     </form>

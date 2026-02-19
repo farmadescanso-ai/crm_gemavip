@@ -1484,8 +1484,9 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     { id: 'notas', label: 'Notas', fields: [] },
     { id: 'avanzado', label: 'Avanzado', fields: [] }
   ];
-  if (String(mode || '').toLowerCase() === 'view') {
-    tabs.push({ id: 'agenda', label: 'Agenda', fields: [] });
+  {
+    const m = String(mode || '').toLowerCase();
+    if (m === 'view' || m === 'edit') tabs.push({ id: 'agenda', label: 'Agenda', fields: [] });
   }
   const byId = new Map(tabs.map((t) => [t.id, t]));
 
@@ -1809,7 +1810,8 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
+    const includeAgendaHistorico = String(req.query.agendaHistorico || '').trim() === '1';
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta, agendaContactos] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
@@ -1822,7 +1824,8 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       loadEstadosClienteForSelect(db),
       db.getCooperativas?.().catch(() => []) ?? [],
       db.getGruposCompras?.().catch(() => []) ?? [],
-      db._ensureClientesMeta().catch(() => null)
+      db._ensureClientesMeta().catch(() => null),
+      db.getContactosByCliente(id, { includeHistorico: includeAgendaHistorico }).catch(() => [])
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
@@ -1843,7 +1846,15 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       gruposCompras,
       canChangeComercial: admin
     });
-    res.render('cliente-form', { ...model, error: null, admin, puedeSolicitarAsignacion, contactoId: id });
+    res.render('cliente-form', {
+      ...model,
+      error: null,
+      admin,
+      puedeSolicitarAsignacion,
+      contactoId: id,
+      agendaContactos: Array.isArray(agendaContactos) ? agendaContactos : [],
+      agendaIncludeHistorico: includeAgendaHistorico
+    });
   } catch (e) {
     next(e);
   }
