@@ -7795,7 +7795,7 @@ class MySQLCRM {
       if (!includeInactivos) {
         // Compatibilidad: Activo puede venir como 1/0 o como strings ('OK'/'KO', 'SI'/'NO', etc.).
         // Forzamos a string para evitar conversiones numéricas extrañas en MySQL estricto.
-        where.push("TRIM(UPPER(COALESCE(CONCAT(Activo,''),''))) IN ('1','OK','TRUE','SI','SÍ')");
+        where.push("TRIM(UPPER(COALESCE(CONCAT(a.Activo,''),''))) IN ('1','OK','TRUE','SI','SÍ')");
       }
 
       if (search) {
@@ -7810,10 +7810,10 @@ class MySQLCRM {
           .join(' ');
 
         if (terms && terms.replace(/\*/g, '').length >= 3) {
-          where.push('(MATCH(Nombre, Apellidos, Empresa, Email, Movil, Telefono) AGAINST (? IN BOOLEAN MODE))');
+          where.push('(MATCH(a.Nombre, a.Apellidos, a.Empresa, a.Email, a.Movil, a.Telefono) AGAINST (? IN BOOLEAN MODE))');
           params.push(terms);
         } else {
-          where.push('(Nombre LIKE ? OR Apellidos LIKE ? OR Empresa LIKE ? OR Email LIKE ? OR Movil LIKE ? OR Telefono LIKE ?)');
+          where.push('(a.Nombre LIKE ? OR a.Apellidos LIKE ? OR a.Empresa LIKE ? OR a.Email LIKE ? OR a.Movil LIKE ? OR a.Telefono LIKE ?)');
           const like = `%${search}%`;
           params.push(like, like, like, like, like, like);
         }
@@ -7838,7 +7838,7 @@ class MySQLCRM {
 
       let sql = `SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''} FROM \`${tAgenda}\` a ${joins.length ? joins.join(' ') : ''}`;
       if (where.length) sql += ' WHERE ' + where.join(' AND ');
-      sql += ' ORDER BY Apellidos ASC, Nombre ASC';
+      sql += ' ORDER BY a.Apellidos ASC, a.Nombre ASC';
       sql += ` LIMIT ${limit} OFFSET ${offset}`;
 
       try {
@@ -7857,12 +7857,12 @@ class MySQLCRM {
         if (search && msg.toLowerCase().includes('match') && msg.toLowerCase().includes('against')) {
           const where2 = where.filter(w => !w.includes('MATCH('));
           const params2 = params.slice(0, params.length - 1); // quitar terms
-          where2.push('(Nombre LIKE ? OR Apellidos LIKE ? OR Empresa LIKE ? OR Email LIKE ? OR Movil LIKE ? OR Telefono LIKE ?)');
+          where2.push('(a.Nombre LIKE ? OR a.Apellidos LIKE ? OR a.Empresa LIKE ? OR a.Email LIKE ? OR a.Movil LIKE ? OR a.Telefono LIKE ?)');
           const like = `%${search}%`;
           params2.push(like, like, like, like, like, like);
           let sql2 = `SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''} FROM \`${tAgenda}\` a ${joins.length ? joins.join(' ') : ''}`;
           if (where2.length) sql2 += ' WHERE ' + where2.join(' AND ');
-          sql2 += ' ORDER BY Apellidos ASC, Nombre ASC';
+          sql2 += ' ORDER BY a.Apellidos ASC, a.Nombre ASC';
           sql2 += ` LIMIT ${limit} OFFSET ${offset}`;
           const rows2 = await this.query(sql2, params2);
           if (Array.isArray(rows2) && (colTipoCargoRol || colEspId)) {
