@@ -104,14 +104,113 @@
 
     <% (tabs || []).forEach((t, idx) => { %>
       <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
-        <div class="grid cols-2" style="gap: 12px;">
-          <% (t.fields || []).forEach((f) => { %>
-            <div style="display:grid; gap: 6px;">
-              <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= f.label %></span>
-              <div class="gv-readonly" style="<%= (f.spec && f.spec.kind === 'textarea') ? 'white-space:pre-wrap;' : '' %>"><%= displayForField(f) %></div>
+        <% if (t.id === 'agenda') { %>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <h2 style="margin: 0; font-size: 1.05rem;">Agenda</h2>
+              <a class="btn secondary" href="/agenda" title="Abrir Agenda">Abrir Agenda</a>
             </div>
-          <% }) %>
-        </div>
+            <div style="color: var(--gv-muted); font-weight:800;">
+              <% const hist = (typeof agendaIncludeHistorico !== 'undefined' && agendaIncludeHistorico) ? true : false; %>
+              <a href="/clientes/<%= cid %>?agendaHistorico=<%= hist ? '0' : '1' %>" style="text-decoration:none;">
+                <%= hist ? 'Ocultar histórico' : 'Ver histórico' %>
+              </a>
+            </div>
+          </div>
+
+          <% if (typeof agendaOk !== 'undefined' && agendaOk) { %>
+            <div class="gv-alert gv-alert--success" style="margin-top:12px;">Actualizado.</div>
+          <% } %>
+          <% if (typeof agendaError !== 'undefined' && agendaError) { %>
+            <div class="gv-alert gv-alert--warn" style="margin-top:12px;">No se pudo actualizar Agenda. Revisa los datos.</div>
+          <% } %>
+
+          <% if (canEdit) { %>
+            <form method="post" action="/clientes/<%= cid %>/agenda/link" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 12px;">
+              <input type="hidden" name="agendaContactoId" id="gvAgendaContactoId" value="" />
+              <input type="search" id="gvAgendaSearch" placeholder="Buscar persona en Agenda..." style="min-width: 260px;" />
+              <input name="Rol" list="gvAgendaRoles" placeholder="Rol (opcional)" style="min-width:190px;" />
+              <datalist id="gvAgendaRoles">
+                <% (agendaRoles || []).forEach((r) => { %>
+                  <option value="<%= r.Nombre %>"></option>
+                <% }) %>
+              </datalist>
+              <label style="display:flex; align-items:center; gap:6px; font-weight:800; color: var(--gv-muted);">
+                <input type="checkbox" name="Es_Principal" value="1" />
+                Principal
+              </label>
+              <button class="btn secondary" type="submit">Asociar</button>
+            </form>
+            <small style="display:block; margin-top:6px; color: var(--gv-muted); font-weight:700;">
+              Consejo: si marcas “Principal”, se desmarcarán otros principales vigentes de este cliente.
+            </small>
+          <% } else { %>
+            <div style="margin-top: 12px; color: var(--gv-muted); font-weight:800;">
+              No tienes permiso para modificar la Agenda de este cliente.
+            </div>
+          <% } %>
+
+          <div class="table-wrap" style="margin-top: 12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Persona</th>
+                  <th>Empresa</th>
+                  <th>Rol</th>
+                  <th>Principal</th>
+                  <th>Vigente</th>
+                  <th style="width: 1%;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (!agendaContactos || agendaContactos.length === 0) { %>
+                  <tr><td colspan="6" style="color: var(--gv-muted); font-weight:800;">Sin contactos de agenda asociados.</td></tr>
+                <% } else { %>
+                  <% agendaContactos.forEach((a) => { %>
+                    <%
+                      const aid = a?.Id_Contacto ?? a?.id_contacto ?? a?.Id ?? a?.id ?? '';
+                      const anombre = [a?.Nombre, a?.Apellidos].filter(Boolean).join(' ').trim() || ('Contacto ' + aid);
+                      const vigente = !a?.VigenteHasta;
+                      const principal = String(a?.Es_Principal ?? 0) === '1';
+                    %>
+                    <tr>
+                      <td><a href="/agenda/<%= aid %>"><%= anombre %></a></td>
+                      <td><%= a?.Empresa ?? '' %></td>
+                      <td><%= a?.Rol ?? '' %></td>
+                      <td><%= principal ? 'Sí' : '—' %></td>
+                      <td><%= vigente ? 'Sí' : 'No' %></td>
+                      <td>
+                        <% if (canEdit && vigente) { %>
+                          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <% if (!principal) { %>
+                              <form method="post" action="/clientes/<%= cid %>/agenda/<%= aid %>/principal" style="margin:0;">
+                                <button class="btn secondary" type="submit">Principal</button>
+                              </form>
+                            <% } %>
+                            <form method="post" action="/clientes/<%= cid %>/agenda/<%= aid %>/unlink" style="margin:0;" onsubmit="return confirm('¿Quitar asociación con este contacto?');">
+                              <button class="btn secondary" type="submit">Quitar</button>
+                            </form>
+                          </div>
+                        <% } else { %>
+                          <span style="color: var(--gv-muted); font-weight:800;">—</span>
+                        <% } %>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="grid cols-2" style="gap: 12px;">
+            <% (t.fields || []).forEach((f) => { %>
+              <div style="display:grid; gap: 6px;">
+                <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= f.label %></span>
+                <div class="gv-readonly" style="<%= (f.spec && f.spec.kind === 'textarea') ? 'white-space:pre-wrap;' : '' %>"><%= displayForField(f) %></div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
       </section>
     <% }) %>
   </div>
@@ -137,6 +236,77 @@
       setTab(b.getAttribute('data-tab'));
     });
   });
+
+  // Agenda suggest (asociar persona)
+  var agendaSearch = document.getElementById('gvAgendaSearch');
+  var agendaHidden = document.getElementById('gvAgendaContactoId');
+  if (agendaSearch && agendaHidden) {
+    var box = document.createElement('div');
+    box.style.position = 'relative';
+    agendaSearch.parentNode.insertBefore(box, agendaSearch);
+    box.appendChild(agendaSearch);
+
+    var list = document.createElement('div');
+    list.style.position = 'absolute';
+    list.style.top = '100%';
+    list.style.left = '0';
+    list.style.right = '0';
+    list.style.zIndex = '20';
+    list.style.background = '#fff';
+    list.style.border = '1px solid rgba(0,0,0,.12)';
+    list.style.borderRadius = '10px';
+    list.style.boxShadow = '0 8px 18px rgba(0,0,0,.10)';
+    list.style.marginTop = '6px';
+    list.style.overflow = 'hidden';
+    list.style.display = 'none';
+    box.appendChild(list);
+
+    function hide() {
+      list.style.display = 'none';
+      list.innerHTML = '';
+    }
+
+    var t = null;
+    async function run() {
+      var q = String(agendaSearch.value || '').trim();
+      agendaHidden.value = '';
+      if (q.length < 2) { hide(); return; }
+      try {
+        var r = await fetch('/api/agenda/suggest?q=' + encodeURIComponent(q) + '&limit=8', { headers: { Accept: 'application/json' } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var json = await r.json();
+        var items = (json && json.ok && Array.isArray(json.items)) ? json.items : [];
+        if (!items.length) { hide(); return; }
+        list.innerHTML = items.map(function (it) {
+          var id = it.id || it.Id || '';
+          var label = it.label || ('Contacto ' + id);
+          return '<button type="button" data-id="' + String(id).split('"').join('&quot;') + '" data-label="' + String(label).split('"').join('&quot;') + '"'
+            + ' style="display:block; width:100%; text-align:left; padding:10px 12px; border:0; background:#fff; cursor:pointer; font-weight:700;">'
+            + label + '</button>';
+        }).join('');
+        list.style.display = 'block';
+      } catch (_e) {
+        hide();
+      }
+    }
+
+    agendaSearch.addEventListener('input', function () {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(run, 250);
+    });
+
+    list.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button[data-id]') : null;
+      if (!btn) return;
+      agendaHidden.value = btn.getAttribute('data-id') || '';
+      agendaSearch.value = btn.getAttribute('data-label') || '';
+      hide();
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!box.contains(e.target)) hide();
+    });
+  }
 })();
 </script>
 

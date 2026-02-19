@@ -1,0 +1,26 @@
+-- Renombrar tabla `contactos` -> `agenda`
+-- Base de datos: MySQL / MariaDB (InnoDB recomendado).
+--
+-- Notas:
+-- - Ejecuta esto en una ventana de mantenimiento si tienes tráfico.
+-- - Si existen claves foráneas hacia `contactos`, MySQL suele actualizar la referencia al renombrar la tabla.
+-- - Este repositorio ya incluye fallback en el código: primero usa `agenda` y si no existe, cae a `contactos`.
+--
+-- 1) Verificación rápida (opcional)
+-- SHOW TABLES LIKE 'contactos';
+-- SHOW TABLES LIKE 'agenda';
+--
+-- 2) Renombrado (ejecutar SOLO si existe `contactos` y NO existe `agenda`)
+RENAME TABLE `contactos` TO `agenda`;
+--
+-- 3) (Opcional) Si usas una tabla relación M:N, valida huérfanos tras el renombrado:
+--    Ajusta nombres/PK si en tu BD no son `Id`.
+-- SELECT COUNT(*) AS orfanos_contacto
+-- FROM `clientes_contactos` cc
+-- LEFT JOIN `agenda` a ON a.`Id` = cc.`Id_Contacto`
+-- WHERE cc.`Id_Contacto` IS NOT NULL AND cc.`Id_Contacto` != 0 AND a.`Id` IS NULL;
+--
+-- SELECT COUNT(*) AS orfanos_cliente
+-- FROM `clientes_contactos` cc
+-- LEFT JOIN `clientes` c ON c.`Id` = cc.`Id_Cliente`
+-- WHERE cc.`Id_Cliente` IS NOT NULL AND cc.`Id_Cliente` != 0 AND c.`Id` IS NULL;

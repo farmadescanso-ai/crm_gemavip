@@ -1,0 +1,86 @@
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar contacto (Agenda)' : 'Nuevo contacto (Agenda)' }) %>
+
+<% const formAction = mode === 'edit' ? ('/agenda/' + (item.Id || item.id) + '/edit') : '/agenda/new'; %>
+<% const cancelHref = mode === 'edit' ? ('/agenda/' + (item.Id || item.id)) : '/agenda'; %>
+<% const pickVal = (name) => { const v = (item && item[name] !== undefined) ? item[name] : ''; return (v === null || v === undefined) ? '' : String(v); }; %>
+
+<section class="card gv-cliente-form" style="max-width: 980px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar contacto (Agenda)' : 'Nuevo contacto (Agenda)' %></h1>
+    <p class="card-subtitle">Alta y mantenimiento de personas. Luego podrás asociarlo a uno o varios clientes y definir su rol.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= error %></div>
+    <% } %>
+
+    <div class="gv-form-actions-sticky">
+      <div class="gv-form-actions-sticky__inner">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <a class="btn secondary" href="<%= cancelHref %>">Cancelar</a>
+          <button class="btn" type="submit" form="gvAgendaForm"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
+        </div>
+      </div>
+    </div>
+
+    <form id="gvAgendaForm" method="post" action="<%= formAction %>" class="gv-form" style="display:grid; gap: 12px;">
+      <div class="grid cols-2" style="gap:12px;">
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre *</span>
+          <input name="Nombre" required value="<%= pickVal('Nombre') %>" maxlength="120" />
+        </label>
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Apellidos</span>
+          <input name="Apellidos" value="<%= pickVal('Apellidos') %>" maxlength="180" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Empresa</span>
+          <input name="Empresa" value="<%= pickVal('Empresa') %>" maxlength="180" />
+        </label>
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Email</span>
+          <input name="Email" type="email" value="<%= pickVal('Email') %>" maxlength="255" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Móvil</span>
+          <input name="Movil" value="<%= pickVal('Movil') %>" maxlength="20" />
+        </label>
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Teléfono</span>
+          <input name="Telefono" value="<%= pickVal('Telefono') %>" maxlength="20" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cargo (tipo/rol)</span>
+          <input name="Cargo" value="<%= pickVal('Cargo') %>" maxlength="120" placeholder="p. ej. Director, Responsable compras..." />
+        </label>
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Especialidad</span>
+          <input name="Especialidad" value="<%= pickVal('Especialidad') %>" maxlength="120" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Extensión</span>
+          <input name="Extension" value="<%= pickVal('Extension') %>" maxlength="10" />
+        </label>
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Activo</span>
+          <select name="Activo">
+            <option value="1" <%= pickVal('Activo') === '' || pickVal('Activo') === '1' ? 'selected' : '' %>>Sí</option>
+            <option value="0" <%= pickVal('Activo') === '0' ? 'selected' : '' %>>No</option>
+          </select>
+        </label>
+      </div>
+
+      <label style="display:grid; gap:6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Notas</span>
+        <textarea name="Notas" rows="4" maxlength="2000"><%= pickVal('Notas') %></textarea>
+      </label>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

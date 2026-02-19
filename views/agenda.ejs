@@ -1,0 +1,109 @@
+<%- include('partials/header', { title: 'Agenda' }) %>
+
+<section class="card gv-agenda">
+  <div class="gv-contactos-hd">
+    <div class="gv-contactos-hd__title-row">
+      <h1 class="gv-contactos-hd__title">Agenda</h1>
+      <button type="button" class="gv-contactos-hd__info" aria-label="Información" title="Información" data-tooltip="Agenda global de personas. Un contacto puede asociarse a uno o varios clientes (empresa/persona) con un rol (p. ej. director, responsable compras).">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+      <span class="gv-contactos-hd__tooltip" role="tooltip" id="agenda-tooltip">Agenda global de personas. Un contacto puede asociarse a uno o varios clientes con un rol.</span>
+    </div>
+    <div class="gv-contactos-hd__bar">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <form method="get" action="/agenda" class="gv-contactos-search" style="display:inline-flex; align-items:center; gap:8px;">
+          <input type="hidden" name="limit" value="<%= paging.limit %>" />
+          <input type="search" name="q" placeholder="Buscar por nombre, empresa, email, móvil..." value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" style="min-width: 260px;" />
+          <button class="btn secondary" type="submit">Buscar</button>
+        </form>
+        <a class="btn" href="/agenda/new">Nuevo contacto</a>
+      </div>
+    </div>
+    <p class="gv-contactos-hd__sub">
+      Página <%= paging.page %> · Mostrando <%= items.length %> de <%= paging.total %> (límite <%= paging.limit %>)
+      <% if (typeof q !== 'undefined' && q) { %> · Buscando: "<%= q %>"<% } %>
+    </p>
+  </div>
+
+  <div class="card-bd">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
+      <% if (paging.page > 1) { %>
+        <a class="btn secondary" href="/agenda?page=<%= paging.page - 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %>">Anterior</a>
+      <% } %>
+      <% if ((paging.page * paging.limit) < paging.total) { %>
+        <a class="btn secondary" href="/agenda?page=<%= paging.page + 1 %>&limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? ('&q=' + encodeURIComponent(q)) : '' %>">Siguiente</a>
+      <% } %>
+    </div>
+
+    <div class="table-wrap gv-contactos-table-wrap">
+      <table class="gv-contactos-table">
+        <colgroup>
+          <col class="gv-contactos-col-acciones" />
+          <col class="gv-contactos-col-nombre" />
+          <col class="gv-contactos-col-tipo" />
+          <col class="gv-contactos-col-dnicif" />
+          <col class="gv-contactos-col-cp" />
+          <col class="gv-contactos-col-poblacion" />
+          <col class="gv-contactos-col-provincia" />
+          <col class="gv-contactos-col-comercial" />
+          <col class="gv-contactos-col-estado" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Acciones</th>
+            <th class="gv-contactos-col-nombre">Persona</th>
+            <th>Empresa</th>
+            <th>Email</th>
+            <th>Móvil</th>
+            <th>Teléfono</th>
+            <th>Cargo</th>
+            <th>Especialidad</th>
+            <th class="gv-contactos-col-estado">Activo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach((c) => { %>
+            <%
+              const id = c.Id ?? c.id;
+              const nombre = [c.Nombre, c.Apellidos].filter(Boolean).join(' ').trim();
+              const activo = String(c.Activo ?? '1').trim() === '1';
+            %>
+            <tr>
+              <td>
+                <div class="gv-actions">
+                  <a class="btn secondary icon" href="/agenda/<%= id %>" title="Ver" aria-label="Ver contacto <%= id %>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </a>
+                  <a class="btn secondary icon" href="/agenda/<%= id %>/edit" title="Editar" aria-label="Editar contacto <%= id %>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                    </svg>
+                  </a>
+                </div>
+              </td>
+              <td class="gv-contactos-col-nombre"><%= nombre || ('Contacto ' + id) %></td>
+              <td><%= c.Empresa ?? '' %></td>
+              <td><%= c.Email ?? '' %></td>
+              <td><%= c.Movil ?? '' %></td>
+              <td><%= c.Telefono ?? '' %></td>
+              <td><%= c.Cargo ?? '' %></td>
+              <td><%= c.Especialidad ?? '' %></td>
+              <td class="gv-contactos-col-estado"><%= activo ? 'Sí' : 'No' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<style>
+/* Reutilizamos estilos de contactos/clientes (clases gv-contactos*) para mantener consistencia visual */
+</style>
+
+<%- include('partials/footer') %>
+

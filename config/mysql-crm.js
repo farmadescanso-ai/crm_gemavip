@@ -1294,13 +1294,23 @@ class MySQLCRM {
 
     try {
       if (!this.pool) return;
-      const t = await this._resolveTableNameCaseInsensitive('contactos');
+      const t = await this._resolveAgendaTableName();
       const cols = await this._getColumns(t);
       const colsSet = new Set(cols);
       const hasCol = (c) => c && colsSet.has(c);
 
       const idxRows = await this.query(`SHOW INDEX FROM \`${t}\``).catch(() => []);
       const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
+
+      // Compatibilidad: si la tabla se renombró desde `contactos`, los índices pueden conservar nombres legacy.
+      // Tratarlos como equivalentes evita duplicar índices iguales con nombres distintos.
+      for (const [newName, oldName] of [
+        ['idx_agenda_activo_apellidos_nombre', 'idx_contactos_activo_apellidos_nombre'],
+        ['ft_agenda_busqueda', 'ft_contactos_busqueda']
+      ]) {
+        if (existing.has(oldName)) existing.add(newName);
+        if (existing.has(newName)) existing.add(oldName);
+      }
 
       const createIfMissing = async (name, colsToUse, kind = 'INDEX') => {
         if (!name || existing.has(name)) return;
@@ -1316,8 +1326,8 @@ class MySQLCRM {
         console.log(`✅ [INDEX] Creado ${name} en ${t} (${colsSql})`);
       };
 
-      await createIfMissing('idx_contactos_activo_apellidos_nombre', ['Activo', 'Apellidos', 'Nombre']);
-      await createIfMissing('ft_contactos_busqueda', ['Nombre', 'Apellidos', 'Empresa', 'Email', 'Movil', 'Telefono'], 'FULLTEXT');
+      await createIfMissing('idx_agenda_activo_apellidos_nombre', ['Activo', 'Apellidos', 'Nombre']);
+      await createIfMissing('ft_agenda_busqueda', ['Nombre', 'Apellidos', 'Empresa', 'Email', 'Movil', 'Telefono'], 'FULLTEXT');
     } catch (e) {
       console.warn('⚠️ [INDEX] No se pudieron asegurar índices en contactos:', e?.message || e);
     }
@@ -1512,6 +1522,47 @@ class MySQLCRM {
       }
     }
 
+    // clientes_contactos (M:N) -> clientes / agenda(contactos legacy)
+    try {
+      const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos').catch(() => null);
+      if (tClientesContactos) {
+        const ccCols = await this._getColumns(tClientesContactos).catch(() => []);
+        if (ccCols && ccCols.length) {
+          const colCliente = this._pickCIFromColumns(ccCols, ['Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
+          const colContacto = this._pickCIFromColumns(ccCols, ['Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
+
+          const tAgenda = await this._resolveAgendaTableName().catch(() => null);
+          let agendaPk = 'Id';
+          if (tAgenda) {
+            const aCols = await this._getColumns(tAgenda).catch(() => []);
+            agendaPk = this._pickCIFromColumns(aCols, ['Id', 'id']) || 'Id';
+          }
+
+          if (colCliente && clientes?.tClientes) {
+            await runCount(
+              'clientes_contactos_orfanos_cliente',
+              `SELECT COUNT(*) AS n
+               FROM \`${tClientesContactos}\` cc
+               LEFT JOIN \`${clientes.tClientes}\` c ON cc.\`${colCliente}\` = c.\`${clientes.pk}\`
+               WHERE cc.\`${colCliente}\` IS NOT NULL AND cc.\`${colCliente}\` != 0 AND c.\`${clientes.pk}\` IS NULL`
+            );
+          }
+
+          if (colContacto && tAgenda) {
+            await runCount(
+              'clientes_contactos_orfanos_agenda',
+              `SELECT COUNT(*) AS n
+               FROM \`${tClientesContactos}\` cc
+               LEFT JOIN \`${tAgenda}\` a ON cc.\`${colContacto}\` = a.\`${agendaPk}\`
+               WHERE cc.\`${colContacto}\` IS NOT NULL AND cc.\`${colContacto}\` != 0 AND a.\`${agendaPk}\` IS NULL`
+            );
+          }
+        }
+      }
+    } catch (e) {
+      add({ name: 'clientes_contactos_orfanos_check', ok: false, error: e?.message || String(e) });
+    }
+
     return report;
   }
 
@@ -1554,6 +1605,25 @@ class MySQLCRM {
     // Fallback: usar el nombre base tal cual.
     this._cache[cacheKey] = base;
     return base;
+  }
+
+  /**
+   * Resolver la tabla `agenda` (nuevo nombre) con fallback a `contactos` (legacy).
+   * Permite desplegar el cambio sin cortar servicio mientras se ejecuta el RENAME TABLE en la BD.
+   */
+  async _resolveAgendaTableName() {
+    const tryResolveAndProbe = async (base) => {
+      const t = await this._resolveTableNameCaseInsensitive(base);
+      // Probar lectura mínima para detectar tabla inexistente / permisos.
+      await this.query(`SELECT 1 FROM \`${t}\` LIMIT 1`);
+      return t;
+    };
+
+    try {
+      return await tryResolveAndProbe('agenda');
+    } catch (_e) {
+      return await tryResolveAndProbe('contactos');
+    }
   }
 
   /**
@@ -7514,6 +7584,85 @@ class MySQLCRM {
   }
 
   // CONTACTOS (persona global) + relación M:N con clientes (historial)
+  async _ensureClientesContactosTable() {
+    // Tabla relación agenda/contactos <-> clientes (M:N con histórico)
+    // Best-effort: si no hay permisos para CREATE/ALTER, no debe romper el arranque.
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`clientes_contactos\` (
+          \`Id\` INT NOT NULL AUTO_INCREMENT,
+          \`Id_Cliente\` INT NOT NULL,
+          \`Id_Contacto\` INT NOT NULL,
+          \`Rol\` VARCHAR(120) NULL,
+          \`Es_Principal\` TINYINT(1) NOT NULL DEFAULT 0,
+          \`Notas\` VARCHAR(500) NULL,
+          \`VigenteDesde\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          \`VigenteHasta\` DATETIME NULL,
+          \`MotivoBaja\` VARCHAR(200) NULL,
+          \`CreadoEn\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`Id\`),
+          KEY \`idx_cc_cliente_vigente\` (\`Id_Cliente\`, \`VigenteHasta\`),
+          KEY \`idx_cc_contacto_vigente\` (\`Id_Contacto\`, \`VigenteHasta\`),
+          KEY \`idx_cc_cliente_principal\` (\`Id_Cliente\`, \`Es_Principal\`, \`VigenteHasta\`),
+          KEY \`idx_cc_rol\` (\`Rol\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      return true;
+    } catch (e) {
+      console.warn('⚠️ [AGENDA] No se pudo asegurar tabla clientes_contactos:', e?.message || e);
+      return false;
+    }
+  }
+
+  async _ensureAgendaRolesTable() {
+    // Catálogo simple de roles/tipo de contacto (para sugerencias en UI: director, responsable compras, etc.).
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS \`agenda_roles\` (
+          \`id\` INT NOT NULL AUTO_INCREMENT,
+          \`Nombre\` VARCHAR(120) NOT NULL,
+          \`Activo\` TINYINT(1) NOT NULL DEFAULT 1,
+          \`CreadoEn\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          \`ActualizadoEn\` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`ux_agenda_roles_nombre\` (\`Nombre\`),
+          KEY \`idx_agenda_roles_activo_nombre\` (\`Activo\`, \`Nombre\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      return true;
+    } catch (e) {
+      console.warn('⚠️ [AGENDA] No se pudo asegurar tabla agenda_roles:', e?.message || e);
+      return false;
+    }
+  }
+
+  async getAgendaRoles(options = {}) {
+    await this._ensureAgendaRolesTable();
+    try {
+      const includeInactivos = Boolean(options.includeInactivos);
+      const where = includeInactivos ? '' : 'WHERE Activo = 1';
+      const rows = await this.query(`SELECT id, Nombre, Activo FROM \`agenda_roles\` ${where} ORDER BY Nombre ASC`).catch(() => []);
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async createAgendaRol(nombre) {
+    await this._ensureAgendaRolesTable();
+    const n = String(nombre || '').trim().slice(0, 120);
+    if (!n) throw new Error('Nombre de rol obligatorio');
+    try {
+      const r = await this.query('INSERT INTO `agenda_roles` (Nombre, Activo) VALUES (?, 1)', [n]);
+      return { insertId: r?.insertId ?? null };
+    } catch (e) {
+      // Si ya existe, devolver id
+      const rows = await this.query('SELECT id FROM `agenda_roles` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      const id = rows?.[0]?.id ?? null;
+      return { insertId: id };
+    }
+  }
+
   async getContactos(options = {}) {
     try {
       const search = String(options.search || '').trim();
@@ -7555,8 +7704,8 @@ class MySQLCRM {
         }
       }
 
-      const tContactos = await this._resolveTableNameCaseInsensitive('contactos');
-      let sql = `SELECT * FROM \`${tContactos}\``;
+      const tAgenda = await this._resolveAgendaTableName();
+      let sql = `SELECT * FROM \`${tAgenda}\``;
       if (where.length) sql += ' WHERE ' + where.join(' AND ');
       sql += ' ORDER BY Apellidos ASC, Nombre ASC';
       sql += ` LIMIT ${limit} OFFSET ${offset}`;
@@ -7572,7 +7721,7 @@ class MySQLCRM {
           where2.push('(Nombre LIKE ? OR Apellidos LIKE ? OR Empresa LIKE ? OR Email LIKE ? OR Movil LIKE ? OR Telefono LIKE ?)');
           const like = `%${search}%`;
           params2.push(like, like, like, like, like, like);
-          let sql2 = `SELECT * FROM \`${tContactos}\``;
+          let sql2 = `SELECT * FROM \`${tAgenda}\``;
           if (where2.length) sql2 += ' WHERE ' + where2.join(' AND ');
           sql2 += ' ORDER BY Apellidos ASC, Nombre ASC';
           sql2 += ` LIMIT ${limit} OFFSET ${offset}`;
@@ -7589,8 +7738,8 @@ class MySQLCRM {
 
   async getContactoById(id) {
     try {
-      const tContactos = await this._resolveTableNameCaseInsensitive('contactos');
-      const rows = await this.query(`SELECT * FROM \`${tContactos}\` WHERE Id = ? LIMIT 1`, [id]);
+      const tAgenda = await this._resolveAgendaTableName();
+      const rows = await this.query(`SELECT * FROM \`${tAgenda}\` WHERE Id = ? LIMIT 1`, [id]);
       return rows?.[0] || null;
     } catch (error) {
       console.error('❌ Error obteniendo contacto por ID:', error.message);
@@ -7633,8 +7782,8 @@ class MySQLCRM {
       const placeholders = Object.keys(data).map(() => '?').join(', ');
       const values = Object.values(data);
 
-      const tContactos = await this._resolveTableNameCaseInsensitive('contactos');
-      const sql = `INSERT INTO \`${tContactos}\` (${fields}) VALUES (${placeholders})`;
+      const tAgenda = await this._resolveAgendaTableName();
+      const sql = `INSERT INTO \`${tAgenda}\` (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
       return { insertId: result.insertId };
     } catch (error) {
@@ -7675,8 +7824,8 @@ class MySQLCRM {
       if (!fields.length) return { affectedRows: 0 };
 
       values.push(id);
-      const tContactos = await this._resolveTableNameCaseInsensitive('contactos');
-      const sql = `UPDATE \`${tContactos}\` SET ${fields.join(', ')} WHERE Id = ?`;
+      const tAgenda = await this._resolveAgendaTableName();
+      const sql = `UPDATE \`${tAgenda}\` SET ${fields.join(', ')} WHERE Id = ?`;
       const result = await this.query(sql, values);
       return { affectedRows: result.affectedRows || 0 };
     } catch (error) {
@@ -7687,11 +7836,12 @@ class MySQLCRM {
 
   async getContactosByCliente(clienteId, options = {}) {
     try {
+      await this._ensureClientesContactosTable();
       const includeHistorico = Boolean(options.includeHistorico);
       const params = [clienteId];
 
       const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
-      const tContactos = await this._resolveTableNameCaseInsensitive('contactos');
+      const tAgenda = await this._resolveAgendaTableName();
       let sql = `
         SELECT
           cc.Id AS Id_Relacion,
@@ -7705,7 +7855,7 @@ class MySQLCRM {
           cc.MotivoBaja,
           c.*
         FROM \`${tClientesContactos}\` cc
-        INNER JOIN \`${tContactos}\` c ON c.Id = cc.Id_Contacto
+        INNER JOIN \`${tAgenda}\` c ON c.Id = cc.Id_Contacto
         WHERE cc.Id_Cliente = ?
       `;
 
@@ -7729,6 +7879,7 @@ class MySQLCRM {
     const notas = options.Notas ?? options.notas ?? null;
     const esPrincipal = (options.Es_Principal ?? options.es_principal ?? options.esPrincipal) ? 1 : 0;
 
+    await this._ensureClientesContactosTable();
     if (!this.pool) await this.connect();
     const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
     const conn = await this.pool.getConnection();
@@ -7780,12 +7931,61 @@ class MySQLCRM {
     }
   }
 
+  async setContactoPrincipalForCliente(clienteId, contactoId) {
+    // Marca una relación activa como principal SIN sobreescribir Rol/Notas.
+    // Si no existe relación activa, la crea como principal (rol/notas null).
+    await this._ensureClientesContactosTable();
+    if (!this.pool) await this.connect();
+    const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
+    const conn = await this.pool.getConnection();
+    try {
+      try {
+        await conn.query("SET time_zone = 'Europe/Madrid'");
+      } catch (_) {}
+      await conn.beginTransaction();
+
+      await conn.execute(
+        `UPDATE \`${tClientesContactos}\` SET Es_Principal = 0 WHERE Id_Cliente = ? AND VigenteHasta IS NULL`,
+        [clienteId]
+      );
+
+      const [rows] = await conn.execute(
+        `SELECT Id FROM \`${tClientesContactos}\` WHERE Id_Cliente = ? AND Id_Contacto = ? AND VigenteHasta IS NULL ORDER BY Id DESC LIMIT 1`,
+        [clienteId, contactoId]
+      );
+
+      if (rows && rows.length > 0) {
+        const relId = rows[0].Id;
+        await conn.execute(
+          `UPDATE \`${tClientesContactos}\` SET Es_Principal = 1 WHERE Id = ?`,
+          [relId]
+        );
+        await conn.commit();
+        return { action: 'updated', Id_Relacion: relId };
+      }
+
+      const [ins] = await conn.execute(
+        `INSERT INTO \`${tClientesContactos}\` (Id_Cliente, Id_Contacto, Rol, Es_Principal, Notas) VALUES (?, ?, ?, 1, ?)`,
+        [clienteId, contactoId, null, null]
+      );
+      await conn.commit();
+      return { action: 'inserted', Id_Relacion: ins.insertId };
+    } catch (error) {
+      try { await conn.rollback(); } catch (_) {}
+      console.error('❌ Error marcando principal contacto-cliente:', error.message);
+      throw error;
+    } finally {
+      conn.release();
+    }
+  }
+
   async cerrarVinculoContactoCliente(clienteId, contactoId, options = {}) {
     try {
       const motivo = options.MotivoBaja ?? options.motivoBaja ?? options.motivo ?? null;
       if (!this.connected && !this.pool) {
         await this.connect();
       }
+      await this._ensureClientesContactosTable();
       const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
       const sql = `
         UPDATE \`${tClientesContactos}\`
@@ -7799,6 +7999,44 @@ class MySQLCRM {
     } catch (error) {
       console.error('❌ Error cerrando vínculo contacto-cliente:', error.message);
       throw error;
+    }
+  }
+
+  async getClientesByContacto(contactoId, options = {}) {
+    // Devuelve clientes asociados a un contacto de agenda (con histórico opcional).
+    await this._ensureClientesContactosTable();
+    const includeHistorico = Boolean(options.includeHistorico);
+    const id = Number(contactoId);
+    if (!Number.isFinite(id) || id <= 0) return [];
+    try {
+      const clientesMeta = await this._ensureClientesMeta().catch(() => null);
+      const tClientes = clientesMeta?.tClientes || 'clientes';
+      const pkClientes = clientesMeta?.pk || 'Id';
+      const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
+      let sql = `
+        SELECT
+          cc.Id AS Id_Relacion,
+          cc.Id_Cliente,
+          cc.Id_Contacto,
+          cc.Rol,
+          cc.Es_Principal,
+          cc.Notas AS NotasRelacion,
+          cc.VigenteDesde,
+          cc.VigenteHasta,
+          cc.MotivoBaja,
+          c.*
+        FROM \`${tClientesContactos}\` cc
+        INNER JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = cc.Id_Cliente
+        WHERE cc.Id_Contacto = ?
+      `;
+      const params = [id];
+      if (!includeHistorico) sql += ' AND cc.VigenteHasta IS NULL';
+      sql += ' ORDER BY (cc.VigenteHasta IS NULL) DESC, cc.Es_Principal DESC, cc.Id DESC';
+      const rows = await this.query(sql, params);
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.warn('⚠️ [AGENDA] Error obteniendo clientes por contacto:', e?.message || e);
+      return [];
     }
   }
 

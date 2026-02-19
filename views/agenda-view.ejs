@@ -1,0 +1,201 @@
+<%- include('partials/header', { title: 'Agenda' }) %>
+
+<% const id = (item && (item.Id ?? item.id)) ? (item.Id ?? item.id) : ''; %>
+<% const nombre = [item?.Nombre, item?.Apellidos].filter(Boolean).join(' ').trim(); %>
+<% const activo = String(item?.Activo ?? '1').trim() === '1'; %>
+
+<section class="card gv-cliente-form" style="max-width: 1080px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Agenda #<%= id %></h1>
+    <p class="card-subtitle"><%= nombre || ('Contacto ' + id) %></p>
+  </div>
+
+  <div class="card-bd">
+    <% if (success) { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom:12px;"><%= success %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= error %></div>
+    <% } %>
+
+    <div class="gv-form-actions-sticky">
+      <div class="gv-form-actions-sticky__inner">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <a class="btn secondary" href="/agenda">Volver</a>
+          <a class="btn" href="/agenda/<%= id %>/edit">Editar</a>
+        </div>
+        <div style="color: var(--gv-muted); font-weight:800;">
+          Activo: <%= activo ? 'Sí' : 'No' %>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid cols-2" style="gap: 12px; margin-top: 10px;">
+      <div style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Empresa</span>
+        <div class="gv-readonly"><%= item?.Empresa ?? '—' %></div>
+      </div>
+      <div style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Cargo</span>
+        <div class="gv-readonly"><%= item?.Cargo ?? '—' %></div>
+      </div>
+      <div style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Especialidad</span>
+        <div class="gv-readonly"><%= item?.Especialidad ?? '—' %></div>
+      </div>
+      <div style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Email</span>
+        <div class="gv-readonly"><%= item?.Email ?? '—' %></div>
+      </div>
+      <div style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Móvil</span>
+        <div class="gv-readonly"><%= item?.Movil ?? '—' %></div>
+      </div>
+      <div style="display:grid; gap: 6px;">
+        <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Teléfono</span>
+        <div class="gv-readonly"><%= item?.Telefono ?? '—' %></div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <h2 style="margin:0; font-size: 1.1rem;">Clientes asociados</h2>
+        <form method="post" action="/agenda/<%= id %>/clientes/link" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="hidden" name="contactoId" value="<%= id %>" />
+          <input type="hidden" name="clienteId" id="gvClienteId" value="" />
+          <input type="search" id="gvClienteSearch" placeholder="Buscar cliente..." style="min-width:260px;" />
+          <input name="Rol" list="gvRoles" placeholder="Rol (opcional)" style="min-width:190px;" />
+          <datalist id="gvRoles">
+            <% (roles || []).forEach((r) => { %>
+              <option value="<%= r.Nombre %>"></option>
+            <% }) %>
+          </datalist>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:800; color: var(--gv-muted);">
+            <input type="checkbox" name="Es_Principal" value="1" />
+            Principal
+          </label>
+          <button class="btn secondary" type="submit">Asociar</button>
+        </form>
+      </div>
+
+      <div class="table-wrap" style="margin-top: 10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Rol</th>
+              <th>Principal</th>
+              <th>Vigente</th>
+              <th style="width: 1%;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!clientes || clientes.length === 0) { %>
+              <tr><td colspan="5" style="color: var(--gv-muted); font-weight:800;">Sin clientes asociados.</td></tr>
+            <% } else { %>
+              <% clientes.forEach((c) => { %>
+                <%
+                  const cid = c?.Id ?? c?.id ?? c?.Id_Cliente ?? '';
+                  const rs = c?.Nombre_Razon_Social ?? c?.Nombre ?? ('Cliente ' + cid);
+                  const vigente = !c?.VigenteHasta;
+                %>
+                <tr>
+                  <td><a href="/clientes/<%= cid %>"><%= rs %></a></td>
+                  <td><%= c?.Rol ?? '' %></td>
+                  <td><%= String(c?.Es_Principal ?? 0) === '1' ? 'Sí' : '—' %></td>
+                  <td><%= vigente ? 'Sí' : 'No' %></td>
+                  <td>
+                    <% if (vigente) { %>
+                      <form method="post" action="/agenda/<%= id %>/clientes/<%= cid %>/unlink" style="margin:0;" onsubmit="return confirm('¿Quitar asociación con este cliente?');">
+                        <button class="btn secondary" type="submit">Quitar</button>
+                      </form>
+                    <% } else { %>
+                      <span style="color: var(--gv-muted); font-weight:800;">—</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  var search = document.getElementById('gvClienteSearch');
+  var hidden = document.getElementById('gvClienteId');
+  if (!search || !hidden) return;
+
+  var box = document.createElement('div');
+  box.style.position = 'relative';
+  search.parentNode.insertBefore(box, search);
+  box.appendChild(search);
+
+  var list = document.createElement('div');
+  list.style.position = 'absolute';
+  list.style.top = '100%';
+  list.style.left = '0';
+  list.style.right = '0';
+  list.style.zIndex = '20';
+  list.style.background = '#fff';
+  list.style.border = '1px solid rgba(0,0,0,.12)';
+  list.style.borderRadius = '10px';
+  list.style.boxShadow = '0 8px 18px rgba(0,0,0,.10)';
+  list.style.marginTop = '6px';
+  list.style.overflow = 'hidden';
+  list.style.display = 'none';
+  box.appendChild(list);
+
+  function hide() {
+    list.style.display = 'none';
+    list.innerHTML = '';
+  }
+
+  var t = null;
+  async function run() {
+    var q = String(search.value || '').trim();
+    hidden.value = '';
+    if (q.length < 3) { hide(); return; }
+    try {
+      var r = await fetch('/api/clientes/suggest?q=' + encodeURIComponent(q) + '&limit=8', { headers: { Accept: 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var json = await r.json();
+      var items = (json && json.ok && Array.isArray(json.items)) ? json.items : [];
+      if (!items.length) { hide(); return; }
+      list.innerHTML = items.map(function (it) {
+        var id = it.id || it.Id || '';
+        var label = it.label || it.Nombre || it.Nombre_Razon_Social || ('Cliente ' + id);
+        return '<button type="button" data-id="' + String(id).split('"').join('&quot;') + '" data-label="' + String(label).split('"').join('&quot;') + '"'
+          + ' style="display:block; width:100%; text-align:left; padding:10px 12px; border:0; background:#fff; cursor:pointer; font-weight:700;">'
+          + label + '</button>';
+      }).join('');
+      list.style.display = 'block';
+    } catch (_e) {
+      hide();
+    }
+  }
+
+  search.addEventListener('input', function () {
+    if (t) window.clearTimeout(t);
+    t = window.setTimeout(run, 250);
+  });
+
+  list.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('button[data-id]') : null;
+    if (!btn) return;
+    hidden.value = btn.getAttribute('data-id') || '';
+    search.value = btn.getAttribute('data-label') || '';
+    hide();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!box.contains(e.target)) hide();
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>
+
