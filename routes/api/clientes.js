@@ -141,35 +141,7 @@ router.get(
       // sugerencia: limitar campos buscados a lo más relevante (la query ya usa FULLTEXT si existe)
       // la lógica en DB prioriza Nombre_Razon_Social / Nombre_Cial / DNI_CIF de forma natural por índice.
     });
-    // Filtro tipo (opcional) basado en nombres devueltos (evita query extra).
-    const tipo = String(req.query.tipo || '').trim().toLowerCase();
-    const arr = Array.isArray(items) ? items : [];
-    const norm = (s) => {
-      try {
-        return String(s || '')
-          .trim()
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '');
-      } catch (_) {
-        return String(s || '').trim().toLowerCase();
-      }
-    };
-    const tipoNorm = norm(tipo);
-    const filtered =
-      !tipoNorm
-        ? arr
-        : arr.filter((it) => {
-            const tcn = norm(it?.TipoClienteNombre || '');
-            const tc = norm(it?.TipoContacto || '');
-            if (tipoNorm === 'persona') return tc === 'persona' || tcn.includes('persona');
-            if (tipoNorm === 'farmacia') return tcn.includes('farmacia');
-            if (tipoNorm === 'clinica' || tipoNorm === 'clínica') return tcn.includes('clinica') || tcn.includes('clínica');
-            if (tipoNorm === 'empresa') return tc === 'empresa' || (!tc && !tcn.includes('persona'));
-            return tcn.includes(tipoNorm) || tc.includes(tipoNorm);
-          });
-
-    res.json({ ok: true, items: filtered });
+    res.json({ ok: true, items: Array.isArray(items) ? items : [] });
   })
 );
 

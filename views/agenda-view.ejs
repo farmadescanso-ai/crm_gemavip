@@ -64,31 +64,11 @@
           <input type="hidden" name="contactoId" value="<%= id %>" />
           <input type="hidden" name="clienteId" id="gvClienteId" value="" />
           <input type="search" id="gvClienteSearch" placeholder="Buscar cliente..." style="min-width:260px;" />
-          <select name="TipoRelacion" id="gvTipoRelacion" style="min-width:170px;">
-            <option value="">Tipo (auto)</option>
-            <option value="Farmacia">Farmacia</option>
-            <option value="Clínica">Clínica</option>
-            <option value="Persona">Persona</option>
-            <option value="Empresa">Empresa</option>
-          </select>
-          <%
-            const roleNames = (roles || []).map(r => String(r?.Nombre || '').trim()).filter(Boolean);
-            const examples = roleNames.slice(0, 3).join(', ');
-            const rolePlaceholder = examples
-              ? `Rol (ej: ${examples}) · Tipo (Farmacia/Clínica/Persona)`
-              : 'Rol (ej: Director, Compras, Administración) · Tipo (Farmacia/Clínica/Persona)';
-          %>
-          <input name="Rol" list="gvRoles" placeholder="<%= rolePlaceholder %>" style="min-width:320px;" />
-          <datalist id="gvRoles">
-            <% (roles || []).forEach((r) => { %>
-              <option value="<%= r.Nombre %>"></option>
-            <% }) %>
-          </datalist>
           <label style="display:flex; align-items:center; gap:6px; font-weight:800; color: var(--gv-muted);">
             <input type="checkbox" name="Es_Principal" value="1" />
             Principal
           </label>
-          <button class="btn secondary" type="submit">Asociar</button>
+          <button class="btn secondary" type="submit" id="gvClienteLinkBtn" disabled>Asociar</button>
         </form>
       </div>
 
@@ -141,7 +121,7 @@
 (function () {
   var search = document.getElementById('gvClienteSearch');
   var hidden = document.getElementById('gvClienteId');
-  var tipoSel = document.getElementById('gvTipoRelacion');
+  var linkBtn = document.getElementById('gvClienteLinkBtn');
   if (!search || !hidden) return;
 
   var box = document.createElement('div');
@@ -160,7 +140,9 @@
   list.style.borderRadius = '10px';
   list.style.boxShadow = '0 8px 18px rgba(0,0,0,.10)';
   list.style.marginTop = '6px';
-  list.style.overflow = 'hidden';
+  list.style.maxHeight = '360px';
+  list.style.overflowY = 'auto';
+  list.style.overflowX = 'hidden';
   list.style.display = 'none';
   box.appendChild(list);
 
@@ -202,18 +184,10 @@
     return qq.length >= 2 ? { ok: true } : { ok: false, reason: 'Escribe al menos 2 caracteres.' };
   }
 
-  function inferTipoFromItem(it) {
-    var tipoContacto = String(it?.TipoContacto || '').trim().toLowerCase();
-    var tipoCliente = String(it?.TipoClienteNombre || '').trim().toLowerCase();
-    if (tipoContacto === 'persona' || tipoCliente.includes('persona')) return 'Persona';
-    if (tipoCliente.includes('farmacia')) return 'Farmacia';
-    if (tipoCliente.includes('clínica') || tipoCliente.includes('clinica')) return 'Clínica';
-    return 'Empresa';
-  }
-
   async function run() {
     var q = String(search.value || '').trim();
     hidden.value = '';
+    if (linkBtn) linkBtn.disabled = true;
     var chk = shouldQuery(q);
     if (!chk.ok) {
       if (!q) { hide(); open = false; return; }
@@ -223,9 +197,7 @@
     try {
       lastQuery = q;
       // scope=all para agenda (si hay sesión). force=1 para permitir 2 caracteres.
-      var tipo = tipoSel ? String(tipoSel.value || '').trim() : '';
-      var url = '/api/clientes/suggest?q=' + encodeURIComponent(q) + '&limit=12&scope=all&force=1'
-        + (tipo ? ('&tipo=' + encodeURIComponent(tipo)) : '');
+      var url = '/api/clientes/suggest?q=' + encodeURIComponent(q) + '&limit=12&scope=all&force=1';
       var r = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var json = await r.json();
@@ -250,7 +222,6 @@
 
         return (
           '<button type="button" data-id="' + escapeHtml(id) + '" data-label="' + escapeHtml(dataLabel) + '"'
-          + ' data-tipo="' + escapeHtml(inferTipoFromItem(it)) + '"'
           + ' style="display:block; width:100%; text-align:left; padding:10px 12px; border:0; background:#fff; cursor:pointer;">'
           +   '<div style="font-weight:900; color:var(--gv-ink);">' + escapeHtml(title) + '</div>'
           +   (meta1 ? ('<div style="margin-top:4px; color:var(--gv-muted); font-weight:800; font-size:12px;">' + escapeHtml(meta1) + '</div>') : '')
@@ -270,23 +241,12 @@
     t = window.setTimeout(run, 250);
   });
 
-  if (tipoSel) {
-    tipoSel.addEventListener('change', function () {
-      // Re-lanzar búsqueda con filtro tipo (si hay texto)
-      if (t) window.clearTimeout(t);
-      t = window.setTimeout(run, 50);
-    });
-  }
-
   list.addEventListener('click', function (e) {
     var btn = e.target && e.target.closest ? e.target.closest('button[data-id]') : null;
     if (!btn) return;
     hidden.value = btn.getAttribute('data-id') || '';
     search.value = btn.getAttribute('data-label') || '';
-    if (tipoSel) {
-      var inferred = btn.getAttribute('data-tipo') || '';
-      if (inferred && !String(tipoSel.value || '').trim()) tipoSel.value = inferred;
-    }
+    if (linkBtn) linkBtn.disabled = !hidden.value;
     hide();
     open = false;
   });
