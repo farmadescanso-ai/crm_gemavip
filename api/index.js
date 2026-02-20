@@ -2615,6 +2615,13 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
             }
           : null;
 
+    // Estados de pedido (solo admin) para UI de cambio de estado en listado
+    let estadosPedido = [];
+    if (admin) {
+      await db.ensureEstadosPedidoTable().catch(() => null);
+      estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
+    }
+
     res.render('pedidos', {
       items: items || [],
       years,
@@ -2624,8 +2631,39 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       q: rawQ,
       admin,
       userId: res.locals.user?.id ?? null,
-      n8nNotice
+      n8nNotice,
+      estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : []
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Admin: cambiar estado del pedido desde el listado (/pedidos)
+app.post('/pedidos/:id(\\d+)/estado', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    const estadoIdRaw = req.body?.estadoId ?? req.body?.estado_id ?? req.body?.Id_EstadoPedido ?? req.body?.id_estado_pedido ?? null;
+    const estadoId = Number(estadoIdRaw);
+    if (!Number.isFinite(estadoId) || estadoId <= 0) {
+      return res.status(400).json({ ok: false, error: 'Estado no válido' });
+    }
+
+    await db.ensureEstadosPedidoTable().catch(() => null);
+    const estado = await db.getEstadoPedidoById(estadoId).catch(() => null);
+    if (!estado) return res.status(404).json({ ok: false, error: 'Estado no encontrado' });
+
+    const nombre = String(estado?.nombre ?? estado?.Nombre ?? '').trim();
+    const color = String(estado?.color ?? estado?.Color ?? 'info').trim().toLowerCase() || 'info';
+
+    // Best-effort: actualizar Id_EstadoPedido si existe y mantener texto legacy si existe.
+    await db.updatePedido(id, { Id_EstadoPedido: estadoId, EstadoPedido: nombre || undefined }).catch((e) => {
+      throw e;
+    });
+
+    return res.json({ ok: true, id, estado: { id: estadoId, nombre: nombre || '—', color } });
   } catch (e) {
     next(e);
   }

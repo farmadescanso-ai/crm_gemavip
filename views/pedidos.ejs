@@ -179,10 +179,25 @@
                     <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
                     <% const st = estadoLabel.toLowerCase(); %>
                     <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
-                    <% if (estadoLabel) { %>
-                      <span class="badge <%= cls %>"><%= estadoLabel %></span>
+                    <% const estadoId = Number(p.Id_EstadoPedido ?? p.id_estado_pedido ?? 0) || 0; %>
+                    <% if (admin) { %>
+                      <button
+                        type="button"
+                        id="gvEstadoBadge_<%= pid %>"
+                        class="badge <%= estadoLabel ? cls : 'info' %> gv-pedido-estado-badge"
+                        data-pid="<%= pid %>"
+                        data-num="<%= (p.NumPedido ?? p.Numero_Pedido ?? pid) %>"
+                        data-estado-id="<%= estadoId %>"
+                        data-estado-label="<%= estadoLabel %>"
+                        title="Hacer clic para modificar el estado del pedido"
+                        style="appearance:none; border:0; cursor:pointer;"
+                      ><%= estadoLabel || '—' %></button>
                     <% } else { %>
-                      —
+                      <% if (estadoLabel) { %>
+                        <span class="badge <%= cls %>"><%= estadoLabel %></span>
+                      <% } else { %>
+                        —
+                      <% } %>
                     <% } %>
                   </td>
                   <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
@@ -460,6 +475,199 @@
           </div>
         </section>
       </section>
+
+      <% if (admin && Array.isArray(estadosPedido) && estadosPedido.length) { %>
+        <!-- Modal: seleccionar estado -->
+        <div id="gv-estado-backdrop" class="gv-modal-backdrop" hidden></div>
+        <div id="gv-estado-modal" class="gv-modal" hidden role="dialog" aria-modal="true" aria-labelledby="gv-estado-title">
+          <div class="gv-modal-card">
+            <div class="gv-modal-hd">
+              <div class="gv-modal-title" id="gv-estado-title">Cambiar estado del pedido</div>
+              <div class="gv-modal-subtitle">Selecciona el nuevo estado para el pedido <span id="gv-estado-pedido-num">—</span>.</div>
+            </div>
+            <div style="padding: 14px 16px; display:grid; gap: 10px;">
+              <label style="display:grid; gap: 6px;">
+                <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nuevo estado</span>
+                <select id="gv-estado-select" class="gv-client-picker__q">
+                  <% (estadosPedido || []).forEach((e) => { %>
+                    <option value="<%= e.id %>" data-color="<%= e.color %>"><%= e.nombre %></option>
+                  <% }) %>
+                </select>
+              </label>
+              <div id="gv-estado-error" class="gv-alert gv-alert--warn" style="display:none;"></div>
+            </div>
+            <div class="gv-modal-actions">
+              <button type="button" class="btn secondary" id="gv-estado-cancel">Cerrar</button>
+              <button type="button" class="btn" id="gv-estado-next">Guardar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: confirmación -->
+        <div id="gv-estado-confirm-backdrop" class="gv-modal-backdrop" hidden></div>
+        <div id="gv-estado-confirm-modal" class="gv-modal" hidden role="dialog" aria-modal="true" aria-labelledby="gv-estado-confirm-title">
+          <div class="gv-modal-card">
+            <div class="gv-modal-hd">
+              <div class="gv-modal-title" id="gv-estado-confirm-title">Confirmar cambio</div>
+              <div class="gv-modal-subtitle">¿Seguro que quieres cambiar el estado del pedido <span id="gv-estado-confirm-pedido-num">—</span> a <b id="gv-estado-confirm-nombre">—</b>?</div>
+            </div>
+            <div class="gv-modal-actions">
+              <button type="button" class="btn secondary" id="gv-estado-confirm-cancel">Cerrar</button>
+              <button type="button" class="btn" id="gv-estado-confirm-accept">Aceptar</button>
+            </div>
+          </div>
+        </div>
+
+        <script>
+        (function () {
+          var root = document.getElementById('gvPedidosTabs');
+          if (!root) return;
+
+          var modal = document.getElementById('gv-estado-modal');
+          var backdrop = document.getElementById('gv-estado-backdrop');
+          var select = document.getElementById('gv-estado-select');
+          var errBox = document.getElementById('gv-estado-error');
+          var pedidoNumSpan = document.getElementById('gv-estado-pedido-num');
+          var btnCancel = document.getElementById('gv-estado-cancel');
+          var btnNext = document.getElementById('gv-estado-next');
+
+          var cModal = document.getElementById('gv-estado-confirm-modal');
+          var cBackdrop = document.getElementById('gv-estado-confirm-backdrop');
+          var cPedidoNum = document.getElementById('gv-estado-confirm-pedido-num');
+          var cNombre = document.getElementById('gv-estado-confirm-nombre');
+          var cCancel = document.getElementById('gv-estado-confirm-cancel');
+          var cAccept = document.getElementById('gv-estado-confirm-accept');
+
+          if (!modal || !backdrop || !select || !btnCancel || !btnNext || !cModal || !cBackdrop || !cCancel || !cAccept) return;
+
+          var currentPid = null;
+          var currentPedidoNum = '';
+          var currentBadge = null;
+
+          function openSelectModal(pid, pedidoNum, curEstadoId) {
+            currentPid = pid;
+            currentPedidoNum = pedidoNum || String(pid);
+            pedidoNumSpan.textContent = currentPedidoNum;
+            if (errBox) { errBox.style.display = 'none'; errBox.textContent = ''; }
+
+            // preselección por ID si existe
+            if (curEstadoId) {
+              select.value = String(curEstadoId);
+            } else if (select.options && select.options.length) {
+              select.selectedIndex = 0;
+            }
+
+            backdrop.hidden = false;
+            modal.hidden = false;
+          }
+          function closeSelectModal(resetState) {
+            modal.hidden = true;
+            backdrop.hidden = true;
+            if (resetState) {
+              currentPid = null;
+              currentPedidoNum = '';
+              currentBadge = null;
+            }
+          }
+
+          function openConfirmModal(pedidoNum, estadoNombre) {
+            cPedidoNum.textContent = pedidoNum || '—';
+            cNombre.textContent = estadoNombre || '—';
+            cBackdrop.hidden = false;
+            cModal.hidden = false;
+          }
+          function closeConfirmModal() {
+            cModal.hidden = true;
+            cBackdrop.hidden = true;
+          }
+
+          btnCancel.addEventListener('click', function () {
+            closeSelectModal(true);
+          });
+          backdrop.addEventListener('click', function () {
+            closeSelectModal(true);
+          });
+          btnNext.addEventListener('click', function () {
+            if (!currentPid) return;
+            var opt = select.options[select.selectedIndex];
+            var estadoNombre = opt ? (opt.textContent || '').trim() : '';
+            var pedidoNum = currentPedidoNum || (pedidoNumSpan ? pedidoNumSpan.textContent : String(currentPid));
+            closeSelectModal(false);
+            openConfirmModal(pedidoNum, estadoNombre);
+          });
+
+          cCancel.addEventListener('click', function () {
+            closeConfirmModal();
+            currentPid = null;
+            currentPedidoNum = '';
+            currentBadge = null;
+          });
+          cBackdrop.addEventListener('click', function () {
+            closeConfirmModal();
+            currentPid = null;
+            currentPedidoNum = '';
+            currentBadge = null;
+          });
+
+          cAccept.addEventListener('click', async function () {
+            if (!currentBadge) { closeConfirmModal(); return; }
+            var pid = currentBadge.getAttribute('data-pid');
+            var estadoId = select.value;
+            var opt = select.options[select.selectedIndex];
+            var estadoNombre = opt ? (opt.textContent || '').trim() : '';
+
+            try {
+              cAccept.disabled = true;
+              var r = await fetch('/pedidos/' + encodeURIComponent(pid) + '/estado', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ estadoId: estadoId })
+              });
+              var json = await r.json().catch(function () { return null; });
+              if (!r.ok || !json || !json.ok) {
+                throw new Error((json && json.error) ? json.error : ('HTTP ' + r.status));
+              }
+              var color = (json.estado && json.estado.color) ? String(json.estado.color) : 'info';
+              var nombre = (json.estado && json.estado.nombre) ? String(json.estado.nombre) : (estadoNombre || '—');
+
+              currentBadge.textContent = nombre;
+              currentBadge.setAttribute('data-estado-id', String(json.estado.id || estadoId || ''));
+              currentBadge.setAttribute('data-estado-label', nombre);
+              currentBadge.classList.remove('ok', 'info', 'warn', 'danger');
+              currentBadge.classList.add(color || 'info');
+
+              closeConfirmModal();
+              currentPid = null;
+              currentPedidoNum = '';
+              currentBadge = null;
+            } catch (e) {
+              // Reabrir selector mostrando error
+              closeConfirmModal();
+              if (errBox) {
+                errBox.textContent = 'No se pudo cambiar el estado. ' + (e && e.message ? e.message : '');
+                errBox.style.display = 'block';
+              }
+              // Volver a abrir el modal de selección para que el admin pueda reintentar
+              backdrop.hidden = false;
+              modal.hidden = false;
+              if (pedidoNumSpan) pedidoNumSpan.textContent = currentPedidoNum || (pid || '—');
+            } finally {
+              cAccept.disabled = false;
+            }
+          });
+
+          root.addEventListener('click', function (ev) {
+            var btn = ev.target && ev.target.closest ? ev.target.closest('button.gv-pedido-estado-badge[data-pid]') : null;
+            if (!btn) return;
+            currentBadge = btn;
+            var pid = btn.getAttribute('data-pid');
+            var pedidoNum = btn.getAttribute('data-num') || '';
+            var curEstadoId = Number(btn.getAttribute('data-estado-id') || 0) || 0;
+            openSelectModal(pid, pedidoNum, curEstadoId);
+          });
+        })();
+        </script>
+      <% } %>
     </div>
   </div>
 </section>
