@@ -1,5 +1,24 @@
 <%- include('partials/header', { title: 'Pedidos' }) %>
 
+<style>
+  /* Spinner de carga (uso puntual en modales) */
+  .gv-spinner{
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,.35);
+    border-top-color: #fff;
+    animation: gvSpin 0.9s linear infinite;
+  }
+  @keyframes gvSpin{ to{ transform: rotate(360deg); } }
+  .gv-btn-loading{
+    display:inline-flex;
+    align-items:center;
+    gap: 8px;
+  }
+</style>
+
 <section class="card">
   <div class="card-hd">
     <h1 class="card-title">Pedidos</h1>
@@ -513,7 +532,12 @@
             </div>
             <div class="gv-modal-actions">
               <button type="button" class="btn secondary" id="gv-estado-confirm-cancel">Cerrar</button>
-              <button type="button" class="btn" id="gv-estado-confirm-accept">Aceptar</button>
+              <button type="button" class="btn" id="gv-estado-confirm-accept">
+                <span class="gv-btn-loading">
+                  <span class="gv-spinner" id="gv-estado-spinner" style="display:none;" aria-hidden="true"></span>
+                  <span id="gv-estado-accept-label">Aceptar</span>
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -537,12 +561,23 @@
           var cNombre = document.getElementById('gv-estado-confirm-nombre');
           var cCancel = document.getElementById('gv-estado-confirm-cancel');
           var cAccept = document.getElementById('gv-estado-confirm-accept');
+          var cSpinner = document.getElementById('gv-estado-spinner');
+          var cAcceptLabel = document.getElementById('gv-estado-accept-label');
 
           if (!modal || !backdrop || !select || !btnCancel || !btnNext || !cModal || !cBackdrop || !cCancel || !cAccept) return;
 
           var currentPid = null;
           var currentPedidoNum = '';
           var currentBadge = null;
+          var isSaving = false;
+
+          function setSaving(on) {
+            isSaving = !!on;
+            cAccept.disabled = isSaving;
+            cCancel.disabled = isSaving;
+            if (cSpinner) cSpinner.style.display = isSaving ? 'inline-block' : 'none';
+            if (cAcceptLabel) cAcceptLabel.textContent = isSaving ? 'Guardando...' : 'Aceptar';
+          }
 
           function openSelectModal(pid, pedidoNum, curEstadoId) {
             currentPid = pid;
@@ -597,12 +632,14 @@
           });
 
           cCancel.addEventListener('click', function () {
+            if (isSaving) return;
             closeConfirmModal();
             currentPid = null;
             currentPedidoNum = '';
             currentBadge = null;
           });
           cBackdrop.addEventListener('click', function () {
+            if (isSaving) return;
             closeConfirmModal();
             currentPid = null;
             currentPedidoNum = '';
@@ -617,7 +654,7 @@
             var estadoNombre = opt ? (opt.textContent || '').trim() : '';
 
             try {
-              cAccept.disabled = true;
+              setSaving(true);
               var r = await fetch('/pedidos/' + encodeURIComponent(pid) + '/estado', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -652,7 +689,7 @@
               modal.hidden = false;
               if (pedidoNumSpan) pedidoNumSpan.textContent = currentPedidoNum || (pid || '—');
             } finally {
-              cAccept.disabled = false;
+              setSaving(false);
             }
           });
 
