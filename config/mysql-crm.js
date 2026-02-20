@@ -2308,9 +2308,9 @@ class MySQLCRM {
       if (updates.length === 0) {
         throw new Error('No hay campos para actualizar');
       }
-      
-      params.push(id);
-      const sql = `UPDATE comerciales SET ${updates.join(', ')} WHERE Id = ?`;
+      // Compatibilidad: algunas BDs usan `id` y otras `Id`
+      params.push(id, id);
+      const sql = `UPDATE comerciales SET ${updates.join(', ')} WHERE id = ? OR Id = ?`;
       
       // Para UPDATE necesitamos usar execute directamente para obtener affectedRows
       if (!this.connected && !this.pool) {
@@ -2326,9 +2326,13 @@ class MySQLCRM {
 
   async deleteComercial(id) {
     try {
-      const sql = 'DELETE FROM comerciales WHERE Id = ?';
-      const [result] = await this.query(sql, [id]);
-      return result;
+      if (!this.connected && !this.pool) {
+        await this.connect();
+      }
+      // Compatibilidad: algunas BDs usan `id` y otras `Id`
+      const sql = 'DELETE FROM comerciales WHERE id = ? OR Id = ?';
+      const [result] = await this.pool.execute(sql, [id, id]);
+      return { affectedRows: result.affectedRows || 0 };
     } catch (error) {
       console.error('❌ Error eliminando comercial:', error.message);
       throw error;

@@ -1,34 +1,141 @@
 <%- include('partials/header', { title: 'Comerciales' }) %>
 
-<section class="card">
-  <div class="card-hd">
-    <h1 class="card-title">Comerciales</h1>
-    <p class="card-subtitle">Listado de comerciales (sin exponer contraseñas).</p>
+<section class="card gv-agenda">
+  <div class="gv-contactos-hd">
+    <div class="gv-contactos-hd__title-row">
+      <h1 class="gv-contactos-hd__title">Comerciales</h1>
+      <button
+        type="button"
+        class="gv-contactos-hd__info"
+        aria-label="Información"
+        title="Información"
+        data-tooltip="CRUD de comerciales (solo administradores). Nunca se muestran contraseñas."
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+      <span class="gv-contactos-hd__tooltip" role="tooltip" id="comerciales-tooltip">CRUD de comerciales (solo administradores). Nunca se muestran contraseñas.</span>
+    </div>
+
+    <div class="gv-contactos-hd__bar">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <form method="get" action="/comerciales" class="gv-contactos-search" style="display:inline-flex; align-items:center; gap:8px;">
+          <input type="search" name="q" placeholder="Buscar por nombre, email, DNI, móvil..." value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" style="min-width: 260px;" />
+          <button class="btn secondary" type="submit">Buscar</button>
+          <% if (typeof q !== 'undefined' && q) { %>
+            <a class="btn secondary" href="/comerciales">Limpiar</a>
+          <% } %>
+        </form>
+        <a class="btn" href="/comerciales/new">Nuevo comercial</a>
+      </div>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <% if (error) { %>
+        <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;"><%= error %></div>
+      <% } %>
+      <% if (created) { %>
+        <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Comercial creado correctamente.</div>
+      <% } %>
+      <% if (updated) { %>
+        <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Cambios guardados.</div>
+      <% } %>
+      <% if (deleted) { %>
+        <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Comercial eliminado.</div>
+      <% } %>
+    </div>
+
+    <p class="gv-contactos-hd__sub">
+      Mostrando <%= (items || []).length %> comerciales
+      <% if (typeof q !== 'undefined' && q) { %> · Buscando: "<%= q %>"<% } %>
+    </p>
   </div>
+
   <div class="card-bd">
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap gv-contactos-table-wrap">
+      <table class="gv-contactos-table">
+        <colgroup>
+          <col style="width: 11%;" />
+          <col style="width: 16%;" />
+          <col style="width: 22%;" />
+          <col style="width: 10%;" />
+          <col style="width: 10%;" />
+          <col style="width: 10%;" />
+          <col style="width: 10%;" />
+          <col style="width: 11%;" />
+        </colgroup>
         <thead>
           <tr>
+            <th>Acciones</th>
             <th>ID</th>
             <th>Nombre</th>
             <th>Email</th>
-            <th>Roll</th>
-            <th>Movil</th>
+            <th>DNI</th>
+            <th>Móvil</th>
             <th>Provincia</th>
+            <th>Roles</th>
           </tr>
         </thead>
         <tbody>
-          <% items.forEach((c) => { %>
+          <% (items || []).forEach((c) => { %>
+            <%
+              const id = c.id ?? c.Id;
+              const email = c.Email ?? c.email ?? '';
+              let rolesTxt = '';
+              const rraw = c.Roll;
+              if (Array.isArray(rraw)) {
+                rolesTxt = rraw.join(', ');
+              } else if (typeof rraw === 'string') {
+                const s = rraw.trim();
+                if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('{') && s.endsWith('}'))) {
+                  try { const parsed = JSON.parse(s); if (Array.isArray(parsed)) rolesTxt = parsed.map(String).join(', '); } catch (_) {}
+                }
+                if (!rolesTxt) rolesTxt = s.includes(',') ? s.split(',').map((x) => x.trim()).filter(Boolean).join(', ') : s;
+              } else if (rraw) {
+                rolesTxt = String(rraw);
+              }
+            %>
             <tr>
-              <td><%= c.id ?? c.Id %></td>
-              <td><%= c.Nombre ?? '' %></td>
-              <td><%= c.Email ?? c.email ?? '' %></td>
-              <td><%= Array.isArray(c.Roll) ? c.Roll.join(', ') : (c.Roll ?? '') %></td>
+              <td>
+                <div class="gv-actions">
+                  <a class="btn secondary icon" href="/comerciales/<%= id %>" title="Ver" aria-label="Ver comercial <%= id %>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </a>
+                  <a class="btn secondary icon" href="/comerciales/<%= id %>/edit" title="Editar" aria-label="Editar comercial <%= id %>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                    </svg>
+                  </a>
+                  <form method="post" action="/comerciales/<%= id %>/delete" onsubmit="return confirm('¿Eliminar este comercial? Esta acción no se puede deshacer.');">
+                    <button class="btn secondary icon danger" type="submit" title="Eliminar" aria-label="Eliminar comercial <%= id %>">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 6h18"></path>
+                        <path d="M8 6V4h8v2"></path>
+                        <path d="M19 6l-1 14H6L5 6"></path>
+                        <path d="M10 11v6"></path>
+                        <path d="M14 11v6"></path>
+                      </svg>
+                    </button>
+                  </form>
+                </div>
+              </td>
+              <td><%= id %></td>
+              <td class="gv-contactos-col-nombre"><%= c.Nombre ?? '' %></td>
+              <td><%= email %></td>
+              <td><%= c.DNI ?? '' %></td>
               <td><%= c.Movil ?? '' %></td>
-              <td><%= c.Id_Provincia ?? '' %></td>
+              <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
+              <td><%= rolesTxt || '—' %></td>
             </tr>
           <% }) %>
+          <% if (!items || items.length === 0) { %>
+            <tr>
+              <td colspan="8" style="color: var(--gv-muted); font-weight:700;">No hay comerciales.</td>
+            </tr>
+          <% } %>
         </tbody>
       </table>
     </div>

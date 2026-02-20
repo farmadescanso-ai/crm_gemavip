@@ -1,0 +1,145 @@
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar comercial' : 'Nuevo comercial' }) %>
+
+<%
+  const id = item && (item.Id ?? item.id);
+  const formAction = mode === 'edit' ? ('/comerciales/' + id + '/edit') : '/comerciales/new';
+  const cancelHref = mode === 'edit' ? ('/comerciales/' + id) : '/comerciales';
+  const pickVal = (name) => {
+    const v = (item && item[name] !== undefined) ? item[name] : '';
+    return (v === null || v === undefined) ? '' : String(v);
+  };
+  const rolesArr = Array.isArray(item?.Roll) ? item.Roll : [];
+  const hasRole = (r) => rolesArr.some((x) => String(x || '').toLowerCase().includes(String(r || '').toLowerCase()));
+  const metaSafe = (typeof meta === 'object' && meta) ? meta : {};
+%>
+
+<section class="card gv-cliente-form" style="max-width: 980px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar comercial' : 'Nuevo comercial' %></h1>
+    <p class="card-subtitle">Gestión de usuarios comerciales (solo administradores). Las contraseñas se almacenan hasheadas y nunca se muestran.</p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= error %></div>
+    <% } %>
+
+    <div class="gv-form-actions-sticky">
+      <div class="gv-form-actions-sticky__inner">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <a class="btn secondary" href="<%= cancelHref %>">Cancelar</a>
+          <button class="btn" type="submit" form="gvComercialForm"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
+        </div>
+      </div>
+    </div>
+
+    <form id="gvComercialForm" method="post" action="<%= formAction %>" class="gv-form" style="display:grid; gap: 12px;">
+      <div class="grid cols-2" style="gap:12px;">
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nombre *</span>
+          <input class="gv-client-picker__q" name="Nombre" required value="<%= pickVal('Nombre') %>" maxlength="120" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Email *</span>
+          <input class="gv-client-picker__q" name="Email" type="email" required value="<%= pickVal('Email') %>" maxlength="255" />
+        </label>
+
+        <label style="display:grid; gap:8px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Roles</span>
+          <div style="display:flex; gap:14px; flex-wrap:wrap;">
+            <label style="display:flex; gap:8px; align-items:center; font-weight:700;">
+              <input type="checkbox" name="Roll" value="Comercial" <%= hasRole('comercial') || rolesArr.length === 0 ? 'checked' : '' %> />
+              Comercial
+            </label>
+            <label style="display:flex; gap:8px; align-items:center; font-weight:700;">
+              <input type="checkbox" name="Roll" value="Admin" <%= hasRole('admin') ? 'checked' : '' %> />
+              Admin
+            </label>
+          </div>
+          <div style="color: var(--gv-muted); font-size: 12px; font-weight: 700;">
+            Admin ve toda la base y accede a secciones de administración.
+          </div>
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">DNI</span>
+          <input class="gv-client-picker__q" name="DNI" value="<%= pickVal('DNI') %>" maxlength="20" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Móvil</span>
+          <input class="gv-client-picker__q" name="Movil" value="<%= pickVal('Movil') %>" maxlength="20" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Dirección</span>
+          <input class="gv-client-picker__q" name="Direccion" value="<%= pickVal('Direccion') %>" maxlength="255" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Código Postal *</span>
+          <input class="gv-client-picker__q" name="CodigoPostal" required value="<%= pickVal('CodigoPostal') %>" inputmode="numeric" maxlength="5" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Población</span>
+          <input class="gv-client-picker__q" name="Poblacion" value="<%= pickVal('Poblacion') %>" maxlength="120" />
+        </label>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Provincia</span>
+          <select class="gv-client-picker__q" name="Id_Provincia">
+            <option value="">—</option>
+            <% (provincias || []).forEach((p) => { %>
+              <% const pid = p?.id ?? p?.Id; const pn = p?.Nombre ?? p?.nombre; if (!pid) return; %>
+              <option value="<%= pid %>" <%= String(pid) === String(pickVal('Id_Provincia')) ? 'selected' : '' %>><%= pn ?? pid %></option>
+            <% }) %>
+          </select>
+        </label>
+
+        <% if (metaSafe.hasFijoMensual) { %>
+          <label style="display:grid; gap:6px;">
+            <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Fijo mensual (€)</span>
+            <input class="gv-client-picker__q" type="number" name="fijo_mensual" value="<%= pickVal('fijo_mensual') || '0' %>" min="0" step="0.01" />
+          </label>
+        <% } %>
+
+        <% if (metaSafe.hasPlataforma) { %>
+          <label style="display:grid; gap:6px;">
+            <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Plataforma reunión preferida</span>
+            <select class="gv-client-picker__q" name="plataforma_reunion_preferida">
+              <% const pref = (pickVal('plataforma_reunion_preferida') || 'meet').toLowerCase(); %>
+              <option value="meet" <%= pref === 'meet' ? 'selected' : '' %>>Google Meet</option>
+              <option value="teams" <%= pref === 'teams' ? 'selected' : '' %>>Microsoft Teams</option>
+            </select>
+          </label>
+        <% } %>
+
+        <% if (metaSafe.hasMeetEmail) { %>
+          <label style="display:grid; gap:6px;">
+            <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Meet email</span>
+            <input class="gv-client-picker__q" name="meet_email" type="email" value="<%= pickVal('meet_email') %>" maxlength="255" />
+          </label>
+        <% } %>
+
+        <% if (metaSafe.hasTeamsEmail) { %>
+          <label style="display:grid; gap:6px;">
+            <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Teams email</span>
+            <input class="gv-client-picker__q" name="teams_email" type="email" value="<%= pickVal('teams_email') %>" maxlength="255" />
+          </label>
+        <% } %>
+
+        <label style="display:grid; gap:6px;">
+          <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= mode === 'edit' ? 'Nueva contraseña (opcional)' : 'Contraseña *' %></span>
+          <input class="gv-client-picker__q" name="Password" type="password" <%= mode === 'edit' ? '' : 'required' %> minlength="6" autocomplete="new-password" placeholder="<%= mode === 'edit' ? 'Dejar en blanco para no cambiar' : '' %>" />
+          <div style="color: var(--gv-muted); font-size: 12px; font-weight: 700;">
+            Mínimo 6 caracteres.
+          </div>
+        </label>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

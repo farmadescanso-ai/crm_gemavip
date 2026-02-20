@@ -1,0 +1,65 @@
+<%- include('partials/header', { title: 'Comercial' }) %>
+
+<%
+  const id = item && (item.id ?? item.Id);
+  const email = item?.Email ?? item?.email ?? '';
+  const rolesRaw = item?.Roll ?? item?.roll ?? item?.Rol ?? '';
+  const rolesText = Array.isArray(rolesRaw) ? rolesRaw.join(', ') : String(rolesRaw || '');
+%>
+
+<section class="card" style="max-width: 980px; margin: 0 auto;">
+  <div class="card-hd">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; flex-wrap:wrap;">
+      <div>
+        <h1 class="card-title">Comercial <span style="color: var(--gv-muted); font-weight:800;">#<%= id %></span></h1>
+        <p class="card-subtitle"><%= item?.Nombre ?? '' %> · <%= email %></p>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <a class="btn secondary" href="/comerciales">Volver</a>
+        <a class="btn secondary" href="/comerciales/<%= id %>/edit">Editar</a>
+        <form method="post" action="/comerciales/<%= id %>/delete" onsubmit="return confirm('¿Eliminar este comercial? Esta acción no se puede deshacer.');">
+          <button class="btn secondary danger" type="submit">Eliminar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-bd">
+    <% if (created) { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom: 12px;">Comercial creado correctamente.</div>
+    <% } %>
+    <% if (updated) { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom: 12px;">Cambios guardados.</div>
+    <% } %>
+
+    <div class="grid cols-2" style="gap: 12px;">
+      <div style="padding: 12px; border: 1px solid var(--gv-border, #e9ecef); border-radius: 14px;">
+        <div style="font-weight: 900; color: var(--gv-ink); margin-bottom: 8px;">Datos</div>
+        <div style="display:grid; gap:6px; font-weight:700;">
+          <div><span style="color: var(--gv-muted);">Nombre</span><br /><%= item?.Nombre ?? '' %></div>
+          <div><span style="color: var(--gv-muted);">Email</span><br /><%= email %></div>
+          <div><span style="color: var(--gv-muted);">DNI</span><br /><%= item?.DNI ?? '—' %></div>
+          <div><span style="color: var(--gv-muted);">Móvil</span><br /><%= item?.Movil ?? '—' %></div>
+        </div>
+      </div>
+
+      <div style="padding: 12px; border: 1px solid var(--gv-border, #e9ecef); border-radius: 14px;">
+        <div style="font-weight: 900; color: var(--gv-ink); margin-bottom: 8px;">Dirección</div>
+        <div style="display:grid; gap:6px; font-weight:700;">
+          <div><span style="color: var(--gv-muted);">Dirección</span><br /><%= item?.Direccion ?? '—' %></div>
+          <div><span style="color: var(--gv-muted);">CP</span><br /><%= item?.CodigoPostal ?? '—' %></div>
+          <div><span style="color: var(--gv-muted);">Población</span><br /><%= item?.Poblacion ?? '—' %></div>
+          <div><span style="color: var(--gv-muted);">Provincia</span><br /><%= item?.ProvinciaNombre ?? (item?.Id_Provincia ?? '—') %></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 12px; padding: 12px; border: 1px solid var(--gv-border, #e9ecef); border-radius: 14px;">
+      <div style="font-weight: 900; color: var(--gv-ink); margin-bottom: 8px;">Permisos</div>
+      <div style="font-weight: 800;"><span style="color: var(--gv-muted);">Roles</span><br /><%= rolesText || '—' %></div>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

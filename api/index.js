@@ -658,6 +658,12 @@ app.get(
 
 app.get('/comerciales', requireAdmin, async (req, res, next) => {
   try {
+    const q = typeof req.query.q === 'string' ? String(req.query.q) : '';
+    const created = String(req.query.created || '') === '1';
+    const updated = String(req.query.updated || '') === '1';
+    const deleted = String(req.query.deleted || '') === '1';
+    const error = typeof req.query.error === 'string' ? String(req.query.error) : '';
+
     const items = await db.getComerciales();
     // Redactar password por seguridad
     const sanitized = (items || []).map((c) => {
@@ -666,7 +672,307 @@ app.get('/comerciales', requireAdmin, async (req, res, next) => {
       const { Password, password, ...rest } = c;
       return rest;
     });
-    res.render('comerciales', { items: sanitized });
+
+    const qq = String(q || '').trim().toLowerCase();
+    const filtered = qq
+      ? sanitized.filter((c) => {
+          const nombre = String(c?.Nombre ?? '').toLowerCase();
+          const email = String(c?.Email ?? c?.email ?? '').toLowerCase();
+          const dni = String(c?.DNI ?? '').toLowerCase();
+          const movil = String(c?.Movil ?? '').toLowerCase();
+          return [nombre, email, dni, movil].some((s) => s.includes(qq));
+        })
+      : sanitized;
+
+    res.render('comerciales', { items: filtered, q, created, updated, deleted, error });
+  } catch (e) {
+    next(e);
+  }
+});
+
+async function loadComercialesTableMeta() {
+  try {
+    const t = await db._resolveTableNameCaseInsensitive('comerciales');
+    const cols = await db._getColumns(t);
+    const set = new Set((cols || []).map((c) => String(c).toLowerCase()));
+    const has = (name) => set.has(String(name).toLowerCase());
+    return {
+      hasMeetEmail: has('meet_email'),
+      hasTeamsEmail: has('teams_email'),
+      hasPlataforma: has('plataforma_reunion_preferida'),
+      hasFijoMensual: has('fijo_mensual')
+    };
+  } catch (_) {
+    return { hasMeetEmail: false, hasTeamsEmail: false, hasPlataforma: true, hasFijoMensual: true };
+  }
+}
+
+function sanitizeComercialForView(row) {
+  if (!row || typeof row !== 'object') return row;
+  // eslint-disable-next-line no-unused-vars
+  const { Password, password, ...rest } = row;
+  return rest;
+}
+
+function parseMoneyLike(v, fallback = null) {
+  const s = String(v ?? '').trim();
+  if (!s) return fallback;
+  const n = Number(s.replace(',', '.'));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function parseIntLike(v, fallback = null) {
+  const s = String(v ?? '').trim();
+  if (!s) return fallback;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeCp(cpRaw) {
+  const s = String(cpRaw ?? '').trim();
+  if (!s) return '';
+  return s.replace(/[^0-9]/g, '').slice(0, 5);
+}
+
+function rolesFromBody(body) {
+  const raw = body?.Roll;
+  const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const roles = arr.map((x) => String(x || '').trim()).filter(Boolean);
+  const unique = Array.from(new Set(roles));
+  // Default: si no seleccionan nada, considerarlo comercial.
+  return unique.length > 0 ? unique : ['Comercial'];
+}
+
+app.get('/comerciales/new', requireAdmin, async (_req, res, next) => {
+  try {
+    const [provincias, meta] = await Promise.all([db.getProvincias().catch(() => []), loadComercialesTableMeta()]);
+    return res.render('comercial-form', {
+      mode: 'create',
+      item: { Nombre: '', Email: '', DNI: '', Movil: '', Direccion: '', CodigoPostal: '', Poblacion: '', Id_Provincia: '', Roll: ['Comercial'] },
+      provincias: provincias || [],
+      meta,
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/comerciales/new', requireAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const [provincias, meta] = await Promise.all([db.getProvincias().catch(() => []), loadComercialesTableMeta()]);
+
+    const Nombre = String(body.Nombre ?? '').trim();
+    const Email = String(body.Email ?? '').trim();
+    const Password = String(body.Password ?? '').trim();
+    const DNI = String(body.DNI ?? '').trim() || null;
+    const Movil = String(body.Movil ?? '').trim() || null;
+    const Direccion = String(body.Direccion ?? '').trim() || null;
+    const CodigoPostal = normalizeCp(body.CodigoPostal);
+    const Poblacion = String(body.Poblacion ?? '').trim() || null;
+    const Id_Provincia = parseIntLike(body.Id_Provincia, null);
+    const fijo_mensual = meta?.hasFijoMensual ? (parseMoneyLike(body.fijo_mensual ?? body.FijoMensual, 0) ?? 0) : undefined;
+    const plataforma_reunion_preferida = meta?.hasPlataforma
+      ? String(body.plataforma_reunion_preferida ?? 'meet').trim() || 'meet'
+      : undefined;
+
+    const roles = rolesFromBody(body);
+    const Roll = JSON.stringify(roles);
+
+    const itemEcho = {
+      Nombre,
+      Email,
+      DNI: DNI || '',
+      Movil: Movil || '',
+      Direccion: Direccion || '',
+      CodigoPostal,
+      Poblacion: Poblacion || '',
+      Id_Provincia: Id_Provincia ?? '',
+      Roll: roles,
+      fijo_mensual: fijo_mensual ?? 0,
+      plataforma_reunion_preferida: plataforma_reunion_preferida ?? 'meet'
+    };
+
+    const emailOk = Email && Email.includes('@') && Email.includes('.');
+    if (!Nombre) {
+      return res.status(400).render('comercial-form', { mode: 'create', item: itemEcho, provincias, meta, error: 'El nombre es obligatorio.' });
+    }
+    if (!emailOk) {
+      return res.status(400).render('comercial-form', { mode: 'create', item: itemEcho, provincias, meta, error: 'Email no válido.' });
+    }
+    if (!CodigoPostal || CodigoPostal.length < 4) {
+      return res.status(400).render('comercial-form', { mode: 'create', item: itemEcho, provincias, meta, error: 'Código Postal no válido.' });
+    }
+    if (!Password || Password.length < 6) {
+      return res.status(400).render('comercial-form', { mode: 'create', item: itemEcho, provincias, meta, error: 'La contraseña es obligatoria (mínimo 6 caracteres).' });
+    }
+
+    const hashed = await bcrypt.hash(Password, 12);
+    const payload = {
+      Nombre,
+      Email,
+      DNI,
+      Password: hashed,
+      Roll,
+      Movil,
+      Direccion,
+      CodigoPostal,
+      Poblacion,
+      Id_Provincia,
+      fijo_mensual,
+      plataforma_reunion_preferida
+    };
+
+    const result = await db.createComercial(payload);
+    const insertId = result?.insertId;
+    if (!insertId) return res.redirect('/comerciales?created=1');
+    return res.redirect(`/comerciales/${insertId}?created=1`);
+  } catch (e) {
+    // Mensaje más amigable en formulario
+    try {
+      const [provincias, meta] = await Promise.all([db.getProvincias().catch(() => []), loadComercialesTableMeta()]);
+      const body = req.body || {};
+      const roles = rolesFromBody(body);
+      const itemEcho = {
+        ...body,
+        CodigoPostal: normalizeCp(body.CodigoPostal),
+        Roll: roles
+      };
+      return res.status(400).render('comercial-form', {
+        mode: 'create',
+        item: itemEcho,
+        provincias,
+        meta,
+        error: e?.message ? String(e.message) : 'No se pudo crear el comercial.'
+      });
+    } catch (_) {}
+    next(e);
+  }
+});
+
+app.get('/comerciales/:id(\\d+)', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const item = await db.getComercialById(id);
+    if (!item) return res.status(404).send('No encontrado');
+    const created = String(req.query.created || '') === '1';
+    const updated = String(req.query.updated || '') === '1';
+    return res.render('comercial-view', { item: sanitizeComercialForView(item), created, updated });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/comerciales/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const [item, provincias, meta] = await Promise.all([
+      db.getComercialById(id),
+      db.getProvincias().catch(() => []),
+      loadComercialesTableMeta()
+    ]);
+    if (!item) return res.status(404).send('No encontrado');
+    const safe = sanitizeComercialForView(item);
+    const roles = normalizeRoles(safe?.Roll ?? safe?.roll ?? safe?.Rol);
+    return res.render('comercial-form', {
+      mode: 'edit',
+      item: { ...safe, Roll: roles },
+      provincias: provincias || [],
+      meta,
+      error: null
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/comerciales/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const body = req.body || {};
+    const [current, provincias, meta] = await Promise.all([
+      db.getComercialById(id),
+      db.getProvincias().catch(() => []),
+      loadComercialesTableMeta()
+    ]);
+    if (!current) return res.status(404).send('No encontrado');
+
+    const Nombre = String(body.Nombre ?? '').trim();
+    const Email = String(body.Email ?? '').trim();
+    const newPassword = String(body.Password ?? '').trim();
+    const DNI = String(body.DNI ?? '').trim() || null;
+    const Movil = String(body.Movil ?? '').trim() || null;
+    const Direccion = String(body.Direccion ?? '').trim() || null;
+    const CodigoPostal = normalizeCp(body.CodigoPostal);
+    const Poblacion = String(body.Poblacion ?? '').trim() || null;
+    const Id_Provincia = parseIntLike(body.Id_Provincia, null);
+    const fijo_mensual = meta?.hasFijoMensual ? (parseMoneyLike(body.fijo_mensual ?? body.FijoMensual, 0) ?? 0) : undefined;
+    const plataforma_reunion_preferida = meta?.hasPlataforma
+      ? String(body.plataforma_reunion_preferida ?? 'meet').trim() || 'meet'
+      : undefined;
+
+    const roles = rolesFromBody(body);
+    const Roll = JSON.stringify(roles);
+
+    const emailOk = Email && Email.includes('@') && Email.includes('.');
+    if (!Nombre) {
+      return res.status(400).render('comercial-form', { mode: 'edit', item: { ...sanitizeComercialForView(current), ...body, CodigoPostal, Roll: roles }, provincias, meta, error: 'El nombre es obligatorio.' });
+    }
+    if (!emailOk) {
+      return res.status(400).render('comercial-form', { mode: 'edit', item: { ...sanitizeComercialForView(current), ...body, CodigoPostal, Roll: roles }, provincias, meta, error: 'Email no válido.' });
+    }
+    if (!CodigoPostal || CodigoPostal.length < 4) {
+      return res.status(400).render('comercial-form', { mode: 'edit', item: { ...sanitizeComercialForView(current), ...body, CodigoPostal, Roll: roles }, provincias, meta, error: 'Código Postal no válido.' });
+    }
+    if (newPassword && newPassword.length < 6) {
+      return res.status(400).render('comercial-form', { mode: 'edit', item: { ...sanitizeComercialForView(current), ...body, CodigoPostal, Roll: roles }, provincias, meta, error: 'La contraseña debe tener al menos 6 caracteres.' });
+    }
+
+    const payload = {
+      Nombre,
+      Email,
+      DNI,
+      Roll,
+      Movil,
+      Direccion,
+      CodigoPostal,
+      Poblacion,
+      Id_Provincia,
+      fijo_mensual,
+      plataforma_reunion_preferida
+    };
+
+    // Campos opcionales solo si existen en tabla
+    if (meta?.hasMeetEmail) payload.meet_email = String(body.meet_email ?? '').trim();
+    if (meta?.hasTeamsEmail) payload.teams_email = String(body.teams_email ?? '').trim();
+
+    await db.updateComercial(id, payload);
+    if (newPassword) {
+      const hashed = await bcrypt.hash(newPassword, 12);
+      await db.updateComercialPassword(id, hashed);
+    }
+    return res.redirect(`/comerciales/${id}?updated=1`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post('/comerciales/:id(\\d+)/delete', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const selfId = Number(req.session?.user?.id);
+    if (Number.isFinite(selfId) && selfId > 0 && id === selfId) {
+      return res.redirect('/comerciales?error=' + encodeURIComponent('No puedes eliminar tu propio usuario.'));
+    }
+    const result = await db.deleteComercial(id);
+    const n = Number(result?.affectedRows ?? 0);
+    if (n <= 0) return res.redirect('/comerciales?error=' + encodeURIComponent('No se pudo eliminar (no encontrado o sin cambios).'));
+    return res.redirect('/comerciales?deleted=1');
   } catch (e) {
     next(e);
   }
