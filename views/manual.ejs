@@ -1,0 +1,240 @@
+<%- include('partials/header', { title: 'Manual operativo' }) %>
+
+<section class="card" style="max-width: 1080px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Manual operativo</h1>
+    <p class="card-subtitle">
+      Guía rápida y práctica para usar el CRM en su versión actual. Está pensada para ir al grano: qué hace cada pantalla y cómo sacarle partido.
+    </p>
+  </div>
+  <div class="card-bd">
+    <div class="gv-alert gv-alert--info" style="margin-bottom: 12px;">
+      Consejo: guarda esta página en favoritos. Se actualiza con la aplicación.
+    </div>
+
+    <div class="grid cols-2" style="gap: 12px;">
+      <section class="card" style="box-shadow:none;">
+        <div class="card-hd">
+          <h2 class="card-title" style="font-size: 16px;">Índice</h2>
+          <p class="card-subtitle">Accesos directos por sección.</p>
+        </div>
+        <div class="card-bd">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a class="btn secondary" href="#acceso" style="padding: 8px 10px;">Acceso</a>
+            <a class="btn secondary" href="#navegacion" style="padding: 8px 10px;">Navegación</a>
+            <a class="btn secondary" href="#clientes" style="padding: 8px 10px;">Clientes</a>
+            <a class="btn secondary" href="#agenda" style="padding: 8px 10px;">Agenda</a>
+            <a class="btn secondary" href="#pedidos" style="padding: 8px 10px;">Pedidos</a>
+            <a class="btn secondary" href="#visitas" style="padding: 8px 10px;">Visitas</a>
+            <a class="btn secondary" href="#notificaciones" style="padding: 8px 10px;">Notificaciones</a>
+            <a class="btn secondary" href="#buenas-practicas" style="padding: 8px 10px;">Buenas prácticas</a>
+            <a class="btn secondary" href="#soporte" style="padding: 8px 10px;">Soporte</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="box-shadow:none;">
+        <div class="card-hd">
+          <h2 class="card-title" style="font-size: 16px;">Atajos útiles</h2>
+          <p class="card-subtitle">Lo más usado en el día a día.</p>
+        </div>
+        <div class="card-bd">
+          <ul style="margin:0; padding-left: 18px; color: var(--gv-muted); font-weight: 700;">
+            <li>Ir a <a href="/pedidos">Pedidos</a> y usar el buscador inteligente.</li>
+            <li>Crear un pedido desde <a href="/pedidos/new">Nuevo pedido</a>.</li>
+            <li>Revisar el resumen y seguimiento (pestañas) en <a href="/pedidos">Pedidos</a>.</li>
+            <li>Ver calendario en <a href="/visitas/calendar">Visitas</a> (si lo tienes habilitado).</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <hr style="border:0; border-top: 1px solid var(--gv-border); margin: 14px 0;" />
+
+    <section id="acceso" class="card" style="box-shadow:none;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Acceso y sesión</h2>
+        <p class="card-subtitle">Entrar, salir y buenas prácticas de seguridad.</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 10px;">
+        <div class="gv-readonly">
+          - Accede con tu email y contraseña.<br />
+          - Si cierras la pestaña, tu sesión puede caducar por inactividad y te pedirá entrar de nuevo.<br />
+          - Cambia tu contraseña desde el menú de usuario: <b>Cambiar contraseña</b>.
+        </div>
+      </div>
+    </section>
+
+    <section id="navegacion" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Navegación general</h2>
+        <p class="card-subtitle">Qué hay en la barra superior y en el menú de usuario.</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 10px;">
+        <div class="gv-readonly">
+          - En la barra superior tienes accesos a: <b>Clientes</b>, <b>Agenda</b>, <b>Pedidos</b>, <b>Visitas</b>, <b>Artículos</b> (según tu rol).<br />
+          - En el menú de usuario (arriba a la derecha) encontrarás este <b>Manual operativo</b>, además de opciones de tu rol.
+        </div>
+      </div>
+    </section>
+
+    <section id="clientes" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Clientes</h2>
+        <p class="card-subtitle">Buscar, consultar y editar fichas.</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 10px;">
+        <div class="gv-readonly">
+          - En <a href="/clientes">Clientes</a> puedes ver tu cartera (o todos si eres admin).<br />
+          - Abre una ficha para ver datos y moverte por pestañas (si están disponibles).<br />
+          - Si un campo no aparece, normalmente es porque ese catálogo/columna no existe en esa instalación (la app funciona en modo “best-effort”).
+        </div>
+      </div>
+    </section>
+
+    <section id="agenda" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Agenda</h2>
+        <p class="card-subtitle">Contactos y asociaciones.</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 10px;">
+        <div class="gv-readonly">
+          - La Agenda centraliza personas/contactos asociados a clientes.<br />
+          - En la ficha de cliente puedes ver/gestionar asociaciones (si tu rol lo permite).
+        </div>
+      </div>
+    </section>
+
+    <section id="pedidos" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Pedidos</h2>
+        <p class="card-subtitle">Dashboard en pestañas, búsqueda inteligente y detalle del pedido.</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 12px;">
+        <div class="gv-readonly">
+          En <a href="/pedidos">Pedidos</a> tienes 3 pestañas:
+          <ul style="margin: 8px 0 0 18px;">
+            <li><b>Listado</b>: tabla principal de pedidos.</li>
+            <li><b>Resumen</b>: KPIs y rankings calculados con el filtro actual.</li>
+            <li><b>Seguimiento</b>: pendientes, especiales y pedidos “incompletos”.</li>
+          </ul>
+        </div>
+
+        <section class="card" style="box-shadow:none;">
+          <div class="card-hd">
+            <h3 class="card-title" style="font-size: 14px;">Búsqueda inteligente (backend)</h3>
+            <p class="card-subtitle">Un solo campo para filtrar por varios criterios.</p>
+          </div>
+          <div class="card-bd">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Ejemplo</th><th>Qué hace</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><code>farmacia murcia</code></td><td>Texto libre: busca por cliente/provincia/comercial/estado y referencias.</td></tr>
+                  <tr><td><code>provincia:Murcia</code></td><td>Filtra por provincia.</td></tr>
+                  <tr><td><code>comercial:Paco</code></td><td>Filtra por comercial (nombre/email/id, según datos disponibles).</td></tr>
+                  <tr><td><code>estado:pendiente</code></td><td>Filtra por estado.</td></tr>
+                  <tr><td><code>ref:PO-12345</code></td><td>Filtra por Nº Pedido Cliente.</td></tr>
+                  <tr><td><code>total:&gt;300</code></td><td>Filtra por importe total mayor que 300.</td></tr>
+                  <tr><td><code>-estado:pagado</code></td><td>Excluye los pagados (negación con <code>-</code>).</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top: 10px; color: var(--gv-muted); font-weight: 700;">
+              Nota: los filtros se aplican en el servidor (no depende de lo cargado en pantalla).
+            </div>
+          </div>
+        </section>
+
+        <section class="card" style="box-shadow:none;">
+          <div class="card-hd">
+            <h3 class="card-title" style="font-size: 14px;">Cambiar el estado (solo Administrador)</h3>
+            <p class="card-subtitle">Desde el Listado, sin recargar.</p>
+          </div>
+          <div class="card-bd" style="display:grid; gap: 10px;">
+            <div class="gv-readonly">
+              - Pasa el ratón por el estado: verás el aviso “Hacer clic para modificar el estado del pedido”.<br />
+              - Haz clic en el estado, selecciona el nuevo y confirma.<br />
+              - La app guarda en la base de datos y actualiza el badge en la tabla.
+            </div>
+          </div>
+        </section>
+
+        <section class="card" style="box-shadow:none;">
+          <div class="card-hd">
+            <h3 class="card-title" style="font-size: 14px;">Detalle del pedido</h3>
+            <p class="card-subtitle">Vista en pestañas para ver toda la información.</p>
+          </div>
+          <div class="card-bd">
+            <div class="gv-readonly">
+              Dentro de un pedido, verás pestañas: <b>Cabecera</b>, <b>Envío</b> y <b>Líneas y totales</b>. También puedes exportar a Excel.
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="visitas" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Visitas</h2>
+        <p class="card-subtitle">Registrar y consultar actividad.</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 10px;">
+        <div class="gv-readonly">
+          - En <a href="/visitas">Visitas</a> puedes registrar visitas y consultarlas por listado o calendario (si está habilitado en tu entorno).<br />
+          - Consejo: completa siempre el cliente, la fecha y una nota corta para facilitar seguimiento.
+        </div>
+      </div>
+    </section>
+
+    <section id="notificaciones" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Notificaciones</h2>
+        <p class="card-subtitle">Solicitudes y avisos (según rol).</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 10px;">
+        <div class="gv-readonly">
+          - Administrador: <b>Solicitudes</b> (asignaciones).<br />
+          - Comercial: <b>Notificaciones</b> (tus avisos).<br />
+          - El contador aparece arriba en la barra cuando hay pendientes.
+        </div>
+      </div>
+    </section>
+
+    <section id="buenas-practicas" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Buenas prácticas</h2>
+        <p class="card-subtitle">Pequeños hábitos que ahorran tiempo.</p>
+      </div>
+      <div class="card-bd">
+        <ul style="margin:0; padding-left: 18px; color: var(--gv-muted); font-weight: 700;">
+          <li>Usa la búsqueda con tokens: <code>provincia:</code>, <code>comercial:</code>, <code>estado:</code>, <code>ref:</code>…</li>
+          <li>Antes de duplicar, busca por referencia del cliente (<code>ref:</code>) o número de pedido.</li>
+          <li>En pedidos, revisa la pestaña “Seguimiento” para no dejar pendientes atrás.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="soporte" class="card" style="box-shadow:none; margin-top: 12px;">
+      <div class="card-hd">
+        <h2 class="card-title" style="font-size: 16px;">Soporte</h2>
+        <p class="card-subtitle">Qué enviar cuando algo no va como esperas.</p>
+      </div>
+      <div class="card-bd" style="display:grid; gap: 10px;">
+        <div class="gv-readonly">
+          Si algo falla, envía a soporte:
+          <ul style="margin: 8px 0 0 18px;">
+            <li>La pantalla (ruta) donde ocurre.</li>
+            <li>Qué estabas intentando hacer.</li>
+            <li>Si aparece un error, copia el texto completo.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+

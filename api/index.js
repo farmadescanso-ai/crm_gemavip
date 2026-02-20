@@ -4467,6 +4467,11 @@ app.post('/visitas/:id/delete', requireLogin, async (req, res, next) => {
   }
 });
 
+// Manual operativo (landing) - requiere sesión
+app.get('/manual', requireLogin, async (_req, res) => {
+  return res.render('manual', { title: 'Manual operativo' });
+});
+
 app.get('/dashboard', requireLogin, async (req, res, next) => {
   try {
     const MIN_YEAR = 2025;
