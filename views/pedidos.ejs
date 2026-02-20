@@ -153,7 +153,7 @@
           <table>
             <thead>
               <tr>
-                <th>Acciones</th>
+                <th>Estado</th>
                 <th>Fecha</th>
                 <th>PEDIDO</th>
                 <th>Cliente</th>
@@ -163,7 +163,7 @@
                 <th>PEDIDO CLIENTE</th>
                 <th>Nº Hefame</th>
                 <th>Total</th>
-                <th>Estado</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -174,6 +174,26 @@
                 <% const noticePid = (typeof n8nNotice !== 'undefined' && n8nNotice && n8nNotice.pid != null) ? String(n8nNotice.pid) : null; %>
                 <% const isNoticeRow = noticePid && String(pid) === noticePid; %>
                 <tr>
+                  <td>
+                    <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? '').trim(); %>
+                    <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
+                    <% const st = estadoLabel.toLowerCase(); %>
+                    <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
+                    <% if (estadoLabel) { %>
+                      <span class="badge <%= cls %>"><%= estadoLabel %></span>
+                    <% } else { %>
+                      —
+                    <% } %>
+                  </td>
+                  <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
+                  <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
+                  <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                  <td><%= p.ProvinciaNombre ?? '—' %></td>
+                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? '—') %></td>
+                  <td><%= p.TipoClienteNombre ?? '—' %></td>
+                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
+                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? '—' %></td>
+                  <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? 0) %></td>
                   <td>
                     <div class="gv-actions">
                       <a class="btn secondary icon" href="/pedidos/<%= pid %>" title="Ver" aria-label="Ver pedido <%= pid %>">
@@ -210,26 +230,6 @@
                         </form>
                       <% } %>
                     </div>
-                  </td>
-                  <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-                  <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
-                  <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                  <td><%= p.ProvinciaNombre ?? '—' %></td>
-                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? '—') %></td>
-                  <td><%= p.TipoClienteNombre ?? '—' %></td>
-                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
-                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? '—' %></td>
-                  <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? 0) %></td>
-                  <td>
-                    <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? '').trim(); %>
-                    <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
-                    <% const st = estadoLabel.toLowerCase(); %>
-                    <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
-                    <% if (estadoLabel) { %>
-                      <span class="badge <%= cls %>"><%= estadoLabel %></span>
-                    <% } else { %>
-                      —
-                    <% } %>
                   </td>
                 </tr>
               <% }) %>
