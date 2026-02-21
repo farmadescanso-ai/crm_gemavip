@@ -27,6 +27,19 @@ const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail
 // Helper para Node <14: a ?? b
 function _n(a, b) { return a != null ? a : b; }
 
+// Extrae contraseña de fila comercial (soporta com_password, Password, password, etc.)
+function getStoredPasswordFromRow(row) {
+  if (!row || typeof row !== 'object') return '';
+  const cands = ['com_password', 'Password', 'password', 'contraseña', 'Pass', 'Clave'];
+  for (const c of cands) {
+    const val = row[c];
+    if (val != null && val !== '') return String(val);
+  }
+  const keys = Object.keys(row);
+  const pwdKey = keys.find((k) => /password|contraseña|pass|clave/i.test(String(k)));
+  return pwdKey ? String(row[pwdKey] || '') : '';
+}
+
 // Emails de notificaciones: desactivado por defecto (hasta configurar SMTP correctamente).
 const NOTIF_EMAILS_ENABLED =
   process.env.NOTIF_EMAILS_ENABLED === '1' ||
@@ -454,7 +467,7 @@ app.post('/login', async (req, res, next) => {
       return res.status(401).render('login', { title: 'Login', error: 'Credenciales incorrectas' });
     }
 
-    const stored = String(_n(comercial.com_password, comercial.Password || comercial.password || ''));
+    const stored = getStoredPasswordFromRow(comercial);
     let ok = false;
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       ok = await bcrypt.compare(password, stored);
@@ -646,7 +659,7 @@ app.post('/cuenta/cambiar-contrasena', requireLogin, async (req, res, next) => {
     }
     const comercial = await db.getComercialById(userId);
     if (!comercial) return res.redirect('/login');
-    const stored = String(_n(comercial.com_password, comercial.Password || comercial.password || ''));
+    const stored = getStoredPasswordFromRow(comercial);
     let currentOk = false;
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       currentOk = await bcrypt.compare(current, stored);
