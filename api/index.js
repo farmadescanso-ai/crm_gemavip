@@ -24,6 +24,9 @@ const {
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail, APP_BASE_URL } = require('../lib/mailer');
 
+// Helper para Node <14: a ?? b
+function _n(a, b) { return a != null ? a : b; }
+
 // Emails de notificaciones: desactivado por defecto (hasta configurar SMTP correctamente).
 const NOTIF_EMAILS_ENABLED =
   process.env.NOTIF_EMAILS_ENABLED === '1' ||
@@ -121,7 +124,7 @@ function buildSupportDetails(req, { status, heading, summary, publicMessage, cod
     `Resumen: ${summary || '—'}`,
     `Mensaje: ${publicMessage || '—'}`,
     `Código interno: ${code || '—'}`,
-    `Usuario: ${user ? `${user.email || '—'} (id: ${user.id ?? '—'})` : 'No logueado'}`,
+    `Usuario: ${user ? `${user.email || '—'} (id: ${_n(user.id, '—')})` : 'No logueado'}`,
     `Roles: ${roles || '—'}`,
     `User-Agent: ${String(req.headers['user-agent'] || '—')}`
   ];
@@ -263,7 +266,7 @@ function findRowByCode(rows, codeCandidates) {
   const codes = (codeCandidates || []).map((c) => String(c).toUpperCase());
   for (const r of (rows || [])) {
     for (const v of Object.values(r || {})) {
-      const sv = String(v ?? '').trim().toUpperCase();
+      const sv = String(_n(v, '')).trim().toUpperCase();
       if (sv && codes.includes(sv)) return r;
     }
   }
@@ -274,7 +277,7 @@ function findRowByNameContains(rows, substrCandidates) {
   const subs = (substrCandidates || []).map((s) => String(s).toLowerCase());
   for (const r of (rows || [])) {
     for (const v of Object.values(r || {})) {
-      const sv = String(v ?? '').toLowerCase();
+      const sv = String(_n(v, '')).toLowerCase();
       if (!sv) continue;
       if (subs.some((sub) => sv.includes(sub))) return r;
     }
@@ -292,35 +295,35 @@ function applySpainDefaultsIfEmpty(item, { meta, paises, idiomas, monedas } = {}
 
   // País: España (ISO ES)
   if (hasCol('Id_Pais') && isEmpty(item.Id_Pais)) {
-    const esp = (paises || []).find((p) => String(p?.Id_pais ?? p?.id_pais ?? '').toUpperCase() === 'ES')
+    const esp = (paises || []).find((p) => String(_n(_n(p && p.Id_pais, p && p.id_pais), '')).toUpperCase() === 'ES')
       || findRowByNameContains(paises, ['españa', 'espana']);
-    const espId = Number(esp?.id ?? esp?.Id ?? esp?.ID ?? 0) || 0;
+    const espId = Number(_n(_n(_n(esp && esp.id, esp && esp.Id), esp && esp.ID), 0)) || 0;
     if (espId) item.Id_Pais = espId;
   }
 
   // Idioma: Español (ES)
   if (hasCol('Id_Idioma') && isEmpty(item.Id_Idioma)) {
     const direct =
-      (idiomas || []).find((r) => String(r?.Codigo ?? r?.codigo ?? '').trim().toLowerCase() === 'es')
+      (idiomas || []).find((r) => String(_n(_n(r && r.Codigo, r && r.codigo), '')).trim().toLowerCase() === 'es')
       || null;
     const es =
       direct
       || findRowByCode(idiomas, ['ES'])
       || findRowByNameContains(idiomas, ['español', 'espanol', 'castellano', 'spanish']);
-    const esId = Number(es?.id ?? es?.Id ?? es?.ID ?? 0) || 0;
+    const esId = Number(_n(_n(_n(es && es.id, es && es.Id), es && es.ID), 0)) || 0;
     if (esId) item.Id_Idioma = esId;
   }
 
   // Moneda: Euro (EUR)
   if (hasCol('Id_Moneda') && isEmpty(item.Id_Moneda)) {
     const direct =
-      (monedas || []).find((r) => String(r?.Codigo ?? r?.codigo ?? '').trim().toUpperCase() === 'EUR')
+      (monedas || []).find((r) => String(_n(_n(r && r.Codigo, r && r.codigo), '')).trim().toUpperCase() === 'EUR')
       || null;
     const eur =
       direct
       || findRowByCode(monedas, ['EUR'])
       || findRowByNameContains(monedas, ['euro', '€']);
-    const eurId = Number(eur?.id ?? eur?.Id ?? eur?.ID ?? 0) || 0;
+    const eurId = Number(_n(_n(_n(eur && eur.id, eur && eur.Id), eur && eur.ID), 0)) || 0;
     if (eurId) item.Id_Moneda = eurId;
   }
 
@@ -448,7 +451,7 @@ app.post('/login', async (req, res, next) => {
       return res.status(401).render('login', { title: 'Login', error: 'Credenciales incorrectas' });
     }
 
-    const stored = String(comercial.com_password ?? comercial.Password || comercial.password || '');
+    const stored = String(_n(comercial.com_password, comercial.Password || comercial.password || ''));
     let ok = false;
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       ok = await bcrypt.compare(password, stored);
@@ -462,10 +465,10 @@ app.post('/login', async (req, res, next) => {
     }
 
     req.session.user = {
-      id: comercial.com_id ?? comercial.id ?? comercial.Id,
-      nombre: comercial.com_nombre ?? comercial.Nombre || null,
-      email: comercial.com_email ?? comercial.Email || comercial.email || email,
-      roles: normalizeRoles(comercial.com_roll ?? comercial.Roll || comercial.roll || comercial.Rol)
+      id: _n(_n(comercial.com_id, comercial.id), comercial.Id),
+      nombre: _n(comercial.com_nombre, comercial.Nombre || null),
+      email: _n(_n(comercial.com_email, comercial.Email), comercial.email || email),
+      roles: normalizeRoles(_n(comercial.com_roll, comercial.Roll || comercial.roll || comercial.Rol))
     };
 
     return res.redirect('/dashboard');
@@ -543,11 +546,11 @@ app.post('/login/olvidar-contrasena', async (req, res, next) => {
     const comercial = await db.getComercialByEmail(email);
     if (comercial) {
       const token = crypto.randomBytes(32).toString('hex');
-      const comercialId = comercial.com_id ?? comercial.id ?? comercial.Id;
+      const comercialId = _n(_n(comercial.com_id, comercial.id), comercial.Id);
       await db.createPasswordResetToken(comercialId, email, token, 1);
       recordPasswordResetIp(ip);
       const resetLink = `${APP_BASE_URL.replace(/\/$/, '')}/login/restablecer-contrasena?token=${encodeURIComponent(token)}`;
-      await sendPasswordResetEmail(email, resetLink, comercial.com_nombre ?? comercial.Nombre || '');
+      await sendPasswordResetEmail(email, resetLink, _n(comercial.com_nombre, comercial.Nombre || ''));
     }
     res.render('login-olvidar-contrasena', {
       title: 'Recuperar contraseña',
@@ -640,7 +643,7 @@ app.post('/cuenta/cambiar-contrasena', requireLogin, async (req, res, next) => {
     }
     const comercial = await db.getComercialById(userId);
     if (!comercial) return res.redirect('/login');
-    const stored = String(comercial.com_password ?? comercial.Password || comercial.password || '');
+    const stored = String(_n(comercial.com_password, comercial.Password || comercial.password || ''));
     let currentOk = false;
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       currentOk = await bcrypt.compare(current, stored);
@@ -691,10 +694,10 @@ app.get('/comerciales', requireAdmin, async (req, res, next) => {
     const qq = String(q || '').trim().toLowerCase();
     const filtered = qq
       ? sanitized.filter((c) => {
-          const nombre = String(c?.Nombre ?? '').toLowerCase();
-          const email = String(c?.Email ?? c?.email ?? '').toLowerCase();
-          const dni = String(c?.DNI ?? '').toLowerCase();
-          const movil = String(c?.Movil ?? '').toLowerCase();
+          const nombre = String(_n(c && c.Nombre, '')).toLowerCase();
+          const email = String(_n(_n(c && c.Email, c && c.email), '')).toLowerCase();
+          const dni = String(_n(c && c.DNI, '')).toLowerCase();
+          const movil = String(_n(c && c.Movil, '')).toLowerCase();
           return [nombre, email, dni, movil].some((s) => s.includes(qq));
         })
       : sanitized;
@@ -730,21 +733,21 @@ function sanitizeComercialForView(row) {
 }
 
 function parseMoneyLike(v, fallback = null) {
-  const s = String(v ?? '').trim();
+  const s = String(_n(v, '')).trim();
   if (!s) return fallback;
   const n = Number(s.replace(',', '.'));
   return Number.isFinite(n) ? n : fallback;
 }
 
 function parseIntLike(v, fallback = null) {
-  const s = String(v ?? '').trim();
+  const s = String(_n(v, '')).trim();
   if (!s) return fallback;
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : fallback;
 }
 
 function normalizeCp(cpRaw) {
-  const s = String(cpRaw ?? '').trim();
+  const s = String(_n(cpRaw, '')).trim();
   if (!s) return '';
   return s.replace(/[^0-9]/g, '').slice(0, 5);
 }
@@ -778,18 +781,18 @@ app.post('/comerciales/new', requireAdmin, async (req, res, next) => {
     const body = req.body || {};
     const [provincias, meta] = await Promise.all([db.getProvincias().catch(() => []), loadComercialesTableMeta()]);
 
-    const Nombre = String(body.Nombre ?? '').trim();
-    const Email = String(body.Email ?? '').trim();
-    const Password = String(body.Password ?? '').trim();
-    const DNI = String(body.DNI ?? '').trim() || null;
-    const Movil = String(body.Movil ?? '').trim() || null;
-    const Direccion = String(body.Direccion ?? '').trim() || null;
+    const Nombre = String(_n(body.Nombre, '')).trim();
+    const Email = String(_n(body.Email, '')).trim();
+    const Password = String(_n(body.Password, '')).trim();
+    const DNI = String(_n(body.DNI, '')).trim() || null;
+    const Movil = String(_n(body.Movil, '')).trim() || null;
+    const Direccion = String(_n(body.Direccion, '')).trim() || null;
     const CodigoPostal = normalizeCp(body.CodigoPostal);
-    const Poblacion = String(body.Poblacion ?? '').trim() || null;
+    const Poblacion = String(_n(body.Poblacion, '')).trim() || null;
     const Id_Provincia = parseIntLike(body.Id_Provincia, null);
-    const fijo_mensual = meta?.hasFijoMensual ? (parseMoneyLike(body.fijo_mensual ?? body.FijoMensual, 0) ?? 0) : undefined;
+    const fijo_mensual = meta && meta.hasFijoMensual ? _n(parseMoneyLike(_n(body.fijo_mensual, body.FijoMensual), 0), 0) : undefined;
     const plataforma_reunion_preferida = meta?.hasPlataforma
-      ? String(body.plataforma_reunion_preferida ?? 'meet').trim() || 'meet'
+      ? String(_n(body.plataforma_reunion_preferida, 'meet')).trim() || 'meet'
       : undefined;
 
     const roles = rolesFromBody(body);
@@ -803,10 +806,10 @@ app.post('/comerciales/new', requireAdmin, async (req, res, next) => {
       Direccion: Direccion || '',
       CodigoPostal,
       Poblacion: Poblacion || '',
-      Id_Provincia: Id_Provincia ?? '',
+      Id_Provincia: _n(Id_Provincia, ''),
       Roll: roles,
-      fijo_mensual: fijo_mensual ?? 0,
-      plataforma_reunion_preferida: plataforma_reunion_preferida ?? 'meet'
+      fijo_mensual: _n(fijo_mensual, 0),
+      plataforma_reunion_preferida: _n(plataforma_reunion_preferida, 'meet')
     };
 
     const emailOk = Email && Email.includes('@') && Email.includes('.');
@@ -891,7 +894,7 @@ app.get('/comerciales/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const safe = sanitizeComercialForView(item);
-    const roles = normalizeRoles(safe?.Roll ?? safe?.roll ?? safe?.Rol);
+    const roles = normalizeRoles(_n(_n(safe && safe.Roll, safe && safe.roll), safe && safe.Rol));
     return res.render('comercial-form', {
       mode: 'edit',
       item: { ...safe, Roll: roles },
@@ -916,18 +919,18 @@ app.post('/comerciales/:id(\\d+)/edit', requireAdmin, async (req, res, next) => 
     ]);
     if (!current) return res.status(404).send('No encontrado');
 
-    const Nombre = String(body.Nombre ?? '').trim();
-    const Email = String(body.Email ?? '').trim();
-    const newPassword = String(body.Password ?? '').trim();
-    const DNI = String(body.DNI ?? '').trim() || null;
-    const Movil = String(body.Movil ?? '').trim() || null;
-    const Direccion = String(body.Direccion ?? '').trim() || null;
+    const Nombre = String(_n(body.Nombre, '')).trim();
+    const Email = String(_n(body.Email, '')).trim();
+    const newPassword = String(_n(body.Password, '')).trim();
+    const DNI = String(_n(body.DNI, '')).trim() || null;
+    const Movil = String(_n(body.Movil, '')).trim() || null;
+    const Direccion = String(_n(body.Direccion, '')).trim() || null;
     const CodigoPostal = normalizeCp(body.CodigoPostal);
-    const Poblacion = String(body.Poblacion ?? '').trim() || null;
+    const Poblacion = String(_n(body.Poblacion, '')).trim() || null;
     const Id_Provincia = parseIntLike(body.Id_Provincia, null);
-    const fijo_mensual = meta?.hasFijoMensual ? (parseMoneyLike(body.fijo_mensual ?? body.FijoMensual, 0) ?? 0) : undefined;
+    const fijo_mensual = meta && meta.hasFijoMensual ? _n(parseMoneyLike(_n(body.fijo_mensual, body.FijoMensual), 0), 0) : undefined;
     const plataforma_reunion_preferida = meta?.hasPlataforma
-      ? String(body.plataforma_reunion_preferida ?? 'meet').trim() || 'meet'
+      ? String(_n(body.plataforma_reunion_preferida, 'meet')).trim() || 'meet'
       : undefined;
 
     const roles = rolesFromBody(body);
@@ -962,8 +965,8 @@ app.post('/comerciales/:id(\\d+)/edit', requireAdmin, async (req, res, next) => 
     };
 
     // Campos opcionales solo si existen en tabla
-    if (meta?.hasMeetEmail) payload.meet_email = String(body.meet_email ?? '').trim();
-    if (meta?.hasTeamsEmail) payload.teams_email = String(body.teams_email ?? '').trim();
+    if (meta && meta.hasMeetEmail) payload.meet_email = String(_n(body.meet_email, '')).trim();
+    if (meta && meta.hasTeamsEmail) payload.teams_email = String(_n(body.teams_email, '')).trim();
 
     await db.updateComercial(id, payload);
     if (newPassword) {
@@ -985,7 +988,7 @@ app.post('/comerciales/:id(\\d+)/delete', requireAdmin, async (req, res, next) =
       return res.redirect('/comerciales?error=' + encodeURIComponent('No puedes eliminar tu propio usuario.'));
     }
     const result = await db.deleteComercial(id);
-    const n = Number(result?.affectedRows ?? 0);
+    const n = Number(_n(result && result.affectedRows, 0));
     if (n <= 0) return res.redirect('/comerciales?error=' + encodeURIComponent('No se pudo eliminar (no encontrado o sin cambios).'));
     return res.redirect('/comerciales?deleted=1');
   } catch (e) {
@@ -1002,11 +1005,11 @@ app.get('/admin/descuentos-pedido', requireAdmin, async (_req, res, next) => {
     let diag = { database: null, count: null };
     try {
       const r = await db.query('SELECT DATABASE() AS db').catch(() => []);
-      diag.database = r && r[0] ? (r[0].db ?? r[0].DB ?? r[0].database ?? null) : null;
+      diag.database = r && r[0] ? _n(_n(_n(r[0].db, r[0].DB), r[0].database), null) : null;
     } catch (_) {}
     try {
       const c = await db.query('SELECT COUNT(*) AS n FROM `descuentos_pedido`').catch(() => []);
-      diag.count = c && c[0] ? Number(c[0].n ?? c[0].N ?? 0) : null;
+      diag.count = c && c[0] ? Number(_n(_n(c[0].n, c[0].N), 0)) : null;
     } catch (_) {
       diag.count = null;
     }
@@ -1043,13 +1046,13 @@ app.post('/admin/descuentos-pedido/new', requireAdmin, async (req, res, next) =>
   try {
     const body = req.body || {};
     const n = (v) => {
-      const s = String(v ?? '').trim();
+      const s = String(_n(v, '')).trim();
       if (!s) return null;
       const x = Number(String(s).replace(',', '.'));
       return Number.isFinite(x) ? x : null;
     };
     const i = (v) => {
-      const s = String(v ?? '').trim();
+      const s = String(_n(v, '')).trim();
       if (!s) return 0;
       const x = parseInt(s, 10);
       return Number.isFinite(x) ? x : 0;
@@ -1060,7 +1063,7 @@ app.post('/admin/descuentos-pedido/new', requireAdmin, async (req, res, next) =>
       importe_hasta: n(body.importe_hasta),
       dto_pct: n(body.dto_pct),
       orden: i(body.orden),
-      activo: String(body.activo ?? '1') === '1' ? 1 : 0
+      activo: String(_n(body.activo, '1')) === '1' ? 1 : 0
     };
 
     const bad =
@@ -1105,13 +1108,13 @@ app.post('/admin/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, re
 
     const body = req.body || {};
     const n = (v) => {
-      const s = String(v ?? '').trim();
+      const s = String(_n(v, '')).trim();
       if (!s) return null;
       const x = Number(String(s).replace(',', '.'));
       return Number.isFinite(x) ? x : null;
     };
     const i = (v) => {
-      const s = String(v ?? '').trim();
+      const s = String(_n(v, '')).trim();
       if (!s) return 0;
       const x = parseInt(s, 10);
       return Number.isFinite(x) ? x : 0;
@@ -1122,7 +1125,7 @@ app.post('/admin/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, re
       importe_hasta: n(body.importe_hasta),
       dto_pct: n(body.dto_pct),
       orden: i(body.orden),
-      activo: String(body.activo ?? '1') === '1' ? 1 : 0
+      activo: String(_n(body.activo, '1')) === '1' ? 1 : 0
     };
 
     const bad =
@@ -1188,13 +1191,13 @@ function buildSysVarMergedList(itemsRaw, knownKeys) {
     const envVal = String(process.env[k.clave] || '').trim();
     const effectiveValue = (dbVal || '').trim() || envVal || '';
     return {
-      id: row.id ?? null,
+      id: _n(row.id, null),
       clave: k.clave,
       descripcion: row.descripcion || k.descripcion || '',
       valor: dbVal,
       effectiveValue,
-      updated_at: row.updated_at ?? null,
-      updated_by: row.updated_by ?? null
+      updated_at: _n(row.updated_at, null),
+      updated_by: _n(row.updated_by, null)
       ,
       secret: Boolean(k.secret),
       inputType: k.inputType || null,
@@ -1377,7 +1380,7 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
     const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
     const page = Math.max(1, Number(req.query.page) || 1);
     const offset = (page - 1) * limit;
-    const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search).trim() : '';
+    const q = typeof _n(req.query.q, req.query.search) === 'string' ? String(_n(req.query.q, req.query.search)).trim() : '';
     const tipoContacto = typeof req.query.tipo === 'string' ? String(req.query.tipo).trim() : '';
     const order = String(req.query.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
     const admin = isAdminUser(res.locals.user);
@@ -1913,15 +1916,15 @@ app.get('/clientes/new', requireLogin, async (_req, res, next) => {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      db.getProvincias?.().catch(() => []) ?? [],
-      db.getPaises?.().catch(() => []) ?? [],
-      db.getFormasPago?.().catch(() => []) ?? [],
+      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
+      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
-      db.getCooperativas?.().catch(() => []) ?? [],
-      db.getGruposCompras?.().catch(() => []) ?? [],
+      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
+      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
     ]);
     const isAdmin = isAdminUser(res.locals.user);
@@ -1957,15 +1960,15 @@ app.post('/clientes/new', requireLogin, async (req, res, next) => {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      db.getProvincias?.().catch(() => []) ?? [],
-      db.getPaises?.().catch(() => []) ?? [],
-      db.getFormasPago?.().catch(() => []) ?? [],
+      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
+      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
-      db.getCooperativas?.().catch(() => []) ?? [],
-      db.getGruposCompras?.().catch(() => []) ?? [],
+      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
+      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
     ]);
     const isAdmin = isAdminUser(res.locals.user);
@@ -2001,7 +2004,7 @@ app.post('/clientes/new', requireLogin, async (req, res, next) => {
         nombre: payload.Nombre_Razon_Social,
         nombreCial: payload.Nombre_Cial
       },
-      { limit: 6, userId: res.locals.user?.id ?? null, isAdmin }
+      { limit: 6, userId: _n(res.locals.user && res.locals.user.id, null), isAdmin }
     );
     const hasDup = (dup && Array.isArray(dup.matches) && dup.matches.length > 0) || (dup && Number(dup.otherCount || 0) > 0);
     if (hasDup && !dupConfirmed) {
@@ -2074,15 +2077,15 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      db.getProvincias?.().catch(() => []) ?? [],
-      db.getPaises?.().catch(() => []) ?? [],
-      db.getFormasPago?.().catch(() => []) ?? [],
+      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
+      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
-      db.getCooperativas?.().catch(() => []) ?? [],
-      db.getGruposCompras?.().catch(() => []) ?? [],
+      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
+      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null),
       db.getContactosByCliente(id, { includeHistorico: includeAgendaHistorico }).catch(() => []),
       db.getAgendaRoles().catch(() => [])
@@ -2140,15 +2143,15 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      db.getProvincias?.().catch(() => []) ?? [],
-      db.getPaises?.().catch(() => []) ?? [],
-      db.getFormasPago?.().catch(() => []) ?? [],
+      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
+      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
-      db.getCooperativas?.().catch(() => []) ?? [],
-      db.getGruposCompras?.().catch(() => []) ?? [],
+      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
+      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null),
       db.getContactosByCliente(id, { includeHistorico: includeAgendaHistorico }).catch(() => [])
     ]);
@@ -2194,15 +2197,15 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     const [item, meta, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras] = await Promise.all([
       db.getClienteById(id),
       db._ensureClientesMeta().catch(() => null),
-      db.getProvincias?.().catch(() => []) ?? [],
-      db.getPaises?.().catch(() => []) ?? [],
-      db.getFormasPago?.().catch(() => []) ?? [],
+      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
+      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
-      db.getCooperativas?.().catch(() => []) ?? [],
-      db.getGruposCompras?.().catch(() => []) ?? []
+      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
+      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), [])
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const comerciales = await db.getComerciales().catch(() => []);
@@ -2438,7 +2441,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         const neg = m[2] === '-';
         const fieldRaw = String(m[3] || '').trim();
         const field = fieldRaw.toLowerCase();
-        const value = String(m[4] ?? m[5] ?? m[6] ?? '').trim();
+        const value = String(_n(_n(_n(m[4], m[5]), m[6]), '')).trim();
         if (field && value) tokens.push({ field, value, neg });
         // eliminar del texto libre para no duplicar
         rest = rest.replace(m[0], ' ');
@@ -2451,7 +2454,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         const tRe = /"([^"]+)"|'([^']+)'|([^\s]+)/g;
         let tm;
         while ((tm = tRe.exec(s)) !== null) {
-          const v = String(tm[1] ?? tm[2] ?? tm[3] ?? '').trim();
+          const v = String(_n(_n(_n(tm[1], tm[2]), tm[3]), '')).trim();
           if (v) terms.push(v);
         }
       }
@@ -2951,7 +2954,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       selectedMarcaId,
       q: rawQ,
       admin,
-      userId: res.locals.user?.id ?? null,
+      userId: _n(res.locals.user && res.locals.user.id, null),
       n8nNotice,
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : []
     });
@@ -2966,7 +2969,7 @@ app.post('/pedidos/:id(\\d+)/estado', requireAdmin, async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ ok: false, error: 'ID no válido' });
 
-    const estadoIdRaw = req.body?.estadoId ?? req.body?.estado_id ?? req.body?.Id_EstadoPedido ?? req.body?.id_estado_pedido ?? null;
+    const estadoIdRaw = _n(_n(_n(_n(req.body && req.body.estadoId, req.body && req.body.estado_id), req.body && req.body.Id_EstadoPedido), req.body && req.body.id_estado_pedido), null);
     const estadoId = Number(estadoIdRaw);
     if (!Number.isFinite(estadoId) || estadoId <= 0) {
       return res.status(400).json({ ok: false, error: 'Estado no válido' });
@@ -2976,8 +2979,8 @@ app.post('/pedidos/:id(\\d+)/estado', requireAdmin, async (req, res, next) => {
     const estado = await db.getEstadoPedidoById(estadoId).catch(() => null);
     if (!estado) return res.status(404).json({ ok: false, error: 'Estado no encontrado' });
 
-    const nombre = String(estado?.nombre ?? estado?.Nombre ?? '').trim();
-    const color = String(estado?.color ?? estado?.Color ?? 'info').trim().toLowerCase() || 'info';
+    const nombre = String(_n(_n(estado && estado.nombre, estado && estado.Nombre), '')).trim();
+    const color = String(_n(_n(estado && estado.color, estado && estado.Color), 'info')).trim().toLowerCase() || 'info';
 
     // Best-effort: actualizar Id_EstadoPedido si existe y mantener texto legacy si existe.
     await db.updatePedido(id, { Id_EstadoPedido: estadoId, EstadoPedido: nombre || undefined }).catch((e) => {
@@ -2994,16 +2997,16 @@ app.post('/pedidos/:id(\\d+)/estado', requireAdmin, async (req, res, next) => {
 // PEDIDOS (HTML) - Admin CRUD
 // ===========================
 function parseLineasFromBody(body) {
-  const raw = body?.lineas ?? body?.Lineas ?? [];
+  const raw = _n(_n(body && body.lineas, body && body.Lineas), []);
   const arr = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? Object.values(raw) : []);
   const lineas = [];
   for (const l of (arr || [])) {
     const item = l && typeof l === 'object' ? l : {};
-    const idArt = Number(item.Id_Articulo ?? item.id_articulo ?? item.ArticuloId ?? 0) || 0;
-    const cantidad = Number(String(item.Cantidad ?? item.Unidades ?? 0).replace(',', '.')) || 0;
+    const idArt = Number(_n(_n(_n(item.Id_Articulo, item.id_articulo), item.ArticuloId), 0)) || 0;
+    const cantidad = Number(String(_n(_n(item.Cantidad, item.Unidades), 0)).replace(',', '.')) || 0;
     let dto = undefined;
     if (item.Dto !== undefined) {
-      const s = String(item.Dto ?? '').trim();
+      const s = String(_n(item.Dto, '')).trim();
       if (s !== '') {
         const n = Number(String(s).replace(',', '.'));
         if (Number.isFinite(n)) dto = n;
@@ -3011,7 +3014,7 @@ function parseLineasFromBody(body) {
     }
     let precioUnit = undefined;
     if (item.PrecioUnitario !== undefined || item.Precio !== undefined) {
-      const s = String(item.PrecioUnitario ?? item.Precio ?? '').trim();
+      const s = String(_n(_n(item.PrecioUnitario, item.Precio), '')).trim();
       if (s !== '') {
         const n = Number(String(s).replace(',', '.'));
         if (Number.isFinite(n)) precioUnit = n;
@@ -3038,9 +3041,9 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null)
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
-    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
+    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(_n(t.Id, t.id)) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
     const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
-    if (formaPagoTransfer && (formaPagoTransfer.id ?? formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(f.id ?? f.Id) === Number(formaPagoTransfer.id ?? formaPagoTransfer.Id))) formasPago.push(formaPagoTransfer);
+    if (formaPagoTransfer && _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))) formasPago.push(formaPagoTransfer);
     // Nota: artículos puede ser grande; lo usamos para selector simple (mejorable con búsqueda más adelante).
     const articulos = await db.getArticulos({}).catch(() => []);
     const clientesRecent = await db
@@ -3058,11 +3061,11 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       articulos: Array.isArray(articulos) ? articulos : [],
       item: {
-        Id_Cial: res.locals.user?.id ?? null,
+        Id_Cial: _n(res.locals.user && res.locals.user.id, null),
         Id_Tarifa: 0,
         Serie: 'P',
         EstadoPedido: 'Pendiente',
-        Id_EstadoPedido: estadoPendienteId ?? null,
+        Id_EstadoPedido: _n(estadoPendienteId, null),
         Id_FormaPago: null,
         Id_TipoPedido: null,
         Observaciones: ''
@@ -3138,7 +3141,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
     }
     const clientePedido = await db.getClienteById(pedidoPayload.Id_Cliente);
     const dniCliente = clientePedido ? String(clientePedido.DNI_CIF || '').trim() : '';
-    const activo = Number(clientePedido?.OK_KO ?? clientePedido?.ok_ko ?? 0) === 1;
+    const activo = Number(_n(_n(clientePedido && clientePedido.OK_KO, clientePedido && clientePedido.ok_ko), 0)) === 1;
     if (!clientePedido) {
       return res.status(400).render('pedido-form', {
         mode: 'create',
@@ -3213,7 +3216,7 @@ app.post('/pedidos/new', requireLogin, async (req, res, next) => {
     }
 
     const created = await db.createPedido(pedidoPayload);
-    const pedidoId = created?.insertId ?? created?.Id ?? created?.id;
+    const pedidoId = _n(_n(created && created.insertId, created && created.Id), created && created.id);
     const result = await db.updatePedidoWithLineas(pedidoId, {}, lineas);
     if (esEspecial && !admin) {
       await db.ensureNotificacionPedidoEspecial(pedidoId, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
@@ -3248,14 +3251,14 @@ app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, loadPedidoAndCheckOwner, a
     };
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
       ? lineasRaw.map((l) => ({
-          Id_Articulo: pickRowCI(l, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'Articulo_Id']) ?? '',
-          Cantidad: pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'Uds']) ?? 1,
-          Dto: pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'Dto', 'dto', 'Descuento']) ?? '',
-          PrecioUnitario: pickRowCI(l, ['Linea_PVP', 'PVP', 'PrecioUnitario', 'Precio', 'PVL']) ?? ''
+          Id_Articulo: _n(pickRowCI(l, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'Articulo_Id']), ''),
+          Cantidad: _n(pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'Uds']), 1),
+          Dto: _n(pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'Dto', 'dto', 'Descuento']), ''),
+          PrecioUnitario: _n(pickRowCI(l, ['Linea_PVP', 'PVP', 'PrecioUnitario', 'Precio', 'PVL']), '')
         }))
       : [];
     const created = await db.createPedido(cabecera);
-    const newId = created?.insertId ?? created?.Id ?? created?.id;
+    const newId = _n(_n(created && created.insertId, created && created.Id), created && created.id);
     if (lineas.length) await db.updatePedidoWithLineas(newId, {}, lineas);
     return res.redirect(`/pedidos/${newId}/edit`);
   } catch (e) {
@@ -3265,25 +3268,25 @@ app.get('/pedidos/:id(\\d+)/duplicate', requireLogin, loadPedidoAndCheckOwner, a
 
 // HEFAME solo disponible si forma de pago = Transfer y tipo de pedido incluye "HEFAME" (admin y comercial)
 async function canShowHefameForPedido(item) {
-  const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0);
-  const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? 0);
+  const idFormaPago = Number(_n(_n(item && item.Id_FormaPago, item && item.id_forma_pago), 0));
+  const idTipoPedido = Number(_n(_n(item && item.Id_TipoPedido, item && item.id_tipo_pedido), 0));
   const [formaPago, tipos] = await Promise.all([
     idFormaPago ? db.getFormaPagoById(idFormaPago).catch(() => null) : null,
     db.getTiposPedido().catch(() => [])
   ]);
-  const tipo = (tipos || []).find((t) => Number(t.id ?? t.Id) === idTipoPedido) ?? null;
-  const formaPagoNombre = String(formaPago?.FormaPago ?? formaPago?.Nombre ?? formaPago?.nombre ?? '').trim();
-  const tipoNombre = String(tipo?.Tipo ?? tipo?.Nombre ?? tipo?.nombre ?? '').trim();
+  const tipo = _n((tipos || []).find((t) => Number(_n(t.id, t.Id)) === idTipoPedido), null);
+  const formaPagoNombre = String(_n(_n(_n(formaPago && formaPago.FormaPago, formaPago && formaPago.Nombre), formaPago && formaPago.nombre), '')).trim();
+  const tipoNombre = String(_n(_n(_n(tipo && tipo.Tipo, tipo && tipo.Nombre), tipo && tipo.nombre), '')).trim();
   return /transfer/i.test(formaPagoNombre) && /hefame/i.test(tipoNombre);
 }
 
 // Para envíos (N8N): usar plantilla "Transfer" en cuanto la forma de pago sea Transfer,
 // aunque el tipo no sea HEFAME (si falta, quedará el campo vacío en la plantilla).
 async function isTransferPedido(item) {
-  const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0);
+  const idFormaPago = Number(_n(_n(item && item.Id_FormaPago, item && item.id_forma_pago), 0));
   if (!idFormaPago) return false;
   const formaPago = await db.getFormaPagoById(idFormaPago).catch(() => null);
-  const formaPagoNombre = String(formaPago?.FormaPago ?? formaPago?.Nombre ?? formaPago?.nombre ?? '').trim();
+  const formaPagoNombre = String(_n(_n(_n(formaPago && formaPago.FormaPago, formaPago && formaPago.Nombre), formaPago && formaPago.nombre), '')).trim();
   return /transfer/i.test(formaPagoNombre);
 }
 
@@ -3292,11 +3295,11 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0) || 0;
-    const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? 0) || 0;
-    const idTarifa = Number(item?.Id_Tarifa ?? item?.id_tarifa ?? 0) || 0;
-    const idEstadoPedido = Number(item?.Id_EstadoPedido ?? item?.id_estado_pedido ?? 0) || 0;
-    const idComercial = Number(item?.Id_Cial ?? item?.id_cial ?? item?.ComercialId ?? item?.comercialId ?? 0) || 0;
+    const idFormaPago = Number(_n(_n(item && item.Id_FormaPago, item && item.id_forma_pago), 0)) || 0;
+    const idTipoPedido = Number(_n(_n(item && item.Id_TipoPedido, item && item.id_tipo_pedido), 0)) || 0;
+    const idTarifa = Number(_n(_n(item && item.Id_Tarifa, item && item.id_tarifa), 0)) || 0;
+    const idEstadoPedido = Number(_n(_n(item && item.Id_EstadoPedido, item && item.id_estado_pedido), 0)) || 0;
+    const idComercial = Number(_n(_n(_n(_n(item && item.Id_Cial, item && item.id_cial), item && item.ComercialId), item && item.comercialId), 0)) || 0;
 
     const needTiposPedido = idTipoPedido > 0;
     const needTarifas = idTarifa > 0;
@@ -3322,10 +3325,10 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     ]);
 
     const tipoPedido = needTiposPedido
-      ? (tiposPedido || []).find((t) => Number(t?.id ?? t?.Id ?? 0) === idTipoPedido) || null
+      ? (tiposPedido || []).find((t) => Number(_n(_n(t && t.id, t && t.Id), 0)) === idTipoPedido) || null
       : null;
     const tarifa = needTarifas
-      ? (tarifas || []).find((t) => Number(t?.Id ?? t?.id ?? 0) === idTarifa) || null
+      ? (tarifas || []).find((t) => Number(_n(_n(t && t.Id, t && t.id), 0)) === idTarifa) || null
       : null;
 
     let direccionEnvio = item?.Id_DireccionEnvio
@@ -3357,9 +3360,9 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 async function buildStandardPedidoXlsxBuffer({ item, id, lineas, cliente, direccionEnvio, fmtDateES }) {
   const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-  const dtoPedidoPct = Math.max(0, Math.min(100, toNumUtil(item.Dto ?? item.Descuento ?? 0, 0)));
+  const dtoPedidoPct = Math.max(0, Math.min(100, toNumUtil(_n(_n(item.Dto, item.Descuento), 0), 0)));
 
-  const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+  const numPedido = String(_n(_n(_n(item && item.NumPedido, item && item.Num_Pedido), item && item.Numero_Pedido), '')).trim();
   const safeNum = (numPedido || `pedido_${id}`).replace(/[^a-zA-Z0-9_-]+/g, '_');
 
   const wbNew = new ExcelJS.Workbook();
@@ -3402,9 +3405,9 @@ async function buildStandardPedidoXlsxBuffer({ item, id, lineas, cliente, direcc
   cLeft.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0F172A' } };
 
   const cRight = ws.getCell('E1');
-  const fecha = fmtDateES ? fmtDateES(item.FechaPedido ?? item.Fecha ?? '') : '';
+  const fecha = fmtDateES ? fmtDateES(_n(_n(item.FechaPedido, item.Fecha), '')) : '';
   const entrega = item?.FechaEntrega && fmtDateES ? fmtDateES(item.FechaEntrega) : '';
-  const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
+  const numPedidoCliente = String(_n(_n(item && item.NumPedidoCliente, item && item.Num_Pedido_Cliente), '')).trim();
   cRight.value =
     `PEDIDO #${numPedido || id}\n` +
     `Fecha: ${fecha || ''}\n` +
@@ -3512,12 +3515,12 @@ async function buildStandardPedidoXlsxBuffer({ item, id, lineas, cliente, direcc
   const pctFmt = '0.00"%"';
 
   (Array.isArray(lineas) ? lineas : []).forEach((l) => {
-    const codigo = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
-    const concepto = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-    const qty = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
-    const pvl = Math.max(0, toNumUtil(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0));
-    const dto = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
-    let ivaPct = toNumUtil(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+    const codigo = String(_n(_n(_n(_n(l.SKU, l.Codigo), l.Id_Articulo), l.id_articulo), '')).trim();
+    const concepto = String(_n(_n(_n(_n(l.Nombre, l.Descripcion), l.Articulo), l.nombre), '')).trim();
+    const qty = Math.max(0, toNumUtil(_n(_n(l.Cantidad, l.Unidades), 0), 0));
+    const pvl = Math.max(0, toNumUtil(_n(_n(_n(_n(_n(_n(_n(l.Linea_PVP, l.PVP), l.pvp), l.PrecioUnitario), l.PVL), l.Precio), l.pvl), 0), 0));
+    const dto = Math.max(0, Math.min(100, toNumUtil(_n(_n(_n(_n(_n(_n(l.Linea_Dto, l.DtoLinea), l.dto_linea), l.Dto), l.dto), l.Descuento), 0), 0)));
+    let ivaPct = toNumUtil(_n(_n(_n(_n(_n(l.Linea_IVA, l.IVA), l.PorcIVA), l.PorcentajeIVA), l.TipoIVA), 0), 0);
     if (ivaPct > 100) ivaPct = 0;
 
     const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
@@ -3661,7 +3664,7 @@ function renderHefameInfoPage(ok, details, pedidoId) {
 }
 
 async function buildHefameXlsxBuffer({ item, id, lineas, cliente }) {
-  const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
+  const numPedido = String(_n(_n(_n(item && item.NumPedido, item && item.Num_Pedido), item && item.Numero_Pedido), '')).trim();
 
   const hefameTemplatePath =
     process.env.HEFAME_EXCEL_TEMPLATE_PATH ||
@@ -3693,10 +3696,10 @@ async function buildHefameXlsxBuffer({ item, id, lineas, cliente }) {
 
   const valorF5 = numPedido || todayDDMMYYYY();
   const nombre = cliente?.Nombre_Razon_Social || cliente?.Nombre || item?.Id_Cliente || '';
-  const codigoHefame = String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim();
+  const codigoHefame = String(_n(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame), '')).trim();
   const telefono = cliente?.Telefono || cliente?.Movil || cliente?.Teléfono || '';
-  const cp = String(cliente?.CodigoPostal ?? '').trim();
-  const poblacion = String(cliente?.Poblacion ?? '').trim();
+  const cp = String(_n(cliente && cliente.CodigoPostal, '')).trim();
+  const poblacion = String(_n(cliente && cliente.Poblacion, '')).trim();
   const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
 
   try {
@@ -3713,10 +3716,10 @@ async function buildHefameXlsxBuffer({ item, id, lineas, cliente }) {
   const firstDataRow = 21;
   lineasArr.forEach((l, idx) => {
     const row = firstDataRow + idx;
-    const cantidad = Math.max(0, toNumUtil(l.Cantidad ?? l.Unidades ?? 0, 0));
-    const cn = String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim();
-    const descripcion = String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim();
-    const descuentoPct = Math.max(0, Math.min(100, toNumUtil(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0, 0)));
+    const cantidad = Math.max(0, toNumUtil(_n(_n(l.Cantidad, l.Unidades), 0), 0));
+    const cn = String(_n(_n(_n(_n(l.SKU, l.Codigo), l.Id_Articulo), l.id_articulo), '')).trim();
+    const descripcion = String(_n(_n(_n(_n(l.Nombre, l.Descripcion), l.Articulo), l.nombre), '')).trim();
+    const descuentoPct = Math.max(0, Math.min(100, toNumUtil(_n(_n(_n(_n(_n(l.Linea_Dto, l.DtoLinea), l.Dto), l.dto), l.Descuento), 0), 0)));
     const descuentoExcel = descuentoPct / 100;
 
     try {
@@ -3826,16 +3829,16 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
       sentAt: new Date().toISOString(),
       excelTipo,
       pedido: (() => {
-        const pedidoId = Number(item?.Id ?? item?.id ?? id) || id;
-        const numPedido = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? '').trim();
-        const numPedidoCliente = String(item?.NumPedidoCliente ?? item?.Num_Pedido_Cliente ?? '').trim();
-        const idCliente = Number(item?.Id_Cliente ?? item?.id_cliente ?? cliente?.Id ?? cliente?.id ?? 0) || null;
-        const idComercial = Number(item?.Id_Cial ?? item?.id_cial ?? item?.ComercialId ?? item?.comercialId ?? 0) || null;
-        const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? 0) || null;
-        const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? 0) || null;
-        const idTarifa = (item?.Id_Tarifa ?? item?.id_tarifa);
+        const pedidoId = Number(_n(_n(item && item.Id, item && item.id), id)) || id;
+        const numPedido = String(_n(_n(_n(item && item.NumPedido, item && item.Num_Pedido), item && item.Numero_Pedido), '')).trim();
+        const numPedidoCliente = String(_n(_n(item && item.NumPedidoCliente, item && item.Num_Pedido_Cliente), '')).trim();
+        const idCliente = Number(_n(_n(_n(_n(item && item.Id_Cliente, item && item.id_cliente), cliente && cliente.Id), cliente && cliente.id), 0)) || null;
+        const idComercial = Number(_n(_n(_n(_n(item && item.Id_Cial, item && item.id_cial), item && item.ComercialId), item && item.comercialId), 0)) || null;
+        const idFormaPago = Number(_n(_n(item && item.Id_FormaPago, item && item.id_forma_pago), 0)) || null;
+        const idTipoPedido = Number(_n(_n(item && item.Id_TipoPedido, item && item.id_tipo_pedido), 0)) || null;
+        const idTarifa = _n(item && item.Id_Tarifa, item && item.id_tarifa);
         const tarifaIdNum = idTarifa === null || idTarifa === undefined || String(idTarifa).trim() === '' ? null : (Number(idTarifa) || null);
-        const idEstado = Number(item?.Id_EstadoPedido ?? item?.id_estado_pedido ?? 0) || null;
+        const idEstado = Number(_n(_n(item && item.Id_EstadoPedido, item && item.id_estado_pedido), 0)) || null;
 
         const clienteNombre =
           cliente?.Nombre_Razon_Social || cliente?.Nombre || cliente?.nombre || item?.ClienteNombre || item?.ClienteNombreCial || '';
@@ -3850,22 +3853,22 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
         return {
           id: pedidoId,
           numero: numPedido || String(pedidoId),
-          fecha: item?.FechaPedido ?? item?.Fecha ?? null,
-          entrega: item?.FechaEntrega ?? null,
-          total: item?.TotalPedido ?? item?.Total ?? null,
-          subtotal: item?.SubtotalPedido ?? item?.Subtotal ?? null,
-          descuentoPct: item?.Dto ?? item?.Descuento ?? null,
-          observaciones: item?.Observaciones ?? null,
+          fecha: _n(_n(item && item.FechaPedido, item && item.Fecha), null),
+          entrega: _n(item && item.FechaEntrega, null),
+          total: _n(_n(item && item.TotalPedido, item && item.Total), null),
+          subtotal: _n(_n(item && item.SubtotalPedido, item && item.Subtotal), null),
+          descuentoPct: _n(_n(item && item.Dto, item && item.Descuento), null),
+          observaciones: _n(item && item.Observaciones, null),
           numPedidoCliente: numPedidoCliente || null,
-          numAsociadoHefame: item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? null,
+          numAsociadoHefame: _n(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame), null),
           cliente: {
             id: idCliente,
             nombre: clienteNombre || (idCliente ? String(idCliente) : null),
-            cif: cliente?.DNI_CIF ?? cliente?.DniCif ?? null,
-            poblacion: cliente?.Poblacion ?? null,
-            cp: cliente?.CodigoPostal ?? null,
-            telefono: cliente?.Telefono ?? cliente?.Movil ?? null,
-            email: cliente?.Email ?? null
+            cif: _n(cliente && cliente.DNI_CIF, cliente && cliente.DniCif),
+            poblacion: _n(cliente && cliente.Poblacion, null),
+            cp: _n(cliente && cliente.CodigoPostal, null),
+            telefono: _n(cliente && cliente.Telefono, cliente && cliente.Movil),
+            email: _n(cliente && cliente.Email, null)
           },
           comercial: {
             id: idComercial,
@@ -3878,24 +3881,24 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
         };
       })(),
       lineas: (Array.isArray(lineas) ? lineas : []).map((l) => ({
-        articuloId: Number(l.Id_Articulo ?? l.id_articulo ?? l.ArticuloId ?? 0) || null,
-        codigo: String(l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').trim() || null,
-        nombre: String(l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').trim() || null,
-        cantidad: Number(l.Cantidad ?? l.Unidades ?? 0) || 0,
-        precioUnitario: Number(l.Linea_PVP ?? l.PVP ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? 0) || 0,
-        descuentoPct: Number(l.Linea_Dto ?? l.DtoLinea ?? l.Dto ?? l.dto ?? l.Descuento ?? 0) || 0,
-        ivaPct: Number(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? 0) || 0
+        articuloId: Number(_n(_n(_n(l.Id_Articulo, l.id_articulo), l.ArticuloId), 0)) || null,
+        codigo: String(_n(_n(_n(_n(l.SKU, l.Codigo), l.Id_Articulo), l.id_articulo), '')).trim() || null,
+        nombre: String(_n(_n(_n(_n(l.Nombre, l.Descripcion), l.Articulo), l.nombre), '')).trim() || null,
+        cantidad: Number(_n(_n(l.Cantidad, l.Unidades), 0)) || 0,
+        precioUnitario: Number(_n(_n(_n(_n(_n(l.Linea_PVP, l.PVP), l.PrecioUnitario), l.PVL), l.Precio), 0)) || 0,
+        descuentoPct: Number(_n(_n(_n(_n(_n(l.Linea_Dto, l.DtoLinea), l.Dto), l.dto), l.Descuento), 0)) || 0,
+        ivaPct: Number(_n(_n(_n(_n(l.Linea_IVA, l.IVA), l.PorcIVA), l.PorcentajeIVA), 0)) || 0
       })),
       cliente: cliente
         ? {
-            id: cliente?.Id ?? cliente?.id ?? null,
-            nombre: cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? cliente?.nombre ?? null,
-            cif: cliente?.DNI_CIF ?? cliente?.DniCif ?? null,
-            direccion: cliente?.Direccion ?? null,
-            poblacion: cliente?.Poblacion ?? null,
-            cp: cliente?.CodigoPostal ?? null,
-            telefono: cliente?.Telefono ?? cliente?.Movil ?? null,
-            email: cliente?.Email ?? null
+            id: _n(_n(cliente && cliente.Id, cliente && cliente.id), null),
+            nombre: _n(_n(_n(cliente && cliente.Nombre_Razon_Social, cliente && cliente.Nombre), cliente && cliente.nombre), null),
+            cif: _n(cliente && cliente.DNI_CIF, cliente && cliente.DniCif),
+            direccion: _n(cliente && cliente.Direccion, null),
+            poblacion: _n(cliente && cliente.Poblacion, null),
+            cp: _n(cliente && cliente.CodigoPostal, null),
+            telefono: _n(cliente && cliente.Telefono, cliente && cliente.Movil),
+            email: _n(cliente && cliente.Email, null)
           }
         : null,
       direccionEnvio,
@@ -3910,12 +3913,12 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
     // Nota: mantenemos el código de N8N más abajo, pero no se ejecuta por defecto.
     const mailToFromDb = await db.getVariableSistema?.(SYSVAR_PEDIDOS_MAIL_TO).catch(() => null);
     const mailTo = String(mailToFromDb || process.env.PEDIDOS_MAIL_TO || 'p.lara@gemavip.com').trim() || 'p.lara@gemavip.com';
-    const pedidoNum = String(item?.NumPedido ?? item?.Num_Pedido ?? item?.Numero_Pedido ?? id).trim();
+    const pedidoNum = String(_n(_n(_n(item && item.NumPedido, item && item.Num_Pedido), item && item.Numero_Pedido), id)).trim();
     const clienteNombre =
       (payload?.pedido?.cliente?.nombre ? String(payload.pedido.cliente.nombre) : '') ||
-      String(item?.ClienteNombre ?? item?.ClienteNombreCial ?? '').trim() ||
+      String(_n(_n(item && item.ClienteNombre, item && item.ClienteNombreCial), '')).trim() ||
       '';
-    const totalLabel = item?.TotalPedido ?? item?.Total ?? null;
+    const totalLabel = _n(_n(item && item.TotalPedido, item && item.Total), null);
     const pedidoUrl = `${APP_BASE_URL}/pedidos/${id}`;
     const subject = `Pedido ${pedidoNum}${clienteNombre ? ` · ${clienteNombre}` : ''} · CRM Gemavip`;
 
@@ -3940,7 +3943,7 @@ app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner,
 
     const linesText = (payload.lineas || [])
       .slice(0, 60)
-      .map((l) => `- ${l.codigo || l.articuloId || '—'} · ${l.nombre || ''} · uds: ${l.cantidad ?? 0}`)
+      .map((l) => `- ${l.codigo || l.articuloId || '—'} · ${l.nombre || ''} · uds: ${_n(l.cantidad, 0)}`)
       .join('\n');
 
     const text = [
@@ -4029,13 +4032,13 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       db.getEstadosPedidoActivos().catch(() => [])
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
-    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(t.Id ?? t.id) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
+    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(_n(t.Id, t.id)) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
     const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
-    if (formaPagoTransfer && (formaPagoTransfer.id ?? formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(f.id ?? f.Id) === Number(formaPagoTransfer.id ?? formaPagoTransfer.Id))) formasPago.push(formaPagoTransfer);
+    if (formaPagoTransfer && _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))) formasPago.push(formaPagoTransfer);
 
-    const estadoNorm = String(item.EstadoPedido ?? item.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
-    const especial = Number(item.EsEspecial ?? item.es_especial ?? 0) === 1;
-    const especialEstado = String(item.EspecialEstado ?? item.especial_estado ?? '').trim().toLowerCase();
+    const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), 'Pendiente')).trim().toLowerCase() || 'pendiente';
+    const especial = Number(_n(_n(item.EsEspecial, item.es_especial), 0)) === 1;
+    const especialEstado = String(_n(_n(item.EspecialEstado, item.especial_estado), '')).trim().toLowerCase();
     const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
     const canEdit = admin ? (estadoNorm !== 'pagado') : ((estadoNorm === 'pendiente') && !especialPendiente);
     if (!canEdit) {
@@ -4047,19 +4050,19 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
           : (especialPendiente ? 'Este pedido especial está pendiente de aprobación del administrador.' : 'Solo puedes modificar pedidos en estado "Pendiente".'),
         publicMessage: especialPendiente
           ? 'Acción requerida: el administrador debe aprobar o rechazar el pedido especial.'
-          : `Estado actual: ${String(item.EstadoPedido ?? item.Estado ?? '—')}`
+          : `Estado actual: ${String(_n(_n(item.EstadoPedido, item.Estado), '—'))}`
       });
     }
 
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
     const clienteLabel = cliente
       ? (() => {
-          const idc = cliente.Id ?? cliente.id ?? item.Id_Cliente ?? '';
-          const rs = cliente.Nombre_Razon_Social ?? cliente.Nombre ?? '';
-          const nc = cliente.Nombre_Cial ?? '';
-          const cif = cliente.DNI_CIF ?? '';
-          const pob = cliente.Poblacion ?? '';
-          const cp = cliente.CodigoPostal ?? '';
+          const idc = _n(_n(_n(cliente.Id, cliente.id), item.Id_Cliente), '');
+          const rs = _n(cliente.Nombre_Razon_Social, cliente.Nombre || '');
+          const nc = _n(cliente.Nombre_Cial, '');
+          const cif = _n(cliente.DNI_CIF, '');
+          const pob = _n(cliente.Poblacion, '');
+          const cp = _n(cliente.CodigoPostal, '');
           const parts = [rs, nc].filter(Boolean).join(' / ');
           const extra = [cif, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
           return `${idc} · ${parts || 'Sin nombre'}${extra ? ` · ${extra}` : ''}`.trim();
@@ -4067,7 +4070,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       : '';
     const articulos = await db.getArticulos({}).catch(() => []);
     const clientesRecent = await db
-      .getClientesOptimizadoPaged({ comercial: item?.Id_Cial ?? res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
+      .getClientesOptimizadoPaged({ comercial: _n(item && item.Id_Cial, res.locals.user && res.locals.user.id) }, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
     const lineasRaw = await db.getArticulosByPedido(id).catch(() => []);
 
@@ -4085,7 +4088,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
       ? lineasRaw.map((l) => ({
           Id_Articulo:
-            pickRowCI(l, [
+            _n(pickRowCI(l, [
               'Id_Articulo',
               'id_articulo',
               'ArticuloId',
@@ -4094,15 +4097,15 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
               'articulo_id',
               'IdArticulo',
               'idArticulo'
-            ]) ?? '',
+            ]), ''),
           Cantidad:
-            pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']) ?? 1,
+            _n(pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']), 1),
           // DTO puede llamarse Dto/DTO/Descuento/PorcentajeDescuento...
           Dto:
-            pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento', 'DtoLinea', 'dto_linea']) ?? '',
+            _n(pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento', 'DtoLinea', 'dto_linea']), ''),
           // Mostrar PVL en edición: si viene guardado en línea, precargarlo (si no, el JS lo calcula por tarifa)
           PrecioUnitario:
-            pickRowCI(l, ['Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']) ?? ''
+            _n(pickRowCI(l, ['Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']), '')
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
     res.render('pedido-form', {
@@ -4134,9 +4137,9 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
 
-    const estadoNorm = String(existing.EstadoPedido ?? existing.Estado ?? 'Pendiente').trim().toLowerCase() || 'pendiente';
-    const existingEspecial = Number(existing.EsEspecial ?? existing.es_especial ?? 0) === 1;
-    const existingEspecialEstado = String(existing.EspecialEstado ?? existing.especial_estado ?? '').trim().toLowerCase();
+    const estadoNorm = String(_n(_n(existing.EstadoPedido, existing.Estado), 'Pendiente')).trim().toLowerCase() || 'pendiente';
+    const existingEspecial = Number(_n(_n(existing.EsEspecial, existing.es_especial), 0)) === 1;
+    const existingEspecialEstado = String(_n(_n(existing.EspecialEstado, existing.especial_estado), '')).trim().toLowerCase();
     const existingEspecialPendiente = existingEspecial && (existingEspecialEstado === 'pendiente' || existingEspecialEstado === '' || existingEspecialEstado === 'solicitado');
     const canEdit = admin ? (estadoNorm !== 'pagado') : ((estadoNorm === 'pendiente') && !existingEspecialPendiente);
     if (!canEdit) {
@@ -4148,7 +4151,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
           : (existingEspecialPendiente ? 'Este pedido especial está pendiente de aprobación del administrador.' : 'Solo puedes modificar pedidos en estado "Pendiente".'),
         publicMessage: existingEspecialPendiente
           ? 'Acción requerida: el administrador debe aprobar o rechazar el pedido especial.'
-          : `Estado actual: ${String(existing.EstadoPedido ?? existing.Estado ?? '—')}`
+          : `Estado actual: ${String(_n(_n(existing.EstadoPedido, existing.Estado), '—'))}`
       });
     }
 
@@ -4273,7 +4276,7 @@ app.post('/articulos/new', requireAdmin, async (req, res, next) => {
       Presentacion: String(body.Presentacion || '').trim(),
       Unidades_Caja: Number(body.Unidades_Caja || 0) || 0,
       PVL: Number(body.PVL || 0) || 0,
-      IVA: Number(body.IVA ?? 21) || 0,
+      IVA: Number(_n(body.IVA, 21)) || 0,
       Imagen: String(body.Imagen || '').trim(),
       Id_Marca: body.Id_Marca ? (Number(body.Id_Marca) || null) : null,
       EAN13: body.EAN13 ? String(body.EAN13).trim() : null,
@@ -4356,7 +4359,7 @@ app.post('/articulos/:id/toggle', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const value = String(req.body?.Activo ?? req.body?.activo ?? '').toLowerCase();
+    const value = String(_n(_n(req.body && req.body.Activo, req.body && req.body.activo), '')).toLowerCase();
     const nextVal = value === '0' || value === 'false' || value === 'ko' || value === 'inactivo' ? 0 : 1;
     await db.toggleArticuloOkKo(id, nextVal);
     return res.redirect(`/articulos/${id}`);
@@ -4466,7 +4469,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
           paramsCal.push(start, end);
           const whereCalSql = whereCal.length ? `WHERE ${whereCal.join(' AND ')}` : '';
           const rows = await db.query(`SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereCalSql}`, paramsCal);
-          totalMes = Number(rows?.[0]?.total ?? 0);
+          totalMes = Number(_n(rows && rows[0] && rows[0].total, 0));
         }
       } catch (_) {
         totalMes = 0;
@@ -4522,7 +4525,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     `;
     const countSql = `SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereListSql}`;
     const [items, countRows] = await Promise.all([db.query(sql, paramsList), db.query(countSql, paramsList)]);
-    const total = Number(countRows?.[0]?.total ?? 0);
+    const total = Number(_n(countRows && countRows[0] && countRows[0].total, 0));
     return res.render('visitas', {
       items: items || [],
       admin,
@@ -4818,7 +4821,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
     const safeCount = async (table) => {
       try {
         const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${table}\``);
-        return Number(rows?.[0]?.n ?? 0);
+        return Number(_n(rows && rows[0] && rows[0].n, 0));
       } catch (_) {
         return null;
       }
@@ -4842,7 +4845,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
           `SELECT COUNT(*) AS n FROM \`${tPedidos}\` WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?`,
           [yearFrom, yearTo]
         );
-        return Number(rows?.[0]?.n ?? 0);
+        return Number(_n(rows && rows[0] && rows[0].n, 0));
       } catch (_) {
         return null;
       }
@@ -4856,7 +4859,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
           `SELECT COUNT(*) AS n FROM \`${metaVisitas.table}\` WHERE DATE(\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`,
           [yearFrom, yearTo]
         );
-        return Number(rows?.[0]?.n ?? 0);
+        return Number(_n(rows && rows[0] && rows[0].n, 0));
       } catch (_) {
         return null;
       }
@@ -4888,7 +4891,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
             params.push(yearFrom, yearTo);
           }
           const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${meta.table}\` v WHERE ${where.join(' AND ')}`, params);
-          visitas = Number(rows?.[0]?.n ?? 0);
+          visitas = Number(_n(rows && rows[0] && rows[0].n, 0));
         } else {
           visitas = 0;
         }
@@ -4922,7 +4925,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
           }
           const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
           const rows = await db.query(`SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\`${whereSql}`, params);
-          ventas = Number(rows?.[0]?.total ?? 0) || 0;
+          ventas = Number(_n(rows && rows[0] && rows[0].total, 0)) || 0;
         } else if (hasUserId) {
           if (colComercial) {
             const where = [`\`${colComercial}\` = ?`];
@@ -4935,12 +4938,12 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
               `SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\` WHERE ${where.join(' AND ')}`,
               params
             );
-            ventas = Number(rows?.[0]?.total ?? 0) || 0;
+            ventas = Number(_n(rows && rows[0] && rows[0].total, 0)) || 0;
           } else {
             // Fallback legacy: usar el método existente (puede ser más costoso, pero evita "Unknown column")
             const rows = await db.getPedidosByComercial(userId).catch(() => []);
             ventas = (Array.isArray(rows) ? rows : []).reduce((acc, r) => {
-              const v = Number(r?.[colTotal] ?? r?.TotalPedido ?? r?.Total ?? r?.ImporteTotal ?? 0);
+              const v = Number(_n(_n(_n(_n(r && r[colTotal], r && r.TotalPedido), r && r.Total), r && r.ImporteTotal), 0));
               // Si tenemos fecha en el row, filtramos por año en memoria
               if (selectedYear !== 'all' && colFecha) {
                 const fv = r?.[colFecha];
@@ -5046,7 +5049,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
             const rows = await db.getPedidosByComercial(userId).catch(() => []);
             const filtered = (Array.isArray(rows) ? rows : []).filter((r) => {
               if (selectedYear === 'all') return true;
-              const fv = r?.FechaPedido ?? r?.Fecha ?? null;
+              const fv = _n(_n(r && r.FechaPedido, r && r.Fecha), null);
               const y = fv ? Number(String(fv).slice(0, 4)) : NaN;
               return !Number.isFinite(y) ? true : y === selectedYear;
             });
