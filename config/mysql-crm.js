@@ -2518,8 +2518,7 @@ class MySQLCRM {
       }
       
       values.push(id);
-      const aCols = await this._getColumns(tArt).catch(() => []);
-      const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
+      const aPk = pick(['art_id', 'id', 'Id']) || 'art_id';
       const sql = `UPDATE \`${tArt}\` SET ${fields.join(', ')} WHERE \`${aPk}\` = ?`;
       console.log(`✅ [UPDATE ARTICULO] SQL: ${sql}`);
       console.log(`✅ [UPDATE ARTICULO] Valores:`, values);
