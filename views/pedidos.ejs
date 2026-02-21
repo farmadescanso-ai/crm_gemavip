@@ -44,7 +44,7 @@
         return Number(v) === 1 || String(v).trim().toLowerCase() === 'true';
       };
       const especialEstado = (p) => String(p?.EspecialEstado ?? p?.especial_estado ?? '').trim().toLowerCase();
-      const totalPedidoNum = (p) => toNum(p?.TotalPedido ?? p?.Total ?? p?.ImporteTotal ?? 0, 0);
+      const totalPedidoNum = (p) => toNum(p?.TotalPedido ?? p?.ped_total ?? p?.Total ?? p?.ImporteTotal ?? 0, 0);
       const ventasTotal = round2(itemsArr.reduce((s, p) => s + totalPedidoNum(p), 0));
       const ticketMedio = itemsArr.length ? round2(ventasTotal / itemsArr.length) : 0;
       const pendientesCount = itemsArr.filter(isPendiente).length;
@@ -187,7 +187,7 @@
             </thead>
             <tbody>
               <% itemsArr.forEach((p) => { %>
-                <% const pid = p.Id ?? p.id; %>
+                <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                 <% const owner = Number(p.Id_Cial ?? p.id_cial ?? p.ComercialId ?? p.comercialId ?? 0) || 0; %>
                 <% const canWrite = admin || (userId && Number(userId) === owner); %>
                 <% const noticePid = (typeof n8nNotice !== 'undefined' && n8nNotice && n8nNotice.pid != null) ? String(n8nNotice.pid) : null; %>
@@ -205,7 +205,7 @@
                         id="gvEstadoBadge_<%= pid %>"
                         class="badge <%= estadoLabel ? cls : 'info' %> gv-pedido-estado-badge"
                         data-pid="<%= pid %>"
-                        data-num="<%= (p.NumPedido ?? p.Numero_Pedido ?? pid) %>"
+                        data-num="<%= (p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid) %>"
                         data-estado-id="<%= estadoId %>"
                         data-estado-label="<%= estadoLabel %>"
                         title="Hacer clic para modificar el estado del pedido"
@@ -219,15 +219,15 @@
                       <% } %>
                     <% } %>
                   </td>
-                  <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-                  <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
-                  <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                  <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
+                  <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
+                  <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
                   <td><%= p.ProvinciaNombre ?? '—' %></td>
                   <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? '—') %></td>
                   <td><%= p.TipoClienteNombre ?? '—' %></td>
                   <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
                   <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? '—' %></td>
-                  <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? 0) %></td>
+                  <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
                   <td>
                     <div class="gv-actions">
                       <a class="btn secondary icon" href="/pedidos/<%= pid %>" title="Ver" aria-label="Ver pedido <%= pid %>">
@@ -409,12 +409,12 @@
                   <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Total</th></tr></thead>
                   <tbody>
                     <% (pendientes || []).slice(0, 20).forEach((p) => { %>
-                      <% const pid = p.Id ?? p.id; %>
+                      <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                       <tr>
-                        <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-                        <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.Numero_Pedido ?? pid %></a></td>
-                        <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                        <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? 0) %></td>
+                        <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
+                        <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
+                        <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                        <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
                       </tr>
                     <% }) %>
                     <% if (!pendientes.length) { %>
@@ -437,11 +437,11 @@
                   <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Estado</th></tr></thead>
                   <tbody>
                     <% (especialesPend || []).slice(0, 20).forEach((p) => { %>
-                      <% const pid = p.Id ?? p.id; %>
+                      <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                       <tr>
-                        <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-                        <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.Numero_Pedido ?? pid %></a></td>
-                        <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                        <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
+                        <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
+                        <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
                         <td><%= (p.EspecialEstado ?? p.especial_estado ?? 'pendiente') %></td>
                       </tr>
                     <% }) %>
@@ -467,7 +467,7 @@
                 <tbody>
                   <% (incompletos || []).slice(0, 30).forEach((p) => { %>
                     <%
-                      const pid = p.Id ?? p.id;
+                      const pid = p.Id ?? p.id ?? p.ped_id;
                       const idDir = Number(p?.Id_DireccionEnvio ?? p?.id_direccion_envio ?? 0) || 0;
                       const ref = String(p?.NumPedidoCliente ?? p?.Num_Pedido_Cliente ?? '').trim();
                       const fp = Number(p?.Id_FormaPago ?? p?.id_forma_pago ?? 0) || 0;
@@ -479,9 +479,9 @@
                       if (!tp) faltan.push('Tipo pedido');
                     %>
                     <tr>
-                      <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-                      <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.Numero_Pedido ?? pid %></a></td>
-                      <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                      <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
+                      <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
+                      <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
                       <td><%= faltan.join(' · ') || '—' %></td>
                     </tr>
                   <% }) %>

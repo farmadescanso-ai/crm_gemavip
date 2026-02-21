@@ -2756,6 +2756,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
 
       const sql = `
         SELECT DISTINCT p.*,
+          p.\`${colFecha}\` AS FechaPedido,
+          p.\`${colNumPedido}\` AS NumPedido,
           ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
@@ -2941,6 +2943,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
 
       const sql = `
         SELECT p.*,
+          p.\`${colFecha}\` AS FechaPedido,
+          p.\`${colNumPedido}\` AS NumPedido,
           ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
