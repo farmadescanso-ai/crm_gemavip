@@ -10358,7 +10358,7 @@ class MySQLCRM {
             rv.id,
             rv.fecha,
             rv.comercial_id,
-            COALESCE(c.Nombre, c.nombre, c.name, CONCAT('Comercial ', rv.comercial_id)) AS comercial_nombre,
+            COALESCE(c.com_nombre, c.Nombre, c.nombre, c.name, CONCAT('Comercial ', rv.comercial_id)) AS comercial_nombre,
             rv.cliente,
             rv.ciudad_zona,
             rv.tipo_visita,
@@ -10370,7 +10370,7 @@ class MySQLCRM {
             rv.notas,
             rv.created_at
           FROM \`registro_visitas\` rv
-          LEFT JOIN \`comerciales\` c ON (c.id = rv.comercial_id OR c.Id = rv.comercial_id)
+          LEFT JOIN \`comerciales\` c ON c.com_id = rv.comercial_id
           WHERE rv.fecha = ?
           ORDER BY rv.id DESC
           LIMIT ${lim}

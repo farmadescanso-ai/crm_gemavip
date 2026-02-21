@@ -35,6 +35,11 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Health check (sin sesión/DB) para diagnosticar crashes en Vercel
+app.get('/health', (_req, res) => {
+  res.status(200).json({ ok: true, service: 'crm_gemavip', timestamp: new Date().toISOString() });
+});
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
