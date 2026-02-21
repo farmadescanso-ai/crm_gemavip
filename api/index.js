@@ -27,7 +27,7 @@ const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail
 // Helper para Node <14: a ?? b
 function _n(a, b) { return a != null ? a : b; }
 
-// Extrae contraseña de fila comercial (soporta com_password, Password, password, etc.)
+// Extrae contraseña de fila comercial (com_password, Password, etc.)
 function getStoredPasswordFromRow(row) {
   if (!row || typeof row !== 'object') return '';
   const cands = ['com_password', 'Password', 'password', 'contraseña', 'Pass', 'Clave'];
@@ -457,7 +457,7 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res, next) => {
   try {
     const email = String(req.body?.email || '').trim();
-    const password = String(req.body?.password || '');
+    const password = String(req.body?.password || '').trim();
     if (!email || !password) {
       return res.status(400).render('login', { title: 'Login', error: 'Email y contraseña son obligatorios' });
     }
@@ -472,8 +472,8 @@ app.post('/login', async (req, res, next) => {
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       ok = await bcrypt.compare(password, stored);
     } else {
-      // Legacy: comparación directa
-      ok = password === stored;
+      // Legacy: comparación directa (texto plano)
+      ok = password === String(stored).trim();
     }
 
     if (!ok) {
