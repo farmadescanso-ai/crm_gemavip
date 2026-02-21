@@ -76,22 +76,23 @@
         </thead>
         <tbody>
           <% items.forEach((v) => { %>
+            <% const vid = v.Id ?? v.vis_id ?? v.id; %>
             <tr>
               <td>
                 <div class="gv-actions">
-                  <a class="btn secondary icon" href="/visitas/<%= v.Id %>" title="Ver" aria-label="Ver visita <%= v.Id %>">
+                  <a class="btn secondary icon" href="/visitas/<%= vid %>" title="Ver" aria-label="Ver visita <%= vid %>">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
                       <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                   </a>
-                  <a class="btn secondary icon" href="/visitas/<%= v.Id %>/edit" title="Editar" aria-label="Editar visita <%= v.Id %>">
+                  <a class="btn secondary icon" href="/visitas/<%= vid %>/edit" title="Editar" aria-label="Editar visita <%= vid %>">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M12 20h9"></path>
                       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
                     </svg>
                   </a>
-                  <form method="post" action="/visitas/<%= v.Id %>/delete" onsubmit="return confirm('¿Eliminar esta visita?');">
+                  <form method="post" action="/visitas/<%= vid %>/delete" onsubmit="return confirm('¿Eliminar esta visita?');">
                     <button class="btn secondary icon danger" type="submit" title="Borrar" aria-label="Borrar visita <%= v.Id %>">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M3 6h18"></path>
@@ -104,15 +105,15 @@
                   </form>
                 </div>
               </td>
-              <td><%= fmtDateES(v.Fecha) %></td>
-              <td><%= fmtTimeHM(v.Hora) %></td>
-              <td><%= fmtTimeHM(v.HoraFinal || v.Hora_Final) %></td>
-              <td><%= v.TipoVisita ?? '' %></td>
-              <td><%= (v.ClienteRazonSocial || v.ClienteNombre) ? (v.ClienteRazonSocial || v.ClienteNombre) : (v.ClienteId ?? '') %></td>
+              <td><%= fmtDateES(v.Fecha ?? v.vis_fecha ?? '') %></td>
+              <td><%= fmtTimeHM(v.Hora ?? v.vis_hora ?? '') %></td>
+              <td><%= fmtTimeHM(v.HoraFinal ?? v.vis_hora_final ?? v.Hora_Final ?? '') %></td>
+              <td><%= v.TipoVisita ?? v.vis_tipo ?? '' %></td>
+              <td><%= (v.ClienteRazonSocial || v.ClienteNombre || v.cli_nombre_razon_social) ? (v.ClienteRazonSocial || v.ClienteNombre || v.cli_nombre_razon_social) : (v.ClienteId ?? v.vis_cli_id ?? '') %></td>
               <% if (admin) { %>
-                <td><%= v.ComercialNombre ? v.ComercialNombre : (v.ComercialId ?? '') %></td>
+                <td><%= v.ComercialNombre ?? v.com_nombre ?? (v.ComercialId ?? v.vis_com_id ?? '') %></td>
               <% } %>
-              <td><%= v.Estado ?? '' %></td>
+              <td><%= v.Estado ?? v.vis_estado ?? '' %></td>
             </tr>
           <% }) %>
         </tbody>

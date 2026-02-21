@@ -4547,11 +4547,8 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       paramsList.push(idFilter);
     }
 
-    // Por defecto: próximas visitas (incluye hoy) si hay columna fecha y no hay filtros explícitos
+    // Sin filtro explícito: mostrar todas las visitas (antes solo futuras; ahora todas para que se vean los datos)
     const hasExplicitFilter = Boolean(qDate || idFilter);
-    if (!hasExplicitFilter && meta.colFecha) {
-      whereList.push(`DATE(v.\`${meta.colFecha}\`) >= CURDATE()`);
-    }
     const whereListSql = whereList.length ? `WHERE ${whereList.join(' AND ')}` : '';
 
     const sql = `
@@ -4572,11 +4569,9 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
       ${joinComercial}
       ${whereListSql}
       ORDER BY ${
-        meta.colFecha && !hasExplicitFilter
-          ? `DATE(v.\`${meta.colFecha}\`) ASC, v.\`${meta.pk}\` ASC`
-          : meta.colFecha
-            ? `v.\`${meta.colFecha}\` DESC, v.\`${meta.pk}\` DESC`
-            : 'v.`' + meta.pk + '` DESC'
+        meta.colFecha
+          ? `v.\`${meta.colFecha}\` DESC, v.\`${meta.pk}\` DESC`
+          : 'v.`' + meta.pk + '` DESC'
       }
       LIMIT ${limit} OFFSET ${offset}
     `;
