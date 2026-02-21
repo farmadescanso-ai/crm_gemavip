@@ -2513,7 +2513,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
     };
     const colNumPedidoCliente = pickPedidoCol(['NumPedidoCliente', 'Num_Pedido_Cliente', 'num_pedido_cliente']);
     const colNumAsociadoHefame = pickPedidoCol(['NumAsociadoHefame', 'num_asociado_hefame']);
-    const colTotal = pickPedidoCol(['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'importe_total']);
+    const colTotal = pickPedidoCol(['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'importe_total']);
     const colEspecial = pickPedidoCol(['EsEspecial', 'es_especial', 'especial']);
     const colEspecialEstado = pickPedidoCol(['EspecialEstado', 'especial_estado']);
 
@@ -2529,14 +2529,14 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       }
       return null;
     };
-    const cColNombre = pickClienteCol(['Nombre_Razon_Social', 'Nombre', 'nombre']);
-    const cColNombreCial = pickClienteCol(['Nombre_Cial', 'nombre_cial']);
-    const cColDniCif = pickClienteCol(['DNI_CIF', 'DniCif', 'dni_cif', 'CIF', 'cif']);
-    const cColEmail = pickClienteCol(['Email', 'email']);
-    const cColTelefono = pickClienteCol(['Telefono', 'telefono', 'Movil', 'movil']);
-    const cColPoblacion = pickClienteCol(['Poblacion', 'poblacion', 'Localidad', 'localidad']);
-    const cColProvinciaId = pickClienteCol(['Id_Provincia', 'id_provincia', 'ProvinciaId', 'provincia_id']);
-    const cColTipoClienteId = pickClienteCol(['Id_TipoCliente', 'id_tipocliente', 'TipoClienteId', 'tipo_cliente_id']);
+    const cColNombre = pickClienteCol(['cli_nombre_razon_social', 'Nombre_Razon_Social', 'Nombre', 'nombre']);
+    const cColNombreCial = pickClienteCol(['cli_nombre_cial', 'Nombre_Cial', 'nombre_cial']);
+    const cColDniCif = pickClienteCol(['cli_dni_cif', 'DNI_CIF', 'DniCif', 'dni_cif', 'CIF', 'cif']);
+    const cColEmail = pickClienteCol(['cli_email', 'Email', 'email']);
+    const cColTelefono = pickClienteCol(['cli_telefono', 'Telefono', 'telefono', 'Movil', 'movil']);
+    const cColPoblacion = pickClienteCol(['cli_poblacion', 'Poblacion', 'poblacion', 'Localidad', 'localidad']);
+    const cColProvinciaId = pickClienteCol(['cli_prov_id', 'Id_Provincia', 'id_provincia', 'ProvinciaId', 'provincia_id']);
+    const cColTipoClienteId = pickClienteCol(['cli_tipc_id', 'Id_TipoCliente', 'id_tipocliente', 'TipoClienteId', 'tipo_cliente_id']);
 
     // Estado catálogo (best-effort)
     let hasEstadoIdCol = false;
@@ -2574,12 +2574,29 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
 
     // Filtrar por año (y opcionalmente marca) usando FechaPedido (datetime)
     let items = [];
+    let colPaPedidoId = null;
+    let colPaArticulo = null;
+    let colArtPk = null;
+    let colArtMarca = null;
     if (selectedMarcaId) {
+      const paMeta = await db._ensurePedidosArticulosMeta().catch(() => null);
+      const tArt = await db._resolveTableNameCaseInsensitive('articulos').catch(() => null);
+      const paCols = paMeta ? (await db._getColumns(paMeta.table).catch(() => [])) : [];
+      const artCols = tArt ? (await db._getColumns(tArt).catch(() => [])) : [];
+      const paColsLower = new Map((paCols || []).map((c) => [String(c).toLowerCase(), c]));
+      const artColsLower = new Map((artCols || []).map((c) => [String(c).toLowerCase(), c]));
+      const pickPa = (cands) => { for (const c of (cands || [])) { const r = paColsLower.get(String(c).toLowerCase()); if (r) return r; } return null; };
+      const pickArt = (cands) => { for (const c of (cands || [])) { const r = artColsLower.get(String(c).toLowerCase()); if (r) return r; } return null; };
+      colPaPedidoId = paMeta?.colPedidoId || pickPa(['pedart_ped_id', 'Id_NumPedido', 'id_numpedido']) || 'pedart_ped_id';
+      colPaArticulo = paMeta?.colArticulo || pickPa(['pedart_art_id', 'Id_Articulo', 'id_articulo']) || 'pedart_art_id';
+      colArtPk = pickArt(['art_id', 'id', 'Id']) || 'art_id';
+      colArtMarca = pickArt(['art_mar_id', 'Id_Marca', 'id_marca']) || 'art_mar_id';
+
       const where = [];
       const params = [];
       where.push(`YEAR(p.\`${colFecha}\`) = ?`);
       params.push(selectedYear);
-      where.push(`a.Id_Marca = ?`);
+      where.push(`a.\`${colArtMarca}\` = ?`);
       params.push(selectedMarcaId);
       if (scopeUserId) {
         where.push(`p.\`${colComercial}\` = ?`);
@@ -2752,10 +2769,10 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.tipc_id` : ''}
         ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
         ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
-        INNER JOIN pedidos_articulos pa ON pa.pedart_ped_id = p.ped_id
-        INNER JOIN articulos a ON a.art_id = pa.pedart_art_id
+        INNER JOIN pedidos_articulos pa ON pa.\`${colPaPedidoId || 'pedart_ped_id'}\` = p.\`${pedidosMeta?.pk || 'ped_id'}\`
+        INNER JOIN articulos a ON a.\`${colArtPk || 'art_id'}\` = pa.\`${colPaArticulo || 'pedart_art_id'}\`
         WHERE ${where.join('\n          AND ')}
-        ORDER BY p.ped_id DESC
+        ORDER BY p.\`${pedidosMeta?.pk || 'ped_id'}\` DESC
         LIMIT 200
       `;
 
@@ -2938,7 +2955,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
         ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
         WHERE ${where.join('\n          AND ')}
-        ORDER BY p.ped_id DESC
+        ORDER BY p.\`${pedidosMeta?.pk || 'ped_id'}\` DESC
         LIMIT 200
       `;
 
