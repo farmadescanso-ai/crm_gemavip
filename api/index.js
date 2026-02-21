@@ -4939,7 +4939,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
       const colFecha = pedidosMeta?.colFecha || null;
       const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
       const colTotal =
-        db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || null;
+        db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || null;
 
       if (colTotal) {
         if (admin) {
@@ -4969,7 +4969,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
             // Fallback legacy: usar el método existente (puede ser más costoso, pero evita "Unknown column")
             const rows = await db.getPedidosByComercial(userId).catch(() => []);
             ventas = (Array.isArray(rows) ? rows : []).reduce((acc, r) => {
-              const v = Number(_n(_n(_n(_n(r && r[colTotal], r && r.TotalPedido), r && r.Total), r && r.ImporteTotal), 0));
+              const v = Number(_n(_n(_n(_n(_n(r && r[colTotal], r && r.ped_total), r && r.TotalPedido), r && r.Total), r && r.ImporteTotal), 0));
               // Si tenemos fecha en el row, filtramos por año en memoria
               if (selectedYear !== 'all' && colFecha) {
                 const fv = r?.[colFecha];
@@ -5004,16 +5004,21 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
         const colFecha = pedidosMeta?.colFecha || null;
         const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
-        const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'TotalPedido';
+        const colTotal = db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'ped_total';
+        const clientesCols = await db._getColumns(tClientes).catch(() => []);
+        const colNombreRazon = db._pickCIFromColumns(clientesCols, ['cli_nombre_razon_social', 'Nombre_Razon_Social', 'nombre_razon_social']) || 'cli_nombre_razon_social';
+        const colPoblacion = db._pickCIFromColumns(clientesCols, ['cli_poblacion', 'Poblacion', 'poblacion']) || 'cli_poblacion';
+        const colCodigoPostal = db._pickCIFromColumns(clientesCols, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
+        const colOK_KO = db._pickCIFromColumns(clientesCols, ['cli_ok_ko', 'OK_KO', 'ok_ko']) || 'cli_ok_ko';
         const yearWhere = (selectedYear !== 'all' && colFecha) ? `WHERE DATE(p.\`${colFecha}\`) BETWEEN ? AND ?` : '';
         const yearParams = (selectedYear !== 'all' && colFecha) ? [yearFrom, yearTo] : [];
         latest.clientes = await db.query(
-          `SELECT c.\`${pkClientes}\` AS Id, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO,
+          `SELECT c.\`${pkClientes}\` AS Id, c.\`${colNombreRazon}\` AS Nombre_Razon_Social, c.\`${colPoblacion}\` AS Poblacion, c.\`${colCodigoPostal}\` AS CodigoPostal, c.\`${colOK_KO}\` AS OK_KO,
             COALESCE(SUM(COALESCE(p.\`${colTotal}\`, 0)), 0) AS TotalFacturado
            FROM \`${tClientes}\` c
            INNER JOIN \`${tPedidos}\` p ON p.\`${colClientePedido}\` = c.\`${pkClientes}\`
            ${yearWhere}
-           GROUP BY c.\`${pkClientes}\`, c.Nombre_Razon_Social, c.Poblacion, c.CodigoPostal, c.OK_KO
+           GROUP BY c.\`${pkClientes}\`, c.\`${colNombreRazon}\`, c.\`${colPoblacion}\`, c.\`${colCodigoPostal}\`, c.\`${colOK_KO}\`
            ORDER BY TotalFacturado DESC
            LIMIT ${Number(limitAdmin) || 10}`
           , yearParams
@@ -5031,8 +5036,8 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const colNum = pedidosMeta?.colNumPedido || 'NumPedido';
         const colFecha = pedidosMeta?.colFecha || 'FechaPedido';
         const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
-        const colTotal = db._pickCIFromColumns(pedidosCols, ['TotalPedido', 'Total', 'ImporteTotal']) || 'TotalPedido';
-        const colEstado = db._pickCIFromColumns(pedidosCols, ['EstadoPedido', 'Estado', 'estado']) || 'EstadoPedido';
+        const colTotal = db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'ped_total';
+        const colEstado = db._pickCIFromColumns(pedidosCols, ['ped_estado_txt', 'EstadoPedido', 'estado_pedido', 'Estado', 'estado']) || 'ped_estado_txt';
         const where = (selectedYear !== 'all' && colFecha) ? `WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?` : '';
         const params = (selectedYear !== 'all' && colFecha) ? [yearFrom, yearTo] : [];
         latest.pedidos = await db.query(
