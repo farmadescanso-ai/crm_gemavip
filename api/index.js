@@ -4490,11 +4490,13 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
     const pkComerciales = comercialesMeta?.pk || 'id';
 
+    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+    const colComercialNombre = comercialesMeta?.colNombre || 'com_nombre';
     const joinCliente = meta.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${meta.colCliente}\` = c.\`${pkClientes}\`` : '';
     const joinComercial = meta.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${meta.colComercial}\` = co.\`${pkComerciales}\`` : '';
-    const selectClienteNombre = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
-    const selectClienteRazon = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteRazonSocial' : 'NULL as ClienteRazonSocial';
-    const selectComercialNombre = meta.colComercial ? 'co.com_nombre as ComercialNombre' : 'NULL as ComercialNombre';
+    const selectClienteNombre = meta.colCliente ? `c.\`${colNombreRazon}\` as ClienteNombre` : 'NULL as ClienteNombre';
+    const selectClienteRazon = meta.colCliente ? `c.\`${colNombreRazon}\` as ClienteRazonSocial` : 'NULL as ClienteRazonSocial';
+    const selectComercialNombre = meta.colComercial ? `co.\`${colComercialNombre}\` as ComercialNombre` : 'NULL as ComercialNombre';
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -4600,7 +4602,11 @@ app.get('/visitas/new', requireLogin, async (req, res, next) => {
     const tiposVisita = await db.getTiposVisita().catch(() => []);
     const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const comerciales = admin ? await db.getComerciales() : [];
-    const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
+    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+    const tClientes = clientesMeta?.tClientes || 'clientes';
+    const pkClientes = clientesMeta?.pk || 'Id';
+    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+    const clientes = await db.query(`SELECT \`${pkClientes}\` AS Id, \`${colNombreRazon}\` AS Nombre_Razon_Social FROM \`${tClientes}\` ORDER BY \`${pkClientes}\` DESC LIMIT 200`).catch(() => []);
 
     const colTipoLower = String(meta.colTipo || '').toLowerCase();
     const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
@@ -4638,7 +4644,11 @@ app.post('/visitas/new', requireLogin, async (req, res, next) => {
     const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const comerciales = admin ? await db.getComerciales() : [];
     // Mantener recientes para el selector (y fallback visual)
-    const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
+    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+    const tClientes = clientesMeta?.tClientes || 'clientes';
+    const pkClientes = clientesMeta?.pk || 'Id';
+    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+    const clientes = await db.query(`SELECT \`${pkClientes}\` AS Id, \`${colNombreRazon}\` AS Nombre_Razon_Social FROM \`${tClientes}\` ORDER BY \`${pkClientes}\` DESC LIMIT 200`).catch(() => []);
 
     const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
     const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
@@ -4746,7 +4756,11 @@ app.get('/visitas/:id/edit', requireLogin, async (req, res, next) => {
     }
 
     const comerciales = admin ? await db.getComerciales() : [];
-    const clientes = await db.query('SELECT Id, Nombre_Razon_Social FROM clientes ORDER BY Id DESC LIMIT 200').catch(() => []);
+    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+    const tClientes = clientesMeta?.tClientes || 'clientes';
+    const pkClientes = clientesMeta?.pk || 'Id';
+    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+    const clientes = await db.query(`SELECT \`${pkClientes}\` AS Id, \`${colNombreRazon}\` AS Nombre_Razon_Social FROM \`${tClientes}\` ORDER BY \`${pkClientes}\` DESC LIMIT 200`).catch(() => []);
     const tiposVisita = await db.getTiposVisita().catch(() => []);
     const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const colTipoLower = String(meta.colTipo || '').toLowerCase();
@@ -5130,10 +5144,12 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const pkClientes = clientesMeta?.pk || 'Id';
         const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
         const pkComerciales = comercialesMeta?.pk || 'id';
+        const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+        const colComercialNombre = comercialesMeta?.colNombre || 'com_nombre';
         const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
         const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
-        const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
-        const selectComercialNombre = metaVisitas.colComercial ? 'co.com_nombre as ComercialNombre' : 'NULL as ComercialNombre';
+        const selectClienteNombre = metaVisitas.colCliente ? `c.\`${colNombreRazon}\` as ClienteNombre` : 'NULL as ClienteNombre';
+        const selectComercialNombre = metaVisitas.colComercial ? `co.\`${colComercialNombre}\` as ComercialNombre` : 'NULL as ComercialNombre';
         const where = [];
         const params = [];
         if (metaVisitas.colComercial && Number.isFinite(userId) && userId > 0) {
@@ -5180,10 +5196,12 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
         const pkComerciales = comercialesMeta?.pk || 'id';
 
+        const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+        const colComercialNombre = comercialesMeta?.colNombre || 'com_nombre';
         const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
         const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
-        const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
-        const selectComercialNombre = metaVisitas.colComercial ? 'co.com_nombre as ComercialNombre' : 'NULL as ComercialNombre';
+        const selectClienteNombre = metaVisitas.colCliente ? `c.\`${colNombreRazon}\` as ClienteNombre` : 'NULL as ClienteNombre';
+        const selectComercialNombre = metaVisitas.colComercial ? `co.\`${colComercialNombre}\` as ComercialNombre` : 'NULL as ComercialNombre';
 
         const where = [];
         const params = [];
