@@ -236,10 +236,10 @@ async function loadMarcasForSelect(db) {
     const cols = await db._getColumns(tMarcas);
     const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
     const pick = (cands) => (cands || []).find((c) => colsLower.has(String(c).toLowerCase())) || null;
-    const colId = pick(['id', 'Id']) || 'id';
+    const colId = pick(['mar_id', 'id', 'Id']) || 'mar_id';
     const colNombre =
-      pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
-    const colActivo = pick(['Activo', 'activo']);
+      pick(['mar_nombre', 'Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
+    const colActivo = pick(['mar_activo', 'Activo', 'activo']);
 
     const selectNombre = colNombre ? `\`${colNombre}\` AS nombre` : `CAST(\`${colId}\` AS CHAR) AS nombre`;
     const whereActivo = colActivo ? `WHERE \`${colActivo}\` = 1` : '';
@@ -4265,10 +4265,18 @@ app.get('/articulos', requireLogin, async (req, res, next) => {
     const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
 
     const marcas = await loadMarcasForSelect(db);
-    const items = await db.getArticulos({ marcaId: selectedMarcaId });
+    let items = [];
+    let loadError = null;
+    try {
+      items = await db.getArticulos({ marcaId: selectedMarcaId });
+    } catch (e) {
+      console.error('❌ [articulos] Error cargando artículos:', e?.message || e);
+      loadError = e?.message || String(e);
+    }
 
     res.render('articulos', {
       items: items || [],
+      loadError,
       admin,
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId

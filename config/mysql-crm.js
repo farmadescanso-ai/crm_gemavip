@@ -2369,8 +2369,8 @@ class MySQLCRM {
       try {
         const tArt = await this._resolveTableNameCaseInsensitive('articulos');
         const aCols = await this._getColumns(tArt).catch(() => []);
-        const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
-        const aMarcaId = this._pickCIFromColumns(aCols, ['Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'Id_Marca';
+        const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
+        const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
 
         const tMarcas = await this._resolveTableNameCaseInsensitive('marcas').catch(() => null);
         if (!tMarcas) throw new Error('Sin tabla marcas');
@@ -2378,9 +2378,9 @@ class MySQLCRM {
         const mCols = await this._getColumns(tMarcas).catch(() => []);
         const mColsLower = new Set((mCols || []).map((c) => String(c).toLowerCase()));
         const pick = (cands) => (cands || []).find((c) => mColsLower.has(String(c).toLowerCase())) || null;
-        const mPk = pick(['id', 'Id']) || 'id';
+        const mPk = pick(['mar_id', 'id', 'Id']) || 'mar_id';
         const mNombre =
-          pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
+          pick(['mar_nombre', 'Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
 
         const selectMarcaNombre = mNombre
           ? `m.\`${mNombre}\` AS MarcaNombre`
@@ -2394,11 +2394,11 @@ class MySQLCRM {
           ORDER BY a.\`${aPk}\` ASC
         `;
         rows = hasMarcaId ? await this.query(sql, [marcaId]) : await this.query(sql);
-      } catch (_) {
+      } catch (innerErr) {
         const tArt = await this._resolveTableNameCaseInsensitive('articulos');
         const aCols = await this._getColumns(tArt).catch(() => []);
-        const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
-        const aMarcaId = this._pickCIFromColumns(aCols, ['Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'Id_Marca';
+        const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
+        const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
         const sql = hasMarcaId
           ? `SELECT * FROM \`${tArt}\` WHERE \`${aMarcaId}\` = ? ORDER BY \`${aPk}\` ASC`
           : `SELECT * FROM \`${tArt}\` ORDER BY \`${aPk}\` ASC`;
@@ -2408,7 +2408,7 @@ class MySQLCRM {
       return rows;
     } catch (error) {
       console.error('❌ Error obteniendo artículos:', error.message);
-      return [];
+      throw error;
     }
   }
 
@@ -2419,8 +2419,8 @@ class MySQLCRM {
       try {
         const tArt = await this._resolveTableNameCaseInsensitive('articulos');
         const aCols = await this._getColumns(tArt).catch(() => []);
-        const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
-        const aMarcaId = this._pickCIFromColumns(aCols, ['Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'Id_Marca';
+        const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
+        const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
 
         const tMarcas = await this._resolveTableNameCaseInsensitive('marcas').catch(() => null);
         if (!tMarcas) throw new Error('Sin tabla marcas');
@@ -2428,9 +2428,9 @@ class MySQLCRM {
         const mCols = await this._getColumns(tMarcas).catch(() => []);
         const mColsLower = new Set((mCols || []).map((c) => String(c).toLowerCase()));
         const pick = (cands) => (cands || []).find((c) => mColsLower.has(String(c).toLowerCase())) || null;
-        const mPk = pick(['id', 'Id']) || 'id';
+        const mPk = pick(['mar_id', 'id', 'Id']) || 'mar_id';
         const mNombre =
-          pick(['Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
+          pick(['mar_nombre', 'Nombre', 'nombre', 'Marca', 'marca', 'Descripcion', 'descripcion', 'NombreMarca', 'nombre_marca']) || null;
 
         const selectMarcaNombre = mNombre
           ? `m.\`${mNombre}\` AS MarcaNombre`
@@ -2447,7 +2447,7 @@ class MySQLCRM {
       } catch (_) {
         const tArt = await this._resolveTableNameCaseInsensitive('articulos');
         const aCols = await this._getColumns(tArt).catch(() => []);
-        const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
+        const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
         const sql = `SELECT * FROM \`${tArt}\` WHERE \`${aPk}\` = ? LIMIT 1`;
         rows = await this.query(sql, [id]);
       }
@@ -2471,14 +2471,30 @@ class MySQLCRM {
 
   async updateArticulo(id, payload) {
     try {
-      // COLUMNAS VÁLIDAS en la tabla articulos (verificadas contra la BD)
-      const columnasValidas = ['Nombre', 'SKU', 'Presentacion', 'PVL', 'PCP', 'Unidades_Caja', 'Imagen', 'Marca', 'EAN13', 'Activo', 'IVA', 'Id_Marca'];
-      
-      // FILTRAR el payload: solo incluir columnas válidas
+      const tArt = await this._resolveTableNameCaseInsensitive('articulos');
+      const aCols = await this._getColumns(tArt).catch(() => []);
+      const pick = (cands) => this._pickCIFromColumns(aCols, cands);
+      const colMap = {
+        Nombre: pick(['art_nombre', 'Nombre', 'nombre']),
+        SKU: pick(['art_sku', 'SKU', 'sku']),
+        Presentacion: pick(['art_presentacion', 'Presentacion', 'presentacion']),
+        PVL: pick(['art_pvl', 'PVL', 'pvl']),
+        PCP: pick(['art_pcp', 'PCP', 'pcp']),
+        Unidades_Caja: pick(['art_unidades_caja', 'Unidades_Caja', 'unidades_caja']),
+        Imagen: pick(['art_imagen', 'Imagen', 'imagen']),
+        Marca: pick(['art_marca', 'Marca', 'marca']),
+        EAN13: pick(['art_ean13', 'EAN13', 'ean13']),
+        Activo: pick(['art_activo', 'Activo', 'activo']),
+        IVA: pick(['art_iva', 'IVA', 'iva']),
+        Id_Marca: pick(['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId'])
+      };
+      const columnasValidas = Object.keys(colMap);
       const payloadFiltrado = {};
       for (const [key, value] of Object.entries(payload)) {
-        if (columnasValidas.includes(key)) {
-          payloadFiltrado[key] = value;
+        if (columnasValidas.includes(key) && colMap[key]) {
+          payloadFiltrado[colMap[key]] = value;
+        } else if (columnasValidas.includes(key)) {
+          console.warn(`⚠️ [UPDATE ARTICULO] Columna '${key}' no encontrada en BD`);
         } else {
           console.warn(`⚠️ [UPDATE ARTICULO] Ignorando columna inválida: '${key}'`);
         }
@@ -2502,9 +2518,8 @@ class MySQLCRM {
       }
       
       values.push(id);
-      const tArt = await this._resolveTableNameCaseInsensitive('articulos');
       const aCols = await this._getColumns(tArt).catch(() => []);
-      const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
+      const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
       const sql = `UPDATE \`${tArt}\` SET ${fields.join(', ')} WHERE \`${aPk}\` = ?`;
       console.log(`✅ [UPDATE ARTICULO] SQL: ${sql}`);
       console.log(`✅ [UPDATE ARTICULO] Valores:`, values);
@@ -2529,13 +2544,28 @@ class MySQLCRM {
 
   async createArticulo(payload) {
     try {
-      // Elegir primer ID disponible desde 1 (para no dejar huecos)
-      // Nota: esto es intencional por requerimiento del proyecto.
       const tArt = await this._resolveTableNameCaseInsensitive('articulos');
       const aCols = await this._getColumns(tArt).catch(() => []);
-      const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
+      const pick = (cands) => this._pickCIFromColumns(aCols, cands);
+      const aPk = pick(['art_id', 'id', 'Id']) || 'art_id';
+      const formToDb = {
+        SKU: pick(['art_sku', 'SKU', 'sku']),
+        Nombre: pick(['art_nombre', 'Nombre', 'nombre']),
+        Presentacion: pick(['art_presentacion', 'Presentacion', 'presentacion']),
+        Unidades_Caja: pick(['art_unidades_caja', 'Unidades_Caja', 'unidades_caja']),
+        PVL: pick(['art_pvl', 'PVL', 'pvl']),
+        IVA: pick(['art_iva', 'IVA', 'iva']),
+        Imagen: pick(['art_imagen', 'Imagen', 'imagen']),
+        Id_Marca: pick(['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']),
+        EAN13: pick(['art_ean13', 'EAN13', 'ean13']),
+        Activo: pick(['art_activo', 'Activo', 'activo'])
+      };
+      const dbPayload = {};
+      for (const [formKey, dbCol] of Object.entries(formToDb)) {
+        if (dbCol && payload && payload[formKey] !== undefined) dbPayload[dbCol] = payload[formKey];
+      }
 
-      if (payload && typeof payload === 'object' && payload[aPk] === undefined) {
+      if (dbPayload && typeof dbPayload === 'object' && dbPayload[aPk] === undefined) {
         // Buscar el primer hueco: 1 si no existe, o el siguiente tras un id sin sucesor.
         const nextIdRows = await this.query(
           `
@@ -2554,15 +2584,15 @@ class MySQLCRM {
         ).catch(() => []);
         const nextId = Number(nextIdRows?.[0]?.next_id);
         if (Number.isFinite(nextId) && nextId > 0) {
-          payload[aPk] = nextId;
+          dbPayload[aPk] = nextId;
         }
       }
 
-      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(payload).map(() => '?').join(', ');
-      const values = Object.values(payload);
+      const fields = Object.keys(dbPayload).map(key => `\`${key}\``).join(', ');
+      const placeholders = Object.keys(dbPayload).map(() => '?').join(', ');
+      const values = Object.values(dbPayload);
       
-      const sql = `INSERT INTO articulos (${fields}) VALUES (${placeholders})`;
+      const sql = `INSERT INTO \`${tArt}\` (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
       return { insertId: result.insertId || result.insertId };
     } catch (error) {
@@ -2575,7 +2605,7 @@ class MySQLCRM {
     try {
       const tArt = await this._resolveTableNameCaseInsensitive('articulos');
       const aCols = await this._getColumns(tArt).catch(() => []);
-      const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
+      const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
       const sql = `DELETE FROM \`${tArt}\` WHERE \`${aPk}\` = ?`;
       const result = await this.query(sql, [id]);
       return { affectedRows: result.affectedRows || 0 };
@@ -2602,8 +2632,9 @@ class MySQLCRM {
       
       const tArt = await this._resolveTableNameCaseInsensitive('articulos');
       const aCols = await this._getColumns(tArt).catch(() => []);
-      const aPk = this._pickCIFromColumns(aCols, ['id', 'Id']) || 'id';
-      const sql = `UPDATE \`${tArt}\` SET Activo = ? WHERE \`${aPk}\` = ?`;
+      const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
+      const colActivo = this._pickCIFromColumns(aCols, ['art_activo', 'Activo', 'activo']) || 'art_activo';
+      const sql = `UPDATE \`${tArt}\` SET \`${colActivo}\` = ? WHERE \`${aPk}\` = ?`;
       await this.query(sql, [activoValue, id]);
       return { affectedRows: 1 };
     } catch (error) {

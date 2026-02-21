@@ -12,36 +12,37 @@
       </div>
     <% } %>
 
-    <form method="post" action="<%= mode === 'edit' ? ('/articulos/' + (item.Id ?? item.id) + '/edit') : '/articulos/new' %>" style="display:grid; gap: 12px; max-width: 720px;">
+    <% const itemId = item.Id ?? item.id ?? item.art_id; const itemIdMarca = item.Id_Marca ?? item.art_mar_id; %>
+    <form method="post" action="<%= mode === 'edit' ? ('/articulos/' + itemId + '/edit') : '/articulos/new' %>" style="display:grid; gap: 12px; max-width: 720px;">
       <label style="display:grid; gap:6px; font-weight:700;">
         <span>SKU *</span>
-        <input class="gv-client-picker__q" name="SKU" value="<%= item.SKU ?? '' %>" maxlength="12" required />
+        <input class="gv-client-picker__q" name="SKU" value="<%= item.SKU ?? item.art_sku ?? '' %>" maxlength="12" required />
       </label>
 
       <label style="display:grid; gap:6px; font-weight:700;">
         <span>Nombre *</span>
-        <input class="gv-client-picker__q" name="Nombre" value="<%= item.Nombre ?? '' %>" maxlength="100" required />
+        <input class="gv-client-picker__q" name="Nombre" value="<%= item.Nombre ?? item.art_nombre ?? '' %>" maxlength="100" required />
       </label>
 
       <div class="grid cols-2" style="gap: 12px;">
         <label style="display:grid; gap:6px; font-weight:700;">
           <span>Presentación</span>
-          <input class="gv-client-picker__q" name="Presentacion" value="<%= item.Presentacion ?? '' %>" maxlength="20" />
+          <input class="gv-client-picker__q" name="Presentacion" value="<%= item.Presentacion ?? item.art_presentacion ?? '' %>" maxlength="20" />
         </label>
         <label style="display:grid; gap:6px; font-weight:700;">
           <span>Unidades caja</span>
-          <input class="gv-client-picker__q" type="number" name="Unidades_Caja" value="<%= item.Unidades_Caja ?? 1 %>" min="0" step="1" />
+          <input class="gv-client-picker__q" type="number" name="Unidades_Caja" value="<%= item.Unidades_Caja ?? item.art_unidades_caja ?? 1 %>" min="0" step="1" />
         </label>
       </div>
 
       <div class="grid cols-2" style="gap: 12px;">
         <label style="display:grid; gap:6px; font-weight:700;">
           <span>PVL</span>
-          <input class="gv-client-picker__q" type="number" name="PVL" value="<%= item.PVL ?? 0 %>" min="0" step="0.01" />
+          <input class="gv-client-picker__q" type="number" name="PVL" value="<%= item.PVL ?? item.art_pvl ?? 0 %>" min="0" step="0.01" />
         </label>
         <label style="display:grid; gap:6px; font-weight:700;">
           <span>IVA</span>
-          <input class="gv-client-picker__q" type="number" name="IVA" value="<%= item.IVA ?? 21 %>" min="0" step="0.01" />
+          <input class="gv-client-picker__q" type="number" name="IVA" value="<%= item.IVA ?? item.art_iva ?? 21 %>" min="0" step="0.01" />
         </label>
       </div>
 
@@ -50,33 +51,33 @@
           <span>Marca</span>
           <select class="gv-client-picker__q" name="Id_Marca">
             <option value="">—</option>
-            <% (marcas || []).forEach((m) => { %>
-              <option value="<%= m.id %>" <%= Number(item.Id_Marca) === Number(m.id) ? 'selected' : '' %>><%= m.nombre ?? m.id %></option>
+            <% (marcas || []).forEach((m) => { const mid = m.id ?? m.mar_id; %>
+              <option value="<%= mid %>" <%= Number(itemIdMarca) === Number(mid) ? 'selected' : '' %>><%= m.nombre ?? m.mar_nombre ?? mid %></option>
             <% }) %>
           </select>
         </label>
         <label style="display:grid; gap:6px; font-weight:700;">
           <span>Activo</span>
           <select class="gv-client-picker__q" name="Activo">
-            <option value="1" <%= (item.Activo ?? 1) ? 'selected' : '' %>>Sí</option>
-            <option value="0" <%= (item.Activo ?? 1) ? '' : 'selected' %>>No</option>
+            <option value="1" <%= (item.Activo ?? item.art_activo ?? 1) ? 'selected' : '' %>>Sí</option>
+            <option value="0" <%= (item.Activo ?? item.art_activo ?? 1) ? '' : 'selected' %>>No</option>
           </select>
         </label>
       </div>
 
       <label style="display:grid; gap:6px; font-weight:700;">
         <span>EAN13</span>
-        <input class="gv-client-picker__q" name="EAN13" value="<%= item.EAN13 ?? '' %>" />
+        <input class="gv-client-picker__q" name="EAN13" value="<%= item.EAN13 ?? item.art_ean13 ?? '' %>" />
       </label>
 
       <label style="display:grid; gap:6px; font-weight:700;">
         <span>Imagen (URL o path)</span>
-        <input class="gv-client-picker__q" name="Imagen" value="<%= item.Imagen ?? '' %>" maxlength="255" />
+        <input class="gv-client-picker__q" name="Imagen" value="<%= item.Imagen ?? item.art_imagen ?? '' %>" maxlength="255" />
       </label>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 6px;">
         <button class="btn secondary" type="submit"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
-        <a class="btn secondary" href="<%= mode === 'edit' ? ('/articulos/' + (item.Id ?? item.id)) : '/articulos' %>">Cancelar</a>
+        <a class="btn secondary" href="<%= mode === 'edit' ? ('/articulos/' + itemId) : '/articulos' %>">Cancelar</a>
       </div>
     </form>
   </div>
