@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Portal CRM para comerciales de Farmadescaso 2021 SL",
   "main": "api/index.js",
+  "engines": { "node": ">=18" },
   "scripts": {
     "start": "node api/index.js",
     "dev": "nodemon api/index.js",
