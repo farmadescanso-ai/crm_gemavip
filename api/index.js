@@ -477,6 +477,16 @@ app.post('/login', async (req, res, next) => {
     }
 
     if (!ok) {
+      // Diagnóstico: si DEBUG_LOGIN=1, loguear info (sin contraseña) para depurar admin vs comercial
+      if (process.env.DEBUG_LOGIN === '1') {
+        console.warn('[DEBUG_LOGIN] Usuario encontrado pero contraseña no coincide.', {
+          email,
+          roll: _n(comercial.com_roll, comercial.Roll || comercial.roll),
+          columnas: Object.keys(comercial).filter((k) => /pass|password|clave/i.test(k)),
+          storedLen: stored.length,
+          storedPrefix: stored ? stored.substring(0, 7) : '(vacío)'
+        });
+      }
       return res.status(401).render('login', { title: 'Login', error: 'Credenciales incorrectas' });
     }
 

@@ -2018,9 +2018,10 @@ class MySQLCRM {
 
   async getComercialByEmail(email) {
     try {
-      const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales'));
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const cols = await this._getColumns(t);
       const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'com_email';
-      const sql = `SELECT * FROM comerciales WHERE LOWER(\`${colEmail}\`) = LOWER(?) LIMIT 1`;
+      const sql = `SELECT * FROM \`${t}\` WHERE LOWER(TRIM(\`${colEmail}\`)) = LOWER(TRIM(?)) LIMIT 1`;
       const rows = await this.query(sql, [email]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -10152,8 +10153,12 @@ class MySQLCRM {
   async updateComercialPassword(comercialId, hashedPassword) {
     try {
       if (!this.connected && !this.pool) await this.connect();
-      const sql = 'UPDATE comerciales SET Password = ? WHERE id = ? OR Id = ?';
-      const [result] = await this.pool.execute(sql, [hashedPassword, comercialId, comercialId]);
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const cols = await this._getColumns(t);
+      const colPwd = this._pickCIFromColumns(cols, ['com_password', 'Password', 'password']) || 'Password';
+      const pk = this._pickCIFromColumns(cols, ['com_id', 'Id', 'id']) || 'id';
+      const sql = `UPDATE \`${t}\` SET \`${colPwd}\` = ? WHERE \`${pk}\` = ?`;
+      const [result] = await this.pool.execute(sql, [hashedPassword, comercialId]);
       return (result?.affectedRows ?? 0) > 0;
     } catch (e) {
       console.error('❌ Error actualizando contraseña:', e?.message);
