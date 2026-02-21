@@ -35,6 +35,14 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Vercel rewrites: / -> /api/index, así que req.url puede venir como /api/index; normalizar a /
+app.use((req, _res, next) => {
+  if (typeof req.url === 'string' && req.url.startsWith('/api/index')) {
+    req.url = req.url.replace(/^\/api\/index/, '') || '/';
+  }
+  next();
+});
+
 // Health check (sin sesión/DB) para diagnosticar crashes en Vercel
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'crm_gemavip', timestamp: new Date().toISOString() });
