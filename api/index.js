@@ -159,11 +159,13 @@ app.use((req, res, next) => {
 });
 
 function requireApiKeyIfConfigured(req, res, next) {
-  // Si el usuario está logueado por sesión, permitimos acceso a /api desde la propia app
-  // (p.ej. autocomplete/búsquedas internas). Para clientes externos seguirá requiriéndose API_KEY.
+  // Sesión: acceso desde la app web (autocomplete, listados, etc.)
   if (req.session?.user) return next();
   const configured = process.env.API_KEY;
-  if (!configured) return next();
+  // Si API_KEY no está configurada: exigir sesión (evitar API abierta a cualquiera)
+  if (!configured) {
+    return res.status(401).json({ ok: false, error: 'Login requerido (inicia sesión en la web o configura API_KEY para acceso externo)' });
+  }
   const provided = req.header('x-api-key') || req.header('X-API-Key');
   if (provided && provided === configured) return next();
   return res.status(401).json({ ok: false, error: 'API key requerida (X-API-Key)' });
