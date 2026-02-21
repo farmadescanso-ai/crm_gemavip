@@ -197,7 +197,7 @@ router.get(
     if (sessionUser && !isAdmin) {
       const c = await db.getClienteById(id);
       if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
-      const cial = toInt(c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
       const selfId = toInt(sessionUser.id, 0) ?? 0;
       if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
     }
@@ -220,7 +220,7 @@ router.get(
     if (sessionUser && !isAdmin) {
       const c = await db.getClienteById(id);
       if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
-      const cial = toInt(c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
       const selfId = toInt(sessionUser.id, 0) ?? 0;
       if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
     }
@@ -293,7 +293,7 @@ router.post(
     if (sessionUser && !isAdmin) {
       const c = await db.getClienteById(id);
       if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
-      const cial = toInt(c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
       const selfId = toInt(sessionUser.id, 0) ?? 0;
       if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
     }
@@ -412,7 +412,7 @@ router.put(
       const current = await db.getClienteById(id);
       if (!current) return res.status(404).json({ ok: false, error: 'No encontrado' });
       const currentCialRaw =
-        current.Id_Cial ?? current.id_cial ?? current.ComercialId ?? current.comercialId ?? current.Id_Comercial ?? current.id_comercial ?? null;
+        current.cli_com_id ?? current.Id_Cial ?? current.id_cial ?? current.ComercialId ?? current.comercialId ?? current.Id_Comercial ?? current.id_comercial ?? null;
       const currentCial = toInt(currentCialRaw, 0) ?? 0;
 
       // Permitido: sin asignar (0/null) o pool (1) o ya asignado a mí

@@ -19,7 +19,7 @@ async function assertPedidoAccess(req, pedidoId, { write = false } = {}) {
   if (!item) return { ok: false, status: 404, error: 'No encontrado' };
 
   if (!admin) {
-    const owner = Number(item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+    const owner = Number(item.ped_com_id ?? item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
     if (owner !== Number(sessionUser.id)) return { ok: false, status: 404, error: 'No encontrado' };
     if (write) {
       const estado = normEstado(item.EstadoPedido ?? item.Estado);
@@ -64,7 +64,7 @@ router.get(
     // Si hay sesión y NO es admin: siempre acotar al comercial logueado
     if (sessionUser && !isAdmin) {
       const itemsRaw = await db.getPedidosByComercial(sessionUser.id);
-      const items = clienteId ? (itemsRaw || []).filter((p) => Number(p.Id_Cliente ?? p.ClienteId ?? 0) === Number(clienteId)) : (itemsRaw || []);
+      const items = clienteId ? (itemsRaw || []).filter((p) => Number(p.ped_cli_id ?? p.Id_Cliente ?? p.ClienteId ?? 0) === Number(clienteId)) : (itemsRaw || []);
       return res.json({ ok: true, items });
     }
 

@@ -62,12 +62,12 @@
   }
 
   function getLabel(it) {
-    const id = it?.Id ?? it?.id ?? '';
-    const rs = it?.Nombre_Razon_Social ?? it?.Nombre ?? '';
-    const nc = it?.Nombre_Cial ?? '';
-    const cif = it?.DNI_CIF ?? it?.DniCif ?? '';
-    const pob = it?.Poblacion ?? '';
-    const cp = it?.CodigoPostal ?? '';
+    const id = it?.cli_id ?? it?.Id ?? it?.id ?? '';
+    const rs = it?.cli_nombre_razon_social ?? it?.Nombre_Razon_Social ?? it?.Nombre ?? '';
+    const nc = it?.cli_nombre_cial ?? it?.Nombre_Cial ?? '';
+    const cif = it?.cli_dni_cif ?? it?.DNI_CIF ?? it?.DniCif ?? '';
+    const pob = it?.cli_poblacion ?? it?.Poblacion ?? '';
+    const cp = it?.cli_codigo_postal ?? it?.CodigoPostal ?? '';
     const parts = [];
     if (rs) parts.push(rs);
     if (nc) parts.push(nc);
@@ -76,12 +76,12 @@
   }
 
   function getDisplayHtml(it, query) {
-    const id = it?.Id ?? it?.id ?? '';
-    const rs = it?.Nombre_Razon_Social ?? it?.Nombre ?? '';
-    const nc = it?.Nombre_Cial ?? '';
-    const cif = it?.DNI_CIF ?? it?.DniCif ?? '';
-    const pob = it?.Poblacion ?? '';
-    const cp = it?.CodigoPostal ?? '';
+    const id = it?.cli_id ?? it?.Id ?? it?.id ?? '';
+    const rs = it?.cli_nombre_razon_social ?? it?.Nombre_Razon_Social ?? it?.Nombre ?? '';
+    const nc = it?.cli_nombre_cial ?? it?.Nombre_Cial ?? '';
+    const cif = it?.cli_dni_cif ?? it?.DNI_CIF ?? it?.DniCif ?? '';
+    const pob = it?.cli_poblacion ?? it?.Poblacion ?? '';
+    const cp = it?.cli_codigo_postal ?? it?.CodigoPostal ?? '';
 
     const name = [rs, nc].filter(Boolean).join(' / ');
     const extra = [cif, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
@@ -153,7 +153,7 @@
         results.innerHTML = items
           .slice(0, 20)
           .map((it) => {
-            const id = it?.Id ?? it?.id ?? '';
+            const id = it?.cli_id ?? it?.Id ?? it?.id ?? '';
             const label = getLabel(it);
             const html = getDisplayHtml(it, q);
             return `<button type="button" class="gv-client-picker__item" data-id="${escapeHtml(id)}" data-label="${escapeHtml(

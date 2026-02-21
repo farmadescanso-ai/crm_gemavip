@@ -130,9 +130,10 @@ router.get(
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
-    const pkClientes = clientesMeta?.pk || 'Id';
+    const pkClientes = clientesMeta?.pk || 'cli_id';
     const joinCliente = meta.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${meta.colCliente}\` = c.\`${pkClientes}\`` : '';
-    const selectClienteNombre = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
+    const colClienteNombre = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+    const selectClienteNombre = meta.colCliente ? `c.\`${colClienteNombre}\` as ClienteNombre` : 'NULL as ClienteNombre';
 
     const sql = `
       SELECT

@@ -435,7 +435,7 @@ app.post('/login', async (req, res, next) => {
       return res.status(401).render('login', { title: 'Login', error: 'Credenciales incorrectas' });
     }
 
-    const stored = String(comercial.Password || comercial.password || '');
+    const stored = String(comercial.com_password ?? comercial.Password || comercial.password || '');
     let ok = false;
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       ok = await bcrypt.compare(password, stored);
@@ -449,10 +449,10 @@ app.post('/login', async (req, res, next) => {
     }
 
     req.session.user = {
-      id: comercial.id ?? comercial.Id,
-      nombre: comercial.Nombre || null,
-      email: comercial.Email || comercial.email || email,
-      roles: normalizeRoles(comercial.Roll || comercial.roll || comercial.Rol)
+      id: comercial.com_id ?? comercial.id ?? comercial.Id,
+      nombre: comercial.com_nombre ?? comercial.Nombre || null,
+      email: comercial.com_email ?? comercial.Email || comercial.email || email,
+      roles: normalizeRoles(comercial.com_roll ?? comercial.Roll || comercial.roll || comercial.Rol)
     };
 
     return res.redirect('/dashboard');
@@ -530,11 +530,11 @@ app.post('/login/olvidar-contrasena', async (req, res, next) => {
     const comercial = await db.getComercialByEmail(email);
     if (comercial) {
       const token = crypto.randomBytes(32).toString('hex');
-      const comercialId = comercial.id ?? comercial.Id;
+      const comercialId = comercial.com_id ?? comercial.id ?? comercial.Id;
       await db.createPasswordResetToken(comercialId, email, token, 1);
       recordPasswordResetIp(ip);
       const resetLink = `${APP_BASE_URL.replace(/\/$/, '')}/login/restablecer-contrasena?token=${encodeURIComponent(token)}`;
-      await sendPasswordResetEmail(email, resetLink, comercial.Nombre || '');
+      await sendPasswordResetEmail(email, resetLink, comercial.com_nombre ?? comercial.Nombre || '');
     }
     res.render('login-olvidar-contrasena', {
       title: 'Recuperar contraseña',
@@ -627,7 +627,7 @@ app.post('/cuenta/cambiar-contrasena', requireLogin, async (req, res, next) => {
     }
     const comercial = await db.getComercialById(userId);
     if (!comercial) return res.redirect('/login');
-    const stored = String(comercial.Password || comercial.password || '');
+    const stored = String(comercial.com_password ?? comercial.Password || comercial.password || '');
     let currentOk = false;
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       currentOk = await bcrypt.compare(current, stored);
@@ -2573,26 +2573,26 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
           if (cColDniCif) addPerLike(`c.\`${cColDniCif}\``);
         } else if (['provincia', 'prov', 'p'].includes(f)) {
           if (!(cColProvinciaId && addPerEqNum(`c.\`${cColProvinciaId}\``))) {
-            if (joinProvincia) addPerLike(`COALESCE(pr.Nombre,'')`);
+            if (joinProvincia) addPerLike(`COALESCE(pr.prov_nombre,'')`);
           }
         } else if (['poblacion', 'pob'].includes(f)) {
           if (cColPoblacion) addPerLike(`c.\`${cColPoblacion}\``);
         } else if (['comercial', 'com'].includes(f)) {
           if (!addPerEqNum(`p.\`${colComercial}\``)) {
             if (joinComerciales) {
-              addPerLike(`COALESCE(co.Nombre,'')`);
+              addPerLike(`COALESCE(co.com_nombre,'')`);
               addPerLike(`COALESCE(co.Email,'')`);
             }
           }
         } else if (['tipo', 'tipocliente', 'tc'].includes(f)) {
           if (!(cColTipoClienteId && addPerEqNum(`c.\`${cColTipoClienteId}\``))) {
-            if (joinTipoCliente) addPerLike(`COALESCE(tc.Tipo,'')`);
+            if (joinTipoCliente) addPerLike(`COALESCE(tc.tipc_tipo,'')`);
           }
         } else if (['estado', 'st'].includes(f)) {
           if (hasEstadoIdCol && addPerEqNum(`p.\`${colEstadoId}\``)) {
             // ok
           } else {
-            if (hasEstadoIdCol) addPerLike(`COALESCE(ep.nombre,'')`);
+            if (hasEstadoIdCol) addPerLike(`COALESCE(ep.estped_nombre,'')`);
             addPerLike(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
           }
         } else if (['pedido', 'num'].includes(f)) {
@@ -2684,10 +2684,10 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         if (cColEmail) addOr(`COALESCE(CONCAT(c.\`${cColEmail}\`,''),'')`);
         if (cColTelefono) addOr(`COALESCE(CONCAT(c.\`${cColTelefono}\`,''),'')`);
         if (cColPoblacion) addOr(`COALESCE(CONCAT(c.\`${cColPoblacion}\`,''),'')`);
-        if (joinProvincia) addOr(`COALESCE(pr.Nombre,'')`);
-        if (joinComerciales) addOr(`COALESCE(co.Nombre,'')`);
-        if (joinTipoCliente) addOr(`COALESCE(tc.Tipo,'')`);
-        if (hasEstadoIdCol) addOr(`COALESCE(ep.nombre,'')`);
+        if (joinProvincia) addOr(`COALESCE(pr.prov_nombre,'')`);
+        if (joinComerciales) addOr(`COALESCE(co.com_nombre,'')`);
+        if (joinTipoCliente) addOr(`COALESCE(tc.tipc_tipo,'')`);
+        if (hasEstadoIdCol) addOr(`COALESCE(ep.estped_nombre,'')`);
         addOr(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
         if (ors.length) termClauses.push(`(${ors.join(' OR ')})`);
       }
@@ -2697,23 +2697,23 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
 
       const sql = `
         SELECT DISTINCT p.*,
-          ${hasEstadoIdCol ? 'ep.nombre AS EstadoPedidoNombre, ep.color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
+          ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
-          ${joinProvincia ? 'pr.Nombre AS ProvinciaNombre,' : 'NULL AS ProvinciaNombre,'}
-          ${joinTipoCliente ? 'tc.Tipo AS TipoClienteNombre,' : 'NULL AS TipoClienteNombre,'}
-          ${joinComerciales ? 'co.Nombre AS ComercialNombre,' : 'NULL AS ComercialNombre,'}
-          ${joinComerciales ? 'co.Email AS ComercialEmail' : 'NULL AS ComercialEmail'}
+          ${joinProvincia ? 'pr.prov_nombre AS ProvinciaNombre,' : 'NULL AS ProvinciaNombre,'}
+          ${joinTipoCliente ? 'tc.tipc_tipo AS TipoClienteNombre,' : 'NULL AS TipoClienteNombre,'}
+          ${joinComerciales ? 'co.com_nombre AS ComercialNombre,' : 'NULL AS ComercialNombre,'}
+          ${joinComerciales ? 'co.com_email AS ComercialEmail' : 'NULL AS ComercialEmail'}
         FROM \`${tPedidos}\` p
-        LEFT JOIN \`${tClientes}\` c ON (c.\`${clientesMeta?.pk || 'Id'}\` = p.\`${pedidosMeta?.colCliente || 'Id_Cliente'}\`)
-        ${joinProvincia ? `LEFT JOIN \`${tProvincias}\` pr ON c.\`${cColProvinciaId}\` = pr.id` : ''}
-        ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.id` : ''}
-        ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.id` : ''}
-        ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.id = p.\`${colEstadoId}\`` : ''}
-        INNER JOIN pedidos_articulos pa ON pa.Id_NumPedido = p.id
-        INNER JOIN articulos a ON a.id = pa.Id_Articulo
+        LEFT JOIN \`${tClientes}\` c ON (c.\`${clientesMeta?.pk || 'cli_id'}\` = p.\`${pedidosMeta?.colCliente || 'ped_cli_id'}\`)
+        ${joinProvincia ? `LEFT JOIN \`${tProvincias}\` pr ON c.\`${cColProvinciaId}\` = pr.prov_id` : ''}
+        ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.tipc_id` : ''}
+        ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
+        ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
+        INNER JOIN pedidos_articulos pa ON pa.pedart_ped_id = p.ped_id
+        INNER JOIN articulos a ON a.art_id = pa.pedart_art_id
         WHERE ${where.join('\n          AND ')}
-        ORDER BY p.id DESC
+        ORDER BY p.ped_id DESC
         LIMIT 200
       `;
 
@@ -2764,26 +2764,26 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
           if (cColDniCif) addPerLike(`c.\`${cColDniCif}\``);
         } else if (['provincia', 'prov', 'p'].includes(f)) {
           if (!(cColProvinciaId && addPerEqNum(`c.\`${cColProvinciaId}\``))) {
-            if (joinProvincia) addPerLike(`COALESCE(pr.Nombre,'')`);
+            if (joinProvincia) addPerLike(`COALESCE(pr.prov_nombre,'')`);
           }
         } else if (['poblacion', 'pob'].includes(f)) {
           if (cColPoblacion) addPerLike(`c.\`${cColPoblacion}\``);
         } else if (['comercial', 'com'].includes(f)) {
           if (!addPerEqNum(`p.\`${colComercial}\``)) {
             if (joinComerciales) {
-              addPerLike(`COALESCE(co.Nombre,'')`);
+              addPerLike(`COALESCE(co.com_nombre,'')`);
               addPerLike(`COALESCE(co.Email,'')`);
             }
           }
         } else if (['tipo', 'tipocliente', 'tc'].includes(f)) {
           if (!(cColTipoClienteId && addPerEqNum(`c.\`${cColTipoClienteId}\``))) {
-            if (joinTipoCliente) addPerLike(`COALESCE(tc.Tipo,'')`);
+            if (joinTipoCliente) addPerLike(`COALESCE(tc.tipc_tipo,'')`);
           }
         } else if (['estado', 'st'].includes(f)) {
           if (hasEstadoIdCol && addPerEqNum(`p.\`${colEstadoId}\``)) {
             // ok
           } else {
-            if (hasEstadoIdCol) addPerLike(`COALESCE(ep.nombre,'')`);
+            if (hasEstadoIdCol) addPerLike(`COALESCE(ep.estped_nombre,'')`);
             addPerLike(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
           }
         } else if (['pedido', 'num'].includes(f)) {
@@ -2869,10 +2869,10 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         if (cColEmail) addOr(`COALESCE(CONCAT(c.\`${cColEmail}\`,''),'')`);
         if (cColTelefono) addOr(`COALESCE(CONCAT(c.\`${cColTelefono}\`,''),'')`);
         if (cColPoblacion) addOr(`COALESCE(CONCAT(c.\`${cColPoblacion}\`,''),'')`);
-        if (joinProvincia) addOr(`COALESCE(pr.Nombre,'')`);
-        if (joinComerciales) addOr(`COALESCE(co.Nombre,'')`);
-        if (joinTipoCliente) addOr(`COALESCE(tc.Tipo,'')`);
-        if (hasEstadoIdCol) addOr(`COALESCE(ep.nombre,'')`);
+        if (joinProvincia) addOr(`COALESCE(pr.prov_nombre,'')`);
+        if (joinComerciales) addOr(`COALESCE(co.com_nombre,'')`);
+        if (joinTipoCliente) addOr(`COALESCE(tc.tipc_tipo,'')`);
+        if (hasEstadoIdCol) addOr(`COALESCE(ep.estped_nombre,'')`);
         addOr(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
         if (ors.length) termClauses.push(`(${ors.join(' OR ')})`);
       }
@@ -2882,21 +2882,21 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
 
       const sql = `
         SELECT p.*,
-          ${hasEstadoIdCol ? 'ep.nombre AS EstadoPedidoNombre, ep.color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
+          ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
-          ${joinProvincia ? 'pr.Nombre AS ProvinciaNombre,' : 'NULL AS ProvinciaNombre,'}
-          ${joinTipoCliente ? 'tc.Tipo AS TipoClienteNombre,' : 'NULL AS TipoClienteNombre,'}
-          ${joinComerciales ? 'co.Nombre AS ComercialNombre,' : 'NULL AS ComercialNombre,'}
-          ${joinComerciales ? 'co.Email AS ComercialEmail' : 'NULL AS ComercialEmail'}
+          ${joinProvincia ? 'pr.prov_nombre AS ProvinciaNombre,' : 'NULL AS ProvinciaNombre,'}
+          ${joinTipoCliente ? 'tc.tipc_tipo AS TipoClienteNombre,' : 'NULL AS TipoClienteNombre,'}
+          ${joinComerciales ? 'co.com_nombre AS ComercialNombre,' : 'NULL AS ComercialNombre,'}
+          ${joinComerciales ? 'co.com_email AS ComercialEmail' : 'NULL AS ComercialEmail'}
         FROM \`${tPedidos}\` p
-        LEFT JOIN \`${tClientes}\` c ON (c.\`${clientesMeta?.pk || 'Id'}\` = p.\`${pedidosMeta?.colCliente || 'Id_Cliente'}\`)
-        ${joinProvincia ? `LEFT JOIN \`${tProvincias}\` pr ON c.\`${cColProvinciaId}\` = pr.id` : ''}
-        ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.id` : ''}
-        ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.id` : ''}
-        ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.id = p.\`${colEstadoId}\`` : ''}
+        LEFT JOIN \`${tClientes}\` c ON (c.\`${clientesMeta?.pk || 'cli_id'}\` = p.\`${pedidosMeta?.colCliente || 'ped_cli_id'}\`)
+        ${joinProvincia ? `LEFT JOIN \`${tProvincias}\` pr ON c.\`${cColProvinciaId}\` = pr.prov_id` : ''}
+        ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.tipc_id` : ''}
+        ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
+        ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
         WHERE ${where.join('\n          AND ')}
-        ORDER BY p.id DESC
+        ORDER BY p.ped_id DESC
         LIMIT 200
       `;
 
@@ -4423,7 +4423,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     const joinComercial = meta.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${meta.colComercial}\` = co.\`${pkComerciales}\`` : '';
     const selectClienteNombre = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
     const selectClienteRazon = meta.colCliente ? 'c.Nombre_Razon_Social as ClienteRazonSocial' : 'NULL as ClienteRazonSocial';
-    const selectComercialNombre = meta.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
+    const selectComercialNombre = meta.colComercial ? 'co.com_nombre as ComercialNombre' : 'NULL as ComercialNombre';
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -5057,7 +5057,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
         const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
         const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
-        const selectComercialNombre = metaVisitas.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
+        const selectComercialNombre = metaVisitas.colComercial ? 'co.com_nombre as ComercialNombre' : 'NULL as ComercialNombre';
         const where = [];
         const params = [];
         if (metaVisitas.colComercial && Number.isFinite(userId) && userId > 0) {
@@ -5107,7 +5107,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
         const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
         const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
         const selectClienteNombre = metaVisitas.colCliente ? 'c.Nombre_Razon_Social as ClienteNombre' : 'NULL as ClienteNombre';
-        const selectComercialNombre = metaVisitas.colComercial ? 'co.Nombre as ComercialNombre' : 'NULL as ComercialNombre';
+        const selectComercialNombre = metaVisitas.colComercial ? 'co.com_nombre as ComercialNombre' : 'NULL as ComercialNombre';
 
         const where = [];
         const params = [];

@@ -121,8 +121,9 @@ class MySQLCRM {
 
     const meta = {
       table: tVisitas,
-      pk: pickCI(['Id', 'id']) || 'Id',
+      pk: pickCI(['vis_id', 'Id', 'id']) || 'vis_id',
       colComercial: pickCI([
+        'vis_com_id',
         'Id_Cial',
         'id_cial',
         'IdCial',
@@ -137,11 +138,12 @@ class MySQLCRM {
         'id_Comercial',
         'id_comercial'
       ]),
-      colCliente: pickCI(['ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
-      colFecha: pickCI(['Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita', 'Fecha_Visita', 'fechaVisita']),
-      colHora: pickCI(['Hora', 'hora', 'Hora_Visita', 'hora_visita']),
-      colHoraFinal: pickCI(['Hora_Final', 'hora_final', 'HoraFinal', 'horaFinal', 'Hora_Fin', 'hora_fin', 'HoraFin', 'horaFin']),
+      colCliente: pickCI(['vis_cli_id', 'ClienteId', 'clienteId', 'Id_Cliente', 'id_cliente', 'Cliente_id', 'cliente_id', 'FarmaciaClienteId', 'farmaciaClienteId']),
+      colFecha: pickCI(['vis_fecha', 'Fecha', 'fecha', 'FechaVisita', 'fechaVisita', 'Fecha_Visita', 'fecha_visita', 'Fecha_Visita', 'fechaVisita']),
+      colHora: pickCI(['vis_hora', 'Hora', 'hora', 'Hora_Visita', 'hora_visita']),
+      colHoraFinal: pickCI(['vis_hora_final', 'Hora_Final', 'hora_final', 'HoraFinal', 'horaFinal', 'Hora_Fin', 'hora_fin', 'HoraFin', 'horaFin']),
       colTipo: pickCI([
+        'vis_tipo',
         'TipoVisita',
         'tipoVisita',
         'Tipo_Visita',
@@ -152,13 +154,12 @@ class MySQLCRM {
         'id_tipovisita',
         'Id_Tipo_Visita',
         'id_tipo_visita',
-        'id_tipo_visita',
         'TipoVisitaId',
         'Tipo_VisitaId',
         'tipoVisitaId'
       ]),
-      colEstado: pickCI(['Estado', 'estado', 'EstadoVisita', 'estadoVisita', 'Estado_Visita', 'estado_visita']),
-      colNotas: pickCI(['Notas', 'notas', 'Observaciones', 'observaciones', 'Comentarios', 'comentarios', 'Mensaje', 'mensaje'])
+      colEstado: pickCI(['vis_estado', 'Estado', 'estado', 'EstadoVisita', 'estadoVisita', 'Estado_Visita', 'estado_visita']),
+      colNotas: pickCI(['vis_notas', 'Notas', 'notas', 'Observaciones', 'observaciones', 'Comentarios', 'comentarios', 'Mensaje', 'mensaje'])
     };
 
     // Fallback por heurística si no se detecta por lista cerrada (evita quedarse sin filtro en prod).
@@ -611,8 +612,9 @@ class MySQLCRM {
     const cols = await this._getColumns(tPedidos);
     const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
 
-    const pk = pickCI(['Id', 'id']) || 'Id';
+    const pk = pickCI(['ped_id', 'Id', 'id']) || 'ped_id';
     const colComercial = pickCI([
+      'ped_com_id',
       'Id_Cial',
       'id_cial',
       'Comercial_id',
@@ -623,6 +625,7 @@ class MySQLCRM {
       'id_comercial'
     ]);
     const colCliente = pickCI([
+      'ped_cli_id',
       'Id_Cliente',
       'id_cliente',
       'Cliente_id',
@@ -631,6 +634,7 @@ class MySQLCRM {
       'clienteId'
     ]);
     const colFecha = pickCI([
+      'ped_fecha',
       'FechaPedido',
       'Fecha_Pedido',
       'Fecha',
@@ -639,6 +643,7 @@ class MySQLCRM {
       'CreatedAt'
     ]);
     const colNumPedido = pickCI([
+      'ped_numero',
       'NumPedido',
       'Numero_Pedido',
       'numero_pedido',
@@ -648,8 +653,8 @@ class MySQLCRM {
       'numeroPedido'
     ]);
 
-    const colEstado = pickCI(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
-    const colEstadoId = pickCI(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
+    const colEstado = pickCI(['ped_estado_txt', 'EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
+    const colEstadoId = pickCI(['ped_estped_id', 'Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
     const meta = { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido, colEstado, colEstadoId };
     this._metaCache.pedidosMeta = meta;
     return meta;
@@ -662,11 +667,11 @@ class MySQLCRM {
     const cols = await this._getColumns(t);
     const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
 
-    const pk = pickCI(['Id', 'id']) || 'Id';
-    const colNumPedido = pickCI(['NumPedido', 'numPedido', 'NumeroPedido', 'numeroPedido', 'Numero_Pedido', 'Número_Pedido', 'Número Pedido']);
-    const colPedidoId = pickCI(['PedidoId', 'pedidoId', 'Id_Pedido', 'id_pedido', 'pedido_id', 'IdPedido', 'idPedido']);
-    const colPedidoIdNum = pickCI(['Id_NumPedido', 'id_numpedido', 'id_num_pedido', 'PedidoIdNum', 'pedidoIdNum', 'IdNumPedido', 'idNumPedido']);
-    const colArticulo = pickCI(['Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloId', 'IdArticulo', 'idArticulo']);
+    const pk = pickCI(['pedart_id', 'Id', 'id']) || 'pedart_id';
+    const colNumPedido = pickCI(['pedart_numero', 'NumPedido', 'numPedido', 'NumeroPedido', 'numeroPedido', 'Numero_Pedido', 'Número_Pedido', 'Número Pedido']);
+    const colPedidoId = pickCI(['pedart_ped_id', 'PedidoId', 'pedidoId', 'Id_Pedido', 'id_pedido', 'pedido_id', 'IdPedido', 'idPedido']);
+    const colPedidoIdNum = pickCI(['pedart_ped_id', 'Id_NumPedido', 'id_numpedido', 'id_num_pedido', 'PedidoIdNum', 'pedidoIdNum', 'IdNumPedido', 'idNumPedido']);
+    const colArticulo = pickCI(['pedart_art_id', 'Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloId', 'IdArticulo', 'idArticulo']);
 
     const meta = { table: t, pk, colNumPedido, colPedidoId, colPedidoIdNum, colArticulo };
     this._metaCache.pedidosArticulosMeta = meta;
@@ -680,12 +685,12 @@ class MySQLCRM {
     const cols = await this._getColumns(t).catch(() => []);
     const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
 
-    const pk = pickCI(['id', 'Id']) || 'id';
-    const colDesde = pickCI(['importe_desde', 'Importe_Desde', 'ImporteDesde', 'desde', 'importe_min', 'min']);
-    const colHasta = pickCI(['importe_hasta', 'Importe_Hasta', 'ImporteHasta', 'hasta', 'importe_max', 'max']);
-    const colDto = pickCI(['dto_pct', 'DtoPct', 'dto', 'Dto', 'porcentaje', 'Porcentaje']);
-    const colActivo = pickCI(['activo', 'Activo']) || 'activo';
-    const colOrden = pickCI(['orden', 'Orden', 'prioridad', 'Prioridad']) || 'orden';
+    const pk = pickCI(['descped_id', 'id', 'Id']) || 'descped_id';
+    const colDesde = pickCI(['descped_importe_desde', 'importe_desde', 'Importe_Desde', 'ImporteDesde', 'desde', 'importe_min', 'min']);
+    const colHasta = pickCI(['descped_importe_hasta', 'importe_hasta', 'Importe_Hasta', 'ImporteHasta', 'hasta', 'importe_max', 'max']);
+    const colDto = pickCI(['descped_pct', 'dto_pct', 'DtoPct', 'dto', 'Dto', 'porcentaje', 'Porcentaje']);
+    const colActivo = pickCI(['descped_activo', 'activo', 'Activo']) || 'descped_activo';
+    const colOrden = pickCI(['descped_orden', 'orden', 'Orden', 'prioridad', 'Prioridad']) || 'descped_orden';
 
     const meta = { table: t, pk, colDesde, colHasta, colDto, colActivo, colOrden };
     this._metaCache.descuentosPedidoMeta = meta;
@@ -700,12 +705,12 @@ class MySQLCRM {
     const table = await this._resolveTableNameCaseInsensitive('estados_pedido');
     const cols = await this._getColumns(table).catch(() => []);
     const pick = (cands) => this._pickCIFromColumns(cols, cands);
-    const pk = pick(['id', 'Id']) || 'id';
-    const colCodigo = pick(['codigo', 'Codigo', 'code']) || 'codigo';
-    const colNombre = pick(['nombre', 'Nombre', 'name']) || 'nombre';
-    const colColor = pick(['color', 'Color']) || 'color';
-    const colActivo = pick(['activo', 'Activo']) || 'activo';
-    const colOrden = pick(['orden', 'Orden']) || 'orden';
+    const pk = pick(['estped_id', 'id', 'Id']) || 'estped_id';
+    const colCodigo = pick(['estped_codigo', 'codigo', 'Codigo', 'code']) || 'estped_codigo';
+    const colNombre = pick(['estped_nombre', 'nombre', 'Nombre', 'name']) || 'estped_nombre';
+    const colColor = pick(['estped_color', 'color', 'Color']) || 'estped_color';
+    const colActivo = pick(['estped_activo', 'activo', 'Activo']) || 'estped_activo';
+    const colOrden = pick(['estped_orden', 'orden', 'Orden']) || 'estped_orden';
     const meta = { table, pk, colCodigo, colNombre, colColor, colActivo, colOrden, cols };
     this._metaCache.estadosPedidoMeta = meta;
     return meta;
@@ -1137,11 +1142,11 @@ class MySQLCRM {
     }
 
     const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
-    const pk = pickCI(['id', 'Id']) || 'id';
-    const colCliente = pickCI(['Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
-    const colActiva = pickCI(['Activa', 'activa', 'Activo', 'activo']);
-    const colPrincipal = pickCI(['Es_Principal', 'es_principal', 'EsPrincipal', 'esPrincipal', 'Principal', 'principal']);
-    const colContacto = pickCI(['Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
+    const pk = pickCI(['direnv_id', 'id', 'Id']) || 'direnv_id';
+    const colCliente = pickCI(['direnv_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
+    const colActiva = pickCI(['direnv_activa', 'Activa', 'activa', 'Activo', 'activo']);
+    const colPrincipal = pickCI(['direnv_es_principal', 'Es_Principal', 'es_principal', 'EsPrincipal', 'esPrincipal', 'Principal', 'principal']);
+    const colContacto = pickCI(['direnv_ag_id', 'Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
 
     const meta = { table: t, pk, colCliente, colActiva, colPrincipal, colContacto, _cols: cols };
     this._metaCache.direccionesEnvioMeta = meta;
@@ -1176,27 +1181,26 @@ class MySQLCRM {
         console.log(`✅ [INDEX] Creado ${name} en ${tClientes} (${colsSql})`);
       };
 
-      // Filtros habituales
-      await createIfMissing('idx_clientes_provincia', ['Id_Provincia']);
-      await createIfMissing('idx_clientes_tipocliente', ['Id_TipoCliente']);
+      // Filtros habituales (nombres normalizados: cli_*)
+      await createIfMissing('idx_clientes_provincia', ['cli_prov_id', 'Id_Provincia']);
+      await createIfMissing('idx_clientes_tipocliente', ['cli_tipc_id', 'Id_TipoCliente']);
       await createIfMissing('idx_clientes_comercial', [colComercial]);
       await createIfMissing('idx_clientes_estado_cliente', [colEstadoCliente]);
 
       // Búsquedas / listados frecuentes
-      await createIfMissing('idx_clientes_cp', ['CodigoPostal']);
-      await createIfMissing('idx_clientes_poblacion', ['Poblacion']);
-      await createIfMissing('idx_clientes_nombre', ['Nombre_Razon_Social']);
+      await createIfMissing('idx_clientes_cp', ['cli_codigo_postal', 'CodigoPostal']);
+      await createIfMissing('idx_clientes_poblacion', ['cli_poblacion', 'Poblacion']);
+      await createIfMissing('idx_clientes_nombre', ['cli_nombre_razon_social', 'Nombre_Razon_Social']);
 
       // FULLTEXT (best-effort) para búsqueda rápida: si el servidor no soporta, no rompemos.
-      // Usamos pocas columnas de alto valor para minimizar coste de índice.
       await createIfMissing(
         'ft_clientes_busqueda',
-        ['Nombre_Razon_Social', 'Nombre_Cial', 'DNI_CIF', 'Email', 'Telefono', 'Movil', 'Poblacion', 'CodigoPostal', 'NomContacto', 'Observaciones'],
+        ['cli_nombre_razon_social', 'cli_nombre_cial', 'cli_dni_cif', 'cli_email', 'cli_telefono', 'cli_movil', 'cli_poblacion', 'cli_codigo_postal', 'Nombre_Razon_Social', 'Nombre_Cial', 'DNI_CIF', 'Email', 'Telefono', 'Movil', 'Poblacion', 'CodigoPostal', 'NomContacto', 'Observaciones'].filter(hasCol),
         'FULLTEXT'
       );
 
-      // FULLTEXT "básico" (más barato) para autocomplete: solo los campos clave de identidad.
-      await createIfMissing('ft_clientes_busqueda_basica', ['Nombre_Razon_Social', 'Nombre_Cial', 'DNI_CIF'], 'FULLTEXT');
+      // FULLTEXT "básico" (más barato) para autocomplete
+      await createIfMissing('ft_clientes_busqueda_basica', ['cli_nombre_razon_social', 'cli_nombre_cial', 'cli_dni_cif', 'Nombre_Razon_Social', 'Nombre_Cial', 'DNI_CIF'].filter(hasCol), 'FULLTEXT');
 
       // Orden estable por PK (normalmente ya está por ser PRIMARY), pero si no, creamos.
       if (hasCol(pk)) {
@@ -1378,8 +1382,9 @@ class MySQLCRM {
     const t = await this._resolveTableNameCaseInsensitive('comerciales');
     const cols = await this._getColumns(t);
     const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
-    const pk = pickCI(['id', 'Id']) || 'id';
-    const meta = { table: t, pk };
+    const pk = pickCI(['com_id', 'id', 'Id']) || 'com_id';
+    const colNombre = pickCI(['com_nombre', 'Nombre', 'nombre']) || 'com_nombre';
+    const meta = { table: t, pk, colNombre };
     this._metaCache.comercialesMeta = meta;
     return meta;
   }
@@ -1422,27 +1427,31 @@ class MySQLCRM {
 
     // clientes -> provincias / tipos_clientes / estdoClientes / comerciales
     if (clientes?.tClientes) {
+      const colProv = clientes.colProvincia || 'cli_prov_id';
+      const colTipC = clientes.colTipoCliente || 'cli_tipc_id';
+      const provPk = 'prov_id';
+      const tipcPk = 'tipc_id';
       await runCount(
         'clientes_orfanos_provincia',
         `SELECT COUNT(*) AS n
          FROM \`${clientes.tClientes}\` c
-         LEFT JOIN \`${tProvincias || 'provincias'}\` p ON c.Id_Provincia = p.id
-         WHERE c.Id_Provincia IS NOT NULL AND c.Id_Provincia != 0 AND p.id IS NULL`
+         LEFT JOIN \`${tProvincias || 'provincias'}\` p ON c.\`${colProv}\` = p.\`${provPk}\`
+         WHERE c.\`${colProv}\` IS NOT NULL AND c.\`${colProv}\` != 0 AND p.\`${provPk}\` IS NULL`
       );
       await runCount(
         'clientes_orfanos_tipo_cliente',
         `SELECT COUNT(*) AS n
          FROM \`${clientes.tClientes}\` c
-         LEFT JOIN \`${tTiposClientes || 'tipos_clientes'}\` tc ON c.Id_TipoCliente = tc.id
-         WHERE c.Id_TipoCliente IS NOT NULL AND c.Id_TipoCliente != 0 AND tc.id IS NULL`
+         LEFT JOIN \`${tTiposClientes || 'tipos_clientes'}\` tc ON c.\`${colTipC}\` = tc.\`${tipcPk}\`
+         WHERE c.\`${colTipC}\` IS NOT NULL AND c.\`${colTipC}\` != 0 AND tc.\`${tipcPk}\` IS NULL`
       );
       if (clientes.colEstadoCliente) {
         await runCount(
           'clientes_orfanos_estado_cliente',
           `SELECT COUNT(*) AS n
            FROM \`${clientes.tClientes}\` c
-           LEFT JOIN \`${tEstadosClientes || 'estdoClientes'}\` ec ON c.\`${clientes.colEstadoCliente}\` = ec.id
-           WHERE c.\`${clientes.colEstadoCliente}\` IS NOT NULL AND c.\`${clientes.colEstadoCliente}\` != 0 AND ec.id IS NULL`
+           LEFT JOIN \`${tEstadosClientes || 'estdoClientes'}\` ec ON c.\`${clientes.colEstadoCliente}\` = ec.estcli_id
+           WHERE c.\`${clientes.colEstadoCliente}\` IS NOT NULL AND c.\`${clientes.colEstadoCliente}\` != 0 AND ec.estcli_id IS NULL`
         );
       }
       if (clientes.colComercial && comerciales?.table && comerciales?.pk) {
@@ -1516,8 +1525,8 @@ class MySQLCRM {
           'pedidos_articulos_orfanos_articulo',
           `SELECT COUNT(*) AS n
            FROM \`${pedArt.table}\` pa
-           LEFT JOIN \`${tArticulos}\` a ON pa.\`${pedArt.colArticulo}\` = a.Id
-           WHERE pa.\`${pedArt.colArticulo}\` IS NOT NULL AND pa.\`${pedArt.colArticulo}\` != 0 AND a.Id IS NULL`
+           LEFT JOIN \`${tArticulos}\` a ON pa.\`${pedArt.colArticulo}\` = a.art_id
+           WHERE pa.\`${pedArt.colArticulo}\` IS NOT NULL AND pa.\`${pedArt.colArticulo}\` != 0 AND a.art_id IS NULL`
         );
       }
     }
@@ -1528,14 +1537,14 @@ class MySQLCRM {
       if (tClientesContactos) {
         const ccCols = await this._getColumns(tClientesContactos).catch(() => []);
         if (ccCols && ccCols.length) {
-          const colCliente = this._pickCIFromColumns(ccCols, ['Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
-          const colContacto = this._pickCIFromColumns(ccCols, ['Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
+          const colCliente = this._pickCIFromColumns(ccCols, ['clicont_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
+          const colContacto = this._pickCIFromColumns(ccCols, ['clicont_ag_id', 'Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
 
           const tAgenda = await this._resolveAgendaTableName().catch(() => null);
           let agendaPk = 'Id';
           if (tAgenda) {
             const aCols = await this._getColumns(tAgenda).catch(() => []);
-            agendaPk = this._pickCIFromColumns(aCols, ['Id', 'id']) || 'Id';
+            agendaPk = this._pickCIFromColumns(aCols, ['ag_id', 'Id', 'id']) || 'ag_id';
           }
 
           if (colCliente && clientes?.tClientes) {
@@ -1651,8 +1660,9 @@ class MySQLCRM {
       return null;
     };
 
-    const pk = pickCI(['Id', 'id']) || 'Id';
+    const pk = pickCI(['cli_id', 'Id', 'id']) || 'cli_id';
     const colComercial = pickCI([
+      'cli_com_id',
       'Id_Cial',
       'id_cial',
       'Id_Comercial',
@@ -1661,7 +1671,11 @@ class MySQLCRM {
       'comercialId',
       'comercial_id'
     ]);
+    const colProvincia = pickCI(['cli_prov_id', 'Id_Provincia', 'id_provincia']);
+    const colTipoCliente = pickCI(['cli_tipc_id', 'Id_TipoCliente', 'id_tipo_cliente']);
+    const colNombreRazonSocial = pickCI(['cli_nombre_razon_social', 'Nombre_Razon_Social', 'nombre_razon_social']);
     const colEstadoCliente = pickCI([
+      'cli_estcli_id',
       'Id_EstdoCliente',
       'id_estdo_cliente',
       'Id_EstadoCliente',
@@ -1669,10 +1683,10 @@ class MySQLCRM {
       'EstadoClienteId',
       'estadoClienteId'
     ]);
-    const colTipoContacto = pickCI(['TipoContacto', 'tipo_contacto', 'Tipo_Contacto']);
+    const colTipoContacto = pickCI(['cli_tipo_contacto', 'TipoContacto', 'tipo_contacto', 'Tipo_Contacto']);
     const colObservaciones = pickCI(['Observaciones', 'observaciones', 'Notas', 'notas', 'Comentarios', 'comentarios']);
 
-    const meta = { tClientes, pk, colComercial, colEstadoCliente, colTipoContacto, colObservaciones, cols };
+    const meta = { tClientes, pk, colComercial, colProvincia, colTipoCliente, colNombreRazonSocial, colEstadoCliente, colTipoContacto, colObservaciones, cols };
     this._metaCache.clientesMeta = meta;
     return meta;
   }
@@ -2004,8 +2018,10 @@ class MySQLCRM {
 
   async getComercialByEmail(email) {
     try {
-      const sql = 'SELECT * FROM comerciales WHERE LOWER(Email) = LOWER(?) OR LOWER(email) = LOWER(?) LIMIT 1';
-      const rows = await this.query(sql, [email, email]);
+      const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales'));
+      const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'com_email';
+      const sql = `SELECT * FROM comerciales WHERE LOWER(\`${colEmail}\`) = LOWER(?) LIMIT 1`;
+      const rows = await this.query(sql, [email]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo comercial por email:', error.message);
@@ -2015,9 +2031,10 @@ class MySQLCRM {
 
   async getComercialById(id) {
     try {
-      // Intentar con ambas variantes de nombre de columna (id e Id)
-      const sql = 'SELECT * FROM comerciales WHERE id = ? OR Id = ? LIMIT 1';
-      const rows = await this.query(sql, [id, id]);
+      const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales'));
+      const pk = this._pickCIFromColumns(cols, ['com_id', 'Id', 'id']) || 'com_id';
+      const sql = `SELECT * FROM comerciales WHERE \`${pk}\` = ? LIMIT 1`;
+      const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo comercial por ID:', error.message);
@@ -2039,7 +2056,7 @@ class MySQLCRM {
     const email = trimmed.includes(' · ') ? trimmed.split(' · ').pop().trim() : trimmed;
     if (!email) return null;
     const c = await this.getComercialByEmail(email);
-    return c ? (c.id ?? c.Id ?? null) : null;
+    return c ? (c.com_id ?? c.id ?? c.Id ?? null) : null;
   }
 
   /**
@@ -2631,33 +2648,34 @@ class MySQLCRM {
   async getClientesOptimizado(filters = {}) {
     let sql = '';
     try {
-      const { colComercial, colEstadoCliente } = await this._ensureClientesMeta();
+      const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colNombreRazonSocial, colTipoContacto } = await this._ensureClientesMeta();
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
       const whereConditions = [];
       const params = [];
+      const colProv = colProvincia || 'cli_prov_id';
+      const colTipC = colTipoCliente || 'cli_tipc_id';
 
-      // Construir JOINs y WHERE - versión simplificada y robusta
-      // Usar nombres de campos exactos como en la tabla
+      // Construir JOINs y WHERE - nombres normalizados (cli_*, prov_*, tipc_*, etc.)
       sql = `
         SELECT 
           c.*,
-          p.Nombre as ProvinciaNombre,
-          tc.Tipo as TipoClienteNombre,
-          ${colComercial ? 'cial.Nombre as ComercialNombre' : 'NULL as ComercialNombre'},
-          ${colEstadoCliente ? 'ec.Nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
+          p.prov_nombre as ProvinciaNombre,
+          tc.tipc_tipo as TipoClienteNombre,
+          ${colComercial ? 'cial.com_nombre as ComercialNombre' : 'NULL as ComercialNombre'},
+          ${colEstadoCliente ? 'ec.estcli_nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
           ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
         FROM clientes c
-        LEFT JOIN provincias p ON c.Id_Provincia = p.id
-        LEFT JOIN tipos_clientes tc ON c.Id_TipoCliente = tc.id
-        ${colComercial ? `LEFT JOIN comerciales cial ON c.\`${colComercial}\` = cial.id` : ''}
-        ${colEstadoCliente ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.id` : ''}
+        LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id
+        LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id
+        ${colComercial ? `LEFT JOIN comerciales cial ON c.\`${colComercial}\` = cial.com_id` : ''}
+        ${colEstadoCliente ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.estcli_id` : ''}
       `;
 
       // Filtro por tipo de cliente
       if (filters.tipoCliente !== null && filters.tipoCliente !== undefined && filters.tipoCliente !== '' && !isNaN(filters.tipoCliente)) {
         const tipoClienteId = typeof filters.tipoCliente === 'number' ? filters.tipoCliente : parseInt(filters.tipoCliente);
         if (!isNaN(tipoClienteId) && tipoClienteId > 0) {
-          whereConditions.push('c.Id_TipoCliente = ?');
+          whereConditions.push(`c.\`${colTipC}\` = ?`);
           params.push(tipoClienteId);
           console.log('✅ [OPTIMIZADO] Filtro tipoCliente aplicado:', tipoClienteId);
         }
@@ -2675,7 +2693,7 @@ class MySQLCRM {
       if (filters.provincia !== null && filters.provincia !== undefined && filters.provincia !== '' && !isNaN(filters.provincia)) {
         const provinciaId = typeof filters.provincia === 'number' ? filters.provincia : parseInt(filters.provincia);
         if (!isNaN(provinciaId) && provinciaId > 0) {
-          whereConditions.push('c.Id_Provincia = ?');
+          whereConditions.push(`c.\`${colProv}\` = ?`);
           params.push(provinciaId);
           console.log('✅ [OPTIMIZADO] Filtro provincia aplicado:', provinciaId);
         }
@@ -2716,11 +2734,11 @@ class MySQLCRM {
       if (filters.conVentas !== undefined && filters.conVentas !== null && filters.conVentas !== '') {
         if (filters.conVentas === true || filters.conVentas === 'true' || filters.conVentas === '1') {
           // Con ventas: debe tener al menos un pedido
-          whereConditions.push('EXISTS (SELECT 1 FROM pedidos WHERE Id_Cliente = c.Id)');
+          whereConditions.push(`EXISTS (SELECT 1 FROM pedidos WHERE ped_cli_id = c.\`${pk}\`)`);
           console.log('✅ [OPTIMIZADO] Filtro conVentas aplicado: true');
         } else if (filters.conVentas === false || filters.conVentas === 'false' || filters.conVentas === '0') {
           // Sin ventas: no debe tener pedidos
-          whereConditions.push('NOT EXISTS (SELECT 1 FROM pedidos WHERE Id_Cliente = c.Id)');
+          whereConditions.push(`NOT EXISTS (SELECT 1 FROM pedidos WHERE ped_cli_id = c.\`${pk}\`)`);
           console.log('✅ [OPTIMIZADO] Filtro conVentas aplicado: false');
         }
       }
@@ -2733,8 +2751,8 @@ class MySQLCRM {
         console.log('⚠️ [OPTIMIZADO] No hay condiciones WHERE, devolviendo todos los clientes');
       }
 
-      // ORDER BY - usar Id como en el método original getClientes()
-      sql += ' ORDER BY c.Id ASC';
+      // ORDER BY - usar PK
+      sql += ` ORDER BY c.\`${pk}\` ASC`;
 
       console.log('🔍 [OPTIMIZADO] SQL:', sql);
       console.log('🔍 [OPTIMIZADO] Params:', params);
@@ -2744,28 +2762,26 @@ class MySQLCRM {
       // Agregar TotalPedidos después de obtener los resultados para evitar problemas en la consulta principal
       // Esto es más lento pero más seguro
       if (rows && rows.length > 0) {
-        const clienteIds = rows.map(c => c.id || c.Id).filter(id => id);
+        const clienteIds = rows.map(c => c.cli_id || c.id || c.Id).filter(id => id);
         if (clienteIds.length > 0) {
           try {
-            // Consulta más robusta para pedidos
-            // Consulta de pedidos - usar parámetros correctamente
             const placeholders = clienteIds.map(() => '?').join(',');
             const pedidosCount = await this.query(
-              `SELECT Id_Cliente, COUNT(*) as total 
+              `SELECT ped_cli_id, COUNT(*) as total 
                FROM pedidos 
-               WHERE Id_Cliente IN (${placeholders})
-               GROUP BY Id_Cliente`,
+               WHERE ped_cli_id IN (${placeholders})
+               GROUP BY ped_cli_id`,
               clienteIds
             ).catch(() => []);
             
             const pedidosMap = new Map();
             pedidosCount.forEach(p => {
-              const clienteId = p.Id_Cliente || p.id_Cliente;
+              const clienteId = p.ped_cli_id || p.Id_Cliente || p.id_Cliente;
               pedidosMap.set(clienteId, parseInt(p.total || 0));
             });
             
             rows.forEach(cliente => {
-              const clienteId = cliente.id || cliente.Id;
+              const clienteId = cliente.cli_id || cliente.id || cliente.Id;
               cliente.TotalPedidos = pedidosMap.get(clienteId) || 0;
             });
           } catch (pedidosError) {
@@ -2799,7 +2815,7 @@ class MySQLCRM {
   async getClientesOptimizadoPaged(filters = {}, options = {}) {
     let sql = '';
     try {
-      const { pk, colComercial, colEstadoCliente, colTipoContacto } = await this._ensureClientesMeta();
+      const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colTipoContacto, colNombreRazonSocial } = await this._ensureClientesMeta();
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
       const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : 50;
       const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
@@ -2811,6 +2827,9 @@ class MySQLCRM {
 
       const whereConditions = [];
       const params = [];
+      const colProv = colProvincia || 'cli_prov_id';
+      const colTipC = colTipoCliente || 'cli_tipc_id';
+      const colNombre = colNombreRazonSocial || 'cli_nombre_razon_social';
 
       sql = `
         SELECT 
@@ -2818,45 +2837,43 @@ class MySQLCRM {
             compact
               ? [
                   `c.\`${pk}\` as Id`,
-                  'c.Nombre_Razon_Social',
-                  'c.Nombre_Cial',
-                  'c.DNI_CIF',
-                  'c.Email',
-                  'c.Telefono',
-                  'c.Movil',
-                  'c.CodigoPostal',
-                  'c.Poblacion',
-                  'c.Id_Provincia',
-                  'c.Id_TipoCliente',
+                  `c.\`${colNombre}\` as Nombre_Razon_Social`,
+                  'c.cli_nombre_cial as Nombre_Cial',
+                  'c.cli_dni_cif as DNI_CIF',
+                  'c.cli_email as Email',
+                  'c.cli_telefono as Telefono',
+                  'c.cli_movil as Movil',
+                  'c.cli_codigo_postal as CodigoPostal',
+                  'c.cli_poblacion as Poblacion',
+                  `c.\`${colProv}\` as Id_Provincia`,
+                  `c.\`${colTipC}\` as Id_TipoCliente`,
                   ...(colTipoContacto ? [`c.\`${colTipoContacto}\` as TipoContacto`] : [])
                 ].join(',\n          ')
               : 'c.*'
           },
-          p.Nombre as ProvinciaNombre,
-          tc.Tipo as TipoClienteNombre,
-          ${colComercial ? 'cial.Nombre as ComercialNombre' : 'NULL as ComercialNombre'},
-          ${colEstadoCliente ? 'ec.Nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
+          p.prov_nombre as ProvinciaNombre,
+          tc.tipc_tipo as TipoClienteNombre,
+          ${colComercial ? 'cial.com_nombre as ComercialNombre' : 'NULL as ComercialNombre'},
+          ${colEstadoCliente ? 'ec.estcli_nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
           ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
         FROM clientes c
-        LEFT JOIN provincias p ON c.Id_Provincia = p.id
-        LEFT JOIN tipos_clientes tc ON c.Id_TipoCliente = tc.id
-        ${colComercial ? `LEFT JOIN comerciales cial ON c.\`${colComercial}\` = cial.id` : ''}
-        ${colEstadoCliente ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.id` : ''}
+        LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id
+        LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id
+        ${colComercial ? `LEFT JOIN comerciales cial ON c.\`${colComercial}\` = cial.com_id` : ''}
+        ${colEstadoCliente ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.estcli_id` : ''}
       `;
 
-      // Resolver columna cliente en pedidos (Id_Cliente vs Cliente_id, etc.) para con/sin ventas.
-      // Cache simple en la instancia para no repetir SHOW COLUMNS en cada request.
+      // Columna cliente en pedidos (normalizado: ped_cli_id)
       if (!this.__pedidosClienteCol) {
         try {
           const colsRows = await this.query('SHOW COLUMNS FROM pedidos').catch(() => []);
           const cols = new Set((colsRows || []).map(r => String(r.Field || '').trim()).filter(Boolean));
           this.__pedidosClienteCol =
-            ['Id_Cliente', 'Cliente_id', 'id_cliente', 'cliente_id', 'ClienteId', 'clienteId'].find(c => cols.has(c)) || 'Id_Cliente';
-          // Columna de fecha del pedido para ordenar por "último pedido" (compatibilidad de esquemas)
+            ['ped_cli_id', 'Id_Cliente', 'Cliente_id', 'id_cliente', 'cliente_id', 'ClienteId', 'clienteId'].find(c => cols.has(c)) || 'ped_cli_id';
           this.__pedidosFechaCol =
-            ['FechaPedido', 'Fecha', 'fecha', 'CreatedAt', 'created_at', 'Fecha_Pedido', 'fecha_pedido'].find(c => cols.has(c)) || null;
+            ['ped_fecha', 'FechaPedido', 'Fecha', 'fecha', 'CreatedAt', 'created_at', 'Fecha_Pedido', 'fecha_pedido'].find(c => cols.has(c)) || null;
         } catch (_) {
-          this.__pedidosClienteCol = 'Id_Cliente';
+          this.__pedidosClienteCol = 'ped_cli_id';
           this.__pedidosFechaCol = null;
         }
       }
@@ -2882,17 +2899,18 @@ class MySQLCRM {
           }
         }
       } else {
+        const colOkKo = 'cli_ok_ko';
         if (filters.estado === 'activos') {
-          whereConditions.push("(c.OK_KO = 1 OR c.OK_KO = '1' OR UPPER(c.OK_KO) = 'OK')");
+          whereConditions.push(`(c.\`${colOkKo}\` = 1 OR c.\`${colOkKo}\` = '1' OR UPPER(c.\`${colOkKo}\`) = 'OK')`);
         } else if (filters.estado === 'inactivos') {
-          whereConditions.push("(c.OK_KO = 0 OR c.OK_KO = '0' OR UPPER(c.OK_KO) = 'KO')");
+          whereConditions.push(`(c.\`${colOkKo}\` = 0 OR c.\`${colOkKo}\` = '0' OR UPPER(c.\`${colOkKo}\`) = 'KO')`);
         }
       }
 
       if (filters.tipoCliente !== null && filters.tipoCliente !== undefined && filters.tipoCliente !== '' && !isNaN(filters.tipoCliente)) {
         const tipoClienteId = typeof filters.tipoCliente === 'number' ? filters.tipoCliente : parseInt(filters.tipoCliente);
         if (!isNaN(tipoClienteId) && tipoClienteId > 0) {
-          whereConditions.push('c.Id_TipoCliente = ?');
+          whereConditions.push(`c.\`${colTipC}\` = ?`);
           params.push(tipoClienteId);
         }
       }
@@ -2908,7 +2926,7 @@ class MySQLCRM {
       if (filters.provincia !== null && filters.provincia !== undefined && filters.provincia !== '' && !isNaN(filters.provincia)) {
         const provinciaId = typeof filters.provincia === 'number' ? filters.provincia : parseInt(filters.provincia);
         if (!isNaN(provinciaId) && provinciaId > 0) {
-          whereConditions.push('c.Id_Provincia = ?');
+          whereConditions.push(`c.\`${colProv}\` = ?`);
           params.push(provinciaId);
         }
       }
@@ -3015,24 +3033,24 @@ class MySQLCRM {
             const like = `%${termLower}%`;
             if (compactSearch) {
               whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
-                LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
-                OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-                OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+                LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_nombre_cial,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_dni_cif,'')) LIKE ?
               ${numericClause ? '))' : ')'}`);
               if (numericParams) params.push(...numericParams);
               params.push(like, like, like);
             } else {
               whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
-                LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
-                OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-                OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
-                OR LOWER(IFNULL(c.Email,'')) LIKE ?
-                OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
-                OR LOWER(IFNULL(c.Movil,'')) LIKE ?
-                OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
-                OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
-                OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
-                OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
+                LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_nombre_cial,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_dni_cif,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_email,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_telefono,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_movil,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_numero_farmacia,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_direccion,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_poblacion,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_codigo_postal,'')) LIKE ?
                 OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
                 OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
                 OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
@@ -3047,7 +3065,7 @@ class MySQLCRM {
           const like = `%${termLower}%`;
           if (compactSearch) {
             whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
-              LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+              LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
               OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
               OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
             ${numericClause ? '))' : ')'}`);
@@ -3055,7 +3073,7 @@ class MySQLCRM {
             params.push(like, like, like);
           } else {
             whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
-              LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+              LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
               OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
               OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
               OR LOWER(IFNULL(c.Email,'')) LIKE ?
@@ -3089,7 +3107,7 @@ class MySQLCRM {
       const hasSearch = !!(filters.q && String(filters.q).trim().length >= 3);
       const conVentas = (filters.conVentas === true || filters.conVentas === 'true' || filters.conVentas === '1');
       if (orderByNombre) {
-        sql += ` ORDER BY NULLIF(TRIM(c.Nombre_Razon_Social), '') ${order}, c.\`${pk}\` ASC LIMIT ${limit} OFFSET ${offset}`;
+        sql += ` ORDER BY NULLIF(TRIM(c.cli_nombre_razon_social), '') ${order}, c.\`${pk}\` ASC LIMIT ${limit} OFFSET ${offset}`;
       } else if (conVentas && !hasSearch && this.__pedidosFechaCol) {
         sql += ` ORDER BY (SELECT MAX(p3.\`${this.__pedidosFechaCol}\`) FROM pedidos p3 WHERE p3.\`${this.__pedidosClienteCol}\` = c.\`${pk}\`) DESC, c.\`${pk}\` ${order} LIMIT ${limit} OFFSET ${offset}`;
       } else {
@@ -3273,7 +3291,7 @@ class MySQLCRM {
             const termLower = raw.toLowerCase();
             const like = `%${termLower}%`;
             whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
-              LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+              LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
               OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
               OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
               OR LOWER(IFNULL(c.Email,'')) LIKE ?
@@ -3295,7 +3313,7 @@ class MySQLCRM {
           const termLower = raw.toLowerCase();
           const like = `%${termLower}%`;
           whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
-            LOWER(IFNULL(c.Nombre_Razon_Social,'')) LIKE ?
+            LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
             OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
             OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
             OR LOWER(IFNULL(c.Email,'')) LIKE ?
@@ -3451,7 +3469,7 @@ class MySQLCRM {
         ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.Id_Provincia = p.id` : ''}
         ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.Id_TipoCliente = tc.id` : ''}
         ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.id` : ''}
-        ${(colEstadoCliente && tEstados) ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.id` : ''}
+        ${(colEstadoCliente && tEstados) ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.estcli_id` : ''}
         WHERE c.\`${pk}\` = ?
         LIMIT 1
       `;
@@ -3479,7 +3497,7 @@ class MySQLCRM {
     if (!cliente) return false;
     const { colComercial } = await this._ensureClientesMeta();
     if (!colComercial) return false;
-    const asignado = Number(cliente[colComercial] ?? cliente.Id_Cial ?? 0) || 0;
+    const asignado = Number(cliente[colComercial] ?? cliente.cli_com_id ?? 0) || 0;
     if (asignado === Number(userId)) return true;
     const poolId = await this.getComercialIdPool();
     return poolId != null && asignado === Number(poolId);
@@ -3494,7 +3512,7 @@ class MySQLCRM {
     if (!cliente) return false;
     const { colComercial } = await this._ensureClientesMeta();
     if (!colComercial) return false;
-    const asignado = Number(cliente[colComercial] ?? cliente.Id_Cial ?? 0) || 0;
+    const asignado = Number(cliente[colComercial] ?? cliente.cli_com_id ?? 0) || 0;
     if (asignado === 0) return true;
     const poolId = await this.getComercialIdPool();
     return poolId != null && asignado === Number(poolId);
@@ -3537,7 +3555,7 @@ class MySQLCRM {
 
       // Nombre: solo a partir de 6 caracteres para evitar falsos positivos masivos
       if (n1 && n1.length >= 6) {
-        whereOr.push(`LOWER(TRIM(COALESCE(c.Nombre_Razon_Social,''))) LIKE ?`);
+        whereOr.push(`LOWER(TRIM(COALESCE(c.cli_nombre_razon_social,''))) LIKE ?`);
         paramsOr.push(`%${n1}%`);
       }
       if (n2 && n2.length >= 6) {
@@ -3556,7 +3574,7 @@ class MySQLCRM {
           `
           SELECT
             c.\`${pk}\` as Id,
-            c.Nombre_Razon_Social,
+            c.cli_nombre_razon_social,
             c.Nombre_Cial,
             c.DNI_CIF,
             c.CodigoPostal,
@@ -3581,7 +3599,7 @@ class MySQLCRM {
         `
         SELECT
           c.\`${pk}\` as Id,
-          c.Nombre_Razon_Social,
+          c.cli_nombre_razon_social,
           c.Nombre_Cial,
           c.DNI_CIF,
           c.CodigoPostal,
@@ -3616,8 +3634,9 @@ class MySQLCRM {
 
   async getClientesByComercial(comercialId) {
     try {
-      const sql = 'SELECT * FROM clientes WHERE ComercialId = ? OR comercialId = ? ORDER BY Id ASC';
-      const rows = await this.query(sql, [comercialId, comercialId]);
+      const { pk, colComercial } = await this._ensureClientesMeta();
+      const sql = `SELECT * FROM clientes WHERE \`${colComercial || 'cli_com_id'}\` = ? ORDER BY \`${pk}\` ASC`;
+      const rows = await this.query(sql, [comercialId]);
       return rows;
     } catch (error) {
       console.error('❌ Error obteniendo clientes por comercial:', error.message);
@@ -3630,13 +3649,13 @@ class MySQLCRM {
       const sql = `
         SELECT 
           c.*,
-          c.Nombre_Razon_Social AS Nombre,
-          c.Poblacion,
-          com.Nombre AS NombreComercial
-        FROM Clientes c
-        LEFT JOIN Comerciales com ON c.Id_Cial = com.id
-        WHERE c.Id_CodigoPostal = ?
-        ORDER BY c.Nombre_Razon_Social ASC
+          c.cli_nombre_razon_social AS Nombre,
+          c.cli_poblacion AS Poblacion,
+          com.com_nombre AS NombreComercial
+        FROM clientes c
+        LEFT JOIN comerciales com ON c.cli_com_id = com.com_id
+        WHERE c.cli_codp_id = ?
+        ORDER BY c.cli_nombre_razon_social ASC
       `;
       const rows = await this.query(sql, [idCodigoPostal]);
       return rows;
@@ -3765,7 +3784,8 @@ class MySQLCRM {
     try {
       const meta = await this._ensureClientesMeta();
       const placeholders = uniq.map(() => '?').join(',');
-      const sql = `SELECT \`${meta.pk}\` AS id, Nombre_Razon_Social AS nombre FROM \`${meta.tClientes}\` WHERE \`${meta.pk}\` IN (${placeholders})`;
+      const colNombre = meta.colNombreRazonSocial || 'cli_nombre_razon_social';
+      const sql = `SELECT \`${meta.pk}\` AS id, \`${colNombre}\` AS nombre FROM \`${meta.tClientes}\` WHERE \`${meta.pk}\` IN (${placeholders})`;
       const rows = await this.query(sql, uniq);
       const list = Array.isArray(rows) ? rows : [];
       list.forEach((r) => {
@@ -3790,7 +3810,7 @@ class MySQLCRM {
     try {
       const meta = await this._ensureComercialesMeta();
       const placeholders = uniq.map(() => '?').join(',');
-      const sql = `SELECT \`${meta.pk}\` AS id, Nombre AS nombre FROM \`${meta.table}\` WHERE \`${meta.pk}\` IN (${placeholders})`;
+      const sql = `SELECT \`${meta.pk}\` AS id, \`${meta.colNombre || 'com_nombre'}\` AS nombre FROM \`${meta.table}\` WHERE \`${meta.pk}\` IN (${placeholders})`;
       const rows = await this.query(sql, uniq);
       const list = Array.isArray(rows) ? rows : [];
       list.forEach((r) => {
@@ -4348,7 +4368,38 @@ class MySQLCRM {
       const fields = [];
       const values = [];
       const colsList = metaUpdate?.cols || [];
+      // Mapeo payload legacy → columna BD (post-migración prefijos)
+      const legacyToCol = {
+        Nombre_Razon_Social: metaUpdate?.colNombreRazonSocial || 'cli_nombre_razon_social',
+        Nombre_Cial: 'cli_nombre_cial',
+        Id_Cial: metaUpdate?.colComercial || 'cli_com_id',
+        Id_Provincia: metaUpdate?.colProvincia || 'cli_prov_id',
+        Id_TipoCliente: metaUpdate?.colTipoCliente || 'cli_tipc_id',
+        Id_EstdoCliente: metaUpdate?.colEstadoCliente || 'cli_estcli_id',
+        Id_Pais: 'cli_pais_id',
+        Id_FormaPago: 'cli_formp_id',
+        Id_Idioma: 'cli_idiom_id',
+        Id_Moneda: 'cli_mon_id',
+        Id_Tarifa: 'cli_tarcli_id',
+        Id_CodigoPostal: 'cli_codp_id',
+        DNI_CIF: 'cli_dni_cif',
+        Direccion: 'cli_direccion',
+        Poblacion: 'cli_poblacion',
+        CodigoPostal: 'cli_codigo_postal',
+        Movil: 'cli_movil',
+        Email: 'cli_email',
+        Telefono: 'cli_telefono',
+        TipoContacto: metaUpdate?.colTipoContacto || 'cli_tipo_contacto',
+        Observaciones: metaUpdate?.colObservaciones,
+        OK_KO: 'cli_ok_ko',
+        Tarifa: 'cli_tarifa_legacy',
+        Dto: 'cli_dto',
+        TipoCliente: 'cli_tipo_cliente_txt',
+        Activo: 'cli_activo'
+      };
       const pickColName = (key) => {
+        const mapped = legacyToCol[key];
+        if (mapped && (!colsList.length || colsList.some(c => c.toLowerCase() === mapped.toLowerCase()))) return mapped;
         if (key === 'Observaciones' && metaUpdate?.colObservaciones) return metaUpdate.colObservaciones;
         if (!colsList.length) return key;
         const keyLower = String(key).toLowerCase();
@@ -4580,10 +4631,49 @@ class MySQLCRM {
         const t = String(payload.TipoContacto).trim();
         payload.TipoContacto = (t === 'Empresa' || t === 'Persona' || t === 'Otros') ? t : null;
       }
+
+      // Mapeo payload legacy → columna BD (mismo que updateCliente)
+      const legacyToColCreate = {
+        Nombre_Razon_Social: meta?.colNombreRazonSocial || 'cli_nombre_razon_social',
+        Nombre_Cial: 'cli_nombre_cial',
+        Id_Cial: meta?.colComercial || 'cli_com_id',
+        Id_Provincia: meta?.colProvincia || 'cli_prov_id',
+        Id_TipoCliente: meta?.colTipoCliente || 'cli_tipc_id',
+        Id_EstdoCliente: meta?.colEstadoCliente || 'cli_estcli_id',
+        Id_Pais: 'cli_pais_id',
+        Id_FormaPago: 'cli_formp_id',
+        Id_Idioma: 'cli_idiom_id',
+        Id_Moneda: 'cli_mon_id',
+        Id_Tarifa: 'cli_tarcli_id',
+        Id_CodigoPostal: 'cli_codp_id',
+        DNI_CIF: 'cli_dni_cif',
+        Direccion: 'cli_direccion',
+        Poblacion: 'cli_poblacion',
+        CodigoPostal: 'cli_codigo_postal',
+        Movil: 'cli_movil',
+        Email: 'cli_email',
+        Telefono: 'cli_telefono',
+        TipoContacto: meta?.colTipoContacto || 'cli_tipo_contacto',
+        Observaciones: meta?.colObservaciones,
+        OK_KO: 'cli_ok_ko',
+        Tarifa: 'cli_tarifa_legacy',
+        Dto: 'cli_dto',
+        TipoCliente: 'cli_tipo_cliente_txt',
+        Activo: 'cli_activo'
+      };
+      const colsListCreate = meta?.cols || [];
+      const mappedPayload = {};
+      for (const [key, value] of Object.entries(payload)) {
+        if (value === undefined) continue;
+        const col = legacyToColCreate[key] || (colsListCreate.some(c => c.toLowerCase() === String(key).toLowerCase()) ? key : null);
+        if (col && (colsListCreate.length === 0 || colsListCreate.some(c => c.toLowerCase() === col.toLowerCase()))) {
+          mappedPayload[col] = value === null ? null : value;
+        }
+      }
       
-      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(payload).map(() => '?').join(', ');
-      const values = Object.values(payload);
+      const fields = Object.keys(mappedPayload).map(key => `\`${key}\``).join(', ');
+      const placeholders = Object.keys(mappedPayload).map(() => '?').join(', ');
+      const values = Object.values(mappedPayload);
       
       // Asegurar conexión
       if (!this.connected && !this.pool) {
@@ -4620,9 +4710,12 @@ class MySQLCRM {
       // Si viene como toggle (sin valor específico), alternar el estado actual
       if (value === undefined || value === null || value === 'toggle') {
         // Obtener estado actual
-        const current = await this.query('SELECT `OK_KO` FROM clientes WHERE id = ?', [id]);
+        const metaToggle = await this._ensureClientesMeta().catch(() => null);
+        const pkToggle = metaToggle?.pk || 'cli_id';
+        const colOkKo = 'cli_ok_ko';
+        const current = await this.query(`SELECT \`${colOkKo}\` FROM clientes WHERE \`${pkToggle}\` = ?`, [id]);
         if (current && current.length > 0) {
-          const currentValue = current[0]['OK_KO'];
+          const currentValue = current[0][colOkKo];
           
           // Convertir valor actual a booleano
           let esActivo = false;
@@ -4658,17 +4751,19 @@ class MySQLCRM {
       if (colEstadoCliente) {
         const ids = await this._getEstadoClienteIds().catch(() => ({ potencial: 1, activo: 2, inactivo: 3 }));
         // Necesitamos DNI_CIF para decidir Activo vs Potencial cuando se activa
-        const cur = await this.query('SELECT DNI_CIF FROM clientes WHERE id = ? LIMIT 1', [id]).catch(() => []);
-        const dni = cur && cur.length ? cur[0].DNI_CIF : null;
+        const cur = await this.query(`SELECT cli_dni_cif FROM clientes WHERE \`${meta?.pk || 'cli_id'}\` = ? LIMIT 1`, [id]).catch(() => []);
+        const dni = cur && cur.length ? cur[0].cli_dni_cif : null;
         const dniValido = this._isValidDniCif(dni);
         estadoFinal = (okKoValue === 0) ? ids.inactivo : (dniValido ? ids.activo : ids.potencial);
-        const sql = `UPDATE clientes SET \`OK_KO\` = ?, \`${colEstadoCliente}\` = ? WHERE id = ?`;
+        const sql = `UPDATE clientes SET cli_ok_ko = ?, \`${colEstadoCliente}\` = ? WHERE \`${meta?.pk || 'cli_id'}\` = ?`;
         await this.query(sql, [okKoValue, estadoFinal, id]);
         estadoNombre =
           estadoFinal === ids.inactivo ? 'Inactivo'
           : (estadoFinal === ids.activo ? 'Activo' : 'Potencial');
       } else {
-        const sql = 'UPDATE clientes SET `OK_KO` = ? WHERE id = ?';
+        const metaElse = await this._ensureClientesMeta().catch(() => null);
+        const pkElse = metaElse?.pk || 'cli_id';
+        const sql = `UPDATE clientes SET cli_ok_ko = ? WHERE \`${pkElse}\` = ?`;
         await this.query(sql, [okKoValue, id]);
       }
       console.log(`✅ [TOGGLE OK_KO] Cliente ${id} actualizado: OK_KO = ${okKoValue} (${okKoValue === 1 ? 'Activo' : 'Inactivo'})`);
@@ -4738,7 +4833,7 @@ class MySQLCRM {
           cc.Id_Cliente,
           cc.Id_Cooperativa,
           cc.NumAsociado,
-          c.Nombre_Razon_Social as ClienteNombre,
+          c.cli_nombre_razon_social as ClienteNombre,
           co.Nombre as CooperativaNombre
         FROM \`Clientes_Cooperativas\` cc
         LEFT JOIN clientes c ON cc.Id_Cliente = c.id
@@ -4763,7 +4858,7 @@ class MySQLCRM {
             cc.Id_Cliente,
             cc.Id_Cooperativa,
             cc.NumAsociado,
-            c.Nombre_Razon_Social as ClienteNombre,
+            c.cli_nombre_razon_social as ClienteNombre,
             co.Nombre as CooperativaNombre
           FROM clientes_cooperativas cc
           LEFT JOIN clientes c ON cc.Id_Cliente = c.id
@@ -4850,7 +4945,7 @@ class MySQLCRM {
       let sql = `
         SELECT 
           cc.*,
-          c.Nombre_Razon_Social as ClienteNombre,
+          c.cli_nombre_razon_social as ClienteNombre,
           co.Nombre as CooperativaNombre
         FROM \`Clientes_Cooperativas\` cc
         LEFT JOIN clientes c ON cc.Id_Cliente = c.id
@@ -4873,7 +4968,7 @@ class MySQLCRM {
       sql = `
         SELECT 
           cc.*,
-          c.Nombre_Razon_Social as ClienteNombre,
+          c.cli_nombre_razon_social as ClienteNombre,
           co.Nombre as CooperativaNombre
         FROM clientes_cooperativas cc
         LEFT JOIN clientes c ON cc.Id_Cliente = c.id
@@ -5049,7 +5144,7 @@ class MySQLCRM {
           cg.Activa,
           cg.Fecha_Alta,
           cg.Fecha_Baja,
-          c.Nombre_Razon_Social as ClienteNombre,
+          c.cli_nombre_razon_social as ClienteNombre,
           g.Nombre as GrupoNombre
         FROM \`${tRel}\` cg
         LEFT JOIN \`${tClientes}\` c ON cg.Id_Cliente = c.id
@@ -5072,7 +5167,7 @@ class MySQLCRM {
       const sql = `
         SELECT
           cg.*,
-          c.Nombre_Razon_Social as ClienteNombre,
+          c.cli_nombre_razon_social as ClienteNombre,
           g.Nombre as GrupoNombre
         FROM \`${tRel}\` cg
         LEFT JOIN \`${tClientes}\` c ON cg.Id_Cliente = c.id
@@ -5757,10 +5852,10 @@ class MySQLCRM {
       // Extraer solo los últimos 4 dígitos (la secuencia) de cada número de pedido
       const sql = `
         SELECT 
-          NumPedido,
-          CAST(SUBSTRING(NumPedido, 4) AS UNSIGNED) as secuencia
+          ped_numero AS NumPedido,
+          CAST(SUBSTRING(ped_numero, 4) AS UNSIGNED) as secuencia
         FROM pedidos 
-        WHERE NumPedido LIKE ?
+        WHERE ped_numero LIKE ?
         ORDER BY secuencia DESC
         LIMIT 1
       `;
@@ -5794,12 +5889,12 @@ class MySQLCRM {
       // Si se proporciona un comercialId, filtrar por él
       // El campo en la tabla pedidos es Id_Cial (con mayúsculas, según la estructura SQL)
       if (comercialId) {
-        sql += ' WHERE Id_Cial = ?';
+        sql += ' WHERE ped_com_id = ?';
         params.push(comercialId);
-        console.log(`🔐 [GET_PEDIDOS] Filtro aplicado: Id_Cial = ${comercialId}`);
+        console.log(`🔐 [GET_PEDIDOS] Filtro aplicado: ped_com_id = ${comercialId}`);
       }
       
-      sql += ' ORDER BY Id DESC';
+      sql += ' ORDER BY ped_id DESC';
       
       const rows = await this.query(sql, params);
       console.log(`📊 [GET PEDIDOS] Total pedidos obtenidos: ${rows ? rows.length : 0}${comercialId ? ` (filtrado por comercial ${comercialId})` : ''}`);
@@ -7166,11 +7261,20 @@ class MySQLCRM {
       const colEstadoTxt = pick(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
       const colEstadoId = pick(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
 
+      // Mapeo payload legacy → columna BD (post-migración)
+      const pedidoLegacyToCol = {
+        Id_Cial: 'ped_com_id', Id_Cliente: 'ped_cli_id', Id_DireccionEnvio: 'ped_direnv_id',
+        Id_FormaPago: 'ped_formp_id', Id_TipoPedido: 'ped_tipp_id', Id_Tarifa: 'ped_tarcli_id',
+        Id_EstadoPedido: 'ped_estped_id', NumPedido: 'ped_numero', FechaPedido: 'ped_fecha',
+        EstadoPedido: 'ped_estado_txt', TotalPedido: 'ped_total', BaseImponible: 'ped_base',
+        TotalIva: 'ped_iva', TotalDescuento: 'ped_descuento', Dto: 'ped_dto'
+      };
       // Convertir formato NocoDB a MySQL + filtrar columnas válidas
       const mysqlData = {};
       const input = pedidoData && typeof pedidoData === 'object' ? pedidoData : {};
       for (const [key, value] of Object.entries(input)) {
-        const real = colsLower.get(String(key).toLowerCase());
+        const mappedKey = pedidoLegacyToCol[key] || key;
+        const real = colsLower.get(String(mappedKey).toLowerCase()) || colsLower.get(String(key).toLowerCase());
         if (!real) continue;
         if (String(real).toLowerCase() === String(pk).toLowerCase()) continue;
 
@@ -7194,15 +7298,15 @@ class MySQLCRM {
 
       // Default Tarifa/Dto desde cliente si procede
       try {
-        const clienteId = colCliente ? Number(mysqlData[colCliente] ?? input[colCliente] ?? input.Id_Cliente ?? input.ClienteId) : NaN;
+        const clienteId = colCliente ? Number(mysqlData[colCliente] ?? input[colCliente] ?? input.ped_cli_id ?? input.Id_Cliente ?? input.ClienteId) : NaN;
         const hasTarifa = (colTarifaId && mysqlData[colTarifaId] !== undefined) || (colTarifaLegacy && mysqlData[colTarifaLegacy] !== undefined);
         const hasDto = colDtoPedido && mysqlData[colDtoPedido] !== undefined;
         if (colCliente && Number.isFinite(clienteId) && clienteId > 0 && (!hasTarifa || !hasDto)) {
           const cliente = await this.getClienteById(clienteId);
           if (cliente) {
             const tarifaCliente =
-              cliente.Id_Tarifa ?? cliente.id_tarifa ?? cliente.Tarifa ?? cliente.tarifa ?? 0;
-            const dtoCliente = cliente.Dto ?? cliente.dto ?? null;
+              cliente.cli_tarcli_id ?? cliente.cli_tarifa_legacy ?? cliente.Id_Tarifa ?? cliente.id_tarifa ?? cliente.Tarifa ?? cliente.tarifa ?? 0;
+            const dtoCliente = cliente.cli_dto ?? cliente.Dto ?? cliente.dto ?? null;
             if (!hasTarifa) {
               // Requisito: si el cliente tiene tarifa pero NO existe/está vigente, aplicar tarifa 0 (PVL).
               let tId = Number(tarifaCliente);
@@ -8418,7 +8522,7 @@ class MySQLCRM {
       const c = await this.getClienteById(cid).catch(() => null);
       if (!c) return { created: false, id: null };
 
-      const nombre = String(c.Nombre_Razon_Social ?? c.Nombre ?? '').trim();
+      const nombre = String(c.cli_nombre_razon_social ?? c.Nombre ?? '').trim();
       const direccion = String(c.Direccion ?? c.direccion ?? '').trim();
       const poblacion = String(c.Poblacion ?? c.poblacion ?? '').trim();
       const cp = String(c.CodigoPostal ?? c.codigo_postal ?? c.CP ?? c.cp ?? '').trim();

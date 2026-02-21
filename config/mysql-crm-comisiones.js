@@ -292,9 +292,9 @@ class ComisionesCRM {
   async getObjetivosMarcaMes(filters = {}) {
     let sql = `
       SELECT o.*,
-             c.Nombre AS comercial_nombre
+             c.com_nombre AS comercial_nombre
       FROM objetivos_marca_mes o
-      LEFT JOIN comerciales c ON c.id = o.comercial_id
+      LEFT JOIN comerciales c ON c.com_id = o.comercial_id
       WHERE 1=1
     `;
     const params = [];
@@ -443,17 +443,16 @@ class ComisionesCRM {
    */
   async getPresupuestos(filters = {}) {
     try {
-      const hasMarca = await this.hasArticulosMarcaColumn();
       let sql = `
         SELECT p.*, 
-               c.Nombre as comercial_nombre,
-               a.Nombre as articulo_nombre,
-               a.SKU as articulo_sku,
-               ${hasMarca ? 'a.Marca' : 'm.Nombre'} as articulo_marca
+               c.com_nombre as comercial_nombre,
+               a.art_nombre as articulo_nombre,
+               a.art_sku as articulo_sku,
+               m.mar_nombre as articulo_marca
         FROM presupuestos p
-        LEFT JOIN comerciales c ON p.comercial_id = c.id
-        LEFT JOIN articulos a ON p.articulo_id = a.id
-        LEFT JOIN marcas m ON m.id = a.Id_Marca
+        LEFT JOIN comerciales c ON p.comercial_id = c.com_id
+        LEFT JOIN articulos a ON p.articulo_id = a.art_id
+        LEFT JOIN marcas m ON m.mar_id = a.art_mar_id
         WHERE 1=1
       `;
       const params = [];
@@ -479,7 +478,7 @@ class ComisionesCRM {
         params.push(filters.activo ? 1 : 0);
       }
 
-      sql += ' ORDER BY p.año DESC, p.mes ASC, c.Nombre, a.Nombre';
+      sql += ' ORDER BY p.año DESC, p.mes ASC, c.com_nombre, a.art_nombre';
 
       console.log('🔍 [PRESUPUESTOS] SQL:', sql);
       console.log('🔍 [PRESUPUESTOS] Params:', params);
@@ -497,18 +496,17 @@ class ComisionesCRM {
    */
   async getPresupuestoById(id) {
     try {
-      const hasMarca = await this.hasArticulosMarcaColumn();
       const sql = `
         SELECT p.*, 
-               c.Nombre as comercial_nombre,
-               a.Nombre as articulo_nombre,
-               a.SKU as articulo_sku,
-               ${hasMarca ? 'a.Marca' : 'm.Nombre'} as articulo_marca
+               c.com_nombre as comercial_nombre,
+               a.art_nombre as articulo_nombre,
+               a.art_sku as articulo_sku,
+               m.mar_nombre as articulo_marca
         FROM presupuestos p
-        LEFT JOIN comerciales c ON p.comercial_id = c.id
-        LEFT JOIN articulos a ON p.articulo_id = a.id
-        LEFT JOIN marcas m ON m.id = a.Id_Marca
-        WHERE p.id = ?
+        LEFT JOIN comerciales c ON p.comercial_id = c.com_id
+        LEFT JOIN articulos a ON p.articulo_id = a.art_id
+        LEFT JOIN marcas m ON m.mar_id = a.art_mar_id
+        WHERE p.ped_id = ?
       `;
       const rows = await this.query(sql, [id]);
       return rows[0] || null;
@@ -529,7 +527,7 @@ class ComisionesCRM {
       
       // Verificar que comercial_id existe antes de continuar
       const verificarComercial = await this.query(
-        'SELECT id FROM comerciales WHERE id = ? LIMIT 1',
+        'SELECT com_id FROM comerciales WHERE com_id = ? LIMIT 1',
         [presupuestoData.comercial_id]
       );
       console.log('💾 [PRESUPUESTO] Verificación comercial en BD:', verificarComercial.length > 0 ? '✅ Existe' : '❌ NO existe');
@@ -539,7 +537,7 @@ class ComisionesCRM {
       
       // Verificar que articulo_id existe antes de continuar
       const verificarArticulo = await this.query(
-        'SELECT id FROM articulos WHERE id = ? LIMIT 1',
+        'SELECT art_id FROM articulos WHERE art_id = ? LIMIT 1',
         [presupuestoData.articulo_id]
       );
       console.log('💾 [PRESUPUESTO] Verificación artículo en BD:', verificarArticulo.length > 0 ? '✅ Existe' : '❌ NO existe');
@@ -592,11 +590,11 @@ class ComisionesCRM {
       // VERIFICACIÓN FINAL justo antes del INSERT usando la misma conexión
       console.log('🔍 [PRESUPUESTO] Verificación final antes de INSERT...');
       const pool = await this.connect();
-      const [comercialCheck] = await pool.execute('SELECT id FROM comerciales WHERE id = ?', [comercialId]);
-      const [articuloCheck] = await pool.execute('SELECT id FROM articulos WHERE id = ?', [articuloId]);
+      const [comercialCheck] = await pool.execute('SELECT com_id FROM comerciales WHERE com_id = ?', [comercialId]);
+      const [articuloCheck] = await pool.execute('SELECT art_id FROM articulos WHERE art_id = ?', [articuloId]);
       
-      console.log('🔍 [PRESUPUESTO] Verificación final - Comercial:', comercialCheck.length > 0 ? `✅ Existe (ID: ${comercialCheck[0].id})` : `❌ NO existe (buscado: ${comercialId})`);
-      console.log('🔍 [PRESUPUESTO] Verificación final - Artículo:', articuloCheck.length > 0 ? `✅ Existe (ID: ${articuloCheck[0].id})` : `❌ NO existe (buscado: ${articuloId})`);
+      console.log('🔍 [PRESUPUESTO] Verificación final - Comercial:', comercialCheck.length > 0 ? `✅ Existe (ID: ${comercialCheck[0].com_id})` : `❌ NO existe (buscado: ${comercialId})`);
+      console.log('🔍 [PRESUPUESTO] Verificación final - Artículo:', articuloCheck.length > 0 ? `✅ Existe (ID: ${articuloCheck[0].art_id})` : `❌ NO existe (buscado: ${articuloId})`);
       
       if (comercialCheck.length === 0) {
         throw new Error(`VERIFICACIÓN FINAL FALLIDA: El comercial con ID ${comercialId} no existe en la base de datos`);
@@ -738,10 +736,10 @@ class ComisionesCRM {
         SELECT ec.*,
                c.comercial_id, c.mes, c.año,
                c.total_ventas, c.total_comision,
-               co.Nombre AS comercial_nombre
+               co.com_nombre AS comercial_nombre
         FROM estadoComisiones ec
         INNER JOIN comisiones c ON c.id = ec.comision_id
-        LEFT JOIN comerciales co ON co.id = c.comercial_id
+        LEFT JOIN comerciales co ON co.com_id = c.comercial_id
         WHERE 1=1
       `;
       const params = [];
@@ -769,7 +767,7 @@ class ComisionesCRM {
 
       sql += `
         ORDER BY
-          co.Nombre ASC,
+          co.com_nombre ASC,
           c.año DESC,
           CASE
             WHEN c.mes IS NULL OR c.mes = 0 THEN 13
@@ -900,7 +898,7 @@ class ComisionesCRM {
                COALESCE(dv.total_ventas_detalle, 0) AS total_ventas_detalle,
                COALESCE(dv.comision_ventas_detalle, 0) AS comision_ventas_detalle,
                COALESCE(dv.detalles_venta_count, 0) AS detalles_venta_count,
-               co.Nombre as comercial_nombre,
+               co.com_nombre as comercial_nombre,
                co.Email as comercial_email
         FROM comisiones c
         LEFT JOIN (
@@ -913,7 +911,7 @@ class ComisionesCRM {
           WHERE (tipo_comision IS NULL OR tipo_comision = 'Venta')
           GROUP BY comision_id
         ) dv ON dv.comision_id = c.id
-        LEFT JOIN comerciales co ON c.comercial_id = co.id
+        LEFT JOIN comerciales co ON c.comercial_id = co.com_id
         WHERE 1=1
       `;
         const params = [];
@@ -952,11 +950,11 @@ class ComisionesCRM {
               AND EXISTS (
                 SELECT 1
                 FROM ${cdTable} cd2
-                LEFT JOIN ${articulosTable} a2 ON (a2.id = cd2.articulo_id OR a2.Id = cd2.articulo_id)
-                LEFT JOIN ${marcasTable} m2 ON (m2.id = a2.Id_Marca OR m2.Id = a2.Id_Marca)
+                LEFT JOIN ${articulosTable} a2 ON a2.art_id = cd2.articulo_id
+                LEFT JOIN ${marcasTable} m2 ON m2.mar_id = a2.art_mar_id
                 WHERE cd2.comision_id = c.id
                   AND (cd2.tipo_comision IS NULL OR cd2.tipo_comision = 'Venta')
-                  AND m2.id = ?
+                  AND m2.mar_id = ?
               )
             `;
             params.push(marcaId);
@@ -969,7 +967,7 @@ class ComisionesCRM {
       // - Por mes (enero→diciembre). Si mes es NULL/0 (comisión anual u otro), mandarlo al final.
       sql += `
         ORDER BY
-          co.Nombre ASC,
+          co.com_nombre ASC,
           c.año DESC,
           CASE
             WHEN c.mes IS NULL OR c.mes = 0 THEN 13
@@ -1033,7 +1031,7 @@ class ComisionesCRM {
     let sql = `
       SELECT
         c.comercial_id,
-        co.Nombre AS comercial_nombre,
+        co.com_nombre AS comercial_nombre,
         DATE(${fechaCol}) AS fecha_pago,
         COUNT(*) AS meses_pagados,
         SUM(CASE
@@ -1055,7 +1053,7 @@ class ComisionesCRM {
         WHERE (tipo_comision IS NULL OR tipo_comision = 'Venta')
         GROUP BY comision_id
       ) dv ON dv.comision_id = c.id
-      LEFT JOIN comerciales co ON (c.comercial_id = co.id OR c.comercial_id = co.Id)
+      LEFT JOIN comerciales co ON c.comercial_id = co.com_id
       WHERE ${fechaCol} IS NOT NULL
     `;
     const params = [];
@@ -1074,8 +1072,8 @@ class ComisionesCRM {
     }
 
     sql += `
-      GROUP BY c.comercial_id, co.Nombre, DATE(${fechaCol})
-      ORDER BY DATE(${fechaCol}) DESC, co.Nombre ASC
+      GROUP BY c.comercial_id, co.com_nombre, DATE(${fechaCol})
+      ORDER BY DATE(${fechaCol}) DESC, co.com_nombre ASC
     `;
 
     return await this.query(sql, params);
@@ -1098,7 +1096,7 @@ class ComisionesCRM {
         c.*,
         COALESCE(dv.total_ventas_detalle, 0) AS total_ventas_detalle,
         COALESCE(dv.comision_ventas_detalle, 0) AS comision_ventas_detalle,
-        co.Nombre AS comercial_nombre,
+        co.com_nombre AS comercial_nombre,
         co.Email AS comercial_email
       FROM comisiones c
       LEFT JOIN (
@@ -1110,7 +1108,7 @@ class ComisionesCRM {
         WHERE (tipo_comision IS NULL OR tipo_comision = 'Venta')
         GROUP BY comision_id
       ) dv ON dv.comision_id = c.id
-      LEFT JOIN comerciales co ON (c.comercial_id = co.id OR c.comercial_id = co.Id)
+      LEFT JOIN comerciales co ON c.comercial_id = co.com_id
       WHERE c.comercial_id = ?
         AND ${fechaCol} IS NOT NULL
         AND DATE(${fechaCol}) = ?
@@ -1132,7 +1130,7 @@ class ComisionesCRM {
                COALESCE(dv.total_ventas_detalle, 0) AS total_ventas_detalle,
                COALESCE(dv.comision_ventas_detalle, 0) AS comision_ventas_detalle,
                COALESCE(dv.detalles_venta_count, 0) AS detalles_venta_count,
-               co.Nombre as comercial_nombre,
+               co.com_nombre as comercial_nombre,
                co.Email as comercial_email
         FROM comisiones c
         LEFT JOIN (
@@ -1145,7 +1143,7 @@ class ComisionesCRM {
           WHERE (tipo_comision IS NULL OR tipo_comision = 'Venta')
           GROUP BY comision_id
         ) dv ON dv.comision_id = c.id
-        LEFT JOIN comerciales co ON c.comercial_id = co.id
+        LEFT JOIN comerciales co ON c.comercial_id = co.com_id
         WHERE c.id = ?
       `;
       const rows = await this.query(sql, [id]);
@@ -1394,12 +1392,12 @@ class ComisionesCRM {
       const sql = `
         SELECT cd.*,
                p.NumPedido as pedido_numero,
-               p.FechaPedido as pedido_fecha,
-               a.Nombre as articulo_nombre,
-               a.SKU as articulo_sku
+               p.ped_fecha as pedido_fecha,
+               a.art_nombre as articulo_nombre,
+               a.art_sku as articulo_sku
         FROM ${cdTable} cd
-        LEFT JOIN pedidos p ON cd.pedido_id = p.id
-        LEFT JOIN articulos a ON cd.articulo_id = a.id
+        LEFT JOIN pedidos p ON cd.pedido_id = p.ped_id
+        LEFT JOIN articulos a ON cd.articulo_id = a.art_id
         WHERE cd.comision_id = ?
         ORDER BY cd.creado_en DESC
       `;
@@ -1417,17 +1415,17 @@ class ComisionesCRM {
       const set = new Set((cols || []).map(r => String(r.Field || '').trim()));
       const pick = (candidates) => candidates.find(c => set.has(c)) || null;
       const col = pick([
-        'Nombre_Razon_Social',
+        'cli_nombre_razon_social',
         'Nombre_Cial',
         'Nombre',
         'nombre',
         'RazonSocial',
         'Razon_Social'
       ]);
-      this._cache.clientesNombreCol = col || 'Nombre';
+      this._cache.clientesNombreCol = col || 'cli_nombre_razon_social';
       return this._cache.clientesNombreCol;
     } catch (_) {
-      this._cache.clientesNombreCol = 'Nombre';
+      this._cache.clientesNombreCol = 'cli_nombre_razon_social';
       return this._cache.clientesNombreCol;
     }
   }
@@ -1444,28 +1442,28 @@ class ComisionesCRM {
 
       const sql = `
         SELECT
-          p.Id_Cliente AS cliente_id,
+          p.ped_cli_id AS cliente_id,
           ${clienteNombreExpr} AS cliente_nombre,
-          p.id AS pedido_id,
-          p.NumPedido AS pedido_numero,
-          p.FechaPedido AS pedido_fecha,
-          p.EstadoPedido AS pedido_estado,
+          p.ped_id AS pedido_id,
+          p.ped_numero AS pedido_numero,
+          p.ped_fecha AS pedido_fecha,
+          p.ped_estado_txt AS pedido_estado,
           SUM(cd.importe_venta) AS importe_venta,
           SUM(cd.importe_comision) AS importe_comision
         FROM ${cdTable} cd
-        LEFT JOIN pedidos p ON cd.pedido_id = p.id
-        LEFT JOIN clientes cl ON (cl.id = p.Id_Cliente OR cl.Id = p.Id_Cliente)
+        LEFT JOIN pedidos p ON cd.pedido_id = p.ped_id
+        LEFT JOIN clientes cl ON cl.cli_id = p.ped_cli_id
         WHERE cd.comision_id = ?
           AND (cd.tipo_comision IS NULL OR cd.tipo_comision = 'Venta')
           AND cd.pedido_id IS NOT NULL
         GROUP BY
-          p.Id_Cliente,
+          p.ped_cli_id,
           cliente_nombre,
-          p.id,
-          p.NumPedido,
-          p.FechaPedido,
-          p.EstadoPedido
-        ORDER BY cliente_nombre ASC, p.FechaPedido ASC, p.id ASC
+          p.ped_id,
+          p.ped_numero,
+          p.ped_fecha,
+          p.ped_estado_txt
+        ORDER BY cliente_nombre ASC, p.ped_fecha ASC, p.ped_id ASC
       `;
 
       return await this.query(sql, [Number(comisionId)]);
@@ -1487,34 +1485,34 @@ class ComisionesCRM {
     const run = async (marcasTable, articulosTable) => {
       const sql = `
         SELECT
-          p.Id_Cliente AS cliente_id,
+          p.ped_cli_id AS cliente_id,
           ${clienteNombreExpr} AS cliente_nombre,
-          p.id AS pedido_id,
-          p.NumPedido AS pedido_numero,
-          p.FechaPedido AS pedido_fecha,
-          p.EstadoPedido AS pedido_estado,
-          m.id AS marca_id,
-          m.Nombre AS marca_nombre,
+          p.ped_id AS pedido_id,
+          p.ped_numero AS pedido_numero,
+          p.ped_fecha AS pedido_fecha,
+          p.ped_estado_txt AS pedido_estado,
+          m.mar_id AS marca_id,
+          m.mar_nombre AS marca_nombre,
           SUM(cd.importe_venta) AS base_venta,
           SUM(cd.importe_comision) AS comision_ventas
         FROM ${cdTable} cd
-        LEFT JOIN pedidos p ON cd.pedido_id = p.id
-        LEFT JOIN clientes cl ON (cl.id = p.Id_Cliente OR cl.Id = p.Id_Cliente)
-        LEFT JOIN ${articulosTable} a ON (a.id = cd.articulo_id OR a.Id = cd.articulo_id)
-        LEFT JOIN ${marcasTable} m ON (m.id = a.Id_Marca OR m.Id = a.Id_Marca)
+        LEFT JOIN pedidos p ON cd.pedido_id = p.ped_id
+        LEFT JOIN clientes cl ON cl.cli_id = p.ped_cli_id
+        LEFT JOIN ${articulosTable} a ON a.art_id = cd.articulo_id
+        LEFT JOIN ${marcasTable} m ON m.mar_id = a.art_mar_id
         WHERE cd.comision_id = ?
           AND (cd.tipo_comision IS NULL OR cd.tipo_comision = 'Venta')
           AND cd.pedido_id IS NOT NULL
         GROUP BY
-          p.Id_Cliente,
+          p.ped_cli_id,
           cliente_nombre,
-          p.id,
-          p.NumPedido,
-          p.FechaPedido,
-          p.EstadoPedido,
-          m.id,
-          m.Nombre
-        ORDER BY cliente_nombre ASC, p.FechaPedido ASC, p.id ASC, m.Nombre ASC
+          p.ped_id,
+          p.ped_numero,
+          p.ped_fecha,
+          p.ped_estado_txt,
+          m.mar_id,
+          m.mar_nombre
+        ORDER BY cliente_nombre ASC, p.ped_fecha ASC, p.ped_id ASC, m.mar_nombre ASC
       `;
       return await this.query(sql, [Number(comisionId)]);
     };
@@ -1626,10 +1624,10 @@ class ComisionesCRM {
     try {
       let sql = `
         SELECT r.*, 
-               c.Nombre as comercial_nombre,
+               c.com_nombre as comercial_nombre,
                c.Email as comercial_email
         FROM rapeles r
-        LEFT JOIN comerciales c ON r.comercial_id = c.id
+        LEFT JOIN comerciales c ON r.comercial_id = c.com_id
         WHERE 1=1
       `;
       const params = [];
@@ -1655,7 +1653,7 @@ class ComisionesCRM {
         params.push(filters.estado);
       }
 
-      sql += ' ORDER BY r.año DESC, r.trimestre DESC, r.marca, c.Nombre';
+      sql += ' ORDER BY r.año DESC, r.trimestre DESC, r.marca, c.com_nombre';
 
       return await this.query(sql, params);
     } catch (error) {
@@ -1671,10 +1669,10 @@ class ComisionesCRM {
     try {
       const sql = `
         SELECT r.*, 
-               c.Nombre as comercial_nombre,
+               c.com_nombre as comercial_nombre,
                c.Email as comercial_email
         FROM rapeles r
-        LEFT JOIN comerciales c ON r.comercial_id = c.id
+        LEFT JOIN comerciales c ON r.comercial_id = c.com_id
         WHERE r.id = ?
       `;
       const rows = await this.query(sql, [id]);
@@ -1987,7 +1985,7 @@ class ComisionesCRM {
         SELECT
           MIN(o.id) AS id,
           o.comercial_id,
-          c.Nombre AS comercial_nombre,
+          c.com_nombre AS comercial_nombre,
           o.marca,
           o.año,
           SUM(o.objetivo) AS objetivo_anual,
@@ -2000,7 +1998,7 @@ class ComisionesCRM {
           MAX(o.creado_en) AS creado_en,
           MAX(o.observaciones) AS observaciones
         FROM objetivos_marca o
-        LEFT JOIN comerciales c ON o.comercial_id = c.id
+        LEFT JOIN comerciales c ON o.comercial_id = c.com_id
         WHERE 1=1
       `;
       const params = [];
@@ -2039,7 +2037,7 @@ class ComisionesCRM {
       }
 
       sql += ' GROUP BY o.comercial_id, o.marca, o.año';
-      sql += ' ORDER BY o.año DESC, o.marca, c.Nombre';
+      sql += ' ORDER BY o.año DESC, o.marca, c.com_nombre';
 
       return await this.query(sql, params);
     } catch (error) {
@@ -2069,7 +2067,7 @@ class ComisionesCRM {
         SELECT
           MIN(o.id) AS id,
           o.comercial_id,
-          c.Nombre AS comercial_nombre,
+          c.com_nombre AS comercial_nombre,
           o.marca,
           o.año,
           SUM(o.objetivo) AS objetivo_anual,
@@ -2080,7 +2078,7 @@ class ComisionesCRM {
           MAX(o.activo) AS activo,
           MAX(o.observaciones) AS observaciones
         FROM objetivos_marca o
-        LEFT JOIN comerciales c ON o.comercial_id = c.id
+        LEFT JOIN comerciales c ON o.comercial_id = c.com_id
         WHERE o.comercial_id = ?
           AND o.marca = ?
           AND o.año = ?
@@ -2175,7 +2173,7 @@ class ComisionesCRM {
         SELECT
           MIN(o.id) AS id,
           o.comercial_id,
-          c.Nombre AS comercial_nombre,
+          c.com_nombre AS comercial_nombre,
           o.marca,
           o.año,
           SUM(o.objetivo) AS objetivo_anual,
@@ -2186,7 +2184,7 @@ class ComisionesCRM {
           MAX(o.activo) AS activo,
           MAX(o.observaciones) AS observaciones
         FROM objetivos_marca o
-        LEFT JOIN comerciales c ON o.comercial_id = c.id
+        LEFT JOIN comerciales c ON o.comercial_id = c.com_id
         WHERE o.comercial_id = ?
           AND o.marca = ?
           AND o.año = ?
@@ -2365,12 +2363,12 @@ class ComisionesCRM {
     try {
       let sql = `
         SELECT ce.*,
-               c.Nombre as comercial_nombre,
-               a.Nombre as articulo_nombre,
-               a.SKU as articulo_sku
+               c.com_nombre as comercial_nombre,
+               a.art_nombre as articulo_nombre,
+               a.art_sku as articulo_sku
         FROM condiciones_especiales ce
-        LEFT JOIN comerciales c ON ce.comercial_id = c.id
-        LEFT JOIN articulos a ON ce.articulo_id = a.id
+        LEFT JOIN comerciales c ON ce.comercial_id = c.com_id
+        LEFT JOIN articulos a ON ce.articulo_id = a.art_id
         WHERE 1=1
       `;
       const params = [];
@@ -2502,12 +2500,12 @@ class ComisionesCRM {
       // Construir SQL con Marcas (mayúscula) - si falla, se manejará en el catch
       let sql = `
         SELECT fmm.*,
-               c.Nombre as comercial_nombre,
+               c.com_nombre as comercial_nombre,
                c.Email as comercial_email,
-               m.Nombre as marca_nombre
+               m.mar_nombre as marca_nombre
         FROM fijos_mensuales_marca fmm
-        LEFT JOIN comerciales c ON (fmm.comercial_id = c.id OR fmm.comercial_id = c.Id)
-        LEFT JOIN marcas m ON (fmm.marca_id = m.id OR fmm.marca_id = m.Id)
+        LEFT JOIN comerciales c ON fmm.comercial_id = c.com_id
+        LEFT JOIN marcas m ON fmm.marca_id = m.mar_id
         WHERE 1=1
       `;
       
@@ -2526,7 +2524,7 @@ class ComisionesCRM {
         params.push(filters.activo ? 1 : 0);
       }
 
-      sql += ' ORDER BY COALESCE(c.Nombre, \'\'), COALESCE(m.Nombre, \'\')';
+      sql += ' ORDER BY COALESCE(c.com_nombre, \'\'), COALESCE(m.mar_nombre, \'\')';
 
       const result = await this.query(sql, params);
       return Array.isArray(result) ? result : [];
@@ -2538,12 +2536,12 @@ class ComisionesCRM {
       try {
         let sqlFallback = `
           SELECT fmm.*,
-                 c.Nombre as comercial_nombre,
+                 c.com_nombre as comercial_nombre,
                  c.Email as comercial_email,
-                 m.Nombre as marca_nombre
+                 m.mar_nombre as marca_nombre
           FROM fijos_mensuales_marca fmm
-          LEFT JOIN comerciales c ON (fmm.comercial_id = c.id OR fmm.comercial_id = c.Id)
-          LEFT JOIN marcas m ON (fmm.marca_id = m.id OR fmm.marca_id = m.Id)
+          LEFT JOIN comerciales c ON fmm.comercial_id = c.com_id
+          LEFT JOIN marcas m ON fmm.marca_id = m.mar_id
           WHERE 1=1
         `;
         
@@ -2560,7 +2558,7 @@ class ComisionesCRM {
           sqlFallback += ' AND fmm.activo = ?';
           params.push(filters.activo ? 1 : 0);
         }
-        sqlFallback += ' ORDER BY COALESCE(c.Nombre, \'\'), COALESCE(m.Nombre, \'\')';
+        sqlFallback += ' ORDER BY COALESCE(c.com_nombre, \'\'), COALESCE(m.mar_nombre, \'\')';
         
         const result = await this.query(sqlFallback, params);
         return Array.isArray(result) ? result : [];
@@ -2596,12 +2594,12 @@ class ComisionesCRM {
       // Luego mergeamos en JS priorizando el específico sobre el global.
       let sql = `
         SELECT fmm.*,
-               c.Nombre as comercial_nombre,
+               c.com_nombre as comercial_nombre,
                c.Email as comercial_email,
-               m.Nombre as marca_nombre
+               m.mar_nombre as marca_nombre
         FROM fijos_mensuales_marca fmm
-        LEFT JOIN comerciales c ON (fmm.comercial_id = c.id OR fmm.comercial_id = c.Id)
-        LEFT JOIN marcas m ON (fmm.marca_id = m.id OR fmm.marca_id = m.Id)
+        LEFT JOIN comerciales c ON fmm.comercial_id = c.com_id
+        LEFT JOIN marcas m ON fmm.marca_id = m.mar_id
         WHERE 1=1
       `;
       const params = [];
@@ -2632,7 +2630,7 @@ class ComisionesCRM {
         params.push(filters.activo ? 1 : 0);
       }
 
-      sql += ' ORDER BY COALESCE(c.Nombre, \'\'), fmm.año DESC, fmm.mes ASC, COALESCE(m.Nombre, \'\')';
+      sql += ' ORDER BY COALESCE(c.com_nombre, \'\'), fmm.año DESC, fmm.mes ASC, COALESCE(m.mar_nombre, \'\')';
 
       const rows = await this.query(sql, params);
 
@@ -2766,11 +2764,11 @@ class ComisionesCRM {
     try {
       const sql = `
         SELECT fmm.*,
-               c.Nombre as comercial_nombre,
-               m.Nombre as marca_nombre
+               c.com_nombre as comercial_nombre,
+               m.mar_nombre as marca_nombre
         FROM fijos_mensuales_marca fmm
-        LEFT JOIN comerciales c ON (fmm.comercial_id = c.id OR fmm.comercial_id = c.Id)
-        LEFT JOIN marcas m ON (fmm.marca_id = m.id OR fmm.marca_id = m.Id)
+        LEFT JOIN comerciales c ON fmm.comercial_id = c.com_id
+        LEFT JOIN marcas m ON fmm.marca_id = m.mar_id
         WHERE fmm.comercial_id = ? AND fmm.marca_id = ?
         LIMIT 1
       `;
@@ -3076,9 +3074,9 @@ class ComisionesCRM {
       let sql = `
         SELECT
           cctp.*,
-          COALESCE(tp.Tipo, cctp.nombre_tipo_pedido) AS nombre_tipo_pedido
+          COALESCE(tp.tipp_tipo, cctp.nombre_tipo_pedido) AS nombre_tipo_pedido
         FROM config_comisiones_tipo_pedido cctp
-        LEFT JOIN tipos_pedidos tp ON tp.id = cctp.tipo_pedido_id
+        LEFT JOIN tipos_pedidos tp ON tp.tipp_id = cctp.tipo_pedido_id
         WHERE 1=1
       `;
       const params = [];
@@ -3096,7 +3094,7 @@ class ComisionesCRM {
         params.push(Number(filters.tipo_pedido_id));
       }
       if (filters.nombre_tipo_pedido) {
-        sql += ' AND (cctp.nombre_tipo_pedido = ? OR tp.Tipo = ?)';
+        sql += ' AND (cctp.nombre_tipo_pedido = ? OR tp.tipp_tipo = ?)';
         params.push(filters.nombre_tipo_pedido);
         params.push(filters.nombre_tipo_pedido);
       }
@@ -3141,18 +3139,18 @@ class ComisionesCRM {
         if (!n) return null;
         // Exact match (case-insensitive)
         const rows = await this.query(
-          'SELECT id, Tipo FROM tipos_pedidos WHERE UPPER(Tipo) = UPPER(?) LIMIT 1',
+          'SELECT tipp_id, tipp_tipo FROM tipos_pedidos WHERE UPPER(tipp_tipo) = UPPER(?) LIMIT 1',
           [n]
         ).catch(() => []);
-        if (rows && rows.length > 0) return Number(rows[0].id);
+        if (rows && rows.length > 0) return Number(rows[0].tipp_id);
         // Fallback: LIKE (por si vienen nombres tipo "Transfer")
         const rowsLike = await this.query(
-          'SELECT id, Tipo FROM tipos_pedidos WHERE Tipo LIKE ? ORDER BY id ASC LIMIT 1',
+          'SELECT tipp_id, tipp_tipo FROM tipos_pedidos WHERE tipp_tipo LIKE ? ORDER BY tipp_id ASC LIMIT 1',
           [`%${n}%`]
         ).catch(() => []);
-        if (rowsLike && rowsLike.length > 0) return Number(rowsLike[0].id);
+        if (rowsLike && rowsLike.length > 0) return Number(rowsLike[0].tipp_id);
         // Crear tipo si no existe (para evitar bloquear el CRUD)
-        const result = await this.execute('INSERT INTO tipos_pedidos (Tipo) VALUES (?)', [n]);
+        const result = await this.execute('INSERT INTO tipos_pedidos (tipp_tipo) VALUES (?)', [n]);
         return Number(result.insertId);
       };
 
@@ -3170,9 +3168,9 @@ class ComisionesCRM {
       // Asegurar nombre_tipo_pedido (si no viene, resolver desde tipos_pedidos)
       if (!data.nombre_tipo_pedido || String(data.nombre_tipo_pedido).trim() === '') {
         try {
-          const rows = await this.query('SELECT Tipo FROM tipos_pedidos WHERE id = ? LIMIT 1', [tipoPedidoId]);
+          const rows = await this.query('SELECT tipp_tipo FROM tipos_pedidos WHERE tipp_id = ? LIMIT 1', [tipoPedidoId]);
           if (rows && rows.length > 0) {
-            data.nombre_tipo_pedido = rows[0].Tipo;
+            data.nombre_tipo_pedido = rows[0].tipp_tipo;
           }
         } catch (_) { /* noop */ }
       }

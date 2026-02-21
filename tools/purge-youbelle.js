@@ -139,27 +139,27 @@ async function main() {
 
     // Columnas meta
     const clientesCols = await getColumns(conn, tClientes);
-    const clientesPk = pickCI(clientesCols, ['Id', 'id']) || 'Id';
-    const clientesNombre = pickCI(clientesCols, ['Nombre_Razon_Social', 'Nombre', 'nombre', 'Razon_Social', 'RazonSocial']);
-    const clientesNombreCial = pickCI(clientesCols, ['Nombre_Cial', 'Nombre_CIAL', 'nombre_cial']);
+    const clientesPk = pickCI(clientesCols, ['cli_id', 'Id', 'id']) || 'cli_id';
+    const clientesNombre = pickCI(clientesCols, ['cli_nombre_razon_social', 'Nombre_Razon_Social', 'Nombre', 'nombre', 'Razon_Social', 'RazonSocial']);
+    const clientesNombreCial = pickCI(clientesCols, ['cli_nombre_cial', 'Nombre_Cial', 'Nombre_CIAL', 'nombre_cial']);
 
     const pedidosCols = await getColumns(conn, tPedidos);
-    const pedidosPk = pickCI(pedidosCols, ['Id', 'id']) || 'Id';
-    const pedidosColCliente = pickCI(pedidosCols, ['Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id', 'Cliente_id']);
-    const pedidosColNum = pickCI(pedidosCols, ['NumPedido', 'Numero_Pedido', 'numero_pedido', 'Número_Pedido', 'Número Pedido', 'NumeroPedido', 'numeroPedido']);
+    const pedidosPk = pickCI(pedidosCols, ['ped_id', 'Id', 'id']) || 'ped_id';
+    const pedidosColCliente = pickCI(pedidosCols, ['ped_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id', 'Cliente_id']);
+    const pedidosColNum = pickCI(pedidosCols, ['ped_numero', 'NumPedido', 'Numero_Pedido', 'numero_pedido', 'Número_Pedido', 'Número Pedido', 'NumeroPedido', 'numeroPedido']);
 
     const paCols = await getColumns(conn, tPedArt);
-    const paPk = pickCI(paCols, ['Id', 'id']) || 'Id';
-    const paColNum = pickCI(paCols, ['NumPedido', 'numPedido', 'NumeroPedido', 'numeroPedido', 'Numero_Pedido', 'Número_Pedido', 'Número Pedido']);
-    const paColPedidoId = pickCI(paCols, ['PedidoId', 'pedidoId', 'Id_Pedido', 'id_pedido', 'pedido_id']);
-    const paColPedidoIdNum = pickCI(paCols, ['Id_NumPedido', 'id_numpedido', 'id_num_pedido', 'PedidoIdNum', 'pedidoIdNum']);
-    const paColArticulo = pickCI(paCols, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloId', 'IdArticulo', 'idArticulo', 'articulo_id']);
+    const paPk = pickCI(paCols, ['pedart_id', 'Id', 'id']) || 'pedart_id';
+    const paColNum = pickCI(paCols, ['pedart_numero', 'NumPedido', 'numPedido', 'NumeroPedido', 'numeroPedido', 'Numero_Pedido', 'Número_Pedido', 'Número Pedido']);
+    const paColPedidoId = pickCI(paCols, ['pedart_ped_id', 'PedidoId', 'pedidoId', 'Id_Pedido', 'id_pedido', 'pedido_id']);
+    const paColPedidoIdNum = pickCI(paCols, ['pedart_ped_id', 'Id_NumPedido', 'id_numpedido', 'id_num_pedido', 'PedidoIdNum', 'pedidoIdNum']);
+    const paColArticulo = pickCI(paCols, ['pedart_art_id', 'Id_Articulo', 'id_articulo', 'ArticuloId', 'articuloId', 'IdArticulo', 'idArticulo', 'articulo_id']);
 
     const artCols = await getColumns(conn, tArticulos);
-    const artPk = pickCI(artCols, ['Id', 'id']) || 'Id';
+    const artPk = pickCI(artCols, ['art_id', 'Id', 'id']) || 'art_id';
     const artColMarca = pickCI(artCols, ['Marca', 'marca']);
-    const artColNombre = pickCI(artCols, ['Nombre', 'nombre']);
-    const artColActivo = pickCI(artCols, ['Activo', 'activo']);
+    const artColNombre = pickCI(artCols, ['art_nombre', 'Nombre', 'nombre']);
+    const artColActivo = pickCI(artCols, ['art_activo', 'Activo', 'activo']);
 
     const like = `%${term.toUpperCase()}%`;
 
