@@ -38,9 +38,12 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Vercel rewrites: / -> /api/index, así que req.url puede venir como /api/index; normalizar a /
+// Vercel rewrites: /login -> /api/index?__path=/login; usar __path para routing
 app.use((req, _res, next) => {
-  if (typeof req.url === 'string' && req.url.startsWith('/api/index')) {
+  const pathParam = req.query && req.query.__path;
+  if (typeof pathParam === 'string' && pathParam.startsWith('/')) {
+    req.url = pathParam;
+  } else if (typeof req.url === 'string' && req.url.startsWith('/api/index')) {
     req.url = req.url.replace(/^\/api\/index/, '') || '/';
   }
   next();
