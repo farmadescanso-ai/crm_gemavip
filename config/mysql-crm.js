@@ -2556,12 +2556,9 @@ class MySQLCRM {
     try {
       const table = await this._getFormasPagoTableName();
       if (!table) return null;
-      let rows;
-      try {
-        rows = await this.query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
-      } catch (e1) {
-        rows = await this.query(`SELECT * FROM ${table} WHERE Id = ? LIMIT 1`, [id]);
-      }
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['formp_id', 'id', 'Id']) || 'id';
+      const rows = await this.query(`SELECT * FROM \`${table}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo forma de pago por ID:', error.message);
@@ -2645,8 +2642,8 @@ class MySQLCRM {
         || await this._resolveTableNameCaseInsensitive('tipos_pedido').catch(() => null);
       if (!table) return [];
       const cols = await this._getColumns(table).catch(() => []);
-      const pk = this._pickCIFromColumns(cols, ['id', 'Id']) || 'id';
-      const colNombre = this._pickCIFromColumns(cols, ['Tipo', 'tipo', 'Nombre', 'nombre']) || 'Tipo';
+      const pk = this._pickCIFromColumns(cols, ['tipp_id', 'id', 'Id']) || 'id';
+      const colNombre = this._pickCIFromColumns(cols, ['tipp_tipo', 'Tipo', 'tipo', 'Nombre', 'nombre']) || 'Tipo';
       let rows = [];
       try {
         rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY \`${pk}\` ASC`);
@@ -4254,7 +4251,7 @@ class MySQLCRM {
     try {
       const t = await this._resolveTableNameCaseInsensitive('tarifasClientes');
       const cols = await this._getColumns(t).catch(() => []);
-      const pk = this._pickCIFromColumns(cols, ['Id', 'id']) || 'Id';
+      const pk = this._pickCIFromColumns(cols, ['tarcli_id', 'Id', 'id']) || 'Id';
       const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
       return Array.isArray(rows) ? rows : [];
     } catch (_) {

@@ -3399,10 +3399,10 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     ]);
 
     const tipoPedido = needTiposPedido
-      ? (tiposPedido || []).find((t) => Number(_n(_n(t && t.id, t && t.Id), 0)) === idTipoPedido) || null
+      ? (tiposPedido || []).find((t) => Number(_n(_n(_n(t && t.id, t && t.Id), t && t.tipp_id), 0)) === idTipoPedido) || null
       : null;
     const tarifa = needTarifas
-      ? (tarifas || []).find((t) => Number(_n(_n(t && t.Id, t && t.id), 0)) === idTarifa) || null
+      ? (tarifas || []).find((t) => Number(_n(_n(_n(t && t.Id, t && t.id), t && t.tarcli_id), 0)) === idTarifa) || null
       : null;
 
     const idDirEnvio = Number(item?.Id_DireccionEnvio ?? item?.ped_direnv_id ?? 0) || 0;
@@ -3435,9 +3435,9 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     };
     const clienteLabel = pick(cliente, ['Nombre_Razon_Social', 'cli_nombre_razon_social', 'Nombre', 'nombre']);
     const comercialLabel = pick(comercial, ['Nombre', 'com_nombre', 'nombre']);
-    const formaPagoLabel = pick(formaPago, ['FormaPago', 'Nombre', 'nombre', 'forma_pago']);
+    const formaPagoLabel = pick(formaPago, ['FormaPago', 'formp_nombre', 'Nombre', 'nombre', 'forma_pago']);
     const tarifaLabel = pick(tarifa, ['NombreTarifa', 'Nombre', 'nombre', 'tarcli_nombre']);
-    const tipoPedidoLabel = pick(tipoPedido, ['Nombre', 'Tipo', 'nombre', 'tipo']);
+    const tipoPedidoLabel = pick(tipoPedido, ['Nombre', 'Tipo', 'tipp_tipo', 'nombre', 'tipo']);
     const estadoLabel = pick(estadoPedido, ['nombre', 'Nombre', 'estped_nombre']) || pick(item, ['EstadoPedido', 'Estado', 'ped_estado_txt']) || '';
 
     res.render('pedido', {

@@ -260,32 +260,32 @@
             <% let sumBase = 0, sumIva = 0, sumTotal = 0; const ivaByPct = {}; %>
             <% (lineas || []).forEach((l) => { %>
               <%
-                const codigo = (l.SKU ?? l.Codigo ?? l.Id_Articulo ?? l.id_articulo ?? '').toString();
-                const concepto = (l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.nombre ?? '').toString();
-                const qty = Math.max(0, toNum(l.Cantidad ?? l.Unidades ?? 0, 0));
+                const codigo = (l.art_codigo ?? l.art_sku ?? l.SKU ?? l.Codigo ?? l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? '').toString();
+                const concepto = (l.art_nombre ?? l.Nombre ?? l.Descripcion ?? l.pedart_articulo_txt ?? l.Articulo ?? l.nombre ?? '').toString();
+                const qty = Math.max(0, toNum(l.pedart_cantidad ?? l.Cantidad ?? l.Unidades ?? 0, 0));
                 const pvl = Math.max(
                   0,
-                  toNum(l.Linea_PVP ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0)
+                  toNum(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0)
                 );
                 const dto = Math.max(
                   0,
                   Math.min(
                     100,
-                    toNum(l.Linea_Dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? l.descuento ?? 0, 0)
+                    toNum(l.Linea_Dto ?? l.pedart_dto ?? l.DtoLinea ?? l.dto_linea ?? l.Dto ?? l.dto ?? l.Descuento ?? l.descuento ?? 0, 0)
                   )
                 );
 
-                const baseStored = toNum(l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
+                const baseStored = toNum(l.pedart_subtotal ?? l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
                 const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
                 const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
 
                 const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
-                let ivaPct = toNum(l.Linea_IVA ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+                let ivaPct = toNum(l.Linea_IVA ?? l.pedart_iva ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
                 if (ivaPct > 100) ivaPct = 0;
                 const ivaImpCalc = round2(base * ivaPct / 100);
                 const ivaImp = Number.isFinite(ivaImpStored) ? round2(ivaImpStored) : ivaImpCalc;
 
-                const totalStored = toNum(l.Total ?? l.TotalLinea ?? l.ImporteTotal ?? l.total_linea ?? NaN, NaN);
+                const totalStored = toNum(l.pedart_total ?? l.Total ?? l.TotalLinea ?? l.ImporteTotal ?? l.total_linea ?? NaN, NaN);
                 const totalCalc = round2(base + ivaImp);
                 const total = Number.isFinite(totalStored) ? round2(totalStored) : totalCalc;
 

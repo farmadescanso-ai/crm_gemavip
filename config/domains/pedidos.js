@@ -235,7 +235,7 @@ module.exports = {
 
       const tArt = await this._resolveTableNameCaseInsensitive('articulos').catch(() => null);
       const aCols = tArt ? await this._getColumns(tArt).catch(() => []) : [];
-      const aPk = this._pickCIFromColumns(aCols, ['Id', 'id']) || 'Id';
+      const aPk = this._pickCIFromColumns(aCols, ['art_id', 'Id', 'id']) || 'Id';
 
       const where = [];
       const params = [];
@@ -286,9 +286,9 @@ module.exports = {
         : '';
 
       const pickPaCol = (cands) => this._pickCIFromColumns(paCols, cands);
-      const colPvp = pickPaCol(['PVP', 'pvp', 'PVPUnit', 'Precio', 'precio', 'PrecioUnitario', 'precio_unitario']);
-      const colDto = pickPaCol(['DtoLinea', 'dto_linea', 'dtoLinea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
-      const colIva = pickPaCol(['IVA', 'iva', 'PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'TipoIVA', 'tipo_iva']);
+      const colPvp = pickPaCol(['pedart_pvp', 'PVP', 'pvp', 'PVPUnit', 'Precio', 'precio', 'PrecioUnitario', 'precio_unitario']);
+      const colDto = pickPaCol(['pedart_dto', 'DtoLinea', 'dto_linea', 'dtoLinea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
+      const colIva = pickPaCol(['pedart_iva', 'IVA', 'iva', 'PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'TipoIVA', 'tipo_iva']);
       const extraSelect = [
         colPvp ? `pa.\`${colPvp}\` AS Linea_PVP` : null,
         colDto ? `pa.\`${colDto}\` AS Linea_Dto` : null,
