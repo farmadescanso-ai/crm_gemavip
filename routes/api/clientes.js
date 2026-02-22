@@ -47,7 +47,7 @@ router.get(
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
 
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 500, useOffsetFromQuery: true });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 500, useOffsetFromQuery: true });
 
     const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search) : '';
 
@@ -102,7 +102,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
-    const { limit } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
+    const { limit } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
     const q = typeof req.query.q === 'string' ? String(req.query.q) : typeof req.query.search === 'string' ? String(req.query.search) : '';
     const qq = String(q || '').trim();
     if (!qq) return res.json({ ok: true, items: [] });
@@ -148,7 +148,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
-    const { limit } = parsePagination(req.query, { defaultLimit: 6, maxLimit: 10 });
+    const { limit } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 20 });
     const dni = typeof req.query.dni === 'string' ? String(req.query.dni) : '';
     const nombre = typeof req.query.nombre === 'string' ? String(req.query.nombre) : '';
     const nombreCial = typeof req.query.nombreCial === 'string' ? String(req.query.nombreCial) : '';

@@ -43,7 +43,7 @@ router.get(
     const isAdmin = isAdminUser(sessionUser);
     const comercialId = toInt(req.query.comercialId, null);
     const clienteId = toInt(req.query.clienteId, null);
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 200 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
 
     const filters = {
       comercialId: sessionUser && !isAdmin ? sessionUser.id : comercialId,

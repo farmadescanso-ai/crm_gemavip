@@ -88,7 +88,7 @@
   var emptyRow = document.getElementById('notif-empty-row');
   var total = <%= (typeof paging !== 'undefined' && paging && paging.total) ? paging.total : 0 %>;
   if (!emptyRow || total === 0) return;
-  fetch('/api/notificaciones?limit=50')
+  fetch('/api/notificaciones?limit=10')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.ok || !data.items || data.items.length === 0) return;

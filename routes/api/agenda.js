@@ -62,7 +62,7 @@ function pickAgendaPayload(body) {
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const { limit, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 500, useOffsetFromQuery: true });
+    const { limit, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 500, useOffsetFromQuery: true });
     const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search) : '';
     const includeInactivos = toBool(req.query.includeInactivos, false);
     const items = await db.getContactos({ search: q, limit, offset, includeInactivos });
@@ -92,7 +92,7 @@ router.get(
 router.get(
   '/suggest',
   asyncHandler(async (req, res) => {
-    const { limit } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
+    const { limit } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
     const q = typeof req.query.q === 'string' ? String(req.query.q) : typeof req.query.search === 'string' ? String(req.query.search) : '';
     const qq = String(q || '').trim();
     if (!qq) return res.json({ ok: true, items: [] });

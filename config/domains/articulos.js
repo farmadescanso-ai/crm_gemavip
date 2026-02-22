@@ -11,6 +11,8 @@ module.exports = {
       const marcaIdRaw = options && typeof options === 'object' ? options.marcaId : null;
       const marcaId = Number(marcaIdRaw);
       const hasMarcaId = Number.isFinite(marcaId) && marcaId > 0;
+      const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : null;
+      const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
 
       let rows = [];
       try {
@@ -33,12 +35,14 @@ module.exports = {
           ? `m.\`${mNombre}\` AS MarcaNombre`
           : `CAST(m.\`${mPk}\` AS CHAR) AS MarcaNombre`;
 
+        const limitClause = limit ? ` LIMIT ${limit} OFFSET ${offset}` : '';
         const sql = `
           SELECT a.*, ${selectMarcaNombre}
           FROM \`${tArt}\` a
           LEFT JOIN \`${tMarcas}\` m ON m.\`${mPk}\` = a.\`${aMarcaId}\`
           ${hasMarcaId ? `WHERE a.\`${aMarcaId}\` = ?` : ''}
           ORDER BY a.\`${aPk}\` ASC
+          ${limitClause}
         `;
         rows = hasMarcaId ? await this.query(sql, [marcaId]) : await this.query(sql);
       } catch (innerErr) {
@@ -46,9 +50,10 @@ module.exports = {
         const aCols = await this._getColumns(tArt).catch(() => []);
         const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
         const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
+        const limitClause = limit ? ` LIMIT ${limit} OFFSET ${offset}` : '';
         const sql = hasMarcaId
-          ? `SELECT * FROM \`${tArt}\` WHERE \`${aMarcaId}\` = ? ORDER BY \`${aPk}\` ASC`
-          : `SELECT * FROM \`${tArt}\` ORDER BY \`${aPk}\` ASC`;
+          ? `SELECT * FROM \`${tArt}\` WHERE \`${aMarcaId}\` = ? ORDER BY \`${aPk}\` ASC${limitClause}`
+          : `SELECT * FROM \`${tArt}\` ORDER BY \`${aPk}\` ASC${limitClause}`;
         rows = hasMarcaId ? await this.query(sql, [marcaId]) : await this.query(sql);
       }
       console.log(`✅ Obtenidos ${rows.length} artículos`);
@@ -56,6 +61,28 @@ module.exports = {
     } catch (error) {
       console.error('❌ Error obteniendo artículos:', error.message);
       throw error;
+    }
+  },
+
+  async countArticulos(options = {}) {
+    try {
+      const marcaIdRaw = options && typeof options === 'object' ? options.marcaId : null;
+      const marcaId = Number(marcaIdRaw);
+      const hasMarcaId = Number.isFinite(marcaId) && marcaId > 0;
+
+      const tArt = await this._resolveTableNameCaseInsensitive('articulos');
+      const aCols = await this._getColumns(tArt).catch(() => []);
+      const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
+
+      const sql = hasMarcaId
+        ? `SELECT COUNT(*) AS total FROM \`${tArt}\` WHERE \`${aMarcaId}\` = ?`
+        : `SELECT COUNT(*) AS total FROM \`${tArt}\``;
+      const params = hasMarcaId ? [marcaId] : [];
+      const rows = await this.query(sql, params);
+      return Number(rows?.[0]?.total ?? 0);
+    } catch (error) {
+      console.error('❌ Error contando artículos:', error.message);
+      return 0;
     }
   },
 

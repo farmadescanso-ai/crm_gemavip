@@ -40,7 +40,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const user = req.session?.user;
     if (!user || !isAdminUser(user)) return res.status(403).json({ ok: false, error: 'Solo administrador' });
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 100 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
     const items = await db.getNotificaciones(limit, offset);
     const total = await db.getNotificacionesPendientesCount();
     res.json({ ok: true, items, paging: { page, limit, offset, total } });

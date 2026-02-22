@@ -773,6 +773,9 @@ class MySQLCRM {
   async getArticulos(options = {}) {
     return domains.articulos.getArticulos.apply(this, arguments);
   }
+  async countArticulos(options = {}) {
+    return domains.articulos.countArticulos.apply(this, arguments);
+  }
   async getArticuloById(id) {
     return domains.articulos.getArticuloById.apply(this, arguments);
   }

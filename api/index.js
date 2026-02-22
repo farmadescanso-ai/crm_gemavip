@@ -1404,7 +1404,7 @@ app.post('/admin/variables-sistema/update', requireAdmin, async (req, res, next)
 
 app.get('/clientes', requireLogin, async (req, res, next) => {
   try {
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
     const q = typeof _n(req.query.q, req.query.search) === 'string' ? String(_n(req.query.q, req.query.search)).trim() : '';
     const tipoContacto = typeof req.query.tipo === 'string' ? String(req.query.tipo).trim() : '';
     const order = String(req.query.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
@@ -1433,7 +1433,7 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
 // ===========================
 app.get('/agenda', requireLogin, async (req, res, next) => {
   try {
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
     const q = typeof req.query.q === 'string' ? String(req.query.q).trim() : '';
 
     // Nota: db.getContactos soporta FULLTEXT/LIKE y paginación saneada.
@@ -2370,7 +2370,7 @@ app.post('/clientes/:id/agenda/:contactoId(\\d+)/unlink', requireLogin, async (r
 
 app.get('/notificaciones', requireAdmin, async (req, res, next) => {
   try {
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 100 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
     const [items, total] = await Promise.all([db.getNotificaciones(limit, offset), db.getNotificacionesPendientesCount()]);
     res.render('notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, resuelto: req.query.resuelto || undefined });
   } catch (e) {
@@ -2424,7 +2424,7 @@ app.get('/mis-notificaciones', requireLogin, async (req, res, next) => {
     const admin = isAdminUser(res.locals.user);
     if (admin) return res.redirect('/notificaciones');
     const userId = Number(res.locals.user?.id);
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 100 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
     const items = await db.getNotificacionesForComercial(userId, limit, offset).catch(() => []);
     const total = await db.getNotificacionesForComercialCount(userId).catch(() => (items?.length || 0));
     res.render('mis-notificaciones', { items: items || [], paging: { page, limit, total: total || 0 } });
@@ -2557,7 +2557,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
     const rawQ = String(req.query.q || req.query.search || '').trim();
     const smartQ = tokenizeSmartQuery(rawQ);
 
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 200 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
 
     // Joins opcionales para filtros "inteligentes"
     const tProvincias = cColProvinciaId ? await db._resolveTableNameCaseInsensitive('provincias').catch(() => null) : null;
@@ -4353,22 +4353,36 @@ app.get('/articulos', requireLogin, async (req, res, next) => {
     const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
     const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
 
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = 10;
+    const offset = (page - 1) * limit;
+
     const marcas = await loadMarcasForSelect(db);
     let items = [];
+    let total = 0;
     let loadError = null;
     try {
-      items = await db.getArticulos({ marcaId: selectedMarcaId });
+      [items, total] = await Promise.all([
+        db.getArticulos({ marcaId: selectedMarcaId, limit, offset }),
+        db.countArticulos({ marcaId: selectedMarcaId })
+      ]);
     } catch (e) {
       console.error('❌ [articulos] Error cargando artículos:', e?.message || e);
       loadError = e?.message || String(e);
     }
+
+    const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
 
     res.render('articulos', {
       items: items || [],
       loadError,
       admin,
       marcas: Array.isArray(marcas) ? marcas : [],
-      selectedMarcaId
+      selectedMarcaId,
+      page,
+      totalPages,
+      total: total ?? 0,
+      limit
     });
   } catch (e) {
     next(e);
@@ -4539,7 +4553,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
             items: [],
             admin,
             selectedDate: qDate || null,
-            paging: { page: 1, limit: 20, total: 0 },
+            paging: { page: 1, limit: 10, total: 0 },
             id: ''
           });
         }
@@ -4604,7 +4618,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     }
 
     // LISTA
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
     const idFilter = Number(req.query.id || 0) || null;
     const whereList = [...where];
     const paramsList = [...params];
