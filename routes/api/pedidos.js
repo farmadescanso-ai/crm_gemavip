@@ -331,7 +331,9 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
-    const access = await assertPedidoAccess(req, id, { write: true });
+    const sessionUser = req.session?.user || null;
+    if (!isAdminUser(sessionUser)) return res.status(403).json({ ok: false, error: 'Solo administrador puede eliminar pedidos' });
+    const access = await assertPedidoAccess(req, id, { write: false });
     if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
     const result = await db.deletePedido(id);
     res.json({ ok: true, result });

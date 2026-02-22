@@ -3857,20 +3857,10 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner,
   }
 });
 
-app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, requireAdmin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
-    const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-
-    if (!admin) {
-      const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), '')).trim().toLowerCase() || 'pendiente';
-      if (!estadoNorm.includes('pend')) {
-        return res.redirect(
-          `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent('Solo se pueden enviar pedidos en estado Pendiente.')}`
-        );
-      }
-    }
 
     const [lineas, cliente] = await Promise.all([
       db.getArticulosByPedido(id).catch(() => []),
@@ -4306,24 +4296,9 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
   }
 });
 
-app.post('/pedidos/:id(\\d+)/delete', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+app.post('/pedidos/:id(\\d+)/delete', requireLogin, requireAdmin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
-    const item = res.locals.pedido;
-    const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-
-    if (!admin) {
-      const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), '')).trim().toLowerCase() || 'pendiente';
-      if (!estadoNorm.includes('pend')) {
-        return renderErrorPage(req, res, {
-          status: 403,
-          heading: 'No permitido',
-          summary: 'Solo puedes eliminar pedidos en estado Pendiente.',
-          publicMessage: `Estado actual: ${String(_n(_n(item.EstadoPedido, item.Estado), '—'))}`
-        });
-      }
-    }
-
     await db.deletePedido(id);
     return res.redirect('/pedidos');
   } catch (e) {
