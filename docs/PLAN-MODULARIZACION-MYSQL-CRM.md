@@ -53,9 +53,10 @@ Orden sugerido según impacto en login y vistas lentas:
 - ~~`login.js`~~ ✅ (mysql-crm-login.js)
 - `catalogos.js`, `notificaciones.js`, `direcciones-envio.js`, `codigos-postales.js`
 
-### Fase 3: Lazy loading (opcional)
-- Sustituir `require('./domains/visitas')` por getter que cargue bajo demanda.
-- Cada ruta solo carga los dominios que usa.
+### Fase 3: Lazy loading ✅
+- ~~Sustituir `require('./domains/visitas')` por getter que cargue bajo demanda~~ ✅
+- Cada ruta solo carga los dominios que usa (domains/index.js con Proxy + ensureModule en mysql-crm.js).
+- Login: wrappers que cargan mysql-crm-login.js solo en rutas de auth.
 
 ### Fase 4: Optimizaciones adicionales
 - Cache de metadatos (`_ensure*Meta`) más agresivo.
@@ -98,4 +99,5 @@ Los dominios se comunican vía el objeto `db` compartido (this) o llamando a mé
   - `mysql-crm-agenda.js` – _resolveAgendaTableName, ensureContactosIndexes, _ensureTiposCargoRolTable, _ensureEspecialidadesIndexes, _normalizeAgendaCatalogLabel
   - `mysql-crm-login.js` – updateComercialPassword, password_reset_tokens (create, find, markUsed, cleanup, countRecentAttempts)
 - **Dominios delegados** (config/domains/): visitas, articulos, comerciales, pedidos, agenda, etc.
+- **Fase 3**: Lazy loading activo. `domains/index.js` exporta factory `createDomains(ensureModule)`. `mysql-crm.js` aplica mysql-crm-* y carga dominios solo al primer uso.
 - **Consumidores**: api/index.js, routes/api/*.js, lib/auth.js, lib/mailer.js

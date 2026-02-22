@@ -1,12 +1,5 @@
 const mysql = require('mysql2/promise');
-const domains = require('./domains');
-const clientesModule = require('./mysql-crm-clientes');
-const pedidosModule = require('./mysql-crm-pedidos');
-const visitasModule = require('./mysql-crm-visitas');
-const articulosModule = require('./mysql-crm-articulos');
-const comercialesModule = require('./mysql-crm-comerciales');
-const agendaModule = require('./mysql-crm-agenda');
-const loginModule = require('./mysql-crm-login');
+const createDomains = require('./domains');
 
 class MySQLCRM {
   constructor() {
@@ -3428,13 +3421,57 @@ class MySQLCRM {
   }
 }
 
-Object.assign(MySQLCRM.prototype, clientesModule);
-Object.assign(MySQLCRM.prototype, pedidosModule);
-Object.assign(MySQLCRM.prototype, visitasModule);
-Object.assign(MySQLCRM.prototype, articulosModule);
-Object.assign(MySQLCRM.prototype, comercialesModule);
-Object.assign(MySQLCRM.prototype, agendaModule);
-Object.assign(MySQLCRM.prototype, loginModule);
+// Fase 3: Lazy loading - dominios y módulos se cargan solo cuando se usan
+const _modulesApplied = new Set();
+const MODULE_PATHS = {
+  visitas: './mysql-crm-visitas',
+  articulos: './mysql-crm-articulos',
+  pedidos: './mysql-crm-pedidos',
+  comerciales: './mysql-crm-comerciales',
+  agenda: './mysql-crm-agenda',
+  clientes: './mysql-crm-clientes'
+};
+
+function ensureModule(name) {
+  if (_modulesApplied.has(name)) return;
+  const p = MODULE_PATHS[name];
+  if (p) {
+    Object.assign(MySQLCRM.prototype, require(p));
+    _modulesApplied.add(name);
+  }
+}
+
+const domains = createDomains(ensureModule);
+
+// Login: lazy load (usado solo en rutas de auth)
+let _loginModule = null;
+function getLoginModule() {
+  if (!_loginModule) {
+    _loginModule = require('./mysql-crm-login');
+    Object.assign(MySQLCRM.prototype, _loginModule);
+  }
+  return _loginModule;
+}
+
+// Wrappers para métodos de login (delegan al módulo cargado bajo demanda)
+MySQLCRM.prototype.updateComercialPassword = async function (comercialId, hashedPassword) {
+  return getLoginModule().updateComercialPassword.call(this, comercialId, hashedPassword);
+};
+MySQLCRM.prototype.createPasswordResetToken = async function (comercialId, email, token, expiresInHours) {
+  return getLoginModule().createPasswordResetToken.call(this, comercialId, email, token, expiresInHours);
+};
+MySQLCRM.prototype.findPasswordResetToken = async function (token) {
+  return getLoginModule().findPasswordResetToken.call(this, token);
+};
+MySQLCRM.prototype.markPasswordResetTokenAsUsed = async function (token) {
+  return getLoginModule().markPasswordResetTokenAsUsed.call(this, token);
+};
+MySQLCRM.prototype.countRecentPasswordResetAttempts = async function (email, hours) {
+  return getLoginModule().countRecentPasswordResetAttempts.call(this, email, hours);
+};
+MySQLCRM.prototype.cleanupExpiredTokens = async function () {
+  return getLoginModule().cleanupExpiredTokens.call(this);
+};
 
 module.exports = new MySQLCRM();
 
