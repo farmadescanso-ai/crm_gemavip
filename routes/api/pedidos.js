@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
 const { isAdminUser } = require('../../lib/auth');
-const { asyncHandler, toInt } = require('./_utils');
+const { asyncHandler, toInt, parsePagination } = require('./_utils');
 
 const router = express.Router();
 
@@ -39,7 +39,7 @@ async function assertPedidoAccess(req, pedidoId, { write = false } = {}) {
  *   get:
  *     tags:
  *       - Pedidos
- *     summary: Listar pedidos (opcionalmente filtrar por comercialId/clienteId)
+ *     summary: Listar pedidos (paginado, opcionalmente filtrar por comercialId/clienteId)
  *     parameters:
  *       - in: query
  *         name: comercialId
@@ -49,6 +49,16 @@ async function assertPedidoAccess(req, pedidoId, { write = false } = {}) {
  *         name: clienteId
  *         schema:
  *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
  *     responses:
  *       200:
  *         description: OK
@@ -60,25 +70,28 @@ router.get(
     const isAdmin = isAdminUser(sessionUser);
     const comercialId = toInt(req.query.comercialId, null);
     const clienteId = toInt(req.query.clienteId, null);
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 200 });
 
-    // Si hay sesión y NO es admin: siempre acotar al comercial logueado
-    if (sessionUser && !isAdmin) {
-      const itemsRaw = await db.getPedidosByComercial(sessionUser.id);
-      const items = clienteId ? (itemsRaw || []).filter((p) => Number(p.ped_cli_id ?? p.Id_Cliente ?? p.ClienteId ?? 0) === Number(clienteId)) : (itemsRaw || []);
-      return res.json({ ok: true, items });
-    }
+    const filters = {
+      comercialId: sessionUser && !isAdmin ? sessionUser.id : comercialId,
+      clienteId,
+      from: req.query.from,
+      to: req.query.to,
+      search: req.query.search
+    };
 
+    // Pedidos por cliente: típicamente pocos, sin paginar
     if (clienteId) {
       const items = await db.getPedidosByCliente(clienteId);
-      return res.json({ ok: true, items });
-    }
-    if (comercialId) {
-      const items = await db.getPedidosByComercial(comercialId);
-      return res.json({ ok: true, items });
+      return res.json({ ok: true, items, paging: { limit: items.length, total: items.length } });
     }
 
-    const items = await db.getPedidos(null);
-    return res.json({ ok: true, items });
+    // Listado general o por comercial: paginado
+    const [items, total] = await Promise.all([
+      db.getPedidosPaged(filters, { limit, offset }),
+      db.countPedidos(filters)
+    ]);
+    return res.json({ ok: true, items, paging: { limit, page, offset, total } });
   })
 );
 

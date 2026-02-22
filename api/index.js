@@ -2557,6 +2557,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
     const rawQ = String(req.query.q || req.query.search || '').trim();
     const smartQ = tokenizeSmartQuery(rawQ);
 
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 200 });
+
     // Joins opcionales para filtros "inteligentes"
     const tProvincias = cColProvinciaId ? await db._resolveTableNameCaseInsensitive('provincias').catch(() => null) : null;
     const joinProvincia = Boolean(tProvincias && cColProvinciaId);
@@ -2567,6 +2569,7 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
 
     // Filtrar por año (y opcionalmente marca) usando FechaPedido (datetime)
     let items = [];
+    let totalPedidos = 0;
     let colPaPedidoId = null;
     let colPaArticulo = null;
     let colArtPk = null;
@@ -2768,10 +2771,24 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         INNER JOIN articulos a ON a.\`${colArtPk || 'art_id'}\` = pa.\`${colPaArticulo || 'pedart_art_id'}\`
         WHERE ${where.join('\n          AND ')}
         ORDER BY p.\`${pedidosMeta?.pk || 'ped_id'}\` DESC
-        LIMIT 200
+        LIMIT ${limit} OFFSET ${offset}
       `;
 
-      items = await db.query(sql, params);
+      const countSql = `
+        SELECT COUNT(DISTINCT p.\`${pedidosMeta?.pk || 'ped_id'}\`) as total
+        FROM \`${tPedidos}\` p
+        LEFT JOIN \`${tClientes}\` c ON (c.\`${clientesMeta?.pk || 'cli_id'}\` = p.\`${pedidosMeta?.colCliente || 'ped_cli_id'}\`)
+        ${joinProvincia ? `LEFT JOIN \`${tProvincias}\` pr ON c.\`${cColProvinciaId}\` = pr.prov_id` : ''}
+        ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.tipc_id` : ''}
+        ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
+        ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
+        INNER JOIN pedidos_articulos pa ON pa.\`${colPaPedidoId || 'pedart_ped_id'}\` = p.\`${pedidosMeta?.pk || 'ped_id'}\`
+        INNER JOIN articulos a ON a.\`${colArtPk || 'art_id'}\` = pa.\`${colPaArticulo || 'pedart_art_id'}\`
+        WHERE ${where.join('\n          AND ')}
+      `;
+      const [itemsRaw, countRows] = await Promise.all([db.query(sql, params), db.query(countSql, params)]);
+      items = itemsRaw;
+      totalPedidos = Number(_n(countRows && countRows[0] && countRows[0].total, 0));
     } else {
       const where = [];
       const params = [];
@@ -2953,10 +2970,22 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
         ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
         WHERE ${where.join('\n          AND ')}
         ORDER BY p.\`${pedidosMeta?.pk || 'ped_id'}\` DESC
-        LIMIT 200
+        LIMIT ${limit} OFFSET ${offset}
       `;
 
-      items = await db.query(sql, params);
+      const countSql = `
+        SELECT COUNT(*) as total
+        FROM \`${tPedidos}\` p
+        LEFT JOIN \`${tClientes}\` c ON (c.\`${clientesMeta?.pk || 'cli_id'}\` = p.\`${pedidosMeta?.colCliente || 'ped_cli_id'}\`)
+        ${joinProvincia ? `LEFT JOIN \`${tProvincias}\` pr ON c.\`${cColProvinciaId}\` = pr.prov_id` : ''}
+        ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.tipc_id` : ''}
+        ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
+        ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
+        WHERE ${where.join('\n          AND ')}
+      `;
+      const [itemsRaw, countRows] = await Promise.all([db.query(sql, params), db.query(countSql, params)]);
+      items = itemsRaw;
+      totalPedidos = Number(_n(countRows && countRows[0] && countRows[0].total, 0));
     }
 
     const n8nFlag = String(req.query.n8n || '').trim().toLowerCase();
@@ -2996,7 +3025,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       admin,
       userId: _n(res.locals.user && res.locals.user.id, null),
       n8nNotice,
-      estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : []
+      estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
+      paging: { page, limit, total: totalPedidos }
     });
   } catch (e) {
     next(e);
@@ -3378,12 +3408,23 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
       const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id)).catch(() => []);
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
+
+    const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), '')).trim().toLowerCase() || 'pendiente';
+    const userId = Number(res.locals.user?.id);
+    const owner = Number(item.ped_com_id ?? item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
+    const especial = Number(_n(_n(item.EsEspecial, item.es_especial), 0)) === 1;
+    const especialEstado = String(_n(_n(item.EspecialEstado, item.especial_estado), '')).trim().toLowerCase();
+    const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
+    const canEdit =
+      admin ? !estadoNorm.includes('pagad') : (Number.isFinite(userId) && userId === owner && estadoNorm.includes('pend') && !especialPendiente);
+
     res.render('pedido', {
       item,
       lineas: lineas || [],
       cliente,
       direccionEnvio,
       admin,
+      canEdit,
       canShowHefame,
       formaPago,
       tipoPedido,
@@ -3815,11 +3856,18 @@ app.get('/pedidos/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner,
 
 app.post('/pedidos/:id(\\d+)/enviar-n8n', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
-    // Webhook N8N (preservado para futuro). No se usa en el flujo actual.
-    // const webhookFromDb = await db.getVariableSistema?.(SYSVAR_N8N_PEDIDOS_WEBHOOK_URL).catch(() => null);
-    // const webhookUrl = String(webhookFromDb || process.env.N8N_PEDIDOS_WEBHOOK_URL || '').trim();
     const item = res.locals.pedido;
+    const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
+
+    if (!admin) {
+      const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), '')).trim().toLowerCase() || 'pendiente';
+      if (!estadoNorm.includes('pend')) {
+        return res.redirect(
+          `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent('Solo se pueden enviar pedidos en estado Pendiente.')}`
+        );
+      }
+    }
 
     const [lineas, cliente] = await Promise.all([
       db.getArticulosByPedido(id).catch(() => []),
@@ -4257,7 +4305,22 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
 
 app.post('/pedidos/:id(\\d+)/delete', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
+    const item = res.locals.pedido;
+    const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
+
+    if (!admin) {
+      const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), '')).trim().toLowerCase() || 'pendiente';
+      if (!estadoNorm.includes('pend')) {
+        return renderErrorPage(req, res, {
+          status: 403,
+          heading: 'No permitido',
+          summary: 'Solo puedes eliminar pedidos en estado Pendiente.',
+          publicMessage: `Estado actual: ${String(_n(_n(item.EstadoPedido, item.Estado), '—'))}`
+        });
+      }
+    }
+
     await db.deletePedido(id);
     return res.redirect('/pedidos');
   } catch (e) {

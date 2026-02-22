@@ -69,7 +69,7 @@
 <div class="gv-doc-page">
   <div class="gv-doc-top gv-no-print">
     <a class="btn secondary" href="/pedidos">Volver</a>
-    <% if (admin) { %>
+    <% if (typeof canEdit !== 'undefined' && canEdit) { %>
       <a class="btn secondary" href="/pedidos/<%= pedidoId %>/edit">Editar</a>
       <form method="post" action="/pedidos/<%= pedidoId %>/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar este pedido?');">
         <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
