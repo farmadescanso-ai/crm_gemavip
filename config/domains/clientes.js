@@ -138,25 +138,30 @@ module.exports = {
       const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
       const pk = meta?.pk || 'Id';
       const colComercial = meta?.colComercial || null;
+      const colProvincia = meta?.colProvincia || 'Id_Provincia';
+      const colTipoCliente = meta?.colTipoCliente || 'Id_TipoCliente';
       const colEstadoCliente = meta?.colEstadoCliente || null;
 
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes').catch(() => null) : null;
       const tTiposClientes = await this._resolveTableNameCaseInsensitive('tipos_clientes').catch(() => null);
       const tProvincias = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
       const tComerciales = colComercial ? await this._resolveTableNameCaseInsensitive('comerciales').catch(() => null) : null;
+      const comercialMeta = (colComercial && tComerciales) ? await this._ensureComercialesMeta().catch(() => null) : null;
+      const comercialPk = comercialMeta?.pk || 'id';
+      const comercialColNombre = comercialMeta?.colNombre || 'Nombre';
 
       const sql = `
         SELECT
           c.*,
           ${tProvincias ? 'p.Nombre as ProvinciaNombre' : 'NULL as ProvinciaNombre'},
           ${tTiposClientes ? 'tc.Tipo as TipoClienteNombre' : 'NULL as TipoClienteNombre'},
-          ${(colComercial && tComerciales) ? 'cial.Nombre as ComercialNombre' : 'NULL as ComercialNombre'},
+          ${(colComercial && tComerciales) ? `cial.\`${comercialColNombre}\` as ComercialNombre` : 'NULL as ComercialNombre'},
           ${(colEstadoCliente && tEstados) ? 'ec.Nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
           ${(colEstadoCliente) ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
         FROM \`${tClientes}\` c
-        ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.Id_Provincia = p.id` : ''}
-        ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.Id_TipoCliente = tc.id` : ''}
-        ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.id` : ''}
+        ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.\`${colProvincia}\` = p.id` : ''}
+        ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${colTipoCliente}\` = tc.id` : ''}
+        ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
         ${(colEstadoCliente && tEstados) ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.estcli_id` : ''}
         WHERE c.\`${pk}\` = ?
         LIMIT 1
@@ -166,8 +171,10 @@ module.exports = {
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
       try {
-        const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-        const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE Id = ? LIMIT 1`, [id]);
+        const meta = await this._ensureClientesMeta().catch(() => null);
+        const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
+        const pk = meta?.pk || 'Id';
+        const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
         return rows.length > 0 ? rows[0] : null;
       } catch (_) {
         return null;

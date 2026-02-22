@@ -33,35 +33,35 @@
   const numPedido = item?.NumPedido ?? item?.ped_numero ?? '';
   const fecha = fmtDateES(item.FechaPedido ?? item.Fecha ?? item?.ped_fecha ?? '');
   const entrega = item?.FechaEntrega ? fmtDateES(item.FechaEntrega) : '';
-  const clienteNombre = (cliente && (cliente.Nombre_Razon_Social || cliente.Nombre)) ? (cliente.Nombre_Razon_Social || cliente.Nombre) : '';
-  const clienteCif = (cliente && (cliente.DNI_CIF || cliente.DniCif)) ? (cliente.DNI_CIF || cliente.DniCif) : '';
-  const clienteDir = cliente?.Direccion || '';
-  const clientePob = cliente?.Poblacion || '';
-  const clienteCp = cliente?.CodigoPostal || '';
-  const clienteEmail = cliente?.Email || '';
-  const clienteTel = cliente?.Telefono || cliente?.Movil || '';
+  const clienteNombre = (typeof clienteLabel !== 'undefined' && clienteLabel) ? clienteLabel : (cliente && (cliente.Nombre_Razon_Social || cliente.cli_nombre_razon_social || cliente.Nombre || cliente.nombre)) ? (cliente.Nombre_Razon_Social || cliente.cli_nombre_razon_social || cliente.Nombre || cliente.nombre) : '';
+  const clienteCif = (cliente && (cliente.DNI_CIF || cliente.cli_dni_cif || cliente.DniCif)) ? (cliente.DNI_CIF || cliente.cli_dni_cif || cliente.DniCif) : '';
+  const clienteDir = cliente?.Direccion || cliente?.cli_direccion || '';
+  const clientePob = cliente?.Poblacion || cliente?.cli_poblacion || '';
+  const clienteCp = cliente?.CodigoPostal || cliente?.cli_codigo_postal || '';
+  const clienteEmail = cliente?.Email || cliente?.cli_email || '';
+  const clienteTel = cliente?.Telefono || cliente?.cli_telefono || cliente?.Movil || cliente?.cli_movil || '';
   const dir = direccionEnvio || null;
   const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.Dto ?? item.Descuento ?? item?.ped_dto ?? 0, 0)));
   const serie = String(item?.Serie ?? item?.serie ?? 'P').trim();
   const idDireccionEnvio = Number(item?.Id_DireccionEnvio ?? item?.id_direccion_envio ?? item?.ped_direnv_id ?? 0) || 0;
 
   const idFormaPago = Number(item?.Id_FormaPago ?? item?.id_forma_pago ?? item?.ped_formp_id ?? 0) || 0;
-  const formaPagoLabel = String(formaPago?.Nombre ?? formaPago?.FormaPago ?? formaPago?.nombre ?? '').trim() || (idFormaPago ? String(idFormaPago) : '');
+  const formaPagoDisplay = (typeof formaPagoLabel !== 'undefined' && formaPagoLabel) ? formaPagoLabel : String(formaPago?.Nombre ?? formaPago?.FormaPago ?? formaPago?.nombre ?? formaPago?.forma_pago ?? '').trim() || (idFormaPago ? String(idFormaPago) : '');
 
   const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.id_tipo_pedido ?? item?.ped_tipp_id ?? 0) || 0;
-  const tipoPedidoLabel = String(tipoPedido?.Nombre ?? tipoPedido?.Tipo ?? tipoPedido?.nombre ?? tipoPedido?.tipo ?? '').trim() || (idTipoPedido ? String(idTipoPedido) : '');
+  const tipoPedidoDisplay = (typeof tipoPedidoLabel !== 'undefined' && tipoPedidoLabel) ? tipoPedidoLabel : String(tipoPedido?.Nombre ?? tipoPedido?.Tipo ?? tipoPedido?.nombre ?? tipoPedido?.tipo ?? '').trim() || (idTipoPedido ? String(idTipoPedido) : '');
 
   const idTarifa = Number(item?.Id_Tarifa ?? item?.id_tarifa ?? item?.ped_tarcli_id ?? 0) || 0;
-  const tarifaLabel = String(tarifa?.NombreTarifa ?? tarifa?.Nombre ?? tarifa?.nombre ?? '').trim() || (idTarifa ? String(idTarifa) : '');
+  const tarifaDisplay = (typeof tarifaLabel !== 'undefined' && tarifaLabel) ? tarifaLabel : String(tarifa?.NombreTarifa ?? tarifa?.Nombre ?? tarifa?.nombre ?? tarifa?.tarcli_nombre ?? '').trim() || (idTarifa ? String(idTarifa) : '');
 
   const idEstadoPedido = Number(item?.Id_EstadoPedido ?? item?.id_estado_pedido ?? item?.ped_estped_id ?? 0) || 0;
-  const estadoLabel = String(estadoPedido?.nombre ?? estadoPedido?.Nombre ?? item?.EstadoPedido ?? item?.Estado ?? '').trim();
+  const estadoDisplay = (typeof estadoLabel !== 'undefined' && estadoLabel) ? estadoLabel : String(estadoPedido?.nombre ?? estadoPedido?.Nombre ?? estadoPedido?.estped_nombre ?? item?.EstadoPedido ?? item?.Estado ?? item?.ped_estado_txt ?? '').trim();
   const estadoColor = String(estadoPedido?.color ?? estadoPedido?.Color ?? item?.EstadoColor ?? '').trim().toLowerCase();
-  const st = estadoLabel.toLowerCase();
+  const st = (estadoDisplay || '').toLowerCase();
   const estadoCls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info')));
 
   const idComercial = Number(item?.Id_Cial ?? item?.id_cial ?? item?.ped_com_id ?? item?.ComercialId ?? item?.comercialId ?? 0) || 0;
-  const comercialLabel = String(comercial?.Nombre ?? comercial?.nombre ?? item?.ComercialNombre ?? '').trim() || (idComercial ? String(idComercial) : '');
+  const comercialDisplay = (typeof comercialLabel !== 'undefined' && comercialLabel) ? comercialLabel : String(comercial?.Nombre ?? comercial?.com_nombre ?? comercial?.nombre ?? item?.ComercialNombre ?? '').trim() || (idComercial ? String(idComercial) : '');
 
   const observaciones = String(item?.Observaciones ?? item?.observaciones ?? item?.ped_observaciones ?? '').trim();
 %>
@@ -170,16 +170,16 @@
           <div class="gv-doc-kv" style="margin-top: 0;">
             <div><span>Serie</span><b><%= serie || '—' %></b></div>
             <div><span>Estado</span><b>
-              <% if (estadoLabel) { %>
-                <span class="badge <%= estadoCls %>"><%= estadoLabel %></span>
+              <% if (estadoDisplay) { %>
+                <span class="badge <%= estadoCls %>"><%= estadoDisplay %></span>
               <% } else { %>
                 —
               <% } %>
             </b></div>
-            <div><span>Comercial</span><b><%= comercialLabel || '—' %></b></div>
-            <div><span>Tarifa</span><b><%= tarifaLabel || '—' %></b></div>
-            <div><span>Forma pago</span><b><%= formaPagoLabel || '—' %></b></div>
-            <div><span>Tipo pedido</span><b><%= tipoPedidoLabel || '—' %></b></div>
+            <div><span>Comercial</span><b><%= comercialDisplay || '—' %></b></div>
+            <div><span>Tarifa</span><b><%= tarifaDisplay || '—' %></b></div>
+            <div><span>Forma pago</span><b><%= formaPagoDisplay || '—' %></b></div>
+            <div><span>Tipo pedido</span><b><%= tipoPedidoDisplay || '—' %></b></div>
             <div><span>Nº cliente</span><b><%= (item.NumPedidoCliente ?? item.Num_Pedido_Cliente) || '—' %></b></div>
             <div><span>Dto pedido</span><b><%= dtoPedidoPct ? `${fmtNumES(dtoPedidoPct, 2)}%` : '—' %></b></div>
             <div><span>Especial</span><b><%= Number(item.EsEspecial ?? item.es_especial ?? 0) === 1 ? 'Sí' : '—' %></b></div>
@@ -189,18 +189,6 @@
             <% } %>
             <% if ((item.NumAsociadoHefame ?? item.num_asociado_hefame)) { %>
               <div><span>Nº Hefame</span><b><%= (item.NumAsociadoHefame ?? item.num_asociado_hefame) %></b></div>
-            <% } %>
-            <% if (idEstadoPedido) { %>
-              <div><span>ID estado</span><b><%= idEstadoPedido %></b></div>
-            <% } %>
-            <% if (idFormaPago) { %>
-              <div><span>ID forma</span><b><%= idFormaPago %></b></div>
-            <% } %>
-            <% if (idTipoPedido) { %>
-              <div><span>ID tipo</span><b><%= idTipoPedido %></b></div>
-            <% } %>
-            <% if (idTarifa) { %>
-              <div><span>ID tarifa</span><b><%= idTarifa %></b></div>
             <% } %>
           </div>
         </div>

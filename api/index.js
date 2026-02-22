@@ -3409,8 +3409,9 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     let direccionEnvio = idDirEnvio
       ? await db.getDireccionEnvioById(idDirEnvio).catch(() => null)
       : null;
-    if (!direccionEnvio && cliente?.Id) {
-      const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id)).catch(() => []);
+    const clientePk = Number(cliente?.Id ?? cliente?.cli_id ?? cliente?.id ?? 0) || 0;
+    if (!direccionEnvio && clientePk) {
+      const dirs = await db.getDireccionesEnvioByCliente(clientePk).catch(() => []);
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
 
@@ -3422,6 +3423,22 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
     const canEdit =
       admin ? !estadoNorm.includes('pagad') : (Number.isFinite(userId) && userId === owner && estadoNorm.includes('pend') && !especialPendiente);
+
+    // Labels para mostrar nombres en vez de IDs (compatibles con columnas legacy y migradas)
+    const pick = (obj, keys) => {
+      if (!obj || typeof obj !== 'object') return '';
+      for (const k of keys) {
+        const v = obj[k];
+        if (v != null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+    const clienteLabel = pick(cliente, ['Nombre_Razon_Social', 'cli_nombre_razon_social', 'Nombre', 'nombre']);
+    const comercialLabel = pick(comercial, ['Nombre', 'com_nombre', 'nombre']);
+    const formaPagoLabel = pick(formaPago, ['FormaPago', 'Nombre', 'nombre', 'forma_pago']);
+    const tarifaLabel = pick(tarifa, ['NombreTarifa', 'Nombre', 'nombre', 'tarcli_nombre']);
+    const tipoPedidoLabel = pick(tipoPedido, ['Nombre', 'Tipo', 'nombre', 'tipo']);
+    const estadoLabel = pick(estadoPedido, ['nombre', 'Nombre', 'estped_nombre']) || pick(item, ['EstadoPedido', 'Estado', 'ped_estado_txt']) || '';
 
     res.render('pedido', {
       item,
@@ -3435,7 +3452,13 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
       tipoPedido,
       tarifa,
       estadoPedido,
-      comercial
+      comercial,
+      clienteLabel,
+      comercialLabel,
+      formaPagoLabel,
+      tarifaLabel,
+      tipoPedidoLabel,
+      estadoLabel
     });
   } catch (e) {
     next(e);
