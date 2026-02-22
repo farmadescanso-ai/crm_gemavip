@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
-const { asyncHandler, toBool, toInt } = require('./_utils');
+const { asyncHandler, toBool, toInt, parsePagination } = require('./_utils');
 
 const router = express.Router();
 
@@ -47,9 +47,7 @@ router.get(
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
 
-    const limit = Math.max(1, Math.min(500, toInt(req.query.limit, 50) ?? 50));
-    const page = Math.max(1, toInt(req.query.page, 1) ?? 1);
-    const offset = Math.max(0, toInt(req.query.offset, (page - 1) * limit) ?? 0);
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 500, useOffsetFromQuery: true });
 
     const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search) : '';
 
@@ -104,7 +102,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
-    const limit = Math.max(1, Math.min(50, toInt(req.query.limit, 20) ?? 20));
+    const { limit } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
     const q = typeof req.query.q === 'string' ? String(req.query.q) : typeof req.query.search === 'string' ? String(req.query.search) : '';
     const qq = String(q || '').trim();
     if (!qq) return res.json({ ok: true, items: [] });
@@ -150,7 +148,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
-    const limit = Math.max(1, Math.min(10, toInt(req.query.limit, 6) ?? 6));
+    const { limit } = parsePagination(req.query, { defaultLimit: 6, maxLimit: 10 });
     const dni = typeof req.query.dni === 'string' ? String(req.query.dni) : '';
     const nombre = typeof req.query.nombre === 'string' ? String(req.query.nombre) : '';
     const nombreCial = typeof req.query.nombreCial === 'string' ? String(req.query.nombreCial) : '';

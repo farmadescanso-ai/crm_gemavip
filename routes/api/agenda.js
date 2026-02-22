@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
-const { asyncHandler, toBool, toInt } = require('./_utils');
+const { asyncHandler, toBool, toInt, parsePagination } = require('./_utils');
 const { isAdminUser } = require('../../lib/auth');
 
 const router = express.Router();
@@ -62,8 +62,7 @@ function pickAgendaPayload(body) {
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const limit = Math.max(1, Math.min(500, toInt(req.query.limit, 50) ?? 50));
-    const offset = Math.max(0, toInt(req.query.offset, 0) ?? 0);
+    const { limit, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 500, useOffsetFromQuery: true });
     const q = typeof (req.query.q ?? req.query.search) === 'string' ? String(req.query.q ?? req.query.search) : '';
     const includeInactivos = toBool(req.query.includeInactivos, false);
     const items = await db.getContactos({ search: q, limit, offset, includeInactivos });
@@ -93,7 +92,7 @@ router.get(
 router.get(
   '/suggest',
   asyncHandler(async (req, res) => {
-    const limit = Math.max(1, Math.min(50, toInt(req.query.limit, 20) ?? 20));
+    const { limit } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
     const q = typeof req.query.q === 'string' ? String(req.query.q) : typeof req.query.search === 'string' ? String(req.query.search) : '';
     const qq = String(q || '').trim();
     if (!qq) return res.json({ ok: true, items: [] });

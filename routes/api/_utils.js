@@ -1,3 +1,5 @@
+const { parsePagination } = require('../../lib/pagination');
+
 function asyncHandler(fn) {
   return function handler(req, res, next) {
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -19,5 +21,5 @@ function toBool(value, defaultValue = false) {
   return defaultValue;
 }
 
-module.exports = { asyncHandler, toInt, toBool };
+module.exports = { asyncHandler, toInt, toBool, parsePagination };
 

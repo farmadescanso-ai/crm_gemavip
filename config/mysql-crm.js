@@ -64,25 +64,40 @@ class MySQLCRM {
   }
 
   async _getColumns(tableName) {
+    const key = String(tableName || '').trim();
+    if (!key) return [];
+
+    if (!this._metaCache.columns) this._metaCache.columns = {};
+    if (this._metaCache.columns[key]) return this._metaCache.columns[key];
+
     try {
-      const rows = await this.query(`SHOW COLUMNS FROM \`${tableName}\``);
+      const rows = await this.query(`SHOW COLUMNS FROM \`${key}\``);
       const cols = (Array.isArray(rows) ? rows : [])
         .map(r => String(r.Field || r.field || '').trim())
         .filter(Boolean);
+      this._metaCache.columns[key] = cols;
       return cols;
     } catch (_) {
       // Fallback cuando SHOW COLUMNS no está permitido
       try {
-        const r = await this.queryWithFields(`SELECT * FROM \`${tableName}\` LIMIT 0`);
+        const r = await this.queryWithFields(`SELECT * FROM \`${key}\` LIMIT 0`);
         const fields = Array.isArray(r?.fields) ? r.fields : [];
         const cols = fields
           .map((f) => String(f?.name || '').trim())
           .filter(Boolean);
+        this._metaCache.columns[key] = cols;
         return cols;
       } catch (_) {
         return [];
       }
     }
+  }
+
+  /** Invalida la caché de columnas (para tests o migraciones). Opcional: tabla concreta si se pasa. */
+  _clearColumnsCache(tableName) {
+    if (!this._metaCache.columns) return;
+    if (tableName) delete this._metaCache.columns[String(tableName).trim()];
+    else this._metaCache.columns = {};
   }
 
   async _ensureVisitasMeta() {

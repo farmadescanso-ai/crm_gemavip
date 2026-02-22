@@ -22,6 +22,7 @@ const {
   createLoadPedidoAndCheckOwner
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
+const { parsePagination } = require('../lib/pagination');
 const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail, APP_BASE_URL } = require('../lib/mailer');
 
 // Helper para Node <14: a ?? b
@@ -1403,9 +1404,7 @@ app.post('/admin/variables-sistema/update', requireAdmin, async (req, res, next)
 
 app.get('/clientes', requireLogin, async (req, res, next) => {
   try {
-    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const offset = (page - 1) * limit;
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
     const q = typeof _n(req.query.q, req.query.search) === 'string' ? String(_n(req.query.q, req.query.search)).trim() : '';
     const tipoContacto = typeof req.query.tipo === 'string' ? String(req.query.tipo).trim() : '';
     const order = String(req.query.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
@@ -1434,9 +1433,7 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
 // ===========================
 app.get('/agenda', requireLogin, async (req, res, next) => {
   try {
-    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const offset = (page - 1) * limit;
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
     const q = typeof req.query.q === 'string' ? String(req.query.q).trim() : '';
 
     // Nota: db.getContactos soporta FULLTEXT/LIKE y paginación saneada.
@@ -2373,9 +2370,7 @@ app.post('/clientes/:id/agenda/:contactoId(\\d+)/unlink', requireLogin, async (r
 
 app.get('/notificaciones', requireAdmin, async (req, res, next) => {
   try {
-    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 50));
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const offset = (page - 1) * limit;
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 100 });
     const [items, total] = await Promise.all([db.getNotificaciones(limit, offset), db.getNotificacionesPendientesCount()]);
     res.render('notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, resuelto: req.query.resuelto || undefined });
   } catch (e) {
@@ -2429,9 +2424,7 @@ app.get('/mis-notificaciones', requireLogin, async (req, res, next) => {
     const admin = isAdminUser(res.locals.user);
     if (admin) return res.redirect('/notificaciones');
     const userId = Number(res.locals.user?.id);
-    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 50));
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const offset = (page - 1) * limit;
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 100 });
     const items = await db.getNotificacionesForComercial(userId, limit, offset).catch(() => []);
     const total = await db.getNotificacionesForComercialCount(userId).catch(() => (items?.length || 0));
     res.render('mis-notificaciones', { items: items || [], paging: { page, limit, total: total || 0 } });
@@ -4536,9 +4529,7 @@ app.get('/visitas', requireLogin, async (req, res, next) => {
     }
 
     // LISTA
-    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const offset = (page - 1) * limit;
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
     const idFilter = Number(req.query.id || 0) || null;
     const whereList = [...where];
     const paramsList = [...params];
