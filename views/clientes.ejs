@@ -72,18 +72,19 @@
         </thead>
         <tbody>
           <% items.forEach((c) => { %>
+            <% const cid = c.id ?? c.Id ?? c.cli_id; %>
             <tr>
               <td>
                 <div class="gv-actions">
-                  <a class="btn secondary icon" href="/clientes/<%= c.id ?? c.Id %>" title="Ver" aria-label="Ver contacto <%= c.id ?? c.Id %>">
+                  <a class="btn secondary icon" href="/clientes/<%= cid %>" title="Ver" aria-label="Ver contacto <%= cid %>">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
                       <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                   </a>
-                  <% const cial = Number(c.Id_Cial ?? c.id_cial ?? 0) || 0; const uid = user && Number(user.id); const canEditRow = admin || (uid && (cial === uid || (poolId && cial === Number(poolId)))); %>
+                  <% const cial = Number(c.Id_Cial ?? c.id_cial ?? c.cli_com_id ?? 0) || 0; const uid = user && Number(user.id); const canEditRow = admin || (uid && (cial === uid || (poolId && cial === Number(poolId)))); %>
                   <% if (canEditRow) { %>
-                    <a class="btn secondary icon" href="/clientes/<%= c.id ?? c.Id %>/edit" title="Editar" aria-label="Editar contacto <%= c.id ?? c.Id %>">
+                    <a class="btn secondary icon" href="/clientes/<%= cid %>/edit" title="Editar" aria-label="Editar contacto <%= cid %>">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 20h9"></path>
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
@@ -91,8 +92,8 @@
                     </a>
                   <% } %>
                   <% if (admin) { %>
-                    <form method="post" action="/clientes/<%= c.id ?? c.Id %>/delete" onsubmit="return confirm('¿Mover este contacto a la papelera?');">
-                      <button class="btn secondary icon danger" type="submit" title="Papelera" aria-label="Enviar contacto <%= c.id ?? c.Id %> a papelera">
+                    <form method="post" action="/clientes/<%= cid %>/delete" onsubmit="return confirm('¿Mover este contacto a la papelera?');">
+                      <button class="btn secondary icon danger" type="submit" title="Papelera" aria-label="Enviar contacto <%= cid %> a papelera">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <path d="M3 6h18"></path>
                           <path d="M8 6V4h8v2"></path>
@@ -105,14 +106,14 @@
                   <% } %>
                 </div>
               </td>
-              <td class="gv-contactos-col-nombre"><%= c.Nombre_Razon_Social ?? c.Nombre ?? '' %></td>
-              <td><span class="gv-badge gv-badge--<%= (c.TipoContacto || '').toLowerCase() === 'empresa' ? 'empresa' : ((c.TipoContacto || '').toLowerCase() === 'persona' ? 'persona' : 'otros') %>"><%= c.TipoContacto || '—' %></span></td>
-              <td class="gv-contactos-col-dnicif"><%= c.DNI_CIF ?? '' %></td>
-              <td><%= c.CodigoPostal ?? '' %></td>
-              <td><%= c.Poblacion ?? '' %></td>
-              <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
+              <td class="gv-contactos-col-nombre"><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
+              <td><span class="gv-badge gv-badge--<%= (c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa' ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona' ? 'persona' : 'otros') %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
+              <td class="gv-contactos-col-dnicif"><%= c.DNI_CIF ?? c.cli_dni_cif ?? '' %></td>
+              <td><%= c.CodigoPostal ?? c.cli_codigo_postal ?? '' %></td>
+              <td><%= c.Poblacion ?? c.cli_poblacion ?? '' %></td>
+              <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>
               <td><%= c.ComercialNombre ?? '' %></td>
-              <td class="gv-contactos-col-estado"><%= c.EstadoClienteNombre ?? c.OK_KO ?? '' %></td>
+              <td class="gv-contactos-col-estado"><%= c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? '' %></td>
             </tr>
           <% }) %>
         </tbody>
