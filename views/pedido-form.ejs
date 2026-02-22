@@ -7,7 +7,7 @@
     <h1 class="card-title">
       <%= mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' %>
       <% if (mode === 'edit') { %>
-        · <span style="font-weight:900;"><%= item.NumPedido ?? '' %></span>
+        · <span style="font-weight:900;"><%= item.NumPedido ?? item.ped_numero ?? '' %></span>
       <% } %>
     </h1>
     <p class="card-subtitle">Cabecera + líneas. Al guardar, recalculamos base/IVA/total con la tarifa.</p>
@@ -21,7 +21,7 @@
     <form
       id="pedidoForm"
       method="post"
-      action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id) + '/edit') : '/pedidos/new' %>"
+      action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id || item.ped_id) + '/edit') : '/pedidos/new' %>"
       class="gv-pedido-form__form"
     >
       <!-- Serie fija -->
@@ -42,7 +42,7 @@
       <div class="gv-doc__grid gv-doc__grid--cabecera">
         <label class="gv-field">
           <span class="gv-field__label">Comercial * <button type="button" class="gv-field-info" aria-label="Información" data-info="<%= isAdminForm ? 'Puedes cambiar el comercial del pedido manualmente.' : 'En sesión comercial, el pedido se guarda con el comercial logueado.' %>"></button></span>
-          <% const curCial = Number(item.Id_Cial ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
+          <% const curCial = Number(item.Id_Cial ?? item.ped_com_id ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
           <input type="hidden" name="Id_Cial" id="Id_Cial" value="<%= curCial || '' %>" />
           <select <%= isAdminForm ? '' : 'disabled' %> class="gv-input" id="Id_Cial__display">
             <option value="">(selecciona)</option>
@@ -64,7 +64,7 @@
               value="<%= (typeof clienteLabel === 'string' ? clienteLabel : '') %>"
             />
             <div class="gv-client-picker__results" hidden></div>
-            <input id="Id_Cliente" name="Id_Cliente" type="hidden" class="gv-client-picker__id" value="<%= item.Id_Cliente ?? '' %>" />
+            <input id="Id_Cliente" name="Id_Cliente" type="hidden" class="gv-client-picker__id" value="<%= item.Id_Cliente ?? item.ped_cli_id ?? '' %>" />
             <div id="pedidoAutosave" class="gv-field__help" style="display:none;"></div>
             <label class="gv-recent-toggle">
               <input type="checkbox" id="showRecentToggle" autocomplete="off" />
@@ -87,7 +87,7 @@
         <label class="gv-field">
           <span class="gv-field__label">Tarifa <button type="button" class="gv-field-info" aria-label="Información" data-info="Si la tarifa o el tipo de pedido incluye &quot;Transfer&quot;, el pedido no se valora: PVL=0 y dto línea 5% por defecto (informativo, editable)."></button></span>
           <select id="Id_Tarifa" name="Id_Tarifa" class="gv-input">
-            <% const curTar = Number(item.Id_Tarifa ?? 0) || 0; %>
+            <% const curTar = Number(item.Id_Tarifa ?? item.ped_tarcli_id ?? 0) || 0; %>
             <% (tarifas || []).forEach((t) => { %>
               <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
               <% const label = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
@@ -98,12 +98,12 @@
 
         <label class="gv-field">
           <span class="gv-field__label">Nº Pedido Cliente <button type="button" class="gv-field-info" aria-label="Información" data-info="Referencia del pedido del cliente (si aplica)."></button></span>
-          <input class="gv-input" name="NumPedidoCliente" value="<%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? '' %>" placeholder="Ej: PO-12345" />
+          <input class="gv-input" name="NumPedidoCliente" value="<%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? item.ped_num_pedido_cliente ?? '' %>" placeholder="Ej: PO-12345" />
         </label>
 
         <label class="gv-field gv-field--full">
           <span class="gv-field__label">Dirección de envío <button type="button" class="gv-field-info" aria-label="Información" id="Id_DireccionEnvioInfoBtn" data-info="Si el cliente tiene más de una, selecciona una."></button></span>
-          <select class="gv-input" name="Id_DireccionEnvio" id="Id_DireccionEnvio" data-existing="<%= item.Id_DireccionEnvio ?? '' %>">
+          <select class="gv-input" name="Id_DireccionEnvio" id="Id_DireccionEnvio" data-existing="<%= item.Id_DireccionEnvio ?? item.ped_direnv_id ?? '' %>">
             <option value="">(por defecto)</option>
           </select>
           <span class="gv-field__help gv-field__help--hidden" id="Id_DireccionEnvioHelp">Si el cliente tiene más de una, selecciona una.</span>
@@ -117,8 +117,8 @@
       <div class="gv-doc__grid">
         <label class="gv-field">
           <span class="gv-field__label">Estado del pedido *</span>
-          <% const curEstadoTxt = String(item.EstadoPedido ?? item.Estado ?? 'Pendiente'); %>
-          <% const curEstadoId = Number(item.Id_EstadoPedido ?? item.Id_EstadoPedido ?? item.id_estado_pedido ?? 0) || 0; %>
+          <% const curEstadoTxt = String(item.EstadoPedido ?? item.Estado ?? item.ped_estado_txt ?? 'Pendiente'); %>
+          <% const curEstadoId = Number(item.Id_EstadoPedido ?? item.id_estado_pedido ?? item.ped_estped_id ?? 0) || 0; %>
           <% if (Array.isArray(estadosPedido) && estadosPedido.length) { %>
             <select id="Id_EstadoPedido" name="Id_EstadoPedido" required class="gv-input">
               <% (estadosPedido || []).forEach((ep) => { %>
@@ -137,7 +137,7 @@
         </label>
         <label class="gv-field">
           <span class="gv-field__label">Fecha del pedido</span>
-          <input name="FechaPedido" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaPedido ?? '') %>" />
+          <input name="FechaPedido" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaPedido ?? item.Fecha ?? item.ped_fecha ?? '') %>" />
         </label>
       </div>
       </div>
@@ -148,13 +148,13 @@
       <div class="gv-doc__grid">
         <label class="gv-field">
           <span class="gv-field__label">Fecha de entrega</span>
-          <input name="FechaEntrega" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaEntrega ?? '') %>" />
+          <input name="FechaEntrega" type="date" class="gv-input" value="<%= fmtDateISO(item.FechaEntrega ?? item.ped_fecha_entrega ?? '') %>" />
         </label>
         <label class="gv-field">
           <span class="gv-field__label">Forma de pago</span>
           <% if ((formasPago || []).length) { %>
             <select name="Id_FormaPago" class="gv-input">
-              <% const curFP = Number(item.Id_FormaPago ?? 0) || 0; %>
+              <% const curFP = Number(item.Id_FormaPago ?? item.ped_formp_id ?? 0) || 0; %>
               <option value="0" <%= curFP === 0 ? 'selected' : '' %>>Sin especificar</option>
               <% (formasPago || []).forEach((fp) => { %>
                 <% const fid = Number(fp.id ?? fp.Id ?? 0) || 0; %>
@@ -162,14 +162,14 @@
               <% }) %>
             </select>
           <% } else { %>
-            <input name="Id_FormaPago" type="number" min="0" class="gv-input" value="<%= item.Id_FormaPago ?? 0 %>" />
+            <input name="Id_FormaPago" type="number" min="0" class="gv-input" value="<%= item.Id_FormaPago ?? item.ped_formp_id ?? 0 %>" />
           <% } %>
         </label>
         <label class="gv-field">
           <span class="gv-field__label">Tipo de pedido</span>
           <% if ((tiposPedido || []).length) { %>
             <select name="Id_TipoPedido" id="Id_TipoPedido" class="gv-input">
-              <% const curTP = Number(item.Id_TipoPedido ?? 0) || 0; %>
+              <% const curTP = Number(item.Id_TipoPedido ?? item.ped_tipp_id ?? 0) || 0; %>
               <option value="0" <%= curTP === 0 ? 'selected' : '' %>>Sin especificar</option>
               <% (tiposPedido || []).forEach((tp) => { %>
                 <% const tid = Number(tp.id ?? tp.Id ?? 0) || 0; %>
@@ -177,12 +177,12 @@
               <% }) %>
             </select>
           <% } else { %>
-            <input name="Id_TipoPedido" id="Id_TipoPedido" type="number" min="0" class="gv-input" value="<%= item.Id_TipoPedido ?? 0 %>" />
+            <input name="Id_TipoPedido" id="Id_TipoPedido" type="number" min="0" class="gv-input" value="<%= item.Id_TipoPedido ?? item.ped_tipp_id ?? 0 %>" />
           <% } %>
         </label>
         <div id="gv-num-asociado-hefame-wrap" class="gv-field gv-num-asociado-hefame" style="display: none;">
           <span class="gv-field__label">Nº asociado (Hefame)</span>
-          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" readonly placeholder="Seleccione un cliente con asociación Hefame" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '').toString().trim() %>" />
+          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" readonly placeholder="Seleccione un cliente con asociación Hefame" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? item.ped_num_asoc_hefame ?? '').toString().trim() %>" />
         </div>
       </div>
       </div>
@@ -190,7 +190,7 @@
       <div class="gv-doc">
       <label class="gv-field" style="margin:0;">
         <span class="gv-field__label">Observaciones</span>
-        <textarea name="Observaciones" rows="3"><%= item.Observaciones ?? '' %></textarea>
+        <textarea name="Observaciones" rows="3"><%= item.Observaciones ?? item.ped_observaciones ?? '' %></textarea>
       </label>
       </div>
 
@@ -260,7 +260,7 @@
                     min="0"
                     max="100"
                     step="0.01"
-                    value="<%= item.Dto ?? item.Descuento ?? 0 %>"
+                    value="<%= item.Dto ?? item.Descuento ?? item.ped_dto ?? 0 %>"
                     <%= isEspecialPedido ? '' : 'readonly' %>
                     title="<%= isEspecialPedido ? 'Pedido especial: descuento manual (no se aplica tabla de tramos)' : 'Se calcula automáticamente según el Subtotal' %>"
                   />

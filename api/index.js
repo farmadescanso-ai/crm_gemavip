@@ -3368,15 +3368,16 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    const idFormaPago = Number(_n(_n(item && item.Id_FormaPago, item && item.id_forma_pago), 0)) || 0;
-    const idTipoPedido = Number(_n(_n(item && item.Id_TipoPedido, item && item.id_tipo_pedido), 0)) || 0;
-    const idTarifa = Number(_n(_n(item && item.Id_Tarifa, item && item.id_tarifa), 0)) || 0;
-    const idEstadoPedido = Number(_n(_n(item && item.Id_EstadoPedido, item && item.id_estado_pedido), 0)) || 0;
-    const idComercial = Number(_n(_n(_n(_n(item && item.Id_Cial, item && item.id_cial), item && item.ComercialId), item && item.comercialId), 0)) || 0;
+    const idFormaPago = Number(_n(_n(_n(item && item.Id_FormaPago, item && item.id_forma_pago), item && item.ped_formp_id), 0)) || 0;
+    const idTipoPedido = Number(_n(_n(_n(item && item.Id_TipoPedido, item && item.id_tipo_pedido), item && item.ped_tipp_id), 0)) || 0;
+    const idTarifa = Number(_n(_n(_n(item && item.Id_Tarifa, item && item.id_tarifa), item && item.ped_tarcli_id), 0)) || 0;
+    const idEstadoPedido = Number(_n(_n(_n(item && item.Id_EstadoPedido, item && item.id_estado_pedido), item && item.ped_estped_id), 0)) || 0;
+    const idComercial = Number(_n(_n(_n(_n(_n(item && item.Id_Cial, item && item.id_cial), item && item.ped_com_id), item && item.ComercialId), item && item.comercialId), 0)) || 0;
 
     const needTiposPedido = idTipoPedido > 0;
     const needTarifas = idTarifa > 0;
 
+    const idCliente = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
     const [
       lineas,
       cliente,
@@ -3388,7 +3389,7 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
       tarifas
     ] = await Promise.all([
       db.getArticulosByPedido(id).catch(() => []),
-      item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null,
+      idCliente ? db.getClienteById(idCliente).catch(() => null) : null,
       canShowHefameForPedido(item),
       idFormaPago ? db.getFormaPagoById(idFormaPago).catch(() => null) : null,
       idEstadoPedido ? db.getEstadoPedidoById(idEstadoPedido).catch(() => null) : null,
@@ -3404,8 +3405,9 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
       ? (tarifas || []).find((t) => Number(_n(_n(t && t.Id, t && t.id), 0)) === idTarifa) || null
       : null;
 
-    let direccionEnvio = item?.Id_DireccionEnvio
-      ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
+    const idDirEnvio = Number(item?.Id_DireccionEnvio ?? item?.ped_direnv_id ?? 0) || 0;
+    let direccionEnvio = idDirEnvio
+      ? await db.getDireccionEnvioById(idDirEnvio).catch(() => null)
       : null;
     if (!direccionEnvio && cliente?.Id) {
       const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id)).catch(() => []);
@@ -4135,7 +4137,8 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       });
     }
 
-    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const idClienteEdit = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
+    const cliente = idClienteEdit ? await db.getClienteById(idClienteEdit).catch(() => null) : null;
     const clienteLabel = cliente
       ? (() => {
           const idc = _n(_n(_n(cliente.Id, cliente.id), item.Id_Cliente), '');
@@ -4151,7 +4154,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       : '';
     const articulos = await db.getArticulos({}).catch(() => []);
     const clientesRecent = await db
-      .getClientesOptimizadoPaged({ comercial: _n(item && item.Id_Cial, res.locals.user && res.locals.user.id) }, { limit: 10, offset: 0, compact: true, order: 'desc' })
+      .getClientesOptimizadoPaged({ comercial: _n(item && (item.Id_Cial ?? item.ped_com_id), res.locals.user && res.locals.user.id) }, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
     const lineasRaw = await db.getArticulosByPedido(id).catch(() => []);
 

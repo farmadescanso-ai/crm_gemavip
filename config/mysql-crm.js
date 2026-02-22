@@ -3713,36 +3713,69 @@ class MySQLCRM {
     if (!p) return pedidoRow;
     try {
       const meta = await this._ensurePedidosMeta().catch(() => null);
-      const colEstadoId = meta?.colEstadoId || null;
-      const colEstadoTxt = meta?.colEstado || null;
-      if (!colEstadoId && !colEstadoTxt) return pedidoRow;
+      const { pk, colComercial, colCliente, colFecha, colNumPedido, colEstado, colEstadoId } = meta || {};
 
-      // Si hay FK, preferirla
-      const rawId = colEstadoId ? p[colEstadoId] : (p.Id_EstadoPedido ?? p.id_estado_pedido ?? null);
+      // Aliases BD normalizada → legacy (vistas esperan Id_Cliente, Id_Cial, etc.)
+      const alias = (col, legacy) => {
+        if (col && p[col] !== undefined && (p[legacy] === undefined || p[legacy] === null)) p[legacy] = p[col];
+      };
+      if (pk) {
+        alias(pk, 'Id');
+        alias(pk, 'id');
+      }
+      alias(colCliente, 'Id_Cliente');
+      alias(colComercial, 'Id_Cial');
+      alias(colFecha, 'FechaPedido');
+      alias(colFecha, 'Fecha');
+      alias(colNumPedido, 'NumPedido');
+      alias(colEstado, 'EstadoPedido');
+      alias(colEstado, 'Estado');
+      alias(colEstadoId, 'Id_EstadoPedido');
+      // Otras columnas comunes (ped_* → legacy)
+      const extraAliases = [
+        ['ped_direnv_id', 'Id_DireccionEnvio'],
+        ['ped_formp_id', 'Id_FormaPago'],
+        ['ped_tipp_id', 'Id_TipoPedido'],
+        ['ped_tarcli_id', 'Id_Tarifa'],
+        ['ped_total', 'TotalPedido'],
+        ['ped_base', 'BaseImponible'],
+        ['ped_iva', 'TotalIva'],
+        ['ped_dto', 'Dto'],
+        ['ped_descuento', 'Descuento'],
+        ['ped_observaciones', 'Observaciones'],
+        ['ped_num_asoc_hefame', 'NumAsociadoHefame'],
+        ['ped_es_especial', 'EsEspecial'],
+        ['ped_especial_estado', 'EspecialEstado'],
+        ['ped_num_pedido_cliente', 'NumPedidoCliente'],
+        ['ped_fecha_entrega', 'FechaEntrega']
+      ];
+      for (const [col, legacy] of extraAliases) {
+        if (p[col] !== undefined && (p[legacy] === undefined || p[legacy] === null)) p[legacy] = p[col];
+      }
+
+      const colEstadoIdMeta = colEstadoId || meta?.colEstadoId;
+      const colEstadoTxt = colEstado || meta?.colEstado;
+      if (!colEstadoIdMeta && !colEstadoTxt) return p;
+
+      const rawId = colEstadoIdMeta ? p[colEstadoIdMeta] : (p.Id_EstadoPedido ?? p.id_estado_pedido ?? null);
       let estadoId = Number.parseInt(String(rawId ?? '').trim(), 10);
       if (!Number.isFinite(estadoId) || estadoId <= 0) estadoId = null;
 
-      // Si no hay FK pero hay texto, intentar mapear por código
       if (!estadoId && colEstadoTxt) {
         const txt = String(p[colEstadoTxt] ?? p.EstadoPedido ?? p.Estado ?? '').trim().toLowerCase();
         if (txt) estadoId = await this.getEstadoPedidoIdByCodigo(txt).catch(() => null);
       }
 
-      if (!estadoId) return pedidoRow;
+      if (!estadoId) return p;
       const estado = await this.getEstadoPedidoById(estadoId).catch(() => null);
-      if (!estado) return pedidoRow;
+      if (!estado) return p;
 
       const eMeta = await this._ensureEstadosPedidoMeta().catch(() => null);
       const nombre = eMeta?.colNombre ? estado[eMeta.colNombre] : (estado.nombre ?? null);
       const color = eMeta?.colColor ? estado[eMeta.colColor] : (estado.color ?? null);
 
-      if (nombre) {
-        p.EstadoPedido = String(nombre);
-      }
-      if (color) {
-        p.EstadoColor = String(color);
-      }
-      // Exponer id para formularios
+      if (nombre) p.EstadoPedido = String(nombre);
+      if (color) p.EstadoColor = String(color);
       p.Id_EstadoPedido = estadoId;
       return p;
     } catch (_) {
@@ -4109,11 +4142,25 @@ class MySQLCRM {
       const colIvaImporteLinea = pickPaCol(['ImporteIVA', 'importe_iva', 'IvaImporte', 'iva_importe', 'TotalIVA', 'total_iva']);
       const colTotalLinea = pickPaCol(['Total', 'total', 'TotalLinea', 'total_linea', 'ImporteTotal', 'importe_total', 'Bruto', 'bruto']);
 
+      // Mapeo payload legacy → columna BD (post-migración)
+      const pedidoLegacyToCol = {
+        Id_Cial: 'ped_com_id', Id_Cliente: 'ped_cli_id', Id_DireccionEnvio: 'ped_direnv_id',
+        Id_FormaPago: 'ped_formp_id', Id_TipoPedido: 'ped_tipp_id', Id_Tarifa: 'ped_tarcli_id',
+        Id_EstadoPedido: 'ped_estped_id', NumPedido: 'ped_numero', FechaPedido: 'ped_fecha',
+        EstadoPedido: 'ped_estado_txt', TotalPedido: 'ped_total', BaseImponible: 'ped_base',
+        TotalIva: 'ped_iva', TotalDescuento: 'ped_descuento', Dto: 'ped_dto',
+        NumPedidoCliente: 'ped_num_pedido_cliente', NumAsociadoHefame: 'ped_num_asoc_hefame',
+        FechaEntrega: 'ped_fecha_entrega', Observaciones: 'ped_observaciones',
+        EsEspecial: 'ped_es_especial', EspecialEstado: 'ped_especial_estado',
+        EspecialFechaSolicitud: 'ped_especial_fecha_solicitud'
+      };
+
       // Preparar update cabecera filtrado
       const filteredPedido = {};
       const pedidoInput = pedidoPayload && typeof pedidoPayload === 'object' ? pedidoPayload : {};
       for (const [k, v] of Object.entries(pedidoInput)) {
-        const real = pedidosColsLower.get(String(k).toLowerCase());
+        const mappedKey = pedidoLegacyToCol[k] || k;
+        const real = pedidosColsLower.get(String(mappedKey).toLowerCase()) || pedidosColsLower.get(String(k).toLowerCase());
         if (real && String(real).toLowerCase() !== String(pk).toLowerCase()) filteredPedido[real] = v;
       }
 
@@ -4744,7 +4791,11 @@ class MySQLCRM {
         Id_FormaPago: 'ped_formp_id', Id_TipoPedido: 'ped_tipp_id', Id_Tarifa: 'ped_tarcli_id',
         Id_EstadoPedido: 'ped_estped_id', NumPedido: 'ped_numero', FechaPedido: 'ped_fecha',
         EstadoPedido: 'ped_estado_txt', TotalPedido: 'ped_total', BaseImponible: 'ped_base',
-        TotalIva: 'ped_iva', TotalDescuento: 'ped_descuento', Dto: 'ped_dto'
+        TotalIva: 'ped_iva', TotalDescuento: 'ped_descuento', Dto: 'ped_dto',
+        NumPedidoCliente: 'ped_num_pedido_cliente', NumAsociadoHefame: 'ped_num_asoc_hefame',
+        FechaEntrega: 'ped_fecha_entrega', Observaciones: 'ped_observaciones',
+        EsEspecial: 'ped_es_especial', EspecialEstado: 'ped_especial_estado',
+        EspecialFechaSolicitud: 'ped_especial_fecha_solicitud'
       };
       // Convertir formato NocoDB a MySQL + filtrar columnas válidas
       const mysqlData = {};

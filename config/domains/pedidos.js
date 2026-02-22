@@ -321,9 +321,22 @@ module.exports = {
       const cols = await this._getColumns(tPedidos).catch(() => []);
       const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
 
+      const pedidoLegacyToCol = {
+        Id_Cial: 'ped_com_id', Id_Cliente: 'ped_cli_id', Id_DireccionEnvio: 'ped_direnv_id',
+        Id_FormaPago: 'ped_formp_id', Id_TipoPedido: 'ped_tipp_id', Id_Tarifa: 'ped_tarcli_id',
+        Id_EstadoPedido: 'ped_estped_id', NumPedido: 'ped_numero', FechaPedido: 'ped_fecha',
+        EstadoPedido: 'ped_estado_txt', TotalPedido: 'ped_total', BaseImponible: 'ped_base',
+        TotalIva: 'ped_iva', TotalDescuento: 'ped_descuento', Dto: 'ped_dto',
+        NumPedidoCliente: 'ped_num_pedido_cliente', NumAsociadoHefame: 'ped_num_asoc_hefame',
+        FechaEntrega: 'ped_fecha_entrega', Observaciones: 'ped_observaciones',
+        EsEspecial: 'ped_es_especial', EspecialEstado: 'ped_especial_estado',
+        EspecialFechaSolicitud: 'ped_especial_fecha_solicitud'
+      };
+
       const filtered = {};
       for (const [k, v] of Object.entries(payload)) {
-        const real = colsLower.get(String(k).toLowerCase());
+        const mappedKey = pedidoLegacyToCol[k] || k;
+        const real = colsLower.get(String(mappedKey).toLowerCase()) || colsLower.get(String(k).toLowerCase());
         if (real && String(real).toLowerCase() !== String(pk).toLowerCase()) filtered[real] = v;
       }
 
