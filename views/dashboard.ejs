@@ -159,7 +159,7 @@
           </thead>
           <tbody>
             <% (latest.pedidos || []).forEach((p) => { %>
-              <% const pid = p.Id ?? p.id; %>
+              <% const pid = p.Id ?? p.id ?? p.ped_id; %>
               <tr>
                 <td class="dash-td-actions">
                   <div class="gv-actions">
@@ -171,10 +171,10 @@
                     </a>
                   </div>
                 </td>
-                <td><%= p.NumPedido ?? p.Numero_Pedido ?? '' %></td>
-                <td><%= fmtDateES(p.FechaPedido ?? p.Fecha ?? '') %></td>
-                <td><%= fmtEurES(p.TotalPedido ?? p.Total ?? p.ImporteTotal ?? 0) %></td>
-                <td><%= p.EstadoPedido ?? p.Estado ?? '' %></td>
+                <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
+                <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
+                <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? p.ImporteTotal ?? 0) %></td>
+                <td><%= p.EstadoPedido ?? p.ped_estado_txt ?? p.Estado ?? '' %></td>
               </tr>
             <% }) %>
           </tbody>
