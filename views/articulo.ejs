@@ -5,11 +5,15 @@
   const artSku = item.art_sku ?? item.SKU ?? '';
   const artPresentacion = item.art_presentacion ?? item.Presentacion ?? '';
   const artUnidadesCaja = item.art_unidades_caja ?? item.Unidades_Caja ?? '';
+  const artLargoUnidad = item.art_largo_undidad ?? item.Largo_Unidad ?? '';
+  const artAnchoUnidad = item.art_ancho_unidad ?? item.Ancho_Unidad ?? '';
+  const artAltoUnidad = item.art_alto_unidad ?? item.Alto_Unidad ?? '';
+  const artKgUnidad = item.art_kg_unidad ?? item.Kg_Unidad ?? '';
   const artLargoCaja = item.art_largo_caja ?? item.Largo_Caja ?? '';
   const artAltoCaja = item.art_alto_caja ?? item.Alto_Caja ?? '';
   const artAnchoCaja = item.art_ancho_caja ?? item.Ancho_Caja ?? '';
-  const artPesoKg = item.art_peso_kg ?? item.PesoKg ?? '';
-  const artCajasPalet = item.art_cajas_palet ?? item.Cajas_Palet ?? '';
+  const artPesoKgCaja = item.art_PesoKg_Caja ?? item.art_peso_kg ?? item.PesoKg_Caja ?? item.PesoKg ?? '';
+  const artCajasPalet = item.art_Cajas_Palet ?? item.art_cajas_palet ?? item.Cajas_Palet ?? '';
   const artPvl = item.art_pvl ?? item.PVL ?? '';
   const artIva = item.art_iva ?? item.IVA ?? '';
   const artEan13 = item.art_ean13 ?? item.EAN13 ?? '';
@@ -41,10 +45,14 @@
           <div><strong>Nombre:</strong> <%= artNombre %></div>
           <div><strong>Presentación:</strong> <%= artPresentacion %></div>
           <div><strong>Unidades caja:</strong> <%= artUnidadesCaja %></div>
+          <div><strong>Largo unidad (cm):</strong> <%= artLargoUnidad !== '' ? artLargoUnidad : '—' %></div>
+          <div><strong>Ancho unidad (cm):</strong> <%= artAnchoUnidad !== '' ? artAnchoUnidad : '—' %></div>
+          <div><strong>Alto unidad (cm):</strong> <%= artAltoUnidad !== '' ? artAltoUnidad : '—' %></div>
+          <div><strong>Peso unidad (kg):</strong> <%= artKgUnidad !== '' ? artKgUnidad : '—' %></div>
           <div><strong>Largo caja (cm):</strong> <%= artLargoCaja !== '' ? artLargoCaja : '—' %></div>
           <div><strong>Alto caja (cm):</strong> <%= artAltoCaja !== '' ? artAltoCaja : '—' %></div>
           <div><strong>Ancho caja (cm):</strong> <%= artAnchoCaja !== '' ? artAnchoCaja : '—' %></div>
-          <div><strong>Peso (kg):</strong> <%= artPesoKg !== '' ? artPesoKg : '—' %></div>
+          <div><strong>Peso caja (kg):</strong> <%= artPesoKgCaja !== '' ? artPesoKgCaja : '—' %></div>
           <div><strong>Cajas por palet:</strong> <%= artCajasPalet !== '' ? artCajasPalet : '—' %></div>
           <div><strong>PVL:</strong> <%= artPvl %></div>
           <div><strong>IVA:</strong> <%= artIva %></div>
