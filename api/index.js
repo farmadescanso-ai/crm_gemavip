@@ -3114,7 +3114,7 @@ app.get('/pedidos/new', requireLogin, async (_req, res, next) => {
       db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null)
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
-    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(_n(t.Id, t.id)) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
+    if (tarifaTransfer && _n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id) != null && !(tarifas || []).some((t) => Number(_n(t.tarcli_id, t.Id, t.id)) === Number(_n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id)))) tarifas.push(tarifaTransfer);
     const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
     if (formaPagoTransfer && _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))) formasPago.push(formaPagoTransfer);
     // Nota: artículos puede ser grande; lo usamos para selector simple (mejorable con búsqueda más adelante).
@@ -4138,7 +4138,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       db.getEstadosPedidoActivos().catch(() => [])
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
-    if (tarifaTransfer && tarifaTransfer.Id != null && !(tarifas || []).some((t) => Number(_n(t.Id, t.id)) === Number(tarifaTransfer.Id))) tarifas.push(tarifaTransfer);
+    if (tarifaTransfer && _n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id) != null && !(tarifas || []).some((t) => Number(_n(t.tarcli_id, t.Id, t.id)) === Number(_n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id)))) tarifas.push(tarifaTransfer);
     const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
     if (formaPagoTransfer && _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))) formasPago.push(formaPagoTransfer);
 
@@ -4164,12 +4164,12 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     const cliente = idClienteEdit ? await db.getClienteById(idClienteEdit).catch(() => null) : null;
     const clienteLabel = cliente
       ? (() => {
-          const idc = _n(_n(_n(cliente.Id, cliente.id), item.Id_Cliente), '');
-          const rs = _n(cliente.Nombre_Razon_Social, cliente.Nombre || '');
-          const nc = _n(cliente.Nombre_Cial, '');
-          const cif = _n(cliente.DNI_CIF, '');
-          const pob = _n(cliente.Poblacion, '');
-          const cp = _n(cliente.CodigoPostal, '');
+          const idc = _n(_n(_n(_n(cliente.cli_id, cliente.Id), cliente.id), item.Id_Cliente), '');
+          const rs = _n(_n(cliente.cli_nombre_razon_social, cliente.Nombre_Razon_Social), cliente.Nombre || '');
+          const nc = _n(_n(cliente.cli_nombre_cial, cliente.Nombre_Cial), '');
+          const cif = _n(_n(cliente.cli_dni_cif, cliente.DNI_CIF), '');
+          const pob = _n(_n(cliente.cli_poblacion, cliente.Poblacion), '');
+          const cp = _n(_n(cliente.cli_codigo_postal, cliente.CodigoPostal), '');
           const parts = [rs, nc].filter(Boolean).join(' / ');
           const extra = [cif, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
           return `${idc} · ${parts || 'Sin nombre'}${extra ? ` · ${extra}` : ''}`.trim();
@@ -4196,6 +4196,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
       ? lineasRaw.map((l) => ({
           Id_Articulo:
             _n(pickRowCI(l, [
+              'pedart_art_id',
               'Id_Articulo',
               'id_articulo',
               'ArticuloId',
@@ -4206,13 +4207,11 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
               'idArticulo'
             ]), ''),
           Cantidad:
-            _n(pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']), 1),
-          // DTO puede llamarse Dto/DTO/Descuento/PorcentajeDescuento...
+            _n(pickRowCI(l, ['pedart_cantidad', 'Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']), 1),
           Dto:
-            _n(pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento', 'DtoLinea', 'dto_linea']), ''),
-          // Mostrar PVL en edición: si viene guardado en línea, precargarlo (si no, el JS lo calcula por tarifa)
+            _n(pickRowCI(l, ['pedart_dto', 'Linea_Dto', 'DtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento']), ''),
           PrecioUnitario:
-            _n(pickRowCI(l, ['Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']), '')
+            _n(pickRowCI(l, ['pedart_pvp', 'Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']), '')
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
     res.render('pedido-form', {

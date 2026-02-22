@@ -8,10 +8,21 @@
 module.exports = {
   async getComerciales() {
     try {
-      const sql = 'SELECT * FROM comerciales ORDER BY id ASC';
-      const rows = await this.query(sql);
-      console.log(`✅ Obtenidos ${rows.length} comerciales`);
-      return Array.isArray(rows) ? rows : [];
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'id';
+      const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
+      const colNombre = this._pickCIFromColumns(cols, ['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
+      const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'Email';
+      const normalized = (rows || []).map(r => ({
+        ...r,
+        id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
+        Id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
+        Nombre: r?.[colNombre] ?? r?.Nombre ?? r?.nombre ?? '',
+        Email: r?.[colEmail] ?? r?.Email ?? r?.email ?? ''
+      }));
+      console.log(`✅ Obtenidos ${normalized.length} comerciales`);
+      return normalized;
     } catch (error) {
       console.error('❌ Error obteniendo comerciales:', error.message);
       return [];

@@ -47,8 +47,10 @@
           <select <%= isAdminForm ? '' : 'disabled' %> class="gv-input" id="Id_Cial__display">
             <option value="">(selecciona)</option>
             <% (comerciales || []).forEach((c) => { %>
-              <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
-              <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+              <% const cid = Number(c.com_id ?? c.id ?? c.Id ?? 0) || 0; %>
+              <% const cNombre = c.com_nombre ?? c.Nombre ?? c.nombre ?? ''; %>
+              <% const cEmail = c.com_email ?? c.Email ?? c.email ?? ''; %>
+              <option value="<%= cid %>" <%= cid === curCial ? 'selected' : '' %>><%= cNombre %> (<%= cEmail %>)</option>
             <% }) %>
           </select>
         </label>
@@ -75,8 +77,8 @@
               <div style="font-weight:700; margin-bottom:6px;">Recientes:</div>
               <div style="display:flex; flex-wrap:wrap; gap:6px;">
                 <% (clientes || []).slice(0, 10).forEach((c) => { %>
-                  <button class="btn secondary" type="button" data-client-pick="<%= c.Id %>" data-client-label="<%= c.Nombre_Razon_Social %>" style="padding: 6px 10px; border-radius: 999px;">
-                    <%= c.Id %> · <%= c.Nombre_Razon_Social %>
+                  <button class="btn secondary" type="button" data-client-pick="<%= c.cli_id ?? c.Id %>" data-client-label="<%= c.cli_nombre_razon_social ?? c.Nombre_Razon_Social %>" style="padding: 6px 10px; border-radius: 999px;">
+                    <%= c.cli_id ?? c.Id %> · <%= c.cli_nombre_razon_social ?? c.Nombre_Razon_Social %>
                   </button>
                 <% }) %>
               </div>
@@ -89,9 +91,9 @@
           <select id="Id_Tarifa" name="Id_Tarifa" class="gv-input">
             <% const curTar = Number(item.Id_Tarifa ?? item.ped_tarcli_id ?? 0) || 0; %>
             <% (tarifas || []).forEach((t) => { %>
-              <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
-              <% const label = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
-              <option value="<%= tid %>" data-label="<%= label %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= label %></option>
+              <% const tid = Number(t.tarcli_id ?? t.Id ?? t.id ?? 0) || 0; %>
+              <% const label = t.tarcli_nombre ?? t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
+              <option value="<%= tid %>" data-label="<%= label %>" <%= tid === curTar ? 'selected' : '' %>><%= label %></option>
             <% }) %>
           </select>
         </label>
@@ -157,8 +159,9 @@
               <% const curFP = Number(item.Id_FormaPago ?? item.ped_formp_id ?? 0) || 0; %>
               <option value="0" <%= curFP === 0 ? 'selected' : '' %>>Sin especificar</option>
               <% (formasPago || []).forEach((fp) => { %>
-                <% const fid = Number(fp.id ?? fp.Id ?? 0) || 0; %>
-                <option value="<%= fid %>" <%= fid === curFP ? 'selected' : '' %>><%= fp.Nombre ?? fp.FormaPago ?? fp.nombre ?? '' %></option>
+                <% const fid = Number(fp.formp_id ?? fp.id ?? fp.Id ?? 0) || 0; %>
+                <% const fpLabel = fp.formp_nombre ?? fp.Nombre ?? fp.FormaPago ?? fp.nombre ?? ''; %>
+                <option value="<%= fid %>" <%= fid === curFP ? 'selected' : '' %>><%= fpLabel %></option>
               <% }) %>
             </select>
           <% } else { %>
@@ -172,8 +175,9 @@
               <% const curTP = Number(item.Id_TipoPedido ?? item.ped_tipp_id ?? 0) || 0; %>
               <option value="0" <%= curTP === 0 ? 'selected' : '' %>>Sin especificar</option>
               <% (tiposPedido || []).forEach((tp) => { %>
-                <% const tid = Number(tp.id ?? tp.Id ?? 0) || 0; %>
-                <option value="<%= tid %>" <%= tid === curTP ? 'selected' : '' %>><%= tp.Nombre ?? tp.Tipo ?? tp.nombre ?? tp.tipo ?? '' %></option>
+                <% const tpid = Number(tp.tipp_id ?? tp.id ?? tp.Id ?? 0) || 0; %>
+                <% const tpLabel = tp.tipp_tipo ?? tp.Nombre ?? tp.Tipo ?? tp.nombre ?? tp.tipo ?? ''; %>
+                <option value="<%= tpid %>" <%= tpid === curTP ? 'selected' : '' %>><%= tpLabel %></option>
               <% }) %>
             </select>
           <% } else { %>
@@ -226,8 +230,12 @@
                       <option value="">(selecciona)</option>
                       <% const curA = String(l.Id_Articulo ?? ''); %>
                       <% (articulos || []).forEach((a) => { %>
-                        <% const aid = String(a.Id ?? a.id ?? ''); %>
-                        <option value="<%= aid %>" data-pvl="<%= a.PVL ?? a.pvl ?? '' %>" data-iva="<%= a.IVA ?? a.iva ?? '' %>" <%= aid === curA ? 'selected' : '' %>><%= aid %> · <%= a.SKU ?? '' %> · <%= a.Nombre ?? '' %></option>
+                        <% const aid = String(a.art_id ?? a.Id ?? a.id ?? ''); %>
+                        <% const aSku = a.art_sku ?? a.SKU ?? ''; %>
+                        <% const aNombre = a.art_nombre ?? a.Nombre ?? ''; %>
+                        <% const aPvl = a.art_pvl ?? a.PVL ?? a.pvl ?? ''; %>
+                        <% const aIva = a.art_iva ?? a.IVA ?? a.iva ?? ''; %>
+                        <option value="<%= aid %>" data-pvl="<%= aPvl %>" data-iva="<%= aIva %>" <%= aid === curA ? 'selected' : '' %>><%= aid %> · <%= aSku %> · <%= aNombre %></option>
                       <% }) %>
                     </select>
                   </td>
