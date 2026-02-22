@@ -44,37 +44,41 @@
       <table>
         <thead>
           <tr>
-            <th>ID</th>
             <th>SKU</th>
             <th>Nombre</th>
             <th>Marca</th>
+            <th>Unid. Caja</th>
             <th>PVL</th>
             <th>IVA</th>
+            <th>Unid. Palet</th>
             <th>Activo</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <% (items || []).forEach((a) => { %>
+          <% (items || []).forEach((a) => { const aid = a.Id ?? a.id ?? a.art_id; %>
             <tr>
-              <td><%= a.Id ?? a.id ?? a.art_id %></td>
               <td><%= a.SKU ?? a.art_sku ?? '' %></td>
               <td><%= a.Nombre ?? a.art_nombre ?? '' %></td>
               <td><%= a.MarcaNombre ?? a.Marca ?? a.Id_Marca ?? a.art_mar_id ?? '' %></td>
+              <td><%= a.Unidades_Caja ?? a.art_unidades_caja ?? '' %></td>
               <td><%= a.PVL ?? a.art_pvl ?? '' %></td>
               <td><%= a.IVA ?? a.art_iva ?? '' %></td>
+              <td><%= a.Cajas_Palet ?? a.art_cajas_palet ?? '' %></td>
               <td><%= (a.Activo ?? a.art_activo ?? 1) ? 'Sí' : 'No' %></td>
               <td>
                 <div class="gv-actions">
-                  <a class="btn secondary icon" href="/articulos/<%= a.Id ?? a.id ?? a.art_id %>" title="Ver ficha" aria-label="Ver ficha">
-                    Ver
+                  <a class="btn secondary icon" href="/articulos/<%= aid %>" title="Ver ficha" aria-label="Ver ficha">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                   </a>
                   <% if (admin) { %>
-                    <a class="btn secondary icon" href="/articulos/<%= a.Id ?? a.id ?? a.art_id %>/edit" title="Editar" aria-label="Editar">
-                      Editar
+                    <a class="btn secondary icon" href="/articulos/<%= aid %>/edit" title="Editar" aria-label="Editar">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
                     </a>
-                    <form method="post" action="/articulos/<%= a.Id ?? a.id ?? a.art_id %>/delete" onsubmit="return confirm('¿Eliminar este artículo?');">
-                      <button class="btn secondary icon danger" type="submit" title="Eliminar" aria-label="Eliminar">Eliminar</button>
+                    <form method="post" action="/articulos/<%= aid %>/delete" onsubmit="return confirm('¿Eliminar este artículo?');">
+                      <button class="btn secondary icon danger" type="submit" title="Eliminar" aria-label="Eliminar">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+                      </button>
                     </form>
                   <% } %>
                 </div>
@@ -83,7 +87,7 @@
           <% }) %>
           <% if (!items || items.length === 0) { %>
             <tr>
-              <td colspan="8" style="color: var(--gv-muted); font-weight:700;">No hay artículos.</td>
+              <td colspan="9" style="color: var(--gv-muted); font-weight:700;">No hay artículos.</td>
             </tr>
           <% } %>
         </tbody>
