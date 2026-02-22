@@ -5,11 +5,17 @@
   const artSku = item.art_sku ?? item.SKU ?? '';
   const artPresentacion = item.art_presentacion ?? item.Presentacion ?? '';
   const artUnidadesCaja = item.art_unidades_caja ?? item.Unidades_Caja ?? '';
+  const artLargoCaja = item.art_largo_caja ?? item.Largo_Caja ?? '';
+  const artAltoCaja = item.art_alto_caja ?? item.Alto_Caja ?? '';
+  const artAnchoCaja = item.art_ancho_caja ?? item.Ancho_Caja ?? '';
+  const artPesoKg = item.art_peso_kg ?? item.PesoKg ?? '';
+  const artCajasPalet = item.art_cajas_palet ?? item.Cajas_Palet ?? '';
   const artPvl = item.art_pvl ?? item.PVL ?? '';
   const artIva = item.art_iva ?? item.IVA ?? '';
   const artEan13 = item.art_ean13 ?? item.EAN13 ?? '';
   const artImagen = item.art_imagen ?? item.Imagen ?? '';
   const artActivo = (item.art_activo ?? item.Activo ?? 1);
+  const marcaNombre = item.MarcaNombre || item.Marca || item.art_mar_id || '—';
 %>
 <section class="card">
   <div class="card-hd">
@@ -35,20 +41,26 @@
           <div><strong>Nombre:</strong> <%= artNombre %></div>
           <div><strong>Presentación:</strong> <%= artPresentacion %></div>
           <div><strong>Unidades caja:</strong> <%= artUnidadesCaja %></div>
+          <div><strong>Largo caja (cm):</strong> <%= artLargoCaja !== '' ? artLargoCaja : '—' %></div>
+          <div><strong>Alto caja (cm):</strong> <%= artAltoCaja !== '' ? artAltoCaja : '—' %></div>
+          <div><strong>Ancho caja (cm):</strong> <%= artAnchoCaja !== '' ? artAnchoCaja : '—' %></div>
+          <div><strong>Peso (kg):</strong> <%= artPesoKg !== '' ? artPesoKg : '—' %></div>
+          <div><strong>Cajas por palet:</strong> <%= artCajasPalet !== '' ? artCajasPalet : '—' %></div>
           <div><strong>PVL:</strong> <%= artPvl %></div>
           <div><strong>IVA:</strong> <%= artIva %></div>
-          <div><strong>EAN13:</strong> <%= artEan13 %></div>
-          <div><strong>Marca:</strong> <%= item.MarcaNombre || item.Marca || item.art_mar_id || '—' %></div>
-          <div><strong>Id_Marca:</strong> <%= item.Id_Marca || item.art_mar_id || '—' %></div>
+          <div><strong>EAN13:</strong> <%= artEan13 || '—' %></div>
+          <div><strong>Marca:</strong> <%= marcaNombre %></div>
           <div><strong>Activo:</strong> <%= artActivo ? 'Sí' : 'No' %></div>
+          <% if (admin) { %>
           <div>
-            <strong>Imagen:</strong>
+            <strong>Imagen (URL):</strong>
             <% if (imgUrl) { %>
               <a class="gv-break" href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer"><%= imgUrl %></a>
             <% } else { %>
               —
             <% } %>
           </div>
+          <% } %>
         </div>
 
         <% if (admin) { %>
@@ -69,6 +81,7 @@
 
       <% if (imgUrl) { %>
         <aside class="gv-article-ficha__media" aria-label="Imagen del artículo">
+          <% if (admin) { %>
           <a class="gv-article-ficha__imgLink" href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">
             <img
               class="gv-article-ficha__img"
@@ -81,6 +94,17 @@
           <div class="gv-article-ficha__mediaFoot">
             <a href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">Abrir imagen</a>
           </div>
+          <% } else { %>
+          <div class="gv-article-ficha__imgLink">
+            <img
+              class="gv-article-ficha__img"
+              src="<%= imgUrl %>"
+              alt="<%= artNombre || 'Artículo' %>"
+              onerror="this.onerror=null; this.style.display='none';"
+              loading="lazy"
+            />
+          </div>
+          <% } %>
         </aside>
       <% } %>
     </div>
