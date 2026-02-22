@@ -588,6 +588,10 @@ class MySQLCRM {
       console.log(`🌐 Host: ${this.config.host}:${this.config.port}`);
       console.log('✅ UTF-8 configurado: utf8mb4_unicode_ci');
 
+      // Cargar módulos necesarios para ensureSchema (lazy loading Fase 3)
+      if (typeof ensureModule === 'function') {
+        ['comerciales', 'visitas', 'clientes', 'pedidos', 'agenda'].forEach((m) => ensureModule(m));
+      }
       // Asegurar compatibilidad de esquema (evita errores tipo "Column 'meet_email' cannot be null").
       await this.ensureComercialesReunionesNullable();
       // Índices recomendados para rendimiento del CRM (best-effort)
