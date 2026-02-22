@@ -64,9 +64,9 @@
         <tbody>
           <% items.forEach((c) => { %>
             <%
-              const id = c.Id ?? c.id;
-              const nombre = [c.Nombre, c.Apellidos].filter(Boolean).join(' ').trim();
-              const activo = String(c.Activo ?? '1').trim() === '1';
+              const id = c.Id ?? c.id ?? c.ag_id;
+              const nombre = [c.Nombre ?? c.ag_nombre, c.Apellidos ?? c.ag_apellidos].filter(Boolean).join(' ').trim();
+              const activo = String(c.Activo ?? c.ag_activo ?? '1').trim() === '1';
             %>
             <tr>
               <td>
@@ -86,12 +86,12 @@
                 </div>
               </td>
               <td class="gv-contactos-col-nombre"><%= nombre || ('Contacto ' + id) %></td>
-              <td><%= c.Empresa ?? '' %></td>
-              <td><%= c.Email ?? '' %></td>
-              <td><%= c.Movil ?? '' %></td>
-              <td><%= c.Telefono ?? '' %></td>
-              <td><%= c.Cargo ?? '' %></td>
-              <td><%= c.Especialidad ?? '' %></td>
+              <td><%= c.Empresa ?? c.ag_empresa ?? '' %></td>
+              <td><%= c.Email ?? c.ag_email ?? '' %></td>
+              <td><%= c.Movil ?? c.ag_movil ?? '' %></td>
+              <td><%= c.Telefono ?? c.ag_telefono ?? '' %></td>
+              <td><%= c.Cargo ?? c.ag_cargo ?? '' %></td>
+              <td><%= c.Especialidad ?? c.ag_especialidad ?? '' %></td>
               <td class="gv-contactos-col-estado"><%= activo ? 'Sí' : 'No' %></td>
             </tr>
           <% }) %>

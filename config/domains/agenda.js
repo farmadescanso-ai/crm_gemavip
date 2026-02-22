@@ -82,11 +82,25 @@ module.exports = {
       const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : 50;
       const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
 
+      const tAgenda = await this._resolveAgendaTableName();
+      const colsAgenda = await this._getColumns(tAgenda).catch(() => []);
+      const pick = (cands) => this._pickCIFromColumns(colsAgenda, cands);
+
+      const colActivo = pick(['ag_activo', 'Activo', 'activo']) || 'ag_activo';
+      const colNombre = pick(['ag_nombre', 'Nombre', 'nombre']) || 'ag_nombre';
+      const colApellidos = pick(['ag_apellidos', 'Apellidos', 'apellidos']) || 'ag_apellidos';
+      const colEmpresa = pick(['ag_empresa', 'Empresa', 'empresa']) || 'ag_empresa';
+      const colEmail = pick(['ag_email', 'Email', 'email']) || 'ag_email';
+      const colMovil = pick(['ag_movil', 'Movil', 'movil']) || 'ag_movil';
+      const colTelefono = pick(['ag_telefono', 'Telefono', 'telefono']) || 'ag_telefono';
+      const colTipoCargoRol = pick(['ag_tipcar_id', 'Id_TipoCargoRol', 'id_tipocargorol', 'IdTipoCargoRol']);
+      const colEspId = pick(['ag_esp_id', 'Id_Especialidad', 'id_especialidad', 'IdEspecialidad', 'idEspecialidad']);
+
       const where = [];
       const params = [];
 
       if (!includeInactivos) {
-        where.push("TRIM(UPPER(COALESCE(CONCAT(a.Activo,''),''))) IN ('1','OK','TRUE','SI','SÍ')");
+        where.push(`TRIM(UPPER(COALESCE(CONCAT(a.\`${colActivo}\`,''),''))) IN ('1','OK','TRUE','SI','SÍ')`);
       }
 
       if (search) {
@@ -99,43 +113,46 @@ module.exports = {
           .join(' ');
 
         if (terms && terms.replace(/\*/g, '').length >= 3) {
-          where.push('(MATCH(a.Nombre, a.Apellidos, a.Empresa, a.Email, a.Movil, a.Telefono) AGAINST (? IN BOOLEAN MODE))');
+          const matchCols = [colNombre, colApellidos, colEmpresa, colEmail, colMovil, colTelefono].map(c => `a.\`${c}\``).join(', ');
+          where.push(`(MATCH(${matchCols}) AGAINST (? IN BOOLEAN MODE))`);
           params.push(terms);
         } else {
-          where.push('(a.Nombre LIKE ? OR a.Apellidos LIKE ? OR a.Empresa LIKE ? OR a.Email LIKE ? OR a.Movil LIKE ? OR a.Telefono LIKE ?)');
+          where.push(`(a.\`${colNombre}\` LIKE ? OR a.\`${colApellidos}\` LIKE ? OR a.\`${colEmpresa}\` LIKE ? OR a.\`${colEmail}\` LIKE ? OR a.\`${colMovil}\` LIKE ? OR a.\`${colTelefono}\` LIKE ?)`);
           const like = `%${search}%`;
           params.push(like, like, like, like, like, like);
         }
       }
 
-      const tAgenda = await this._resolveAgendaTableName();
-      const colsAgenda = await this._getColumns(tAgenda).catch(() => []);
-      const colTipoCargoRol = this._pickCIFromColumns(colsAgenda, ['Id_TipoCargoRol', 'id_tipocargorol', 'IdTipoCargoRol', 'idTipoCargoRol']);
-      const colEspId = this._pickCIFromColumns(colsAgenda, ['Id_Especialidad', 'id_especialidad', 'IdEspecialidad', 'idEspecialidad']);
-
       const joins = [];
       const selectExtra = [];
       if (colTipoCargoRol) {
-        joins.push('LEFT JOIN `tiposcargorol` tcr ON tcr.id = a.`' + colTipoCargoRol + '`');
-        selectExtra.push('tcr.Nombre AS CargoNombre');
+        const tTCR = await this._resolveTableNameCaseInsensitive('tiposcargorol').catch(() => 'tiposcargorol');
+        const colsTCR = await this._getColumns(tTCR).catch(() => []);
+        const tcrPk = this._pickCIFromColumns(colsTCR, ['tipcar_id', 'id', 'Id']) || 'tipcar_id';
+        const tcrNombre = this._pickCIFromColumns(colsTCR, ['tipcar_nombre', 'Nombre', 'nombre']) || 'tipcar_nombre';
+        joins.push(`LEFT JOIN \`${tTCR}\` tcr ON tcr.\`${tcrPk}\` = a.\`${colTipoCargoRol}\``);
+        selectExtra.push(`tcr.\`${tcrNombre}\` AS CargoNombre`);
       }
       if (colEspId) {
         const tEsp = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
-        joins.push('LEFT JOIN `' + tEsp + '` esp ON esp.id = a.`' + colEspId + '`');
-        selectExtra.push('esp.Especialidad AS EspecialidadNombre');
+        const colsEsp = await this._getColumns(tEsp).catch(() => []);
+        const espPk = this._pickCIFromColumns(colsEsp, ['esp_id', 'id', 'Id']) || 'esp_id';
+        const espNombre = this._pickCIFromColumns(colsEsp, ['esp_nombre', 'Especialidad', 'especialidad']) || 'esp_nombre';
+        joins.push(`LEFT JOIN \`${tEsp}\` esp ON esp.\`${espPk}\` = a.\`${colEspId}\``);
+        selectExtra.push(`esp.\`${espNombre}\` AS EspecialidadNombre`);
       }
 
       let sql = `SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''} FROM \`${tAgenda}\` a ${joins.length ? joins.join(' ') : ''}`;
       if (where.length) sql += ' WHERE ' + where.join(' AND ');
-      sql += ' ORDER BY a.Apellidos ASC, a.Nombre ASC';
+      sql += ` ORDER BY a.\`${colApellidos}\` ASC, a.\`${colNombre}\` ASC`;
       sql += ` LIMIT ${limit} OFFSET ${offset}`;
 
       try {
         const rows = await this.query(sql, params);
         if (Array.isArray(rows) && (colTipoCargoRol || colEspId)) {
           for (const r of rows) {
-            if (r && r.CargoNombre && !r.Cargo) r.Cargo = r.CargoNombre;
-            if (r && r.EspecialidadNombre && !r.Especialidad) r.Especialidad = r.EspecialidadNombre;
+            r.Cargo = r.CargoNombre ?? r.ag_cargo ?? r.Cargo ?? '';
+            r.Especialidad = r.EspecialidadNombre ?? r.ag_especialidad ?? r.Especialidad ?? '';
           }
         }
         return rows;
@@ -144,12 +161,12 @@ module.exports = {
         if (search && msg.toLowerCase().includes('match') && msg.toLowerCase().includes('against')) {
           const where2 = where.filter(w => !w.includes('MATCH('));
           const params2 = params.slice(0, params.length - 1);
-          where2.push('(a.Nombre LIKE ? OR a.Apellidos LIKE ? OR a.Empresa LIKE ? OR a.Email LIKE ? OR a.Movil LIKE ? OR a.Telefono LIKE ?)');
+          where2.push(`(a.\`${colNombre}\` LIKE ? OR a.\`${colApellidos}\` LIKE ? OR a.\`${colEmpresa}\` LIKE ? OR a.\`${colEmail}\` LIKE ? OR a.\`${colMovil}\` LIKE ? OR a.\`${colTelefono}\` LIKE ?)`);
           const like = `%${search}%`;
           params2.push(like, like, like, like, like, like);
           let sql2 = `SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''} FROM \`${tAgenda}\` a ${joins.length ? joins.join(' ') : ''}`;
           if (where2.length) sql2 += ' WHERE ' + where2.join(' AND ');
-          sql2 += ' ORDER BY a.Apellidos ASC, a.Nombre ASC';
+          sql2 += ` ORDER BY a.\`${colApellidos}\` ASC, a.\`${colNombre}\` ASC`;
           sql2 += ` LIMIT ${limit} OFFSET ${offset}`;
           const rows2 = await this.query(sql2, params2);
           if (Array.isArray(rows2) && (colTipoCargoRol || colEspId)) {
@@ -172,32 +189,41 @@ module.exports = {
     try {
       const tAgenda = await this._resolveAgendaTableName();
       const cols = await this._getColumns(tAgenda).catch(() => []);
-      const colTipoCargoRol = this._pickCIFromColumns(cols, ['Id_TipoCargoRol', 'id_tipocargorol', 'IdTipoCargoRol', 'idTipoCargoRol']);
-      const colEspId = this._pickCIFromColumns(cols, ['Id_Especialidad', 'id_especialidad', 'IdEspecialidad', 'idEspecialidad']);
+      const pick = (cands) => this._pickCIFromColumns(cols, cands);
+      const colPk = pick(['ag_id', 'Id', 'id']) || 'ag_id';
+      const colTipoCargoRol = pick(['ag_tipcar_id', 'Id_TipoCargoRol', 'id_tipocargorol', 'IdTipoCargoRol']);
+      const colEspId = pick(['ag_esp_id', 'Id_Especialidad', 'id_especialidad', 'IdEspecialidad', 'idEspecialidad']);
 
       const joins = [];
       const selectExtra = [];
       if (colTipoCargoRol) {
-        joins.push('LEFT JOIN `tiposcargorol` tcr ON tcr.id = a.`' + colTipoCargoRol + '`');
-        selectExtra.push('tcr.Nombre AS CargoNombre');
+        const tTCR = await this._resolveTableNameCaseInsensitive('tiposcargorol').catch(() => 'tiposcargorol');
+        const colsTCR = await this._getColumns(tTCR).catch(() => []);
+        const tcrPk = this._pickCIFromColumns(colsTCR, ['tipcar_id', 'id', 'Id']) || 'tipcar_id';
+        const tcrNombre = this._pickCIFromColumns(colsTCR, ['tipcar_nombre', 'Nombre', 'nombre']) || 'tipcar_nombre';
+        joins.push(`LEFT JOIN \`${tTCR}\` tcr ON tcr.\`${tcrPk}\` = a.\`${colTipoCargoRol}\``);
+        selectExtra.push(`tcr.\`${tcrNombre}\` AS CargoNombre`);
       }
       if (colEspId) {
         const tEsp = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
-        joins.push('LEFT JOIN `' + tEsp + '` esp ON esp.id = a.`' + colEspId + '`');
-        selectExtra.push('esp.Especialidad AS EspecialidadNombre');
+        const colsEsp = await this._getColumns(tEsp).catch(() => []);
+        const espPk = this._pickCIFromColumns(colsEsp, ['esp_id', 'id', 'Id']) || 'esp_id';
+        const espNombre = this._pickCIFromColumns(colsEsp, ['esp_nombre', 'Especialidad', 'especialidad']) || 'esp_nombre';
+        joins.push(`LEFT JOIN \`${tEsp}\` esp ON esp.\`${espPk}\` = a.\`${colEspId}\``);
+        selectExtra.push(`esp.\`${espNombre}\` AS EspecialidadNombre`);
       }
 
       const sql = `
         SELECT a.*${selectExtra.length ? ', ' + selectExtra.join(', ') : ''}
         FROM \`${tAgenda}\` a
         ${joins.join('\n')}
-        WHERE a.Id = ? LIMIT 1
+        WHERE a.\`${colPk}\` = ? LIMIT 1
       `;
       const rows = await this.query(sql, [id]);
       const item = rows?.[0] || null;
       if (item) {
-        if (item.CargoNombre && !item.Cargo) item.Cargo = item.CargoNombre;
-        if (item.EspecialidadNombre && !item.Especialidad) item.Especialidad = item.EspecialidadNombre;
+        item.Cargo = item.CargoNombre ?? item.ag_cargo ?? item.Cargo ?? '';
+        item.Especialidad = item.EspecialidadNombre ?? item.ag_especialidad ?? item.Especialidad ?? '';
       }
       return item;
     } catch (error) {
@@ -210,30 +236,46 @@ module.exports = {
     try {
       if (!this.connected && !this.pool) await this.connect();
 
-      const allowed = new Set([
-        'Nombre', 'Apellidos', 'Cargo', 'Especialidad', 'Id_TipoCargoRol', 'Id_Especialidad',
-        'Empresa', 'Email', 'Movil', 'Telefono', 'Extension', 'Notas', 'Activo'
-      ]);
+      const canonicalToCols = {
+        Nombre: ['ag_nombre', 'Nombre', 'nombre'],
+        Apellidos: ['ag_apellidos', 'Apellidos', 'apellidos'],
+        Cargo: ['ag_cargo', 'Cargo', 'cargo'],
+        Especialidad: ['ag_especialidad', 'Especialidad', 'especialidad'],
+        Id_TipoCargoRol: ['ag_tipcar_id', 'Id_TipoCargoRol', 'id_tipocargorol'],
+        Id_Especialidad: ['ag_esp_id', 'Id_Especialidad', 'id_especialidad'],
+        Empresa: ['ag_empresa', 'Empresa', 'empresa'],
+        Email: ['ag_email', 'Email', 'email'],
+        Movil: ['ag_movil', 'Movil', 'movil'],
+        Telefono: ['ag_telefono', 'Telefono', 'telefono'],
+        Extension: ['ag_extension', 'Extension', 'extension'],
+        Notas: ['ag_notas', 'Notas', 'notas'],
+        Activo: ['ag_activo', 'Activo', 'activo']
+      };
 
-      const data = {};
+      const raw = {};
       for (const [k, v] of Object.entries(payload || {})) {
-        if (!allowed.has(k)) continue;
-        data[k] = (v === undefined ? null : v);
+        if (!canonicalToCols[k]) continue;
+        raw[k] = (v === undefined ? null : v);
       }
 
-      if (data.Cargo) data.Cargo = this._normalizeAgendaCatalogLabel(data.Cargo) || data.Cargo;
-      if (data.Especialidad) data.Especialidad = this._normalizeAgendaCatalogLabel(data.Especialidad) || data.Especialidad;
+      if (raw.Cargo) raw.Cargo = this._normalizeAgendaCatalogLabel(raw.Cargo) || raw.Cargo;
+      if (raw.Especialidad) raw.Especialidad = this._normalizeAgendaCatalogLabel(raw.Especialidad) || raw.Especialidad;
 
-      if (!data.Nombre || String(data.Nombre).trim() === '') {
+      if (!raw.Nombre || String(raw.Nombre).trim() === '') {
         throw new Error('El campo Nombre es obligatorio');
       }
 
       const tAgenda = await this._resolveAgendaTableName();
       const cols = await this._getColumns(tAgenda).catch(() => []);
-      const colsLower = new Set((cols || []).map(c => String(c || '').toLowerCase()));
-      for (const k of Object.keys(data)) {
-        if (!colsLower.has(String(k).toLowerCase())) delete data[k];
+      const pick = (cands) => this._pickCIFromColumns(cols, cands);
+
+      const data = {};
+      for (const [canonical, v] of Object.entries(raw)) {
+        const col = pick(canonicalToCols[canonical]);
+        if (col) data[col] = v;
       }
+
+      if (!Object.keys(data).length) throw new Error('No hay campos válidos para insertar');
 
       const fields = Object.keys(data).map(k => `\`${k}\``).join(', ');
       const placeholders = Object.keys(data).map(() => '?').join(', ');
@@ -251,30 +293,42 @@ module.exports = {
     try {
       if (!this.connected && !this.pool) await this.connect();
 
-      const allowed = new Set([
-        'Nombre', 'Apellidos', 'Cargo', 'Especialidad', 'Id_TipoCargoRol', 'Id_Especialidad',
-        'Empresa', 'Email', 'Movil', 'Telefono', 'Extension', 'Notas', 'Activo'
-      ]);
+      const canonicalToCols = {
+        Nombre: ['ag_nombre', 'Nombre', 'nombre'],
+        Apellidos: ['ag_apellidos', 'Apellidos', 'apellidos'],
+        Cargo: ['ag_cargo', 'Cargo', 'cargo'],
+        Especialidad: ['ag_especialidad', 'Especialidad', 'especialidad'],
+        Id_TipoCargoRol: ['ag_tipcar_id', 'Id_TipoCargoRol', 'id_tipocargorol'],
+        Id_Especialidad: ['ag_esp_id', 'Id_Especialidad', 'id_especialidad'],
+        Empresa: ['ag_empresa', 'Empresa', 'empresa'],
+        Email: ['ag_email', 'Email', 'email'],
+        Movil: ['ag_movil', 'Movil', 'movil'],
+        Telefono: ['ag_telefono', 'Telefono', 'telefono'],
+        Extension: ['ag_extension', 'Extension', 'extension'],
+        Notas: ['ag_notas', 'Notas', 'notas'],
+        Activo: ['ag_activo', 'Activo', 'activo']
+      };
 
       const tAgenda = await this._resolveAgendaTableName();
       const cols = await this._getColumns(tAgenda).catch(() => []);
-      const colsLower = new Set((cols || []).map(c => String(c || '').toLowerCase()));
+      const pick = (cands) => this._pickCIFromColumns(cols, cands);
 
       const fields = [];
       const values = [];
-      for (const [k, v] of Object.entries(payload || {})) {
-        if (!allowed.has(k)) continue;
-        if (!colsLower.has(String(k).toLowerCase())) continue;
-        fields.push(`\`${k}\` = ?`);
-        if (k === 'Cargo' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
-        else if (k === 'Especialidad' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
+      for (const [canonical, v] of Object.entries(payload || {})) {
+        const col = pick(canonicalToCols[canonical]);
+        if (!col) continue;
+        fields.push(`\`${col}\` = ?`);
+        if (canonical === 'Cargo' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
+        else if (canonical === 'Especialidad' && v) values.push(this._normalizeAgendaCatalogLabel(v) || v);
         else values.push(v === undefined ? null : v);
       }
 
       if (!fields.length) return { affectedRows: 0 };
 
       values.push(id);
-      const sql = `UPDATE \`${tAgenda}\` SET ${fields.join(', ')} WHERE Id = ?`;
+      const colPk = pick(['ag_id', 'Id', 'id']) || 'ag_id';
+      const sql = `UPDATE \`${tAgenda}\` SET ${fields.join(', ')} WHERE \`${colPk}\` = ?`;
       const result = await this.query(sql, values);
       return { affectedRows: result.affectedRows || 0 };
     } catch (error) {
@@ -291,27 +345,47 @@ module.exports = {
 
       const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
       const tAgenda = await this._resolveAgendaTableName();
+      const colsCC = await this._getColumns(tClientesContactos).catch(() => []);
+      const colsAg = await this._getColumns(tAgenda).catch(() => []);
+      const pickCC = (cands) => this._pickCIFromColumns(colsCC, cands);
+      const pickAg = (cands) => this._pickCIFromColumns(colsAg, cands);
+
+      const ccId = pickCC(['clicont_id', 'Id', 'id']) || 'Id';
+      const ccIdCliente = pickCC(['clicont_cli_id', 'Id_Cliente', 'id_cliente']) || 'Id_Cliente';
+      const ccIdContacto = pickCC(['clicont_ag_id', 'Id_Contacto', 'id_contacto']) || 'Id_Contacto';
+      const ccRol = pickCC(['clicont_rol', 'Rol', 'rol']) || 'Rol';
+      const ccEsPrincipal = pickCC(['clicont_es_principal', 'Es_Principal', 'es_principal']) || 'Es_Principal';
+      const ccVigenteHasta = pickCC(['clicont_vigente_hasta', 'VigenteHasta', 'vigente_hasta']) || 'VigenteHasta';
+      const ccVigenteDesde = pickCC(['clicont_vigente_desde', 'VigenteDesde', 'vigente_desde']) || 'VigenteDesde';
+      const ccMotivoBaja = pickCC(['clicont_motivo_baja', 'MotivoBaja', 'motivo_baja']) || 'MotivoBaja';
+      const ccNotas = pickCC(['clicont_notas', 'Notas', 'notas']) || 'Notas';
+
+      const agId = pickAg(['ag_id', 'Id', 'id']) || 'ag_id';
+      const agCargo = pickAg(['ag_cargo', 'Cargo', 'cargo']) || 'Cargo';
+      const agApellidos = pickAg(['ag_apellidos', 'Apellidos', 'apellidos']) || 'Apellidos';
+      const agNombre = pickAg(['ag_nombre', 'Nombre', 'nombre']) || 'Nombre';
+
       let sql = `
         SELECT
-          cc.Id AS Id_Relacion,
-          cc.Id_Cliente,
-          cc.Id_Contacto,
-          COALESCE(NULLIF(TRIM(cc.Rol), ''), NULLIF(TRIM(c.Cargo), '')) AS Rol,
-          cc.Rol AS RolRelacion,
-          cc.Es_Principal,
-          cc.Notas AS NotasRelacion,
-          cc.VigenteDesde,
-          cc.VigenteHasta,
-          cc.MotivoBaja,
+          cc.\`${ccId}\` AS Id_Relacion,
+          cc.\`${ccIdCliente}\` AS Id_Cliente,
+          cc.\`${ccIdContacto}\` AS Id_Contacto,
+          COALESCE(NULLIF(TRIM(cc.\`${ccRol}\`), ''), NULLIF(TRIM(c.\`${agCargo}\`), '')) AS Rol,
+          cc.\`${ccRol}\` AS RolRelacion,
+          cc.\`${ccEsPrincipal}\` AS Es_Principal,
+          cc.\`${ccNotas}\` AS NotasRelacion,
+          cc.\`${ccVigenteDesde}\` AS VigenteDesde,
+          cc.\`${ccVigenteHasta}\` AS VigenteHasta,
+          cc.\`${ccMotivoBaja}\` AS MotivoBaja,
           c.*
         FROM \`${tClientesContactos}\` cc
-        INNER JOIN \`${tAgenda}\` c ON c.Id = cc.Id_Contacto
-        WHERE cc.Id_Cliente = ?
+        INNER JOIN \`${tAgenda}\` c ON c.\`${agId}\` = cc.\`${ccIdContacto}\`
+        WHERE cc.\`${ccIdCliente}\` = ?
       `;
 
-      if (!includeHistorico) sql += ' AND cc.VigenteHasta IS NULL';
+      if (!includeHistorico) sql += ` AND cc.\`${ccVigenteHasta}\` IS NULL`;
 
-      sql += ' ORDER BY (cc.VigenteHasta IS NULL) DESC, cc.Es_Principal DESC, c.Apellidos ASC, c.Nombre ASC, cc.Id DESC';
+      sql += ` ORDER BY (cc.\`${ccVigenteHasta}\` IS NULL) DESC, cc.\`${ccEsPrincipal}\` DESC, c.\`${agApellidos}\` ASC, c.\`${agNombre}\` ASC, cc.\`${ccId}\` DESC`;
 
       return await this.query(sql, params);
     } catch (error) {
@@ -449,29 +523,47 @@ module.exports = {
       const { pk } = await this._ensureClientesMeta().catch(() => ({ pk: 'Id' }));
       const tAgenda = await this._resolveAgendaTableName();
 
+      const colsCC = await this._getColumns(tClientesContactos).catch(() => []);
+      const colsAg = await this._getColumns(tAgenda).catch(() => []);
+      const pickCC = (cands) => this._pickCIFromColumns(colsCC, cands);
+      const pickAg = (cands) => this._pickCIFromColumns(colsAg, cands);
+
+      const ccId = pickCC(['clicont_id', 'Id', 'id']) || 'Id';
+      const ccIdCliente = pickCC(['clicont_cli_id', 'Id_Cliente', 'id_cliente']) || 'Id_Cliente';
+      const ccIdContacto = pickCC(['clicont_ag_id', 'Id_Contacto', 'id_contacto']) || 'Id_Contacto';
+      const ccRol = pickCC(['clicont_rol', 'Rol', 'rol']) || 'Rol';
+      const ccEsPrincipal = pickCC(['clicont_es_principal', 'Es_Principal', 'es_principal']) || 'Es_Principal';
+      const ccVigenteHasta = pickCC(['clicont_vigente_hasta', 'VigenteHasta', 'vigente_hasta']) || 'VigenteHasta';
+      const ccVigenteDesde = pickCC(['clicont_vigente_desde', 'VigenteDesde', 'vigente_desde']) || 'VigenteDesde';
+      const ccMotivoBaja = pickCC(['clicont_motivo_baja', 'MotivoBaja', 'motivo_baja']) || 'MotivoBaja';
+      const ccNotas = pickCC(['clicont_notas', 'Notas', 'notas']) || 'Notas';
+
+      const agId = pickAg(['ag_id', 'Id', 'id']) || 'ag_id';
+      const agCargo = pickAg(['ag_cargo', 'Cargo', 'cargo']) || 'Cargo';
+
       let sql = `
         SELECT
-          cc.Id AS Id_Relacion,
-          cc.Id_Cliente,
-          cc.Id_Contacto,
-          COALESCE(NULLIF(TRIM(cc.Rol), ''), NULLIF(TRIM(a.Cargo), '')) AS Rol,
-          cc.Rol AS RolRelacion,
-          cc.Es_Principal,
-          cc.Notas AS NotasRelacion,
-          cc.VigenteDesde,
-          cc.VigenteHasta,
-          cc.MotivoBaja,
+          cc.\`${ccId}\` AS Id_Relacion,
+          cc.\`${ccIdCliente}\` AS Id_Cliente,
+          cc.\`${ccIdContacto}\` AS Id_Contacto,
+          COALESCE(NULLIF(TRIM(cc.\`${ccRol}\`), ''), NULLIF(TRIM(a.\`${agCargo}\`), '')) AS Rol,
+          cc.\`${ccRol}\` AS RolRelacion,
+          cc.\`${ccEsPrincipal}\` AS Es_Principal,
+          cc.\`${ccNotas}\` AS NotasRelacion,
+          cc.\`${ccVigenteDesde}\` AS VigenteDesde,
+          cc.\`${ccVigenteHasta}\` AS VigenteHasta,
+          cc.\`${ccMotivoBaja}\` AS MotivoBaja,
           c.*,
-          a.Cargo AS ContactoCargo
+          a.\`${agCargo}\` AS ContactoCargo
         FROM \`${tClientesContactos}\` cc
-        INNER JOIN \`${tClientes}\` c ON c.\`${pk}\` = cc.Id_Cliente
-        INNER JOIN \`${tAgenda}\` a ON a.Id = cc.Id_Contacto
-        WHERE cc.Id_Contacto = ?
+        INNER JOIN \`${tClientes}\` c ON c.\`${pk}\` = cc.\`${ccIdCliente}\`
+        INNER JOIN \`${tAgenda}\` a ON a.\`${agId}\` = cc.\`${ccIdContacto}\`
+        WHERE cc.\`${ccIdContacto}\` = ?
       `;
 
-      if (!includeHistorico) sql += ' AND cc.VigenteHasta IS NULL';
+      if (!includeHistorico) sql += ` AND cc.\`${ccVigenteHasta}\` IS NULL`;
 
-      sql += ` ORDER BY (cc.VigenteHasta IS NULL) DESC, cc.Es_Principal DESC, c.\`${pk}\` ASC, cc.Id DESC`;
+      sql += ` ORDER BY (cc.\`${ccVigenteHasta}\` IS NULL) DESC, cc.\`${ccEsPrincipal}\` DESC, c.\`${pk}\` ASC, cc.\`${ccId}\` DESC`;
       const rows = await this.query(sql, params);
       return Array.isArray(rows) ? rows : [];
     } catch (error) {
