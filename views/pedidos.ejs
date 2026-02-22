@@ -211,8 +211,7 @@
                 <% const owner = Number(p.ped_com_id ?? p.Id_Cial ?? p.id_cial ?? p.ComercialId ?? p.comercialId ?? 0) || 0; %>
                 <% const currentUserId = Number(userId ?? user?.id ?? 0) || 0; %>
                 <% const isOwner = currentUserId && owner && currentUserId === owner; %>
-                <% const especialPend = isEspecial(p) && (especialEstado(p) === 'pendiente' || especialEstado(p) === '' || especialEstado(p) === 'pending' || especialEstado(p) === 'solicitado'); %>
-                <% const canEdit = admin || (isOwner && isPendiente(p) && !especialPend); %>
+                <% const canEdit = admin || (isOwner && isPendiente(p)); %>
                 <% const noticePid = (typeof n8nNotice !== 'undefined' && n8nNotice && n8nNotice.pid != null) ? String(n8nNotice.pid) : null; %>
                 <% const isNoticeRow = noticePid && String(pid) === noticePid; %>
                 <tr>

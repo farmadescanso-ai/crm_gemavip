@@ -3418,11 +3418,8 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     const estadoNorm = String(_n(_n(_n(item.EstadoPedido, item.Estado), item.ped_estado_txt), '')).trim().toLowerCase() || 'pendiente';
     const userId = Number(res.locals.user?.id);
     const owner = Number(item.ped_com_id ?? item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
-    const especial = Number(_n(_n(item.EsEspecial, item.es_especial), 0)) === 1;
-    const especialEstado = String(_n(_n(item.EspecialEstado, item.especial_estado), '')).trim().toLowerCase();
-    const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
     const canEdit =
-      admin ? !estadoNorm.includes('pagad') : (Number.isFinite(userId) && userId === owner && estadoNorm.includes('pend') && !especialPendiente);
+      admin ? !estadoNorm.includes('pagad') : (Number.isFinite(userId) && userId === owner && estadoNorm.includes('pend'));
 
     // Labels para mostrar nombres en vez de IDs (compatibles con columnas legacy y migradas)
     const pick = (obj, keys) => {
@@ -4164,20 +4161,15 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     if (formaPagoTransfer && _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))) formasPago.push(formaPagoTransfer);
 
     const estadoNorm = String(_n(_n(_n(item.EstadoPedido, item.Estado), item.ped_estado_txt), 'Pendiente')).trim().toLowerCase() || 'pendiente';
-    const especial = Number(_n(_n(item.EsEspecial, item.es_especial), 0)) === 1;
-    const especialEstado = String(_n(_n(item.EspecialEstado, item.especial_estado), '')).trim().toLowerCase();
-    const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
-    const canEdit = admin ? !estadoNorm.includes('pagad') : (estadoNorm.includes('pend') && !especialPendiente);
+    const canEdit = admin ? !estadoNorm.includes('pagad') : estadoNorm.includes('pend');
     if (!canEdit) {
       return renderErrorPage(req, res, {
         status: 403,
         heading: 'No permitido',
         summary: admin
           ? 'Un pedido en estado "Pagado" no se puede modificar.'
-          : (especialPendiente ? 'Este pedido especial está pendiente de aprobación del administrador.' : 'Solo puedes modificar pedidos en estado "Pendiente".'),
-        publicMessage: especialPendiente
-          ? 'Acción requerida: el administrador debe aprobar o rechazar el pedido especial.'
-          : `Estado actual: ${String(_n(_n(item.EstadoPedido, item.Estado), '—'))}`
+          : 'Solo puedes modificar pedidos en estado "Pendiente".',
+        publicMessage: `Estado actual: ${String(_n(_n(item.EstadoPedido, item.Estado), item.ped_estado_txt ?? '—'))}`
       });
     }
 
@@ -4265,20 +4257,15 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
     const id = Number(req.params.id);
 
     const estadoNorm = String(_n(_n(_n(existing.EstadoPedido, existing.Estado), existing.ped_estado_txt), 'Pendiente')).trim().toLowerCase() || 'pendiente';
-    const existingEspecial = Number(_n(_n(existing.EsEspecial, existing.es_especial), 0)) === 1;
-    const existingEspecialEstado = String(_n(_n(existing.EspecialEstado, existing.especial_estado), '')).trim().toLowerCase();
-    const existingEspecialPendiente = existingEspecial && (existingEspecialEstado === 'pendiente' || existingEspecialEstado === '' || existingEspecialEstado === 'solicitado');
-    const canEdit = admin ? !estadoNorm.includes('pagad') : (estadoNorm.includes('pend') && !existingEspecialPendiente);
+    const canEdit = admin ? !estadoNorm.includes('pagad') : estadoNorm.includes('pend');
     if (!canEdit) {
       return renderErrorPage(req, res, {
         status: 403,
         heading: 'No permitido',
         summary: admin
           ? 'Un pedido en estado "Pagado" no se puede modificar.'
-          : (existingEspecialPendiente ? 'Este pedido especial está pendiente de aprobación del administrador.' : 'Solo puedes modificar pedidos en estado "Pendiente".'),
-        publicMessage: existingEspecialPendiente
-          ? 'Acción requerida: el administrador debe aprobar o rechazar el pedido especial.'
-          : `Estado actual: ${String(_n(_n(existing.EstadoPedido, existing.Estado), '—'))}`
+          : 'Solo puedes modificar pedidos en estado "Pendiente".',
+        publicMessage: `Estado actual: ${String(_n(_n(existing.EstadoPedido, existing.Estado), existing.ped_estado_txt ?? '—'))}`
       });
     }
 
