@@ -67,16 +67,16 @@
         return Array.from(map.values()).sort((a, b) => b.sum - a.sum);
       };
 
-      const byEstado = groupSum(itemsArr, (p) => (p?.EstadoPedidoNombre ?? p?.EstadoPedido ?? p?.Estado ?? '—'), totalPedidoNum);
+      const byEstado = groupSum(itemsArr, (p) => (p?.EstadoPedidoNombre ?? p?.EstadoPedido ?? p?.Estado ?? p?.ped_estado_txt ?? '—'), totalPedidoNum);
       const byComercial = groupSum(itemsArr, (p) => (p?.ComercialNombre ?? p?.Id_Cial ?? p?.id_cial ?? '—'), totalPedidoNum);
       const byProvincia = groupSum(itemsArr, (p) => (p?.ProvinciaNombre ?? '—'), totalPedidoNum);
       const byTipoCliente = groupSum(itemsArr, (p) => (p?.TipoClienteNombre ?? '—'), totalPedidoNum);
 
       const incompletos = itemsArr.filter((p) => {
-        const idDir = Number(p?.Id_DireccionEnvio ?? p?.id_direccion_envio ?? 0) || 0;
-        const ref = String(p?.NumPedidoCliente ?? p?.Num_Pedido_Cliente ?? '').trim();
-        const fp = Number(p?.Id_FormaPago ?? p?.id_forma_pago ?? 0) || 0;
-        const tp = Number(p?.Id_TipoPedido ?? p?.id_tipo_pedido ?? 0) || 0;
+        const idDir = Number(p?.Id_DireccionEnvio ?? p?.id_direccion_envio ?? p?.ped_direnv_id ?? 0) || 0;
+        const ref = String(p?.NumPedidoCliente ?? p?.Num_Pedido_Cliente ?? p?.ped_num_pedido_cliente ?? '').trim();
+        const fp = Number(p?.Id_FormaPago ?? p?.id_forma_pago ?? p?.ped_formp_id ?? 0) || 0;
+        const tp = Number(p?.Id_TipoPedido ?? p?.id_tipo_pedido ?? p?.ped_tipp_id ?? 0) || 0;
         return (!idDir) || (!ref) || (!fp) || (!tp);
       });
       const pendientes = itemsArr.filter(isPendiente);
@@ -217,11 +217,11 @@
                 <% const isNoticeRow = noticePid && String(pid) === noticePid; %>
                 <tr>
                   <td>
-                    <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? '').trim(); %>
+                    <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? p.ped_estado_txt ?? '').trim(); %>
                     <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
                     <% const st = estadoLabel.toLowerCase(); %>
                     <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
-                    <% const estadoId = Number(p.Id_EstadoPedido ?? p.id_estado_pedido ?? 0) || 0; %>
+                    <% const estadoId = Number(p.Id_EstadoPedido ?? p.id_estado_pedido ?? p.ped_estped_id ?? 0) || 0; %>
                     <% if (admin) { %>
                       <button
                         type="button"
@@ -246,10 +246,10 @@
                   <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
                   <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
                   <td><%= p.ProvinciaNombre ?? '—' %></td>
-                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? '—') %></td>
+                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—') %></td>
                   <td><%= p.TipoClienteNombre ?? '—' %></td>
-                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? '' %></td>
-                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? '—' %></td>
+                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '' %></td>
+                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? p.ped_num_asoc_hefame ?? '—' %></td>
                   <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
                   <td>
                     <div class="gv-actions">

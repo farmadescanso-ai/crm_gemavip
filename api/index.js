@@ -3415,7 +3415,7 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
 
-    const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), '')).trim().toLowerCase() || 'pendiente';
+    const estadoNorm = String(_n(_n(_n(item.EstadoPedido, item.Estado), item.ped_estado_txt), '')).trim().toLowerCase() || 'pendiente';
     const userId = Number(res.locals.user?.id);
     const owner = Number(item.ped_com_id ?? item.Id_Cial ?? item.id_cial ?? item.ComercialId ?? item.comercialId ?? 0) || 0;
     const especial = Number(_n(_n(item.EsEspecial, item.es_especial), 0)) === 1;
@@ -4142,7 +4142,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
     if (formaPagoTransfer && _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))) formasPago.push(formaPagoTransfer);
 
-    const estadoNorm = String(_n(_n(item.EstadoPedido, item.Estado), 'Pendiente')).trim().toLowerCase() || 'pendiente';
+    const estadoNorm = String(_n(_n(_n(item.EstadoPedido, item.Estado), item.ped_estado_txt), 'Pendiente')).trim().toLowerCase() || 'pendiente';
     const especial = Number(_n(_n(item.EsEspecial, item.es_especial), 0)) === 1;
     const especialEstado = String(_n(_n(item.EspecialEstado, item.especial_estado), '')).trim().toLowerCase();
     const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
@@ -4243,7 +4243,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
 
-    const estadoNorm = String(_n(_n(existing.EstadoPedido, existing.Estado), 'Pendiente')).trim().toLowerCase() || 'pendiente';
+    const estadoNorm = String(_n(_n(_n(existing.EstadoPedido, existing.Estado), existing.ped_estado_txt), 'Pendiente')).trim().toLowerCase() || 'pendiente';
     const existingEspecial = Number(_n(_n(existing.EsEspecial, existing.es_especial), 0)) === 1;
     const existingEspecialEstado = String(_n(_n(existing.EspecialEstado, existing.especial_estado), '')).trim().toLowerCase();
     const existingEspecialPendiente = existingEspecial && (existingEspecialEstado === 'pendiente' || existingEspecialEstado === '' || existingEspecialEstado === 'solicitado');
