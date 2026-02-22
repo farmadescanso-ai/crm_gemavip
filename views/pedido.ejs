@@ -265,7 +265,7 @@
                 const qty = Math.max(0, toNum(l.pedart_cantidad ?? l.Cantidad ?? l.Unidades ?? 0, 0));
                 const pvl = Math.max(
                   0,
-                  toNum(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? 0, 0)
+                  toNum(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.PrecioUnitario ?? l.PVL ?? l.Precio ?? l.pvl ?? l.art_pvl ?? 0, 0)
                 );
                 const dto = Math.max(
                   0,
@@ -280,7 +280,7 @@
                 const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
 
                 const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
-                let ivaPct = toNum(l.Linea_IVA ?? l.pedart_iva ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? 0, 0);
+                let ivaPct = toNum(l.Linea_IVA ?? l.pedart_iva ?? l.IVA ?? l.PorcIVA ?? l.PorcentajeIVA ?? l.TipoIVA ?? l.art_iva ?? 0, 0);
                 if (ivaPct > 100) ivaPct = 0;
                 const ivaImpCalc = round2(base * ivaPct / 100);
                 const ivaImp = Number.isFinite(ivaImpStored) ? round2(ivaImpStored) : ivaImpCalc;

@@ -3440,9 +3440,30 @@ app.get('/pedidos/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req,
     const tipoPedidoLabel = pick(tipoPedido, ['Nombre', 'Tipo', 'tipp_tipo', 'nombre', 'tipo']);
     const estadoLabel = pick(estadoPedido, ['nombre', 'Nombre', 'estped_nombre']) || pick(item, ['EstadoPedido', 'Estado', 'ped_estado_txt']) || '';
 
+    // Enriquecer líneas con PVL cuando está en 0: buscar precios por tarifa
+    let lineasToRender = lineas || [];
+    const artIdsNeedingPvl = (lineasToRender || [])
+      .map((l) => Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const needsEnrichment = (lineasToRender || []).some((l) => {
+      const pvl = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
+      return !Number.isFinite(pvl) || pvl <= 0;
+    });
+    if (needsEnrichment && artIdsNeedingPvl.length > 0) {
+      const precios = await db.getPreciosArticulosParaTarifa(idTarifa ?? 0, artIdsNeedingPvl).catch(() => ({}));
+      lineasToRender = (lineasToRender || []).map((l) => {
+        const artId = Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0);
+        const pvlStored = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? 0);
+        if ((!Number.isFinite(pvlStored) || pvlStored <= 0) && artId > 0 && precios[artId] != null) {
+          return { ...l, Linea_PVP: precios[artId], pedart_pvp: precios[artId] };
+        }
+        return l;
+      });
+    }
+
     res.render('pedido', {
       item,
-      lineas: lineas || [],
+      lineas: lineasToRender,
       cliente,
       direccionEnvio,
       admin,

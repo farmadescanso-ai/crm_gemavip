@@ -794,9 +794,9 @@ const base = {
       const tTP = await this._resolveTableNameCaseInsensitive('tarifasClientes_precios');
       const tpCols = await this._getColumns(tTP).catch(() => []);
       const pickTP = (cands) => this._pickCIFromColumns(tpCols, cands);
-      const cTar = pickTP(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']) || 'Id_Tarifa';
-      const cArt = pickTP(['Id_Articulo', 'id_articulo', 'ArticuloId', 'articulo_id']) || 'Id_Articulo';
-      const cPrecio = pickTP(['Precio', 'precio', 'PrecioUnitario', 'precio_unitario', 'PVL', 'pvl']) || 'Precio';
+      const cTar = pickTP(['tarclip_tarcli_id', 'Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']) || 'Id_Tarifa';
+      const cArt = pickTP(['tarclip_art_id', 'Id_Articulo', 'id_articulo', 'ArticuloId', 'articulo_id']) || 'Id_Articulo';
+      const cPrecio = pickTP(['tarclip_precio', 'Precio', 'precio', 'PrecioUnitario', 'precio_unitario', 'PVL', 'pvl']) || 'Precio';
 
       const inPlaceholders = ids.map(() => '?').join(', ');
       const sql = `
@@ -820,8 +820,8 @@ const base = {
       const tArt = await this._resolveTableNameCaseInsensitive('articulos');
       const aCols = await this._getColumns(tArt).catch(() => []);
       const pickA = (cands) => this._pickCIFromColumns(aCols, cands);
-      const aPk = pickA(['id', 'Id']) || 'id';
-      const cPVL = pickA(['PVL', 'pvl', 'Precio', 'precio']) || 'PVL';
+      const aPk = pickA(['art_id', 'id', 'Id']) || 'id';
+      const cPVL = pickA(['art_pvl', 'PVL', 'pvl', 'Precio', 'precio']) || 'PVL';
       const inPlaceholders = ids.map(() => '?').join(', ');
       const rows = await this.query(
         `SELECT \`${aPk}\` AS Id, \`${cPVL}\` AS PVL FROM \`${tArt}\` WHERE \`${aPk}\` IN (${inPlaceholders})`,
