@@ -542,6 +542,48 @@ class MySQLCRM {
     }
   }
 
+  // Stubs para lazy loading: cargan el módulo bajo demanda cuando se llama antes de connect()
+  async _ensureVisitasMeta() {
+    if (typeof ensureModule === 'function') ensureModule('visitas');
+    const mod = require(path.join(__dirname, 'mysql-crm-visitas.js'));
+    return mod._ensureVisitasMeta.apply(this, arguments);
+  }
+  async _ensureClientesMeta() {
+    if (typeof ensureModule === 'function') ensureModule('clientes');
+    const mod = require(path.join(__dirname, 'mysql-crm-clientes.js'));
+    return mod._ensureClientesMeta.apply(this, arguments);
+  }
+  async _ensurePedidosMeta() {
+    if (typeof ensureModule === 'function') ensureModule('pedidos');
+    const mod = require(path.join(__dirname, 'mysql-crm-pedidos.js'));
+    return mod._ensurePedidosMeta.apply(this, arguments);
+  }
+  async _ensureComercialesMeta() {
+    if (typeof ensureModule === 'function') ensureModule('comerciales');
+    const mod = require(path.join(__dirname, 'mysql-crm-comerciales.js'));
+    return mod._ensureComercialesMeta.apply(this, arguments);
+  }
+  async _ensurePedidosArticulosMeta() {
+    if (typeof ensureModule === 'function') ensureModule('pedidos');
+    const mod = require(path.join(__dirname, 'mysql-crm-pedidos.js'));
+    return mod._ensurePedidosArticulosMeta.apply(this, arguments);
+  }
+  _buildVisitasOwnerWhere(...args) {
+    if (typeof ensureModule === 'function') ensureModule('visitas');
+    const mod = require(path.join(__dirname, 'mysql-crm-visitas.js'));
+    return mod._buildVisitasOwnerWhere.apply(this, args);
+  }
+  async getTiposVisita() {
+    if (typeof ensureModule === 'function') ensureModule('visitas');
+    const mod = require(path.join(__dirname, 'mysql-crm-visitas.js'));
+    return mod.getTiposVisita.apply(this, arguments);
+  }
+  async getEstadosVisita() {
+    if (typeof ensureModule === 'function') ensureModule('visitas');
+    const mod = require(path.join(__dirname, 'mysql-crm-visitas.js'));
+    return mod.getEstadosVisita.apply(this, arguments);
+  }
+
   async connect() {
     // En entornos serverless (Vercel), este módulo puede vivir entre invocaciones.
     // Si ya estamos conectados, reutilizar el pool.
