@@ -9,10 +9,19 @@ module.exports = {
   async getAgendaRoles(options = {}) {
     await this._ensureTiposCargoRolTable();
     try {
+      const t = await this._resolveTableNameCaseInsensitive('tiposcargorol').catch(() => 'tiposcargorol');
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['tipcar_id', 'id', 'Id']) || 'tipcar_id';
+      const colNombre = this._pickCIFromColumns(cols, ['tipcar_nombre', 'Nombre', 'nombre']) || 'tipcar_nombre';
+      const colActivo = this._pickCIFromColumns(cols, ['tipcar_activo', 'Activo', 'activo']) || 'tipcar_activo';
       const includeInactivos = Boolean(options.includeInactivos);
-      const where = includeInactivos ? '' : 'WHERE Activo = 1';
-      const rows = await this.query(`SELECT id, Nombre, Activo FROM \`tiposcargorol\` ${where} ORDER BY Nombre ASC`).catch(() => []);
-      return Array.isArray(rows) ? rows : [];
+      const where = includeInactivos ? '' : `WHERE \`${colActivo}\` = 1`;
+      const rows = await this.query(`SELECT \`${pk}\`, \`${colNombre}\` FROM \`${t}\` ${where} ORDER BY \`${colNombre}\` ASC`).catch(() => []);
+      return (rows || []).map((r) => ({
+        id: r[pk] ?? r.id ?? r.Id,
+        Id: r[pk] ?? r.id ?? r.Id,
+        Nombre: r[colNombre] ?? r.Nombre ?? r.nombre ?? ''
+      })).filter((r) => r.id != null && r.Nombre);
     } catch (e) {
       return [];
     }
@@ -22,20 +31,28 @@ module.exports = {
     await this._ensureTiposCargoRolTable();
     const n = this._normalizeAgendaCatalogLabel(nombre);
     if (!n) throw new Error('Nombre de rol obligatorio');
+    const t = await this._resolveTableNameCaseInsensitive('tiposcargorol').catch(() => 'tiposcargorol');
+    const cols = await this._getColumns(t).catch(() => []);
+    const pk = this._pickCIFromColumns(cols, ['tipcar_id', 'id', 'Id']) || 'tipcar_id';
+    const colNombre = this._pickCIFromColumns(cols, ['tipcar_nombre', 'Nombre', 'nombre']) || 'tipcar_nombre';
+    const colActivo = this._pickCIFromColumns(cols, ['tipcar_activo', 'Activo', 'activo']) || 'tipcar_activo';
     try {
-      const existing = await this.query('SELECT id, Nombre FROM `tiposcargorol` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
+      const existing = await this.query(`SELECT \`${pk}\`, \`${colNombre}\` FROM \`${t}\` WHERE \`${colNombre}\` = ? LIMIT 1`, [n]).catch(() => []);
       if (existing && existing.length) {
-        return { insertId: existing[0].id ?? null, nombre: existing[0].Nombre ?? n };
+        const id = existing[0][pk] ?? existing[0].id ?? existing[0].Id ?? null;
+        const nom = existing[0][colNombre] ?? existing[0].Nombre ?? n;
+        return { insertId: id, id, Id: id, nombre: nom, Nombre: nom };
       }
     } catch (_) {}
     try {
-      const r = await this.query('INSERT INTO `tiposcargorol` (Nombre, Activo) VALUES (?, 1)', [n]);
-      return { insertId: r?.insertId ?? null, nombre: n };
+      const r = await this.query(`INSERT INTO \`${t}\` (\`${colNombre}\`, \`${colActivo}\`) VALUES (?, 1)`, [n]);
+      const id = r?.insertId ?? r?.[pk] ?? null;
+      return { insertId: id, id, Id: id, nombre: n, Nombre: n };
     } catch (e) {
-      const rows = await this.query('SELECT id, Nombre FROM `tiposcargorol` WHERE Nombre = ? LIMIT 1', [n]).catch(() => []);
-      const id = rows?.[0]?.id ?? null;
-      const nombreOut = rows?.[0]?.Nombre ?? n;
-      return { insertId: id, nombre: nombreOut };
+      const rows = await this.query(`SELECT \`${pk}\`, \`${colNombre}\` FROM \`${t}\` WHERE \`${colNombre}\` = ? LIMIT 1`, [n]).catch(() => []);
+      const id = rows?.[0]?.[pk] ?? rows?.[0]?.id ?? rows?.[0]?.Id ?? null;
+      const nom = rows?.[0]?.[colNombre] ?? rows?.[0]?.Nombre ?? n;
+      return { insertId: id, id, Id: id, nombre: nom, Nombre: nom };
     }
   },
 
@@ -43,11 +60,15 @@ module.exports = {
     await this._ensureEspecialidadesIndexes();
     try {
       const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
-      const rows = await this.query(`SELECT id, Especialidad FROM \`${t}\` ORDER BY Especialidad ASC`).catch(() => []);
-      const list = Array.isArray(rows) ? rows : [];
-      return list
-        .map((r) => ({ id: r?.id ?? r?.Id, Nombre: r?.Especialidad ?? r?.nombre ?? r?.Nombre ?? '' }))
-        .filter((r) => r.id && r.Nombre);
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['esp_id', 'id', 'Id']) || 'esp_id';
+      const colNombre = this._pickCIFromColumns(cols, ['esp_nombre', 'Especialidad', 'nombre']) || 'esp_nombre';
+      const rows = await this.query(`SELECT \`${pk}\`, \`${colNombre}\` FROM \`${t}\` ORDER BY \`${colNombre}\` ASC`).catch(() => []);
+      return (rows || []).map((r) => ({
+        id: r[pk] ?? r.id ?? r.Id,
+        Id: r[pk] ?? r.id ?? r.Id,
+        Nombre: r[colNombre] ?? r.Especialidad ?? r.Nombre ?? r.nombre ?? ''
+      })).filter((r) => r.id != null && r.Nombre);
     } catch (e) {
       return [];
     }
@@ -57,21 +78,27 @@ module.exports = {
     await this._ensureEspecialidadesIndexes();
     const n = this._normalizeAgendaCatalogLabel(nombre);
     if (!n) throw new Error('Nombre de especialidad obligatorio');
+    const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
+    const cols = await this._getColumns(t).catch(() => []);
+    const pk = this._pickCIFromColumns(cols, ['esp_id', 'id', 'Id']) || 'esp_id';
+    const colNombre = this._pickCIFromColumns(cols, ['esp_nombre', 'Especialidad', 'nombre']) || 'esp_nombre';
     try {
-      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
-      const existing = await this.query(`SELECT id, Especialidad FROM \`${t}\` WHERE Especialidad = ? LIMIT 1`, [n]).catch(() => []);
-      if (existing && existing.length) return { insertId: existing[0].id ?? null, nombre: existing[0].Especialidad ?? n };
+      const existing = await this.query(`SELECT \`${pk}\`, \`${colNombre}\` FROM \`${t}\` WHERE \`${colNombre}\` = ? LIMIT 1`, [n]).catch(() => []);
+      if (existing && existing.length) {
+        const id = existing[0][pk] ?? existing[0].id ?? existing[0].Id ?? null;
+        const nom = existing[0][colNombre] ?? existing[0].Especialidad ?? n;
+        return { insertId: id, id, Id: id, nombre: nom, Nombre: nom };
+      }
     } catch (_) {}
     try {
-      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
-      const r = await this.query(`INSERT INTO \`${t}\` (Especialidad, Observaciones) VALUES (?, NULL)`, [n]);
-      return { insertId: r?.insertId ?? null, nombre: n };
+      const r = await this.query(`INSERT INTO \`${t}\` (\`${colNombre}\`) VALUES (?)`, [n]);
+      const id = r?.insertId ?? r?.[pk] ?? null;
+      return { insertId: id, id, Id: id, nombre: n, Nombre: n };
     } catch (_e) {
-      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
-      const rows = await this.query(`SELECT id, Especialidad FROM \`${t}\` WHERE Especialidad = ? LIMIT 1`, [n]).catch(() => []);
-      const id = rows?.[0]?.id ?? null;
-      const nombreOut = rows?.[0]?.Especialidad ?? n;
-      return { insertId: id, nombre: nombreOut };
+      const rows = await this.query(`SELECT \`${pk}\`, \`${colNombre}\` FROM \`${t}\` WHERE \`${colNombre}\` = ? LIMIT 1`, [n]).catch(() => []);
+      const id = rows?.[0]?.[pk] ?? rows?.[0]?.id ?? rows?.[0]?.Id ?? null;
+      const nom = rows?.[0]?.[colNombre] ?? rows?.[0]?.Especialidad ?? n;
+      return { insertId: id, id, Id: id, nombre: nom, Nombre: nom };
     }
   },
 
