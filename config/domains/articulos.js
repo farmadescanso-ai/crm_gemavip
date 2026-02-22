@@ -151,9 +151,14 @@ module.exports = {
         Nombre: pick(['art_nombre', 'Nombre', 'nombre']),
         SKU: pick(['art_sku', 'SKU', 'sku']),
         Presentacion: pick(['art_presentacion', 'Presentacion', 'presentacion']),
+        Unidades_Caja: pick(['art_unidades_caja', 'Unidades_Caja', 'unidades_caja']),
+        Largo_Caja: pick(['art_largo_caja', 'Largo_Caja', 'largo_caja']),
+        Alto_Caja: pick(['art_alto_caja', 'Alto_Caja', 'alto_caja']),
+        Ancho_Caja: pick(['art_ancho_caja', 'Ancho_Caja', 'ancho_caja']),
+        PesoKg: pick(['art_peso_kg', 'PesoKg', 'peso_kg']),
+        Cajas_Palet: pick(['art_cajas_palet', 'Cajas_Palet', 'cajas_palet']),
         PVL: pick(['art_pvl', 'PVL', 'pvl']),
         PCP: pick(['art_pcp', 'PCP', 'pcp']),
-        Unidades_Caja: pick(['art_unidades_caja', 'Unidades_Caja', 'unidades_caja']),
         Imagen: pick(['art_imagen', 'Imagen', 'imagen']),
         Marca: pick(['art_marca', 'Marca', 'marca']),
         EAN13: pick(['art_ean13', 'EAN13', 'ean13']),
@@ -213,6 +218,11 @@ module.exports = {
         Nombre: pick(['art_nombre', 'Nombre', 'nombre']),
         Presentacion: pick(['art_presentacion', 'Presentacion', 'presentacion']),
         Unidades_Caja: pick(['art_unidades_caja', 'Unidades_Caja', 'unidades_caja']),
+        Largo_Caja: pick(['art_largo_caja', 'Largo_Caja', 'largo_caja']),
+        Alto_Caja: pick(['art_alto_caja', 'Alto_Caja', 'alto_caja']),
+        Ancho_Caja: pick(['art_ancho_caja', 'Ancho_Caja', 'ancho_caja']),
+        PesoKg: pick(['art_peso_kg', 'PesoKg', 'peso_kg']),
+        Cajas_Palet: pick(['art_cajas_palet', 'Cajas_Palet', 'cajas_palet']),
         PVL: pick(['art_pvl', 'PVL', 'pvl']),
         IVA: pick(['art_iva', 'IVA', 'iva']),
         Imagen: pick(['art_imagen', 'Imagen', 'imagen']),
@@ -220,9 +230,27 @@ module.exports = {
         EAN13: pick(['art_ean13', 'EAN13', 'ean13']),
         Activo: pick(['art_activo', 'Activo', 'activo'])
       };
+      const defaultsForMissing = {
+        Presentacion: '',
+        Unidades_Caja: 1,
+        Largo_Caja: 0,
+        Alto_Caja: 0,
+        Ancho_Caja: 0,
+        PesoKg: 0,
+        Cajas_Palet: 0,
+        PVL: 0,
+        IVA: 21,
+        Imagen: '',
+        EAN13: 0,
+        Activo: 1
+      };
       const dbPayload = {};
       for (const [formKey, dbCol] of Object.entries(formToDb)) {
-        if (dbCol && payload && payload[formKey] !== undefined) dbPayload[dbCol] = payload[formKey];
+        if (!dbCol) continue;
+        const raw = payload && payload[formKey];
+        const hasValue = raw !== undefined && raw !== null && raw !== '';
+        const val = hasValue ? raw : defaultsForMissing[formKey];
+        if (val !== undefined) dbPayload[dbCol] = val;
       }
 
       if (dbPayload && typeof dbPayload === 'object' && dbPayload[aPk] === undefined) {

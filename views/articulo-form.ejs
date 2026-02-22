@@ -35,6 +35,30 @@
         </label>
       </div>
 
+      <div style="font-weight:800; color: var(--gv-ink); font-size:13px; margin-top: 8px;">Dimensiones y logística</div>
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Largo caja (cm)</span>
+          <input class="gv-client-picker__q" type="number" name="Largo_Caja" value="<%= item.Largo_Caja ?? item.art_largo_caja ?? 0 %>" min="0" step="1" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Alto caja (cm)</span>
+          <input class="gv-client-picker__q" type="number" name="Alto_Caja" value="<%= item.Alto_Caja ?? item.art_alto_caja ?? 0 %>" min="0" step="1" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Ancho caja (cm)</span>
+          <input class="gv-client-picker__q" type="number" name="Ancho_Caja" value="<%= item.Ancho_Caja ?? item.art_ancho_caja ?? 0 %>" min="0" step="1" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Peso (kg)</span>
+          <input class="gv-client-picker__q" type="number" name="PesoKg" value="<%= item.PesoKg ?? item.art_peso_kg ?? 0 %>" min="0" step="0.01" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Cajas por palet</span>
+          <input class="gv-client-picker__q" type="number" name="Cajas_Palet" value="<%= item.Cajas_Palet ?? item.art_cajas_palet ?? 0 %>" min="0" step="1" />
+        </label>
+      </div>
+
       <div class="grid cols-2" style="gap: 12px;">
         <label style="display:grid; gap:6px; font-weight:700;">
           <span>PVL</span>
