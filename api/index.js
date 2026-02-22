@@ -73,6 +73,39 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'crm_gemavip', timestamp: new Date().toISOString() });
 });
 
+// Diagnóstico de login: solo cuando DEBUG_LOGIN=1. GET /api/debug-login?email=tu@email.com
+app.get('/api/debug-login', async (req, res) => {
+  if (process.env.DEBUG_LOGIN !== '1') {
+    return res.status(404).json({ error: 'No disponible' });
+  }
+  const email = String(req.query?.email || '').trim();
+  try {
+    const t = await db._resolveTableNameCaseInsensitive('comerciales');
+    const cols = await db._getColumns(t);
+    const colEmail = db._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'com_email';
+    const comercial = email ? await db.getComercialByEmail(email) : null;
+    const stored = comercial ? getStoredPasswordFromRow(comercial) : '';
+    const pwdCols = cols.filter((c) => /password|contraseña|pass|clave/i.test(String(c)));
+    return res.json({
+      ok: true,
+      tableName: t,
+      columns: cols,
+      colEmail,
+      pwdColumns: pwdCols,
+      testEmail: email || '(no proporcionado)',
+      userFound: !!comercial,
+      hasStoredPassword: stored.length > 0,
+      storedPrefix: stored ? stored.substring(0, 10) + '...' : null
+    });
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message,
+      stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined
+    });
+  }
+});
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
