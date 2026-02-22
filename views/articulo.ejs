@@ -51,16 +51,6 @@
           <div><strong>EAN13:</strong> <%= artEan13 || '—' %></div>
           <div><strong>Marca:</strong> <%= marcaNombre %></div>
           <div><strong>Activo:</strong> <%= artActivo ? 'Sí' : 'No' %></div>
-          <% if (admin) { %>
-          <div>
-            <strong>Imagen (URL):</strong>
-            <% if (imgUrl) { %>
-              <a class="gv-break" href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer"><%= imgUrl %></a>
-            <% } else { %>
-              —
-            <% } %>
-          </div>
-          <% } %>
         </div>
 
         <% if (admin) { %>
