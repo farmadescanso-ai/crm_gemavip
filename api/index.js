@@ -83,16 +83,26 @@ app.get('/api/debug-login', async (req, res) => {
   }
   const email = String(req.query?.email || '').trim();
   try {
+    const dbNameEnv = process.env.DB_NAME || 'crm_gemavip';
+    const actualDb = await db.query('SELECT DATABASE() AS db').then((r) => r?.[0]?.db ?? null).catch(() => null);
+    const countAll = await db.query('SELECT COUNT(*) AS n FROM `comerciales`').then((r) => r?.[0]?.n ?? null).catch(() => null);
     const t = await db._resolveTableNameCaseInsensitive('comerciales');
     const cols = await db._getColumns(t);
     const colEmail = db._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'com_email';
-    const comercial = email ? await db.getComercialByEmail(email) : null;
+    const rawRows = email
+      ? await db.query(
+          `SELECT * FROM \`${t}\` WHERE LOWER(TRIM(\`${colEmail}\`)) = LOWER(TRIM(?)) LIMIT 1`,
+          [email]
+        )
+      : [];
+    const comercial = Array.isArray(rawRows) && rawRows.length > 0 ? rawRows[0] : null;
     const stored = comercial ? getStoredPasswordFromRow(comercial) : '';
     const pwdCols = cols.filter((c) => /password|contraseña|pass|clave/i.test(String(c)));
-    const dbName = process.env.DB_NAME || 'crm_gemavip';
     return res.json({
       ok: true,
-      dbName,
+      dbNameEnv,
+      actualDb,
+      countComerciales: countAll,
       tableName: t,
       columns: cols,
       colEmail,
