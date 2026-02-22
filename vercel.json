@@ -1,6 +1,11 @@
 {
   "rewrites": [
-    { "source": "/health", "destination": "/api/health" },
-    { "source": "/(.*)", "destination": "/api/index?__path=/$1" }
-  ]
+    {"source": "/health", "destination": "/api/health"},
+    {"source": "/(.*)", "destination": "/api/index?__path=/$1"}
+  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "config/**"
+    }
+  }
 }

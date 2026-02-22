@@ -1,3 +1,4 @@
+const path = require('path');
 const mysql = require('mysql2/promise');
 const createDomains = require('./domains');
 
@@ -3423,19 +3424,13 @@ class MySQLCRM {
 
 // Fase 3: Lazy loading - dominios y módulos se cargan solo cuando se usan
 const _modulesApplied = new Set();
-const MODULE_PATHS = {
-  visitas: './mysql-crm-visitas',
-  articulos: './mysql-crm-articulos',
-  pedidos: './mysql-crm-pedidos',
-  comerciales: './mysql-crm-comerciales',
-  agenda: './mysql-crm-agenda',
-  clientes: './mysql-crm-clientes'
-};
+const _configDir = __dirname;
+const MODULE_NAMES = ['visitas', 'articulos', 'pedidos', 'comerciales', 'agenda', 'clientes'];
 
 function ensureModule(name) {
   if (_modulesApplied.has(name)) return;
-  const p = MODULE_PATHS[name];
-  if (p) {
+  if (MODULE_NAMES.includes(name)) {
+    const p = path.join(_configDir, `mysql-crm-${name}.js`);
     Object.assign(MySQLCRM.prototype, require(p));
     _modulesApplied.add(name);
   }
@@ -3447,7 +3442,7 @@ const domains = createDomains(ensureModule);
 let _loginModule = null;
 function getLoginModule() {
   if (!_loginModule) {
-    _loginModule = require('./mysql-crm-login');
+    _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
     Object.assign(MySQLCRM.prototype, _loginModule);
   }
   return _loginModule;
