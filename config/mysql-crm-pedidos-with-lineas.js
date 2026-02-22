@@ -382,40 +382,45 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
 
         // 2) Borrar líneas actuales (priorizando el enlace más fuerte para proteger integridad)
         // Evitamos borrados cruzados si existe NumPedido y no es único, limpiando "legacy" solo cuando no hay vínculo por ID.
+        // Fallback: si la meta no detectó columnas (cache serverless), usar nombres migrados directamente
+        const effColPedidoId = paMeta.colPedidoId || (paColsLower.has('pedart_ped_id') ? 'pedart_ped_id' : null);
+        const effColPedidoIdNum = paMeta.colPedidoIdNum || effColPedidoId;
+        const effColNumPedido = paMeta.colNumPedido || (paColsLower.has('pedart_numero') ? 'pedart_numero' : null);
+
         let deletedLineas = 0;
         const delExec = async (sql, params) => {
           const [r] = await conn.execute(sql, params);
           deletedLineas += r?.affectedRows || 0;
         };
 
-        if (paMeta.colPedidoId) {
-          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoId}\` = ?`, [idNum]);
+        if (effColPedidoId) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${effColPedidoId}\` = ?`, [idNum]);
 
-          if (paMeta.colPedidoIdNum) {
+          if (effColPedidoIdNum && effColPedidoIdNum !== effColPedidoId) {
             await delExec(
-              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoIdNum}\` = ? AND (\`${paMeta.colPedidoId}\` IS NULL OR \`${paMeta.colPedidoId}\` = 0)`,
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${effColPedidoIdNum}\` = ? AND (\`${effColPedidoId}\` IS NULL OR \`${effColPedidoId}\` = 0)`,
               [idNum]
             );
           }
-          if (paMeta.colNumPedido && finalNumPedido) {
-            const extra = paMeta.colPedidoIdNum
-              ? ` AND (\`${paMeta.colPedidoIdNum}\` IS NULL OR \`${paMeta.colPedidoIdNum}\` = 0)`
+          if (effColNumPedido && finalNumPedido) {
+            const extra = effColPedidoIdNum && effColPedidoIdNum !== effColPedidoId
+              ? ` AND (\`${effColPedidoIdNum}\` IS NULL OR \`${effColPedidoIdNum}\` = 0)`
               : '';
             await delExec(
-              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ? AND (\`${paMeta.colPedidoId}\` IS NULL OR \`${paMeta.colPedidoId}\` = 0)${extra}`,
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${effColNumPedido}\` = ? AND (\`${effColPedidoId}\` IS NULL OR \`${effColPedidoId}\` = 0)${extra}`,
               [finalNumPedido]
             );
           }
-        } else if (paMeta.colPedidoIdNum) {
-          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colPedidoIdNum}\` = ?`, [idNum]);
-          if (paMeta.colNumPedido && finalNumPedido) {
+        } else if (effColPedidoIdNum) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${effColPedidoIdNum}\` = ?`, [idNum]);
+          if (effColNumPedido && finalNumPedido) {
             await delExec(
-              `DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ? AND (\`${paMeta.colPedidoIdNum}\` IS NULL OR \`${paMeta.colPedidoIdNum}\` = 0)`,
+              `DELETE FROM \`${paMeta.table}\` WHERE \`${effColNumPedido}\` = ? AND (\`${effColPedidoIdNum}\` IS NULL OR \`${effColPedidoIdNum}\` = 0)`,
               [finalNumPedido]
             );
           }
-        } else if (paMeta.colNumPedido && finalNumPedido) {
-          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${paMeta.colNumPedido}\` = ?`, [finalNumPedido]);
+        } else if (effColNumPedido && finalNumPedido) {
+          await delExec(`DELETE FROM \`${paMeta.table}\` WHERE \`${effColNumPedido}\` = ?`, [finalNumPedido]);
         } else {
           throw new Error('No se pudo determinar cómo enlazar líneas con el pedido (faltan columnas)');
         }
@@ -440,9 +445,9 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           }
 
           // Forzar relación con el pedido (solo si existe la columna)
-          if (paMeta.colPedidoId && !Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colPedidoId)) mysqlData[paMeta.colPedidoId] = idNum;
-          if (paMeta.colPedidoIdNum && !Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colPedidoIdNum)) mysqlData[paMeta.colPedidoIdNum] = idNum;
-          if (paMeta.colNumPedido && finalNumPedido && !Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colNumPedido)) mysqlData[paMeta.colNumPedido] = finalNumPedido;
+          if (effColPedidoId && !Object.prototype.hasOwnProperty.call(mysqlData, effColPedidoId)) mysqlData[effColPedidoId] = idNum;
+          if (effColPedidoIdNum && effColPedidoIdNum !== effColPedidoId && !Object.prototype.hasOwnProperty.call(mysqlData, effColPedidoIdNum)) mysqlData[effColPedidoIdNum] = idNum;
+          if (effColNumPedido && finalNumPedido && !Object.prototype.hasOwnProperty.call(mysqlData, effColNumPedido)) mysqlData[effColNumPedido] = finalNumPedido;
 
           // --- Cálculos best-effort (tarifa + dto + iva) ---
           let articulo = null;
