@@ -33,7 +33,7 @@ module.exports = {
     try {
       const t = await this._resolveTableNameCaseInsensitive('comerciales');
       const cols = await this._getColumns(t);
-      const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'com_email';
+      const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email', 'Email_Comercial', 'email_comercial']) || 'com_email';
       const sql = `SELECT * FROM \`${t}\` WHERE LOWER(TRIM(\`${colEmail}\`)) = LOWER(TRIM(?)) LIMIT 1`;
       const rows = await this.query(sql, [email]);
       return rows.length > 0 ? rows[0] : null;

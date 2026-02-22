@@ -29,15 +29,20 @@ const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail
 function _n(a, b) { return a != null ? a : b; }
 
 // Extrae contraseña de fila comercial (com_password, Password, etc.)
+// Búsqueda case-insensitive para compatibilidad con distintas configuraciones MySQL
 function getStoredPasswordFromRow(row) {
   if (!row || typeof row !== 'object') return '';
-  const cands = ['com_password', 'Password', 'password', 'contraseña', 'Pass', 'Clave'];
-  for (const c of cands) {
-    const val = row[c];
-    if (val != null && val !== '') return String(val);
-  }
   const keys = Object.keys(row);
-  const pwdKey = keys.find((k) => /password|contraseña|pass|clave/i.test(String(k)));
+  const keysLower = new Map(keys.map((k) => [String(k).toLowerCase(), k]));
+  const cands = ['com_password', 'password', 'contraseña', 'contrasena', 'pass', 'clave'];
+  for (const c of cands) {
+    const key = keysLower.get(c.toLowerCase());
+    if (key) {
+      const val = row[key];
+      if (val != null && val !== '') return String(val);
+    }
+  }
+  const pwdKey = keys.find((k) => /password|contraseña|contrasena|pass|clave/i.test(String(k)));
   return pwdKey ? String(row[pwdKey] || '') : '';
 }
 
@@ -469,6 +474,10 @@ app.post('/login', async (req, res, next) => {
     }
 
     const stored = getStoredPasswordFromRow(comercial);
+    // Diagnóstico: si no se detecta columna de contraseña
+    if (!stored && process.env.DEBUG_LOGIN === '1') {
+      console.warn('[DEBUG_LOGIN] Comercial encontrado pero sin columna de contraseña. Keys:', Object.keys(comercial));
+    }
     let ok = false;
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       ok = await bcrypt.compare(password, stored);
@@ -478,12 +487,12 @@ app.post('/login', async (req, res, next) => {
     }
 
     if (!ok) {
-      // Diagnóstico: si DEBUG_LOGIN=1, loguear info (sin contraseña) para depurar admin vs comercial
+      // Diagnóstico: si DEBUG_LOGIN=1, loguear info (sin contraseña) para depurar
       if (process.env.DEBUG_LOGIN === '1') {
         console.warn('[DEBUG_LOGIN] Usuario encontrado pero contraseña no coincide.', {
           email,
           roll: _n(comercial.com_roll, comercial.Roll || comercial.roll),
-          columnas: Object.keys(comercial).filter((k) => /pass|password|clave/i.test(k)),
+          columnasPass: Object.keys(comercial).filter((k) => /pass|password|clave|contrase/i.test(k)),
           storedLen: stored.length,
           storedPrefix: stored ? stored.substring(0, 7) : '(vacío)'
         });
