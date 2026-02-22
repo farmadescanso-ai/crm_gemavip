@@ -73,9 +73,12 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'crm_gemavip', timestamp: new Date().toISOString() });
 });
 
-// Diagnóstico de login: solo cuando DEBUG_LOGIN=1. GET /api/debug-login?email=tu@email.com
+// Diagnóstico de login: DEBUG_LOGIN=1 o DEBUG_LOGIN_SECRET=xxx. GET /api/debug-login?email=tu@email.com
+// Con secret: /api/debug-login?secret=TU_SECRETO&email=tu@email.com
 app.get('/api/debug-login', async (req, res) => {
-  if (process.env.DEBUG_LOGIN !== '1') {
+  const secret = process.env.DEBUG_LOGIN_SECRET;
+  const hasAccess = process.env.DEBUG_LOGIN === '1' || (secret && secret === String(req.query?.secret || '').trim());
+  if (!hasAccess) {
     return res.status(404).json({ error: 'No disponible' });
   }
   const email = String(req.query?.email || '').trim();
@@ -86,8 +89,10 @@ app.get('/api/debug-login', async (req, res) => {
     const comercial = email ? await db.getComercialByEmail(email) : null;
     const stored = comercial ? getStoredPasswordFromRow(comercial) : '';
     const pwdCols = cols.filter((c) => /password|contraseña|pass|clave/i.test(String(c)));
+    const dbName = process.env.DB_NAME || 'crm_gemavip';
     return res.json({
       ok: true,
+      dbName,
       tableName: t,
       columns: cols,
       colEmail,
@@ -95,7 +100,8 @@ app.get('/api/debug-login', async (req, res) => {
       testEmail: email || '(no proporcionado)',
       userFound: !!comercial,
       hasStoredPassword: stored.length > 0,
-      storedPrefix: stored ? stored.substring(0, 10) + '...' : null
+      storedPrefix: stored ? stored.substring(0, 10) + '...' : null,
+      rowKeys: comercial ? Object.keys(comercial) : null
     });
   } catch (err) {
     return res.status(500).json({
