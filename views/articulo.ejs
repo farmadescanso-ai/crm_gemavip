@@ -1,35 +1,46 @@
 <%- include('partials/header', { title: 'Ficha de artículo' }) %>
-
+<%
+  const artId = item.art_id ?? item.Id ?? item.id;
+  const artNombre = item.art_nombre ?? item.Nombre ?? '';
+  const artSku = item.art_sku ?? item.SKU ?? '';
+  const artPresentacion = item.art_presentacion ?? item.Presentacion ?? '';
+  const artUnidadesCaja = item.art_unidades_caja ?? item.Unidades_Caja ?? '';
+  const artPvl = item.art_pvl ?? item.PVL ?? '';
+  const artIva = item.art_iva ?? item.IVA ?? '';
+  const artEan13 = item.art_ean13 ?? item.EAN13 ?? '';
+  const artImagen = item.art_imagen ?? item.Imagen ?? '';
+  const artActivo = (item.art_activo ?? item.Activo ?? 1);
+%>
 <section class="card">
   <div class="card-hd">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; flex-wrap:wrap;">
       <div>
-        <h1 class="card-title">Artículo <%= item.Id ?? item.id ?? item.art_id %></h1>
-        <p class="card-subtitle"><%= item.Nombre ?? item.art_nombre ?? '' %></p>
+        <h1 class="card-title">Artículo <%= artId %></h1>
+        <p class="card-subtitle"><%= artNombre %></p>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <a class="btn secondary" href="/articulos">Volver</a>
         <% if (admin) { %>
-          <a class="btn secondary" href="/articulos/<%= item.Id ?? item.id ?? item.art_id %>/edit">Editar</a>
+          <a class="btn secondary" href="/articulos/<%= artId %>/edit">Editar</a>
         <% } %>
       </div>
     </div>
   </div>
   <div class="card-bd">
-    <% const imgUrl = String(item.Imagen ?? item.art_imagen || '').trim(); %>
+    <% const imgUrl = String(artImagen || '').trim(); %>
     <div class="gv-article-ficha">
       <div class="gv-article-ficha__main">
         <div class="grid gv-article-ficha__grid" style="gap: 10px;">
-          <div><strong>SKU:</strong> <%= item.SKU ?? item.art_sku ?? '' %></div>
-          <div><strong>Nombre:</strong> <%= item.Nombre ?? item.art_nombre ?? '' %></div>
-          <div><strong>Presentación:</strong> <%= item.Presentacion ?? item.art_presentacion ?? '' %></div>
-          <div><strong>Unidades caja:</strong> <%= item.Unidades_Caja ?? item.art_unidades_caja ?? '' %></div>
-          <div><strong>PVL:</strong> <%= item.PVL ?? item.art_pvl ?? '' %></div>
-          <div><strong>IVA:</strong> <%= item.IVA ?? item.art_iva ?? '' %></div>
-          <div><strong>EAN13:</strong> <%= item.EAN13 ?? item.art_ean13 ?? '' %></div>
-          <div><strong>Marca:</strong> <%= item.MarcaNombre ?? item.Marca ?? item.art_mar_id ?? '—' %></div>
-          <div><strong>Id_Marca:</strong> <%= item.Id_Marca ?? item.art_mar_id ?? '—' %></div>
-          <div><strong>Activo:</strong> <%= (item.Activo ?? item.art_activo ?? 1) ? 'Sí' : 'No' %></div>
+          <div><strong>SKU:</strong> <%= artSku %></div>
+          <div><strong>Nombre:</strong> <%= artNombre %></div>
+          <div><strong>Presentación:</strong> <%= artPresentacion %></div>
+          <div><strong>Unidades caja:</strong> <%= artUnidadesCaja %></div>
+          <div><strong>PVL:</strong> <%= artPvl %></div>
+          <div><strong>IVA:</strong> <%= artIva %></div>
+          <div><strong>EAN13:</strong> <%= artEan13 %></div>
+          <div><strong>Marca:</strong> <%= item.MarcaNombre || item.Marca || item.art_mar_id || '—' %></div>
+          <div><strong>Id_Marca:</strong> <%= item.Id_Marca || item.art_mar_id || '—' %></div>
+          <div><strong>Activo:</strong> <%= artActivo ? 'Sí' : 'No' %></div>
           <div>
             <strong>Imagen:</strong>
             <% if (imgUrl) { %>
@@ -43,13 +54,13 @@
         <% if (admin) { %>
           <hr style="border:0; border-top:1px solid var(--gv-border); margin: 14px 0;" />
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <form method="post" action="/articulos/<%= item.Id ?? item.id ?? item.art_id %>/toggle">
-              <input type="hidden" name="Activo" value="<%= (item.Activo ?? item.art_activo ?? 1) ? 0 : 1 %>" />
+            <form method="post" action="/articulos/<%= artId %>/toggle">
+              <input type="hidden" name="Activo" value="<%= artActivo ? 0 : 1 %>" />
               <button class="btn secondary" type="submit">
-                <%= (item.Activo ?? item.art_activo ?? 1) ? 'Desactivar' : 'Activar' %>
+                <%= artActivo ? 'Desactivar' : 'Activar' %>
               </button>
             </form>
-            <form method="post" action="/articulos/<%= item.Id ?? item.id ?? item.art_id %>/delete" onsubmit="return confirm('¿Eliminar este artículo? Esta acción no se puede deshacer.');">
+            <form method="post" action="/articulos/<%= artId %>/delete" id="formDeleteArticulo">
               <button class="btn secondary danger" type="submit">Eliminar</button>
             </form>
           </div>
@@ -62,7 +73,7 @@
             <img
               class="gv-article-ficha__img"
               src="<%= imgUrl %>"
-              alt="<%= item.Nombre ?? 'Artículo' %>"
+              alt="<%= artNombre || 'Artículo' %>"
               onerror="this.onerror=null; this.style.display='none';"
               loading="lazy"
             />
@@ -76,6 +87,21 @@
 
   </div>
 </section>
+
+<% if (admin) { %>
+<script>
+(function() {
+  var form = document.getElementById('formDeleteArticulo');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      if (!confirm('¿Eliminar este artículo? Esta acción no se puede deshacer.')) {
+        e.preventDefault();
+      }
+    });
+  }
+})();
+</script>
+<% } %>
 
 <%- include('partials/footer') %>
 
