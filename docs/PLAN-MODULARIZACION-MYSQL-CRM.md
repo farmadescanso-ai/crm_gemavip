@@ -44,11 +44,12 @@ config/
 
 ### Fase 2: Dominios por prioridad de uso
 Orden sugerido según impacto en login y vistas lentas:
-- `articulos.js` (vista Artículos)
-- `comerciales.js` (login, auth)
-- `clientes.js` (vista Clientes)
-- `pedidos.js` (vista Pedidos)
-- `agenda.js` (vista Agenda)
+- ~~`clientes.js`~~ ✅ (mysql-crm-clientes.js)
+- ~~`pedidos.js`~~ ✅ (mysql-crm-pedidos.js + crud + with-lineas)
+- ~~`visitas.js`~~ ✅ (mysql-crm-visitas.js)
+- ~~`articulos.js`~~ ✅ (mysql-crm-articulos.js + domains/articulos.js)
+- ~~`comerciales.js`~~ ✅ (mysql-crm-comerciales.js + domains/comerciales.js)
+- ~~`agenda.js`~~ ✅ (mysql-crm-agenda.js + domains/agenda.js)
 - `catalogos.js`, `notificaciones.js`, `login.js`, `direcciones-envio.js`, `codigos-postales.js`
 
 ### Fase 3: Lazy loading (opcional)
@@ -83,6 +84,16 @@ Los dominios se comunican vía el objeto `db` compartido (this) o llamando a mé
 
 ## Estado actual
 
-- **Fase 1**: En progreso
-- **Archivo original**: `config/mysql-crm.js` (~10.425 líneas)
+- **Fase 1**: Completada (base + facade + módulos extraídos)
+- **Archivo principal**: `config/mysql-crm.js` (~3.900 líneas, reducido desde ~6.300)
+- **Módulos extraídos**:
+  - `mysql-crm-clientes.js` – clientes, cooperativas, grupos
+  - `mysql-crm-pedidos.js` – metadatos, estados, descuentos, índices, schema
+  - `mysql-crm-pedidos-crud.js` – createPedido, updatePedidoWithLineas (delegación)
+  - `mysql-crm-pedidos-with-lineas.js` – implementación de updatePedidoWithLineas
+  - `mysql-crm-visitas.js` – _ensureVisitasMeta, getTiposVisita, getEstadosVisita, ensureVisitasSchema, ensureVisitasIndexes, _buildVisitasOwnerWhere
+  - `mysql-crm-articulos.js` – toggleArticuloOkKo, copyTarifaMirafarmaToPvl
+  - `mysql-crm-comerciales.js` – _ensureComercialesMeta, ensureComercialesReunionesNullable, _getComercialesNombresByIds, getEstadisticasComercial
+  - `mysql-crm-agenda.js` – _resolveAgendaTableName, ensureContactosIndexes, _ensureTiposCargoRolTable, _ensureEspecialidadesIndexes, _normalizeAgendaCatalogLabel
+- **Dominios delegados** (config/domains/): visitas, articulos, comerciales, pedidos, agenda, etc.
 - **Consumidores**: api/index.js, routes/api/*.js, lib/auth.js, lib/mailer.js
