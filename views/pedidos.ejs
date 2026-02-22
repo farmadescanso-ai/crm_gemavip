@@ -42,7 +42,7 @@
       };
       const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
       const itemsArr = Array.isArray(items) ? items : [];
-      const estadoNorm = (p) => String(p?.EstadoPedidoNombre ?? p?.EstadoPedido ?? p?.Estado ?? '').trim().toLowerCase();
+      const estadoNorm = (p) => String(p?.EstadoPedidoNombre ?? p?.EstadoPedido ?? p?.Estado ?? p?.ped_estado_txt ?? p?.estado ?? '').trim().toLowerCase() || 'pendiente';
       const isPendiente = (p) => estadoNorm(p).includes('pend');
       const isEspecial = (p) => {
         const v = p?.EsEspecial ?? p?.es_especial ?? p?.especial ?? 0;
@@ -208,9 +208,12 @@
             <tbody>
               <% itemsArr.forEach((p) => { %>
                 <% const pid = p.Id ?? p.id ?? p.ped_id; %>
-                <% const owner = Number(p.Id_Cial ?? p.id_cial ?? p.ComercialId ?? p.comercialId ?? 0) || 0; %>
+                <% const owner = Number(p.ped_com_id ?? p.Id_Cial ?? p.id_cial ?? p.ComercialId ?? p.comercialId ?? 0) || 0; %>
+                <% const currentUserId = Number(userId ?? user?.id ?? 0) || 0; %>
+                <% const isOwner = currentUserId && owner && currentUserId === owner; %>
                 <% const especialPend = isEspecial(p) && (especialEstado(p) === 'pendiente' || especialEstado(p) === '' || especialEstado(p) === 'pending' || especialEstado(p) === 'solicitado'); %>
-                <% const canWrite = admin || (userId && Number(userId) === owner && isPendiente(p) && !especialPend); %>
+                <% const canEditByEstado = isPendiente(p) && !especialPend; %>
+                <% const canWrite = admin || (isOwner && canEditByEstado); %>
                 <% const noticePid = (typeof n8nNotice !== 'undefined' && n8nNotice && n8nNotice.pid != null) ? String(n8nNotice.pid) : null; %>
                 <% const isNoticeRow = noticePid && String(pid) === noticePid; %>
                 <tr>

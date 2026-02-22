@@ -3015,6 +3015,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
     }
 
+    const sessionUser = res.locals.user;
+    const sessionUserId = sessionUser?.id != null ? Number(sessionUser.id) : null;
     res.render('pedidos', {
       items: items || [],
       years,
@@ -3023,7 +3025,8 @@ app.get('/pedidos', requireLogin, async (req, res, next) => {
       selectedMarcaId,
       q: rawQ,
       admin,
-      userId: _n(res.locals.user && res.locals.user.id, null),
+      userId: sessionUserId,
+      user: sessionUser,
       n8nNotice,
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       paging: { page, limit, total: totalPedidos }
