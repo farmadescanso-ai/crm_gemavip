@@ -4167,7 +4167,7 @@ app.get('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async 
     const especial = Number(_n(_n(item.EsEspecial, item.es_especial), 0)) === 1;
     const especialEstado = String(_n(_n(item.EspecialEstado, item.especial_estado), '')).trim().toLowerCase();
     const especialPendiente = especial && (especialEstado === 'pendiente' || especialEstado === '' || especialEstado === 'solicitado');
-    const canEdit = admin ? (estadoNorm !== 'pagado') : ((estadoNorm === 'pendiente') && !especialPendiente);
+    const canEdit = admin ? !estadoNorm.includes('pagad') : (estadoNorm.includes('pend') && !especialPendiente);
     if (!canEdit) {
       return renderErrorPage(req, res, {
         status: 403,
@@ -4268,7 +4268,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
     const existingEspecial = Number(_n(_n(existing.EsEspecial, existing.es_especial), 0)) === 1;
     const existingEspecialEstado = String(_n(_n(existing.EspecialEstado, existing.especial_estado), '')).trim().toLowerCase();
     const existingEspecialPendiente = existingEspecial && (existingEspecialEstado === 'pendiente' || existingEspecialEstado === '' || existingEspecialEstado === 'solicitado');
-    const canEdit = admin ? (estadoNorm !== 'pagado') : ((estadoNorm === 'pendiente') && !existingEspecialPendiente);
+    const canEdit = admin ? !estadoNorm.includes('pagad') : (estadoNorm.includes('pend') && !existingEspecialPendiente);
     if (!canEdit) {
       return renderErrorPage(req, res, {
         status: 403,
