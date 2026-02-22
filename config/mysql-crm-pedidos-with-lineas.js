@@ -52,9 +52,9 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
       const paColsLower = new Map((paCols || []).map((c) => [String(c).toLowerCase(), c]));
       const pickPaCol = (cands) => this._pickCIFromColumns(paCols, cands);
 
-      const colQty = pickPaCol(['Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']);
-      const colPrecioUnit = pickPaCol(['PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl', 'PCP', 'pcp']);
-      const colDtoLinea = pickPaCol(['DtoLinea', 'dtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
+      const colQty = pickPaCol(['pedart_cantidad', 'Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']);
+      const colPrecioUnit = pickPaCol(['pedart_pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl', 'PCP', 'pcp']);
+      const colDtoLinea = pickPaCol(['pedart_dto', 'DtoLinea', 'dtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
       // Algunas instalaciones guardan además el nombre del artículo en texto (NOT NULL)
       const colArticuloTxt = pickPaCol(['Articulo', 'articulo', 'NombreArticulo', 'nombre_articulo']);
       const colIvaPctLinea = pickPaCol(['PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'IVA', 'iva', 'TipoIVA', 'tipo_iva']);
@@ -73,6 +73,21 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
         FechaEntrega: 'ped_fecha_entrega', Observaciones: 'ped_observaciones',
         EsEspecial: 'ped_es_especial', EspecialEstado: 'ped_especial_estado',
         EspecialFechaSolicitud: 'ped_especial_fecha_solicitud'
+      };
+
+      // Mapeo payload líneas (formulario) → columna BD pedidos_articulos
+      const lineaLegacyToCol = {
+        Id_Articulo: paMeta.colArticulo || 'pedart_art_id',
+        id_articulo: paMeta.colArticulo || 'pedart_art_id',
+        Cantidad: colQty || 'pedart_cantidad',
+        cantidad: colQty || 'pedart_cantidad',
+        PrecioUnitario: colPrecioUnit || 'pedart_pvp',
+        precio_unitario: colPrecioUnit || 'pedart_pvp',
+        PVP: colPrecioUnit || 'pedart_pvp',
+        pvp: colPrecioUnit || 'pedart_pvp',
+        Dto: colDtoLinea || 'pedart_dto',
+        dto: colDtoLinea || 'pedart_dto',
+        Descuento: colDtoLinea || 'pedart_dto'
       };
 
       // Preparar update cabecera filtrado
@@ -416,7 +431,8 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
 
           const mysqlData = {};
           for (const [k, v] of Object.entries(linea)) {
-            const real = paColsLower.get(String(k).toLowerCase());
+            const mappedKey = lineaLegacyToCol[k] || k;
+            const real = paColsLower.get(String(mappedKey).toLowerCase()) || paColsLower.get(String(k).toLowerCase());
             if (!real) continue;
             if (String(real).toLowerCase() === String(paMeta.pk).toLowerCase()) continue;
             if (Array.isArray(v) && v.length > 0 && v[0]?.Id) mysqlData[real] = v[0].Id;
@@ -434,13 +450,17 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           if (paMeta.colArticulo) {
             const rawArtId =
               Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colArticulo) ? mysqlData[paMeta.colArticulo]
-              : (linea.Id_Articulo ?? linea.id_articulo ?? linea.ArticuloId ?? linea.articuloId);
+              : (linea.Id_Articulo ?? linea.id_articulo ?? linea.pedart_art_id ?? linea.ArticuloId ?? linea.articuloId);
             const n = Number.parseInt(String(rawArtId ?? '').trim(), 10);
             if (Number.isFinite(n) && n > 0) {
               artId = n;
               articulo = articulosById.get(n) || null;
+              if (!Object.prototype.hasOwnProperty.call(mysqlData, paMeta.colArticulo)) mysqlData[paMeta.colArticulo] = n;
             }
           }
+
+          // Saltar líneas sin artículo válido (pedart_art_id es NOT NULL)
+          if (paMeta.colArticulo && (!artId || artId <= 0)) continue;
 
           // Si existe columna Articulo (texto) y no viene informada, rellenar con el nombre/SKU
           if (colArticuloTxt) {
