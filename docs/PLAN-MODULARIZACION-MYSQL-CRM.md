@@ -50,7 +50,8 @@ Orden sugerido según impacto en login y vistas lentas:
 - ~~`articulos.js`~~ ✅ (mysql-crm-articulos.js + domains/articulos.js)
 - ~~`comerciales.js`~~ ✅ (mysql-crm-comerciales.js + domains/comerciales.js)
 - ~~`agenda.js`~~ ✅ (mysql-crm-agenda.js + domains/agenda.js)
-- `catalogos.js`, `notificaciones.js`, `login.js`, `direcciones-envio.js`, `codigos-postales.js`
+- ~~`login.js`~~ ✅ (mysql-crm-login.js)
+- `catalogos.js`, `notificaciones.js`, `direcciones-envio.js`, `codigos-postales.js`
 
 ### Fase 3: Lazy loading (opcional)
 - Sustituir `require('./domains/visitas')` por getter que cargue bajo demanda.
@@ -95,5 +96,6 @@ Los dominios se comunican vía el objeto `db` compartido (this) o llamando a mé
   - `mysql-crm-articulos.js` – toggleArticuloOkKo, copyTarifaMirafarmaToPvl
   - `mysql-crm-comerciales.js` – _ensureComercialesMeta, ensureComercialesReunionesNullable, _getComercialesNombresByIds, getEstadisticasComercial
   - `mysql-crm-agenda.js` – _resolveAgendaTableName, ensureContactosIndexes, _ensureTiposCargoRolTable, _ensureEspecialidadesIndexes, _normalizeAgendaCatalogLabel
+  - `mysql-crm-login.js` – updateComercialPassword, password_reset_tokens (create, find, markUsed, cleanup, countRecentAttempts)
 - **Dominios delegados** (config/domains/): visitas, articulos, comerciales, pedidos, agenda, etc.
 - **Consumidores**: api/index.js, routes/api/*.js, lib/auth.js, lib/mailer.js
