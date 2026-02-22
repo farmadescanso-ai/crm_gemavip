@@ -56,7 +56,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
       const colPrecioUnit = pickPaCol(['pedart_pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl', 'PCP', 'pcp']);
       const colDtoLinea = pickPaCol(['pedart_dto', 'DtoLinea', 'dtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
       // Algunas instalaciones guardan además el nombre del artículo en texto (NOT NULL)
-      const colArticuloTxt = pickPaCol(['Articulo', 'articulo', 'NombreArticulo', 'nombre_articulo']);
+      const colArticuloTxt = pickPaCol(['pedart_articulo_txt', 'Articulo', 'articulo', 'NombreArticulo', 'nombre_articulo']);
       const colIvaPctLinea = pickPaCol(['PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'IVA', 'iva', 'TipoIVA', 'tipo_iva']);
       const colBaseLinea = pickPaCol(['Base', 'base', 'BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Importe', 'importe', 'Neto', 'neto']);
       const colIvaImporteLinea = pickPaCol(['ImporteIVA', 'importe_iva', 'IvaImporte', 'iva_importe', 'TotalIVA', 'total_iva']);
