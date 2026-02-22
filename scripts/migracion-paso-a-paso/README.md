@@ -35,4 +35,11 @@ Ejecutar en phpMyAdmin en este orden. Tras cada archivo, verificar que no hay er
 | 28 | `28-notificaciones.sql` | Notificaciones |
 | 29 | `29-password_reset_tokens.sql` | Tokens reset |
 | 30 | `30-variables_sistema.sql` | Variables sistema |
-| 31 | `31-ADD-FKs.sql` | Recrear claves foráneas |
+| 31 | `31-ADD-FKs.sql` | Recrear claves foráneas (4 FKs básicas) |
+| 32 | `../32-ADD-FKs-completas.sql` | Añadir resto de FKs (ver instrucciones abajo) |
+
+### Antes de ejecutar 32-ADD-FKs-completas.sql
+
+1. Ejecutar `../diagnostico-integridad-fks.sql` para detectar registros huérfanos.
+2. Si algún `COUNT(*)` > 0, corregir los datos antes de crear FKs.
+3. Solo cuando todos los huérfanos = 0, ejecutar `32-ADD-FKs-completas.sql`.
