@@ -4281,6 +4281,7 @@ app.post('/pedidos/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async
 
     const body = req.body || {};
     const esEspecial = body.EsEspecial === '1' || body.EsEspecial === 1 || body.EsEspecial === true || String(body.EsEspecial || '').toLowerCase() === 'on';
+    const existingEspecial = Number(_n(_n(existing.EsEspecial, existing.es_especial), 0)) === 1;
     const pedidoPayload = {
       Id_Cial: admin ? (Number(body.Id_Cial) || 0) : (Number(res.locals.user?.id) || 0),
       Id_Cliente: Number(body.Id_Cliente) || 0,
