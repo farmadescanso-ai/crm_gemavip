@@ -24,7 +24,13 @@ const {
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { parsePagination } = require('../lib/pagination');
 const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail, APP_BASE_URL } = require('../lib/mailer');
-const { sendPushToAdmins } = require('../lib/web-push');
+let sendPushToAdmins = () => Promise.resolve();
+try {
+  const wp = require('../lib/web-push');
+  if (wp && typeof wp.sendPushToAdmins === 'function') sendPushToAdmins = wp.sendPushToAdmins;
+} catch (_) {
+  // web-push opcional: si no existe el módulo, no enviar push
+}
 
 // Helper para Node <14: a ?? b
 function _n(a, b) { return a != null ? a : b; }
