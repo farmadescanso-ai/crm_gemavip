@@ -83,6 +83,22 @@
                     </svg>
                   </a>
                   <% const cial = Number(c.Id_Cial ?? c.id_cial ?? c.cli_com_id ?? 0) || 0; const uid = user && Number(user.id); const canEditRow = admin || (uid && (cial === uid || (poolId && cial === Number(poolId)))); %>
+                  <% const puedeSolicitar = !admin && uid && (cial === 0 || (poolId && cial === Number(poolId))); %>
+                  <% if (puedeSolicitar) { %>
+                    <form method="post" action="/clientes/<%= cid %>/solicitar-asignacion" style="display:inline; margin:0;" class="gv-solicitar-asignacion-form" data-cid="<%= cid %>">
+                      <button class="btn icon" type="submit" title="Solicitar asignación (el admin aprobará o denegará)" aria-label="Solicitar que me asignen este cliente">
+                        <span class="gv-btn-loading">
+                          <span class="gv-spinner gv-solicitar-spinner" style="display:none;" aria-hidden="true"></span>
+                          <svg class="gv-solicitar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                          </svg>
+                        </span>
+                      </button>
+                    </form>
+                  <% } %>
                   <% if (canEditRow) { %>
                     <a class="btn secondary icon" href="/clientes/<%= cid %>/edit" title="Editar" aria-label="Editar contacto <%= cid %>">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -194,5 +210,20 @@
 .gv-contactos .gv-contactos-table td:first-child .gv-actions { margin-left: -5px; }
 .gv-contactos .gv-contactos-table td { white-space: normal; }
 </style>
+
+<script>
+(function () {
+  document.querySelectorAll('.gv-solicitar-asignacion-form').forEach(function (form) {
+    form.addEventListener('submit', function () {
+      var btn = form.querySelector('button[type="submit"]');
+      var spinner = form.querySelector('.gv-solicitar-spinner');
+      var icon = form.querySelector('.gv-solicitar-icon');
+      if (btn) btn.disabled = true;
+      if (spinner) spinner.style.display = 'inline-block';
+      if (icon) icon.style.display = 'none';
+    });
+  });
+})();
+</script>
 
 <%- include('partials/footer') %>

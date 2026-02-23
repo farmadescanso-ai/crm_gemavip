@@ -1613,7 +1613,8 @@ app.get('/agenda/:id(\\d+)', requireLogin, async (req, res, next) => {
       clientes: clientes || [],
       roles: roles || [],
       success: created ? 'Contacto creado.' : null,
-      error: null
+      error: req.query.error ?? null,
+      admin: isAdminUser(res.locals.user)
     });
   } catch (e) {
     next(e);

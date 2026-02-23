@@ -60,6 +60,7 @@
     <div style="margin-top: 14px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
         <h2 style="margin:0; font-size: 1.1rem;">Clientes asociados</h2>
+        <% if (typeof admin !== 'undefined' && admin) { %>
         <form method="post" action="/agenda/<%= id %>/clientes/link" id="gvClienteLinkForm" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
           <input type="hidden" name="contactoId" value="<%= id %>" />
           <input type="hidden" name="clienteId" id="gvClienteId" value="" />
@@ -75,6 +76,9 @@
             </span>
           </button>
         </form>
+        <% } else { %>
+        <span style="font-size: 12px; color: var(--gv-muted); font-weight: 700;">Solo el administrador puede asociar clientes. Usa el icono en la lista de contactos para solicitar asignación.</span>
+        <% } %>
       </div>
 
       <div class="table-wrap" style="margin-top: 10px;">
