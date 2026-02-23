@@ -1,7 +1,7 @@
 <%- include('partials/header', { title: mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' }) %>
 
 <% const missingFieldsList = (typeof missingFields !== 'undefined' && Array.isArray(missingFields)) ? missingFields : []; %>
-<% const cid = (typeof clienteId !== 'undefined' && clienteId != null && clienteId !== '') ? clienteId : (item && (item.Id ?? item.id ?? item.cli_id ?? (meta && meta.pk ? item[meta.pk] : null))); %>
+<% const cid = (typeof clienteId !== 'undefined' && clienteId != null && clienteId !== '') ? clienteId : (item && (item.Id ?? item.id ?? item.cli_id ?? (typeof meta !== 'undefined' && meta && meta.pk ? item[meta.pk] : null))); %>
 <% const formAction = (mode === 'edit' && cid) ? ('/clientes/' + cid + '/edit') : '/clientes/new'; %>
 <% const cancelHref = (mode === 'edit' && cid) ? ('/clientes/' + cid) : '/clientes'; %>
 
