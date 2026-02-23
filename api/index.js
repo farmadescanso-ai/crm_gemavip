@@ -2340,6 +2340,7 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       error: null,
       admin,
       puedeSolicitarAsignacion,
+      clienteId: id,
       contactoId: id,
       agendaContactos: Array.isArray(agendaContactos) ? agendaContactos : [],
       agendaIncludeHistorico: includeAgendaHistorico
@@ -2409,7 +2410,7 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
         canChangeComercial: !!admin,
         missingFields
       });
-      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, puedeSolicitarAsignacion: puedeSolicitar, contactoId: id });
+      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id });
     }
 
     await db.updateCliente(id, payload);

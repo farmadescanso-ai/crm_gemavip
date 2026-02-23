@@ -1,8 +1,9 @@
 <%- include('partials/header', { title: mode === 'edit' ? 'Editar contacto' : 'Nuevo contacto' }) %>
 
 <% const missingFieldsList = (typeof missingFields !== 'undefined' && Array.isArray(missingFields)) ? missingFields : []; %>
-<% const formAction = mode === 'edit' ? ('/clientes/' + (item.Id || item.id) + '/edit') : '/clientes/new'; %>
-<% const cancelHref = mode === 'edit' ? ('/clientes/' + (item.Id || item.id)) : '/clientes'; %>
+<% const cid = (typeof clienteId !== 'undefined' && clienteId != null && clienteId !== '') ? clienteId : (item && (item.Id ?? item.id ?? item.cli_id ?? (meta && meta.pk ? item[meta.pk] : null))); %>
+<% const formAction = (mode === 'edit' && cid) ? ('/clientes/' + cid + '/edit') : '/clientes/new'; %>
+<% const cancelHref = (mode === 'edit' && cid) ? ('/clientes/' + cid) : '/clientes'; %>
 
 <section class="card gv-cliente-form" style="max-width: 1080px; margin: 0 auto;">
   <div class="card-hd">
@@ -47,7 +48,6 @@
       <% (tabs || []).forEach((t, idx) => { %>
         <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
           <% if (t.id === 'agenda') { %>
-            <% const cid = (typeof contactoId !== 'undefined' && contactoId) ? contactoId : (item.Id || item.id); %>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
               <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <h2 style="margin: 0; font-size: 1.05rem;">Agenda</h2>
