@@ -21,17 +21,21 @@
   const artActivo = (item.art_activo ?? item.Activo ?? 1);
   const marcaNombre = item.MarcaNombre || item.Marca || item.art_mar_id || '—';
 %>
-<section class="card">
-  <div class="card-hd">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; flex-wrap:wrap;">
-      <div>
-        <h1 class="card-title">Artículo <%= artId %></h1>
-        <p class="card-subtitle"><%= artNombre %></p>
+<section class="card gv-article-card">
+  <div class="card-hd gv-article-hd">
+    <div class="gv-article-hd__inner">
+      <div class="gv-article-hd__title">
+        <span class="gv-article-hd__badge">Art. <%= artId %></span>
+        <h1 class="gv-article-hd__name"><%= artNombre %></h1>
+        <div class="gv-article-hd__meta">
+          <span class="gv-article-hd__sku">SKU: <%= artSku %></span>
+          <span class="badge <%= artActivo ? 'ok' : 'warn' %>"><%= artActivo ? 'Activo' : 'Inactivo' %></span>
+        </div>
       </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <div class="gv-article-hd__actions">
         <a class="btn secondary" href="/articulos">Volver</a>
         <% if (admin) { %>
-          <a class="btn secondary" href="/articulos/<%= artId %>/edit">Editar</a>
+          <a class="btn" href="/articulos/<%= artId %>/edit">Editar</a>
         <% } %>
       </div>
     </div>
@@ -40,30 +44,94 @@
     <% const imgUrl = String(artImagen || '').trim(); %>
     <div class="gv-article-ficha">
       <div class="gv-article-ficha__main">
-        <div class="grid gv-article-ficha__grid" style="gap: 10px;">
-          <div><strong>SKU:</strong> <%= artSku %></div>
-          <div><strong>Nombre:</strong> <%= artNombre %></div>
-          <div><strong>Presentación:</strong> <%= artPresentacion %></div>
-          <div><strong>Unidades caja:</strong> <%= artUnidadesCaja %></div>
-          <div><strong>Largo unidad (cm):</strong> <%= artLargoUnidad !== '' ? artLargoUnidad : '—' %></div>
-          <div><strong>Ancho unidad (cm):</strong> <%= artAnchoUnidad !== '' ? artAnchoUnidad : '—' %></div>
-          <div><strong>Alto unidad (cm):</strong> <%= artAltoUnidad !== '' ? artAltoUnidad : '—' %></div>
-          <div><strong>Peso unidad (kg):</strong> <%= artKgUnidad !== '' ? artKgUnidad : '—' %></div>
-          <div><strong>Largo caja (cm):</strong> <%= artLargoCaja !== '' ? artLargoCaja : '—' %></div>
-          <div><strong>Alto caja (cm):</strong> <%= artAltoCaja !== '' ? artAltoCaja : '—' %></div>
-          <div><strong>Ancho caja (cm):</strong> <%= artAnchoCaja !== '' ? artAnchoCaja : '—' %></div>
-          <div><strong>Peso caja (kg):</strong> <%= artPesoKgCaja !== '' ? artPesoKgCaja : '—' %></div>
-          <div><strong>Cajas por palet:</strong> <%= artCajasPalet !== '' ? artCajasPalet : '—' %></div>
-          <div><strong>PVL:</strong> <%= artPvl %></div>
-          <div><strong>IVA:</strong> <%= artIva %></div>
-          <div><strong>EAN13:</strong> <%= artEan13 || '—' %></div>
-          <div><strong>Marca:</strong> <%= marcaNombre %></div>
-          <div><strong>Activo:</strong> <%= artActivo ? 'Sí' : 'No' %></div>
+        <div class="gv-article-blocks">
+          <div class="gv-article-block">
+            <h3 class="gv-article-block__title">Identificación</h3>
+            <div class="gv-article-block__grid">
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Presentación</span>
+                <span class="gv-article-field__value"><%= artPresentacion || '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Unidades caja</span>
+                <span class="gv-article-field__value"><%= artUnidadesCaja !== '' ? artUnidadesCaja : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Marca</span>
+                <span class="gv-article-field__value"><%= marcaNombre %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">EAN13</span>
+                <span class="gv-article-field__value"><%= artEan13 || '—' %></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="gv-article-block">
+            <h3 class="gv-article-block__title">Dimensiones unidad</h3>
+            <div class="gv-article-block__grid">
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Largo (cm)</span>
+                <span class="gv-article-field__value"><%= artLargoUnidad !== '' ? artLargoUnidad : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Ancho (cm)</span>
+                <span class="gv-article-field__value"><%= artAnchoUnidad !== '' ? artAnchoUnidad : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Alto (cm)</span>
+                <span class="gv-article-field__value"><%= artAltoUnidad !== '' ? artAltoUnidad : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Peso (kg)</span>
+                <span class="gv-article-field__value"><%= artKgUnidad !== '' ? artKgUnidad : '—' %></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="gv-article-block">
+            <h3 class="gv-article-block__title">Dimensiones caja</h3>
+            <div class="gv-article-block__grid">
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Largo (cm)</span>
+                <span class="gv-article-field__value"><%= artLargoCaja !== '' ? artLargoCaja : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Ancho (cm)</span>
+                <span class="gv-article-field__value"><%= artAnchoCaja !== '' ? artAnchoCaja : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Alto (cm)</span>
+                <span class="gv-article-field__value"><%= artAltoCaja !== '' ? artAltoCaja : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Peso (kg)</span>
+                <span class="gv-article-field__value"><%= artPesoKgCaja !== '' ? artPesoKgCaja : '—' %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Cajas por palet</span>
+                <span class="gv-article-field__value"><%= artCajasPalet !== '' ? artCajasPalet : '—' %></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="gv-article-block gv-article-block--prices">
+            <h3 class="gv-article-block__title">Precios</h3>
+            <div class="gv-article-block__grid">
+              <div class="gv-article-field gv-article-field--highlight">
+                <span class="gv-article-field__label">PVL</span>
+                <span class="gv-article-field__value"><%= artPvl %></span>
+              </div>
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">IVA (%)</span>
+                <span class="gv-article-field__value"><%= artIva %></span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <% if (admin) { %>
-          <hr style="border:0; border-top:1px solid var(--gv-border); margin: 14px 0;" />
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div class="gv-article-actions">
             <form method="post" action="/articulos/<%= artId %>/toggle">
               <input type="hidden" name="Activo" value="<%= artActivo ? 0 : 1 %>" />
               <button class="btn secondary" type="submit">
@@ -79,34 +147,35 @@
 
       <% if (imgUrl) { %>
         <aside class="gv-article-ficha__media" aria-label="Imagen del artículo">
-          <% if (admin) { %>
-          <a class="gv-article-ficha__imgLink" href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">
-            <img
-              class="gv-article-ficha__img"
-              src="<%= imgUrl %>"
-              alt="<%= artNombre || 'Artículo' %>"
-              onerror="this.onerror=null; this.style.display='none';"
-              loading="lazy"
-            />
-          </a>
-          <div class="gv-article-ficha__mediaFoot">
-            <a href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">Abrir imagen</a>
+          <div class="gv-article-ficha__mediaCard">
+            <% if (admin) { %>
+            <a class="gv-article-ficha__imgLink" href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">
+              <img
+                class="gv-article-ficha__img"
+                src="<%= imgUrl %>"
+                alt="<%= artNombre || 'Artículo' %>"
+                onerror="this.onerror=null; this.style.display='none';"
+                loading="lazy"
+              />
+            </a>
+            <div class="gv-article-ficha__mediaFoot">
+              <a href="<%= imgUrl %>" target="_blank" rel="noopener noreferrer">Abrir imagen</a>
+            </div>
+            <% } else { %>
+            <div class="gv-article-ficha__imgLink">
+              <img
+                class="gv-article-ficha__img"
+                src="<%= imgUrl %>"
+                alt="<%= artNombre || 'Artículo' %>"
+                onerror="this.onerror=null; this.style.display='none';"
+                loading="lazy"
+              />
+            </div>
+            <% } %>
           </div>
-          <% } else { %>
-          <div class="gv-article-ficha__imgLink">
-            <img
-              class="gv-article-ficha__img"
-              src="<%= imgUrl %>"
-              alt="<%= artNombre || 'Artículo' %>"
-              onerror="this.onerror=null; this.style.display='none';"
-              loading="lazy"
-            />
-          </div>
-          <% } %>
         </aside>
       <% } %>
     </div>
-
   </div>
 </section>
 

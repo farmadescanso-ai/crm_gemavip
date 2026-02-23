@@ -1,0 +1,314 @@
+/**
+ * Dominio: Catálogos
+ * Provincias, países, formas de pago, tipos de pedido, especialidades.
+ * Se invoca con db como contexto (this) para acceder a query, _getColumns, etc.
+ */
+'use strict';
+
+module.exports = {
+  async getFormasPago() {
+    try {
+      const table = await this._getFormasPagoTableName();
+      if (!table) {
+        console.warn('⚠️ [FORMAS-PAGO] La tabla de formas de pago no existe (formas_pago/Formas_Pago).');
+        return [];
+      }
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['formp_id', 'id', 'Id']) || 'id';
+      const colNombre = this._pickCIFromColumns(cols, ['formp_nombre', 'FormaPago', 'Nombre', 'nombre']) || 'FormaPago';
+      const rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY \`${pk}\` ASC`);
+      return (rows || []).map(r => ({
+        ...r,
+        id: r?.[pk] ?? r?.id ?? r?.Id ?? r?.ID ?? null,
+        Id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
+        Nombre: r?.[colNombre] ?? r?.Nombre ?? r?.FormaPago ?? r?.formaPago ?? r?.nombre ?? null
+      }));
+    } catch (error) {
+      console.error('❌ Error obteniendo formas de pago:', error.message);
+      return [];
+    }
+  },
+
+  async getFormaPagoById(id) {
+    try {
+      const table = await this._getFormasPagoTableName();
+      if (!table) return null;
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['formp_id', 'id', 'Id']) || 'id';
+      const rows = await this.query(`SELECT * FROM \`${table}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('❌ Error obteniendo forma de pago por ID:', error.message);
+      return null;
+    }
+  },
+
+  async getFormaPagoByNombre(nombre) {
+    try {
+      const table = await this._getFormasPagoTableName();
+      if (!table) return null;
+      const sql = `SELECT * FROM ${table} WHERE FormaPago = ? OR FormaPago LIKE ? LIMIT 1`;
+      const nombreExacto = nombre.trim();
+      const nombreLike = `%${nombreExacto}%`;
+      const rows = await this.query(sql, [nombreExacto, nombreLike]);
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('❌ Error obteniendo forma de pago por nombre:', error.message);
+      return null;
+    }
+  },
+
+  async createFormaPago(payload) {
+    try {
+      const table = await this._getFormasPagoTableName();
+      if (!table) throw new Error('La tabla de formas de pago no existe (formas_pago/Formas_Pago).');
+      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
+      const placeholders = Object.keys(payload).map(() => '?').join(', ');
+      const values = Object.values(payload);
+      const sql = `INSERT INTO ${table} (${fields}) VALUES (${placeholders})`;
+      const result = await this.query(sql, values);
+      return { insertId: result.insertId || result.insertId };
+    } catch (error) {
+      console.error('❌ Error creando forma de pago:', error.message);
+      throw error;
+    }
+  },
+
+  async updateFormaPago(id, payload) {
+    try {
+      const table = await this._getFormasPagoTableName();
+      if (!table) throw new Error('La tabla de formas de pago no existe (formas_pago/Formas_Pago).');
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['formp_id', 'id', 'Id']) || 'id';
+      const fields = Object.keys(payload).map(key => `\`${key}\` = ?`).join(', ');
+      const values = [...Object.values(payload), id];
+      const sql = `UPDATE ${table} SET ${fields} WHERE \`${pk}\` = ?`;
+      await this.query(sql, values);
+      return { affectedRows: 1 };
+    } catch (error) {
+      console.error('❌ Error actualizando forma de pago:', error.message);
+      throw error;
+    }
+  },
+
+  async deleteFormaPago(id) {
+    try {
+      const table = await this._getFormasPagoTableName();
+      if (!table) throw new Error('La tabla de formas de pago no existe (formas_pago/Formas_Pago).');
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['formp_id', 'id', 'Id']) || 'id';
+      await this.query(`DELETE FROM ${table} WHERE \`${pk}\` = ?`, [id]);
+      return { affectedRows: 1 };
+    } catch (error) {
+      console.error('❌ Error eliminando forma de pago:', error.message);
+      throw error;
+    }
+  },
+
+  async getTiposPedido() {
+    try {
+      const table = await this._resolveTableNameCaseInsensitive('tipos_pedidos').catch(() => null)
+        || await this._resolveTableNameCaseInsensitive('tipos_pedido').catch(() => null);
+      if (!table) return [];
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['tipp_id', 'id', 'Id']) || 'id';
+      const colNombre = this._pickCIFromColumns(cols, ['tipp_tipo', 'Tipo', 'tipo', 'Nombre', 'nombre']) || 'Tipo';
+      let rows = [];
+      try {
+        rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY \`${pk}\` ASC`);
+      } catch (e1) {
+        rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY Id ASC`).catch(() => []);
+      }
+      return (rows || []).map((r) => ({
+        ...r,
+        id: r?.[pk] ?? r?.tipp_id ?? r?.id ?? r?.Id ?? r?.ID ?? null,
+        Id: r?.[pk] ?? r?.tipp_id ?? r?.id ?? r?.Id ?? null,
+        tipp_id: r?.[pk] ?? r?.tipp_id ?? null,
+        tipp_tipo: r?.[colNombre] ?? r?.tipp_tipo ?? null,
+        Nombre: r?.[colNombre] ?? r?.Tipo ?? r?.tipo ?? r?.Nombre ?? r?.nombre ?? ''
+      }));
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de pedido:', error.message);
+      return [];
+    }
+  },
+
+  async getEspecialidades() {
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => null);
+      const table = t || 'especialidades';
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['esp_id', 'id', 'Id']) || 'id';
+      const sql = `SELECT * FROM \`${table}\` ORDER BY \`${pk}\` ASC`;
+      const rows = await this.query(sql);
+      return rows || [];
+    } catch (error) {
+      console.error('❌ Error obteniendo especialidades:', error.message);
+      return [];
+    }
+  },
+
+  async getEspecialidadById(id) {
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => null);
+      const table = t || 'especialidades';
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['esp_id', 'id', 'Id']) || 'id';
+      const rows = await this.query(`SELECT * FROM \`${table}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('❌ Error obteniendo especialidad por ID:', error.message);
+      return null;
+    }
+  },
+
+  async createEspecialidad(payload) {
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => null);
+      const table = t || 'especialidades';
+      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
+      const placeholders = Object.keys(payload).map(() => '?').join(', ');
+      const values = Object.values(payload);
+      const sql = `INSERT INTO \`${table}\` (${fields}) VALUES (${placeholders})`;
+      const result = await this.query(sql, values);
+      return { insertId: result.insertId || result.insertId };
+    } catch (error) {
+      console.error('❌ Error creando especialidad:', error.message);
+      throw error;
+    }
+  },
+
+  async updateEspecialidad(id, payload) {
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => null);
+      const table = t || 'especialidades';
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['esp_id', 'id', 'Id']) || 'id';
+      const fields = Object.keys(payload).map(key => `\`${key}\` = ?`).join(', ');
+      const values = [...Object.values(payload), id];
+      const sql = `UPDATE \`${table}\` SET ${fields} WHERE \`${pk}\` = ?`;
+      await this.query(sql, values);
+      return { affectedRows: 1 };
+    } catch (error) {
+      console.error('❌ Error actualizando especialidad:', error.message);
+      throw error;
+    }
+  },
+
+  async deleteEspecialidad(id) {
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => null);
+      const table = t || 'especialidades';
+      const cols = await this._getColumns(table).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['esp_id', 'id', 'Id']) || 'id';
+      await this.query(`DELETE FROM \`${table}\` WHERE \`${pk}\` = ?`, [id]);
+      return { affectedRows: 1 };
+    } catch (error) {
+      console.error('❌ Error eliminando especialidad:', error.message);
+      throw error;
+    }
+  },
+
+  async getProvincias(filtroPais = null) {
+    try {
+      let sql = 'SELECT * FROM provincias';
+      const params = [];
+      if (filtroPais) {
+        sql += ' WHERE CodigoPais = ?';
+        params.push(filtroPais);
+      }
+      sql += ' ORDER BY Nombre ASC';
+      const rows = await this.query(sql, params);
+      try {
+        const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
+        return (rows || []).map(r => ({
+          ...r,
+          Nombre: normalizeTitleCaseES(r.Nombre || ''),
+          Pais: normalizeTitleCaseES(r.Pais || '')
+        }));
+      } catch (_) {
+        return rows;
+      }
+    } catch (error) {
+      console.error('❌ Error obteniendo provincias:', error.message);
+      return [];
+    }
+  },
+
+  async getProvinciaById(id) {
+    try {
+      const sql = 'SELECT * FROM provincias WHERE id = ? LIMIT 1';
+      const rows = await this.query(sql, [id]);
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('❌ Error obteniendo provincia por ID:', error.message);
+      return null;
+    }
+  },
+
+  async getProvinciaByCodigo(codigo) {
+    try {
+      const sql = 'SELECT * FROM provincias WHERE Codigo = ? LIMIT 1';
+      const rows = await this.query(sql, [codigo]);
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('❌ Error obteniendo provincia por código:', error.message);
+      return null;
+    }
+  },
+
+  async getPaises() {
+    try {
+      const sql = 'SELECT * FROM paises ORDER BY Nombre_pais ASC';
+      const rows = await this.query(sql);
+      try {
+        const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
+        return (rows || []).map(r => ({
+          ...r,
+          Nombre_pais: normalizeTitleCaseES(r.Nombre_pais || '')
+        }));
+      } catch (_) {
+        return rows;
+      }
+    } catch (error) {
+      console.error('❌ Error obteniendo países:', error.message);
+      return [];
+    }
+  },
+
+  async getPaisById(id) {
+    try {
+      const sql = 'SELECT * FROM paises WHERE id = ? LIMIT 1';
+      const rows = await this.query(sql, [id]);
+      const row = rows.length > 0 ? rows[0] : null;
+      if (!row) return null;
+      try {
+        const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
+        return { ...row, Nombre_pais: normalizeTitleCaseES(row.Nombre_pais || '') };
+      } catch (_) {
+        return row;
+      }
+    } catch (error) {
+      console.error('❌ Error obteniendo país por ID:', error.message);
+      return null;
+    }
+  },
+
+  async getPaisByCodigoISO(codigoISO) {
+    try {
+      const sql = 'SELECT * FROM paises WHERE Id_pais = ? LIMIT 1';
+      const rows = await this.query(sql, [codigoISO]);
+      const row = rows.length > 0 ? rows[0] : null;
+      if (!row) return null;
+      try {
+        const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
+        return { ...row, Nombre_pais: normalizeTitleCaseES(row.Nombre_pais || '') };
+      } catch (_) {
+        return row;
+      }
+    } catch (error) {
+      console.error('❌ Error obteniendo país por código ISO:', error.message);
+      return null;
+    }
+  }
+};

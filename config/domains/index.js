@@ -14,7 +14,9 @@ const MODULE_DEPS = {
   comerciales: 'comerciales',
   agenda: 'agenda',
   clientes: 'clientes',
-  clientesCrud: 'clientes' // clientesCrud depende de clientesModule
+  clientesCrud: 'clientes', // clientesCrud depende de clientesModule
+  catalogos: 'catalogos',
+  notificaciones: ['clientes', 'comerciales', 'pedidos', 'notificaciones'] // múltiples deps
 };
 
 function createDomains(ensureModule) {
@@ -22,7 +24,8 @@ function createDomains(ensureModule) {
     get(target, prop) {
       const dep = MODULE_DEPS[prop];
       if (!dep) return undefined;
-      ensureModule(dep);
+      const deps = Array.isArray(dep) ? dep : [dep];
+      deps.forEach((d) => ensureModule(d));
       if (!domainCache[prop]) {
         const loaders = {
           visitas: () => require('./visitas'),
@@ -31,7 +34,9 @@ function createDomains(ensureModule) {
           comerciales: () => require('./comerciales'),
           agenda: () => require('./agenda'),
           clientes: () => require('./clientes'),
-          clientesCrud: () => require('./clientes-crud')
+          clientesCrud: () => require('./clientes-crud'),
+          catalogos: () => require('./catalogos'),
+          notificaciones: () => require('./notificaciones')
         };
         domainCache[prop] = loaders[prop]();
       }
