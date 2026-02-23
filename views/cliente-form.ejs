@@ -130,8 +130,8 @@
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (estadosCliente || []).forEach((r) => { %>
-                        <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                        <% const rlabel = r.Nombre ?? r.nombre ?? ('Estado ' + rid); %>
+                        <% const rid = Number(r.estcli_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                        <% const rlabel = r.estcli_nombre ?? r.Nombre ?? r.nombre ?? ('Estado ' + rid); %>
                         <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                       <% }) %>
                     </select>
@@ -149,21 +149,23 @@
                       <select id="<%= inputId %>" name="<%= name %>">
                         <option value="">(sin asignar)</option>
                         <% (comerciales || []).forEach((c) => { %>
-                          <% const cid = Number(c.id ?? c.Id ?? 0) || 0; %>
-                          <option value="<%= cid %>" <%= cid === cur ? 'selected' : '' %>><%= c.Nombre ?? '' %> (<%= c.Email || c.email || '' %>)</option>
+                          <% const cid = Number(c.com_id ?? c.id ?? c.Id ?? 0) || 0; %>
+                          <% const cnombre = c.com_nombre ?? c.Nombre ?? ''; %>
+                          <% const cemail = c.com_email ?? c.Email ?? c.email ?? ''; %>
+                          <option value="<%= cid %>" <%= cid === cur ? 'selected' : '' %>><%= cnombre %> (<%= cemail %>)</option>
                         <% }) %>
                       </select>
                     <% } else { %>
-                      <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.id ?? c.Id ?? 0) === cur; }); %>
-                      <div class="gv-readonly"><%= comercialAsignado ? (comercialAsignado.Nombre ?? '') : 'Sin asignar' %></div>
+                      <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.com_id ?? c.id ?? c.Id ?? 0) === cur; }); %>
+                      <div class="gv-readonly"><%= comercialAsignado ? (comercialAsignado.com_nombre ?? comercialAsignado.Nombre ?? '') : 'Sin asignar' %></div>
                       <input type="hidden" name="<%= name %>" value="<%= pickVal(name) %>" />
                     <% } %>
                   <% } else if (spec.kind === 'select' && spec.options === 'tarifas') { %>
                     <% const curTar = Number(pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <% (tarifas || []).forEach((t) => { %>
-                        <% const tid = Number(t.Id ?? t.id ?? 0) || 0; %>
-                        <% const tlabel = t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
+                        <% const tid = Number(t.tarcli_id ?? t.Id ?? t.id ?? 0) || 0; %>
+                        <% const tlabel = t.tarcli_nombre ?? t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
                         <option value="<%= tid %>" <%= tid === curTar ? 'selected' : '' %>><%= tid %> · <%= tlabel %></option>
                       <% }) %>
                     </select>
@@ -172,8 +174,8 @@
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (paises || []).forEach((p) => { %>
-                        <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
-                        <% const plabel = p.Nombre_pais ?? p.Nombre ?? p.nombre ?? p.Pais ?? ('País ' + pid); %>
+                        <% const pid = Number(p.pais_id ?? p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
+                        <% const plabel = p.pais_nombre ?? p.Nombre_pais ?? p.Nombre ?? p.nombre ?? p.Pais ?? ('País ' + pid); %>
                         <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
                       <% }) %>
                     </select>
@@ -182,8 +184,8 @@
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (provincias || []).forEach((p) => { %>
-                        <% const pid = Number(p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
-                        <% const plabel = p.Nombre_provincia ?? p.Nombre ?? p.nombre ?? p.Provincia ?? ('Provincia ' + pid); %>
+                        <% const pid = Number(p.prov_id ?? p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
+                        <% const plabel = p.prov_nombre ?? p.Nombre_provincia ?? p.Nombre ?? p.nombre ?? p.Provincia ?? ('Provincia ' + pid); %>
                         <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
                       <% }) %>
                     </select>
@@ -192,18 +194,18 @@
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (formasPago || []).forEach((r) => { %>
-                        <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const rlabel = r.FormaPago ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? r.nombre ?? ('Forma pago ' + rid); %>
-                      <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
-                    <% }) %>
-                  </select>
+                        <% const rid = Number(r.formp_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                        <% const rlabel = r.formp_nombre ?? r.FormaPago ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? ('Forma pago ' + rid); %>
+                        <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
+                      <% }) %>
+                    </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'tipos_clientes') { %>
                   <% const curId = Number(pickVal(name) || 0) || 0; %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (tiposClientes || []).forEach((r) => { %>
-                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const rlabel = r.Tipo ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? ('Tipo cliente ' + rid); %>
+                      <% const rid = Number(r.tipc_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                      <% const rlabel = r.tipc_tipo ?? r.Tipo ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? ('Tipo cliente ' + rid); %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
@@ -222,10 +224,10 @@
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (idiomas || []).forEach((r) => { %>
-                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                      <% const rid = Number(r.idiom_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
                       <% const code = (r.Codigo ?? r.codigo ?? '').toString().trim(); %>
-                      <% const name = r.Nombre ?? r.Idioma ?? r.descripcion ?? r.Descripcion ?? ('Idioma ' + rid); %>
-                      <% const rlabel = code ? (code + ' · ' + name) : name; %>
+                      <% const rname = r.idiom_nombre ?? r.Nombre ?? r.Idioma ?? r.descripcion ?? r.Descripcion ?? ('Idioma ' + rid); %>
+                      <% const rlabel = code ? (code + ' · ' + rname) : rname; %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
@@ -234,10 +236,10 @@
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (monedas || []).forEach((r) => { %>
-                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                      <% const rid = Number(r.mon_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
                       <% const code = (r.Codigo ?? r.codigo ?? r.ISO ?? r.Iso ?? '').toString().trim(); %>
-                      <% const name = r.Nombre ?? r.Moneda ?? r.descripcion ?? r.Descripcion ?? ('Moneda ' + rid); %>
-                      <% const rlabel = code ? (code + ' · ' + name) : name; %>
+                      <% const rname = r.mon_nombre ?? r.Nombre ?? r.Moneda ?? r.descripcion ?? r.Descripcion ?? ('Moneda ' + rid); %>
+                      <% const rlabel = code ? (code + ' · ' + rname) : rname; %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
@@ -246,8 +248,8 @@
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (cooperativas || []).forEach((r) => { %>
-                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const rlabel = r.Nombre ?? r.nombre ?? ('Cooperativa ' + rid); %>
+                      <% const rid = Number(r.coop_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                      <% const rlabel = r.coop_nombre ?? r.Nombre ?? r.nombre ?? ('Cooperativa ' + rid); %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
@@ -256,8 +258,8 @@
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (gruposCompras || []).forEach((r) => { %>
-                      <% const rid = Number(r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const rlabel = r.Nombre ?? r.nombre ?? ('Grupo compras ' + rid); %>
+                      <% const rid = Number(r.grupcompr_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
+                      <% const rlabel = r.grupcompr_nombre ?? r.Nombre ?? r.nombre ?? ('Grupo compras ' + rid); %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>

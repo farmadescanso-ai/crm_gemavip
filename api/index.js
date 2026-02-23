@@ -24,6 +24,7 @@ const {
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { parsePagination } = require('../lib/pagination');
 const { sendPasswordResetEmail, sendPedidoEspecialDecisionEmail, sendPedidoEmail, APP_BASE_URL } = require('../lib/mailer');
+const { sendPushToAdmins } = require('../lib/web-push');
 
 // Helper para Node <14: a ?? b
 function _n(a, b) { return a != null ? a : b; }
@@ -305,17 +306,33 @@ async function loadMarcasForSelect(db) {
   }
 }
 
+const TABLE_PK_MAP = {
+  tipos_clientes: ['tipc_id', 'id', 'Id'],
+  idiomas: ['idiom_id', 'id', 'Id'],
+  monedas: ['mon_id', 'id', 'Id'],
+  formas_pago: ['formp_id', 'id', 'Id'],
+  provincias: ['prov_id', 'id', 'Id'],
+  paises: ['pais_id', 'id', 'Id']
+};
+const TABLE_LABEL_MAP = {
+  tipos_clientes: ['tipc_tipo', 'Tipo', 'Nombre', 'nombre'],
+  idiomas: ['idiom_nombre', 'Nombre', 'Idioma', 'descripcion'],
+  monedas: ['mon_nombre', 'Nombre', 'Moneda', 'descripcion', 'Codigo', 'ISO'],
+  formas_pago: ['formp_nombre', 'FormaPago', 'Nombre', 'nombre']
+};
+
 async function loadSimpleCatalogForSelect(db, tableKey, { labelCandidates } = {}) {
-  // Best-effort: si no existe la tabla o faltan permisos, devolver [].
   try {
     const t = await db._resolveTableNameCaseInsensitive(tableKey);
     const cols = await db._getColumns(t);
     const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
     const pick = (cands) => (cands || []).find((c) => colsLower.has(String(c).toLowerCase())) || null;
-    const colId = pick(['id', 'Id', 'ID']) || 'id';
-    const colLabel = pick(labelCandidates || ['Nombre', 'nombre', 'Descripcion', 'descripcion', 'Tipo', 'tipo', 'FormaPago', 'formaPago']);
+    const pkCands = TABLE_PK_MAP[tableKey] || ['id', 'Id', 'ID'];
+    const colId = pick(pkCands) || 'id';
+    const labelCands = labelCandidates || TABLE_LABEL_MAP[tableKey] || ['Nombre', 'nombre', 'Descripcion', 'Tipo', 'FormaPago'];
+    const colLabel = pick(labelCands);
     const selectLabel = colLabel ? `\`${colLabel}\` AS nombre` : `CAST(\`${colId}\` AS CHAR) AS nombre`;
-    const rows = await db.query(`SELECT * , \`${colId}\` AS id, ${selectLabel} FROM \`${t}\` ORDER BY nombre ASC`);
+    const rows = await db.query(`SELECT *, \`${colId}\` AS id, ${selectLabel} FROM \`${t}\` ORDER BY nombre ASC`);
     return Array.isArray(rows) ? rows : [];
   } catch (_) {
     return [];
@@ -323,11 +340,22 @@ async function loadSimpleCatalogForSelect(db, tableKey, { labelCandidates } = {}
 }
 
 async function loadEstadosClienteForSelect(db) {
-  // Tabla: estdoClientes (id, Nombre)
+  // Tabla: estdoClientes (id/estcli_id, Nombre/estcli_nombre)
   try {
     const t = await db._resolveTableNameCaseInsensitive('estdoClientes');
-    const rows = await db.query(`SELECT id, Nombre FROM \`${t}\` ORDER BY id ASC`);
-    return Array.isArray(rows) ? rows : [];
+    const cols = await db._getColumns(t).catch(() => []);
+    const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
+    const pkCol = colsLower.has('estcli_id') ? 'estcli_id' : 'id';
+    const nomCol = colsLower.has('estcli_nombre') ? 'estcli_nombre' : 'Nombre';
+    const rows = await db.query(`SELECT \`${pkCol}\`, \`${nomCol}\` FROM \`${t}\` ORDER BY \`${pkCol}\` ASC`);
+    return (Array.isArray(rows) ? rows : []).map((r) => ({
+      [pkCol]: r[pkCol],
+      [nomCol]: r[nomCol],
+      estcli_id: r.estcli_id ?? r[pkCol],
+      estcli_nombre: r.estcli_nombre ?? r[nomCol],
+      id: r.id ?? r[pkCol],
+      Nombre: r.Nombre ?? r[nomCol]
+    }));
   } catch (_) {
     return [];
   }
@@ -498,6 +526,13 @@ app.use(async (req, res, next) => {
 // Favicon: redirigir al logo de Gemavip
 app.get('/favicon.ico', (req, res) => {
   res.redirect(302, '/assets/images/gemavip-logo.svg');
+});
+
+// Service Worker (Web Push): debe estar en raíz para scope /
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.sendFile(path.join(__dirname, '..', 'public', 'sw.js'));
 });
 
 // Vistas y endpoints públicos (no requieren login)
@@ -1775,20 +1810,30 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     colsLower.has('id_tipocliente')
     || colsLower.has('id_tipo_cliente')
     || colsLower.has('id_tipocliente_id')
-    || colsLower.has('id_tipo_cliente_id');
+    || colsLower.has('id_tipo_cliente_id')
+    || colsLower.has('cli_tipc_id');
   const ignore = new Set(
     [pk, 'created_at', 'updated_at', 'CreatedAt', 'UpdatedAt', 'FechaAlta', 'Fecha_Alta', 'FechaBaja', 'Fecha_Baja']
       .map(String)
   );
   // Si existe estdoClientes, OK_KO queda derivado del estado (evita solape en UI)
-  if (hasEstadoCliente) ignore.add('OK_KO');
+  if (hasEstadoCliente) {
+    ignore.add('OK_KO');
+    ignore.add('cli_ok_ko');
+  }
   // Id_CodigoPostal es un FK/lookup técnico a Codigos_Postales y suele duplicar "CodigoPostal" (texto).
   // Evitar mostrarlo en el formulario para no confundir.
   try {
-    if (colsLower.has('id_codigopostal') && colsLower.has('codigopostal')) ignore.add('Id_CodigoPostal');
+    if ((colsLower.has('id_codigopostal') || colsLower.has('cli_codp_id')) && (colsLower.has('codigopostal') || colsLower.has('cli_codigo_postal'))) {
+      ignore.add('Id_CodigoPostal');
+      ignore.add('cli_codp_id');
+    }
   } catch (_) {}
   // Si existe Id_TipoCliente (FK), ocultar el texto legacy TipoCliente para no duplicar.
-  if (hasIdTipoCliente && colsLower.has('tipocliente')) ignore.add('TipoCliente');
+  if (hasIdTipoCliente && (colsLower.has('tipocliente') || colsLower.has('cli_tipo_cliente_txt'))) {
+    ignore.add('TipoCliente');
+    ignore.add('cli_tipo_cliente_txt');
+  }
 
   const titleCaseEs = (s) => {
     const parts = String(s || '')
@@ -1811,25 +1856,47 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     const overrides = {
       id_estdocliente: 'Estado Cliente',
       id_estadocliente: 'Estado Cliente',
+      cli_estcli_id: 'Estado Cliente',
       ok_ko: 'Estado',
+      cli_ok_ko: 'Estado',
       id_cial: 'Delegado',
       comercialid: 'Delegado',
+      cli_com_id: 'Delegado',
       tipocontacto: 'Tipo Contacto',
       tipo_contacto: 'Tipo Contacto',
+      cli_tipo_contacto: 'Tipo Contacto',
       nombre_razon_social: 'Nombre / Razón social',
+      cli_nombre_razon_social: 'Nombre / Razón social',
       nombre_cial: 'Nombre comercial',
+      cli_nombre_cial: 'Nombre comercial',
       dni_cif: 'DNI/CIF',
+      cli_dni_cif: 'DNI/CIF',
       codigopostal: 'Código postal',
+      cli_codigo_postal: 'Código postal',
       id_provincia: 'Provincia',
+      cli_prov_id: 'Provincia',
       id_pais: 'País',
+      cli_pais_id: 'País',
       id_idioma: 'Idioma',
+      cli_idiom_id: 'Idioma',
       id_moneda: 'Moneda',
+      cli_mon_id: 'Moneda',
       id_formapago: 'Forma de pago',
       id_forma_pago: 'Forma de pago',
+      cli_formp_id: 'Forma de pago',
       id_tipocliente: 'Tipo cliente',
       id_tipo_cliente: 'Tipo cliente',
+      cli_tipc_id: 'Tipo cliente',
       numcontacto: 'Nombre contacto',
-      numeroFarmacia: 'Nº farmacia'
+      numeroFarmacia: 'Nº farmacia',
+      cli_tarcli_id: 'Tarifa',
+      cli_tarifa_legacy: 'Tarifa',
+      cli_dto: 'Descuento',
+      cli_direccion: 'Dirección',
+      cli_poblacion: 'Población',
+      cli_email: 'Email',
+      cli_telefono: 'Teléfono',
+      cli_movil: 'Móvil'
     };
     if (overrides[lower]) return overrides[lower];
 
@@ -1857,31 +1924,31 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
 
   const toTab = (name) => {
     const n = String(name || '').toLowerCase();
-    if (['nombre_razon_social', 'nombre_cial', 'dni_cif', 'tipocontacto', 'ok_ko', 'id_estdocliente', 'id_estadocliente'].includes(n)) return 'ident';
-    if (n.includes('direccion') || n.includes('poblacion') || n.includes('codigopostal') || n.includes('provincia') || n.includes('pais')) return 'direccion';
+    if (['nombre_razon_social', 'nombre_cial', 'dni_cif', 'tipocontacto', 'ok_ko', 'id_estdocliente', 'id_estadocliente', 'cli_nombre_razon_social', 'cli_nombre_cial', 'cli_dni_cif', 'cli_tipo_contacto', 'cli_ok_ko', 'cli_estcli_id'].includes(n)) return 'ident';
+    if (n.includes('direccion') || n.includes('poblacion') || n.includes('codigopostal') || n.includes('codigo_postal') || n.includes('provincia') || n.includes('prov_id') || n.includes('pais')) return 'direccion';
     if (n.includes('email') || n.includes('telefono') || n.includes('movil') || n.includes('web') || n.includes('fax')) return 'contacto';
-    if (n.includes('tarifa') || n === 'dto' || n.includes('descuento') || n.includes('comercial') || n.includes('id_cial')) return 'condiciones';
+    if (n.includes('tarifa') || n === 'dto' || n.includes('descuento') || n.includes('comercial') || n.includes('id_cial') || n.includes('com_id') || n.includes('tipc_id') || n.includes('formp_id') || n.includes('idiom_id') || n.includes('mon_id')) return 'condiciones';
     if (n.includes('observ') || n.includes('notas') || n.includes('coment')) return 'notas';
     return 'avanzado';
   };
 
   const fieldKind = (name) => {
     const n = String(name || '').toLowerCase();
-    if (n === 'ok_ko') return { kind: 'select', options: 'ok_ko' };
-    if (n === 'tipocontacto' || n === 'tipo_contacto') return { kind: 'select', options: 'tipo_contacto' };
-    if (n === 'id_estdocliente' || n === 'id_estadocliente') return { kind: 'select', options: 'estados_cliente' };
-    if (n === String(meta?.colComercial || '').toLowerCase() || n === 'id_cial' || n === 'comercialid') return { kind: 'select', options: 'comerciales' };
-    if (n === 'tarifa' || n === 'id_tarifa') return { kind: 'select', options: 'tarifas' };
-    if (n === 'id_pais') return { kind: 'select', options: 'paises' };
-    if (n === 'id_provincia') return { kind: 'select', options: 'provincias' };
-    if (n === 'id_formapago' || n === 'id_forma_pago') return { kind: 'select', options: 'formas_pago' };
-    if (n === 'id_tipocliente' || n === 'id_tipo_cliente') return { kind: 'select', options: 'tipos_clientes' };
+    if (n === 'ok_ko' || n === 'cli_ok_ko') return { kind: 'select', options: 'ok_ko' };
+    if (n === 'tipocontacto' || n === 'tipo_contacto' || n === 'cli_tipo_contacto') return { kind: 'select', options: 'tipo_contacto' };
+    if (n === 'id_estdocliente' || n === 'id_estadocliente' || n === 'cli_estcli_id') return { kind: 'select', options: 'estados_cliente' };
+    if (n === String(meta?.colComercial || '').toLowerCase() || n === 'id_cial' || n === 'comercialid' || n === 'cli_com_id') return { kind: 'select', options: 'comerciales' };
+    if (n === 'tarifa' || n === 'id_tarifa' || n === 'cli_tarcli_id' || n === 'cli_tarifa_legacy') return { kind: 'select', options: 'tarifas' };
+    if (n === 'id_pais' || n === 'cli_pais_id') return { kind: 'select', options: 'paises' };
+    if (n === 'id_provincia' || n === 'cli_prov_id') return { kind: 'select', options: 'provincias' };
+    if (n === 'id_formapago' || n === 'id_forma_pago' || n === 'cli_formp_id') return { kind: 'select', options: 'formas_pago' };
+    if (n === 'id_tipocliente' || n === 'id_tipo_cliente' || n === 'cli_tipc_id') return { kind: 'select', options: 'tipos_clientes' };
     // Legacy: si solo existe TipoCliente (texto) y no existe Id_TipoCliente, renderizar select por nombre.
-    if ((n === 'tipocliente' || n === 'tipo_cliente') && !hasIdTipoCliente) return { kind: 'select', options: 'tipos_clientes_nombre' };
-    if (n === 'id_idioma') return { kind: 'select', options: 'idiomas' };
-    if (n === 'id_moneda') return { kind: 'select', options: 'monedas' };
-    if (n === 'id_cooperativa') return { kind: 'select', options: 'cooperativas' };
-    if (n === 'id_grupocompras' || n === 'id_grupo_compras') return { kind: 'select', options: 'grupos_compras' };
+    if ((n === 'tipocliente' || n === 'tipo_cliente' || n === 'cli_tipo_cliente_txt') && !hasIdTipoCliente) return { kind: 'select', options: 'tipos_clientes_nombre' };
+    if (n === 'id_idioma' || n === 'cli_idiom_id') return { kind: 'select', options: 'idiomas' };
+    if (n === 'id_moneda' || n === 'cli_mon_id') return { kind: 'select', options: 'monedas' };
+    if (n === 'id_cooperativa' || n === 'cli_coop_id') return { kind: 'select', options: 'cooperativas' };
+    if (n === 'id_grupocompras' || n === 'id_grupo_compras' || n === 'cli_grupcompr_id') return { kind: 'select', options: 'grupos_compras' };
     if (n.includes('email')) return { kind: 'input', type: 'email' };
     if (n.includes('telefono') || n.includes('movil') || n.includes('fax')) return { kind: 'input', type: 'tel' };
     if (n.includes('web') || n.includes('url')) return { kind: 'input', type: 'url' };
@@ -1911,7 +1978,7 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     if (ignore.has(String(col))) continue;
     const tabId = toTab(col);
     const spec = fieldKind(col);
-    const required = String(col) === 'Nombre_Razon_Social';
+    const required = String(col) === 'Nombre_Razon_Social' || String(col).toLowerCase() === 'cli_nombre_razon_social';
     const field = {
       name: col,
       label: labelize(col),
@@ -1938,10 +2005,10 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     const rest = arr.filter((f) => !set.has(f.name));
     return [...top, ...rest];
   };
-  byId.get('ident').fields = promote(byId.get('ident').fields, ['Nombre_Razon_Social', 'Nombre_Cial', 'TipoContacto', 'DNI_CIF', 'OK_KO']);
-  byId.get('contacto').fields = promote(byId.get('contacto').fields, ['Email', 'Telefono', 'Movil', 'Web']);
-  byId.get('direccion').fields = promote(byId.get('direccion').fields, ['Direccion', 'Direccion2', 'CodigoPostal', 'Poblacion', 'Id_Provincia', 'Id_Pais']);
-  byId.get('condiciones').fields = promote(byId.get('condiciones').fields, [meta?.colComercial || 'Id_Cial', 'Tarifa', 'Dto', 'Id_TipoCliente', 'Id_FormaPago', 'Id_Idioma', 'Id_Moneda']);
+  byId.get('ident').fields = promote(byId.get('ident').fields, ['Nombre_Razon_Social', 'Nombre_Cial', 'cli_nombre_razon_social', 'cli_nombre_cial', 'TipoContacto', 'cli_tipo_contacto', 'DNI_CIF', 'cli_dni_cif', 'OK_KO', 'cli_ok_ko', 'Id_EstdoCliente', 'cli_estcli_id']);
+  byId.get('contacto').fields = promote(byId.get('contacto').fields, ['Email', 'Telefono', 'Movil', 'Web', 'cli_email', 'cli_telefono', 'cli_movil']);
+  byId.get('direccion').fields = promote(byId.get('direccion').fields, ['Direccion', 'Direccion2', 'CodigoPostal', 'Poblacion', 'Id_Provincia', 'Id_Pais', 'cli_direccion', 'cli_codigo_postal', 'cli_poblacion', 'cli_prov_id', 'cli_pais_id']);
+  byId.get('condiciones').fields = promote(byId.get('condiciones').fields, [meta?.colComercial || 'Id_Cial', 'cli_com_id', 'Tarifa', 'cli_tarcli_id', 'cli_tarifa_legacy', 'Dto', 'cli_dto', 'Id_TipoCliente', 'cli_tipc_id', 'Id_FormaPago', 'cli_formp_id', 'Id_Idioma', 'cli_idiom_id', 'Id_Moneda', 'cli_mon_id']);
 
   // Eliminar pestañas sin campos salvo Avanzado/Agenda
   const tabsFiltered = tabs.filter((t) => t.id === 'avanzado' || t.id === 'agenda' || (t.fields && t.fields.length));
@@ -2356,6 +2423,8 @@ app.post('/clientes/:id/solicitar-asignacion', requireLogin, async (req, res, ne
     if (!item) return res.status(404).send('No encontrado');
     if (!(await db.isContactoAsignadoAPoolOSinAsignar(id))) return res.status(400).send('Este contacto ya está asignado a otro comercial.');
     await db.createSolicitudAsignacion(id, userId);
+    const clienteNombre = item?.Nombre_Razon_Social ?? item?.Nombre ?? ('Cliente ' + id);
+    sendPushToAdmins({ title: 'Nueva solicitud de asignación', body: `${res.locals.user?.nombre || 'Comercial'} solicita: ${clienteNombre}`, url: '/notificaciones' }).catch(() => {});
     return res.redirect(`/clientes/${id}?solicitud=ok`);
   } catch (e) {
     next(e);
