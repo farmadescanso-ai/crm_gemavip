@@ -1556,12 +1556,13 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
     const filters = { ...baseFilters };
     if (q) filters.q = q;
     if (tipoContacto && ['Empresa', 'Persona', 'Otros'].includes(tipoContacto)) filters.tipoContacto = tipoContacto;
-    const [items, total] = await Promise.all([
+    const [items, total, comerciales] = await Promise.all([
       db.getClientesOptimizadoPaged(filters, { limit, offset, sortBy: 'nombre', order }),
-      db.countClientesOptimizado(filters)
+      db.countClientesOptimizado(filters),
+      db.getComerciales().catch(() => [])
     ]);
     const poolId = admin ? null : await db.getComercialIdPool();
-    res.render('clientes', { items: items || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page, limit, total: total || 0 }, poolId: poolId || null });
+    res.render('clientes', { items: items || [], comerciales: comerciales || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page, limit, total: total || 0 }, poolId: poolId || null });
   } catch (e) {
     next(e);
   }

@@ -128,7 +128,14 @@
               <td><%= c.CodigoPostal ?? c.cli_codigo_postal ?? '' %></td>
               <td><%= c.Poblacion ?? c.cli_poblacion ?? '' %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>
-              <td><%= c.ComercialNombre ?? '' %></td>
+              <td><%
+  const cialId = Number(c.Id_Cial ?? c.id_cial ?? c.cli_com_id ?? 0) || 0;
+  let cialNombre = c.ComercialNombre ?? '';
+  if (!cialNombre && cialId && comerciales && comerciales.length) {
+    const com = comerciales.find(x => Number(x?.com_id ?? x?.id ?? x?.Id ?? 0) === cialId);
+    cialNombre = com?.com_nombre ?? com?.Nombre ?? com?.nombre ?? '';
+  }
+%><%= cialNombre || '' %></td>
               <td class="gv-contactos-col-estado"><%= c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? '' %></td>
             </tr>
           <% }) %>

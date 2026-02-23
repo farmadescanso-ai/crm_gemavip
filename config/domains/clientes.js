@@ -299,6 +299,10 @@ module.exports = {
     try {
       const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colNombreRazonSocial, colTipoContacto } = await this._ensureClientesMeta();
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
+      const comercialMeta = colComercial ? await this._ensureComercialesMeta().catch(() => null) : null;
+      const comercialPk = comercialMeta?.pk || 'com_id';
+      const comercialColNombre = comercialMeta?.colNombre || 'com_nombre';
+      const tComerciales = comercialMeta?.table || null;
       const whereConditions = [];
       const params = [];
       const colProv = colProvincia || 'cli_prov_id';
@@ -309,13 +313,13 @@ module.exports = {
           c.*,
           p.prov_nombre as ProvinciaNombre,
           tc.tipc_tipo as TipoClienteNombre,
-          ${colComercial ? 'cial.com_nombre as ComercialNombre' : 'NULL as ComercialNombre'},
+          ${(colComercial && tComerciales) ? `cial.\`${comercialColNombre}\` as ComercialNombre` : 'NULL as ComercialNombre'},
           ${colEstadoCliente ? 'ec.estcli_nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
           ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
         FROM clientes c
         LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id
         LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id
-        ${colComercial ? `LEFT JOIN comerciales cial ON c.\`${colComercial}\` = cial.com_id` : ''}
+        ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
         ${colEstadoCliente ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.estcli_id` : ''}
       `;
 
@@ -445,6 +449,10 @@ module.exports = {
     try {
       const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colTipoContacto, colNombreRazonSocial } = await this._ensureClientesMeta();
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
+      const comercialMeta = colComercial ? await this._ensureComercialesMeta().catch(() => null) : null;
+      const comercialPk = comercialMeta?.pk || 'com_id';
+      const comercialColNombre = comercialMeta?.colNombre || 'com_nombre';
+      const tComerciales = comercialMeta?.table || null;
       const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : 50;
       const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
       const compact = options.compact === true || options.compact === '1';
@@ -481,13 +489,13 @@ module.exports = {
           },
           p.prov_nombre as ProvinciaNombre,
           tc.tipc_tipo as TipoClienteNombre,
-          ${colComercial ? 'cial.com_nombre as ComercialNombre' : 'NULL as ComercialNombre'},
+          ${(colComercial && tComerciales) ? `cial.\`${comercialColNombre}\` as ComercialNombre` : 'NULL as ComercialNombre'},
           ${colEstadoCliente ? 'ec.estcli_nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
           ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
         FROM clientes c
         LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id
         LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id
-        ${colComercial ? `LEFT JOIN comerciales cial ON c.\`${colComercial}\` = cial.com_id` : ''}
+        ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
         ${colEstadoCliente ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.estcli_id` : ''}
       `;
 
