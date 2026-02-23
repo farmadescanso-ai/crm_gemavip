@@ -569,7 +569,8 @@ module.exports = {
       const params = [id];
       const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos');
       const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-      const { pk } = await this._ensureClientesMeta().catch(() => ({ pk: 'Id' }));
+      const { pk, colNombreRazonSocial } = await this._ensureClientesMeta().catch(() => ({ pk: 'Id', colNombreRazonSocial: 'cli_nombre_razon_social' }));
+      const colClienteNombre = colNombreRazonSocial || 'cli_nombre_razon_social';
       const tAgenda = await this._resolveAgendaTableName();
 
       const colsCC = await this._getColumns(tClientesContactos).catch(() => []);
@@ -603,6 +604,7 @@ module.exports = {
           cc.\`${ccVigenteHasta}\` AS VigenteHasta,
           cc.\`${ccMotivoBaja}\` AS MotivoBaja,
           c.*,
+          c.\`${colClienteNombre}\` AS Nombre_Razon_Social,
           a.\`${agCargo}\` AS ContactoCargo
         FROM \`${tClientesContactos}\` cc
         INNER JOIN \`${tClientes}\` c ON c.\`${pk}\` = cc.\`${ccIdCliente}\`
