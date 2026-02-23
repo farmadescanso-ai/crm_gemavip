@@ -126,10 +126,10 @@
           <% } %>
 
           <% if (canEdit) { %>
-            <form method="post" action="/clientes/<%= cid %>/agenda/link" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 12px;">
+            <form method="post" action="/clientes/<%= cid %>/agenda/link" id="gvAgendaLinkForm" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 12px;">
               <input type="hidden" name="agendaContactoId" id="gvAgendaContactoId" value="" />
-              <input type="search" id="gvAgendaSearch" placeholder="Buscar persona en Agenda..." style="min-width: 260px;" />
-              <input name="Rol" list="gvAgendaRoles" placeholder="Rol (opcional)" style="min-width:190px;" />
+              <input type="search" id="gvAgendaSearch" class="gv-input" placeholder="Buscar persona en Agenda..." style="min-width: 260px;" />
+              <input name="Rol" class="gv-input" list="gvAgendaRoles" placeholder="Rol (opcional)" style="min-width:190px;" />
               <datalist id="gvAgendaRoles">
                 <% (agendaRoles || []).forEach((r) => { %>
                   <option value="<%= r.Nombre %>"></option>
@@ -139,7 +139,12 @@
                 <input type="checkbox" name="Es_Principal" value="1" />
                 Principal
               </label>
-              <button class="btn secondary" type="submit">Asociar</button>
+              <button class="btn" type="submit" id="gvAgendaLinkBtn">
+                <span class="gv-btn-loading">
+                  <span class="gv-spinner" id="gvAgendaLinkSpinner" style="display:none;" aria-hidden="true"></span>
+                  <span id="gvAgendaLinkLabel">Asociar</span>
+                </span>
+              </button>
             </form>
             <small style="display:block; margin-top:6px; color: var(--gv-muted); font-weight:700;">
               Consejo: si marcas “Principal”, se desmarcarán otros principales vigentes de este cliente.
@@ -305,6 +310,24 @@
 
     document.addEventListener('click', function (e) {
       if (!box.contains(e.target)) hide();
+    });
+  }
+
+  var agendaLinkForm = document.getElementById('gvAgendaLinkForm');
+  var agendaLinkBtn = document.getElementById('gvAgendaLinkBtn');
+  var agendaLinkSpinner = document.getElementById('gvAgendaLinkSpinner');
+  var agendaLinkLabel = document.getElementById('gvAgendaLinkLabel');
+  if (agendaLinkForm && agendaLinkBtn && agendaLinkSpinner && agendaLinkLabel) {
+    agendaLinkForm.addEventListener('submit', function (e) {
+      var contactoId = document.getElementById('gvAgendaContactoId');
+      if (!contactoId || !contactoId.value) {
+        e.preventDefault();
+        return;
+      }
+      agendaLinkBtn.disabled = true;
+      agendaLinkBtn.setAttribute('aria-busy', 'true');
+      agendaLinkSpinner.style.display = 'inline-block';
+      agendaLinkLabel.textContent = 'Asociando…';
     });
   }
 })();

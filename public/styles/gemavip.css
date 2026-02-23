@@ -653,6 +653,31 @@ main.container{
   border-color: rgba(255,186,0,.85);
 }
 
+/* Spinner de carga (botones Asociar, etc.) */
+.gv-spinner{
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  animation: gvSpin 0.9s linear infinite;
+}
+.btn.secondary .gv-spinner{
+  border-color: rgba(12,20,58,.15);
+  border-top-color: var(--gv-primary);
+}
+@keyframes gvSpin{ to{ transform: rotate(360deg); } }
+.gv-btn-loading{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn:disabled .gv-btn-loading,
+.btn[aria-busy="true"] .gv-btn-loading{
+  opacity: .9;
+}
+
 .table-wrap{ overflow:auto; border-radius: 14px; border:1px solid var(--gv-border); }
 table{
   width: 100%;

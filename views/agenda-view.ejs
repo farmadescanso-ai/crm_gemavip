@@ -60,15 +60,20 @@
     <div style="margin-top: 14px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
         <h2 style="margin:0; font-size: 1.1rem;">Clientes asociados</h2>
-        <form method="post" action="/agenda/<%= id %>/clientes/link" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <form method="post" action="/agenda/<%= id %>/clientes/link" id="gvClienteLinkForm" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
           <input type="hidden" name="contactoId" value="<%= id %>" />
           <input type="hidden" name="clienteId" id="gvClienteId" value="" />
-          <input type="search" id="gvClienteSearch" placeholder="Buscar cliente..." style="min-width:260px;" />
+          <input type="search" id="gvClienteSearch" class="gv-input" placeholder="Buscar cliente..." style="min-width:260px;" />
           <label style="display:flex; align-items:center; gap:6px; font-weight:800; color: var(--gv-muted);">
             <input type="checkbox" name="Es_Principal" value="1" />
             Principal
           </label>
-          <button class="btn secondary" type="submit" id="gvClienteLinkBtn" disabled>Asociar</button>
+          <button class="btn" type="submit" id="gvClienteLinkBtn" disabled>
+            <span class="gv-btn-loading">
+              <span class="gv-spinner" id="gvClienteLinkSpinner" style="display:none;" aria-hidden="true"></span>
+              <span id="gvClienteLinkLabel">Asociar</span>
+            </span>
+          </button>
         </form>
       </div>
 
@@ -255,6 +260,19 @@
     if (!box.contains(e.target)) hide();
     if (!box.contains(e.target)) open = false;
   });
+
+  var linkForm = document.getElementById('gvClienteLinkForm');
+  var linkSpinner = document.getElementById('gvClienteLinkSpinner');
+  var linkLabel = document.getElementById('gvClienteLinkLabel');
+  if (linkForm && linkBtn && linkSpinner && linkLabel) {
+    linkForm.addEventListener('submit', function () {
+      if (!hidden.value) return;
+      linkBtn.disabled = true;
+      linkBtn.setAttribute('aria-busy', 'true');
+      linkSpinner.style.display = 'inline-block';
+      linkLabel.textContent = 'Asociando…';
+    });
+  }
 })();
 </script>
 

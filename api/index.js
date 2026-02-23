@@ -1713,6 +1713,9 @@ app.post('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   }
 });
 
+app.get('/agenda/:id(\\d+)/clientes/link', requireLogin, (req, res) => {
+  res.redirect(`/agenda/${req.params.id}`);
+});
 app.post('/agenda/:id(\\d+)/clientes/link', requireLogin, async (req, res, next) => {
   try {
     const contactoId = Number(req.params.id);
@@ -1738,6 +1741,9 @@ app.post('/agenda/:id(\\d+)/clientes/link', requireLogin, async (req, res, next)
   }
 });
 
+app.get('/agenda/:id(\\d+)/clientes/:clienteId(\\d+)/unlink', requireLogin, (req, res) => {
+  res.redirect(`/agenda/${req.params.id}`);
+});
 app.post('/agenda/:id(\\d+)/clientes/:clienteId(\\d+)/unlink', requireLogin, async (req, res, next) => {
   try {
     const contactoId = Number(req.params.id);
