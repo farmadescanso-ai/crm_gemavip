@@ -211,13 +211,18 @@ module.exports = {
 
   async getProvincias(filtroPais = null) {
     try {
-      let sql = 'SELECT * FROM provincias';
+      const t = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
+      if (!t) return [];
+      const cols = await this._getColumns(t).catch(() => []);
+      const colNombre = this._pickCIFromColumns(cols, ['prov_nombre', 'Nombre_provincia', 'Nombre', 'nombre', 'Provincia']) || 'Nombre';
+      const colCodigoPais = this._pickCIFromColumns(cols, ['prov_codpais', 'CodigoPais', 'codigo_pais']);
+      let sql = `SELECT * FROM \`${t}\``;
       const params = [];
-      if (filtroPais) {
-        sql += ' WHERE CodigoPais = ?';
+      if (filtroPais && colCodigoPais) {
+        sql += ` WHERE \`${colCodigoPais}\` = ?`;
         params.push(filtroPais);
       }
-      sql += ' ORDER BY Nombre ASC';
+      sql += ` ORDER BY \`${colNombre}\` ASC`;
       const rows = await this.query(sql, params);
       try {
         const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
@@ -259,7 +264,11 @@ module.exports = {
 
   async getPaises() {
     try {
-      const sql = 'SELECT * FROM paises ORDER BY Nombre_pais ASC';
+      const t = await this._resolveTableNameCaseInsensitive('paises').catch(() => null);
+      if (!t) return [];
+      const cols = await this._getColumns(t).catch(() => []);
+      const colNombre = this._pickCIFromColumns(cols, ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre', 'Pais']) || 'Nombre_pais';
+      const sql = `SELECT * FROM \`${t}\` ORDER BY \`${colNombre}\` ASC`;
       const rows = await this.query(sql);
       try {
         const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');

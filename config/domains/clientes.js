@@ -447,7 +447,20 @@ module.exports = {
   async getClientesOptimizadoPaged(filters = {}, options = {}) {
     let sql = '';
     try {
-      const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colTipoContacto, colNombreRazonSocial } = await this._ensureClientesMeta();
+      const meta = await this._ensureClientesMeta();
+      const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colTipoContacto, colNombreRazonSocial } = meta;
+      const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
+      const colCodigoPostal = this._pickCIFromColumns(colsClientes, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
+      const colPoblacion = this._pickCIFromColumns(colsClientes, ['cli_poblacion', 'Poblacion', 'poblacion']) || 'cli_poblacion';
+      const colDireccion = this._pickCIFromColumns(colsClientes, ['cli_direccion', 'Direccion', 'direccion']) || 'cli_direccion';
+      const colNombreCial = this._pickCIFromColumns(colsClientes, ['cli_nombre_cial', 'Nombre_Cial', 'NombreCial']) || 'cli_nombre_cial';
+      const colDniCif = this._pickCIFromColumns(colsClientes, ['cli_dni_cif', 'DNI_CIF', 'DniCif']) || 'cli_dni_cif';
+      const colEmail = this._pickCIFromColumns(colsClientes, ['cli_email', 'Email', 'email']) || 'cli_email';
+      const colTelefono = this._pickCIFromColumns(colsClientes, ['cli_telefono', 'Telefono', 'telefono']) || 'cli_telefono';
+      const colMovil = this._pickCIFromColumns(colsClientes, ['cli_movil', 'Movil', 'movil']) || 'cli_movil';
+      const colNumeroFarmacia = this._pickCIFromColumns(colsClientes, ['cli_numero_farmacia', 'NumeroFarmacia', 'numero_farmacia']);
+      const colNomContacto = this._pickCIFromColumns(colsClientes, ['cli_nom_contacto', 'NomContacto', 'nom_contacto']);
+      const colObservaciones = this._pickCIFromColumns(colsClientes, ['cli_observaciones', 'Observaciones', 'observaciones']);
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
       const comercialMeta = colComercial ? await this._ensureComercialesMeta().catch(() => null) : null;
       const comercialPk = comercialMeta?.pk || 'com_id';
@@ -623,7 +636,7 @@ module.exports = {
         if (isOnlyDigits && rawDigits.length > 0) {
           const n = Number(rawDigits);
           if (Number.isFinite(n) && n > 0) {
-            numericClause = `(c.\`${pk}\` = ? OR c.CodigoPostal = ?)`;
+            numericClause = `(c.\`${pk}\` = ? OR c.\`${colCodigoPostal}\` = ?)`;
             numericParams = [n, rawDigits];
           }
         }
@@ -689,30 +702,31 @@ module.exports = {
           if (compactSearch) {
             whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
               LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
-              OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-              OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colNombreCial}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colDniCif}\`,'')) LIKE ?
             ${numericClause ? '))' : ')'}`);
             if (numericParams) params.push(...numericParams);
             params.push(like, like, like);
           } else {
             whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
               LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
-              OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-              OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
-              OR LOWER(IFNULL(c.Email,'')) LIKE ?
-              OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
-              OR LOWER(IFNULL(c.Movil,'')) LIKE ?
-              OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
-              OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
-              OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
-              OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
-              OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
-              OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colNombreCial}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colDniCif}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colEmail}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colTelefono}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colMovil}\`,'')) LIKE ?
+              ${colNumeroFarmacia ? `OR LOWER(IFNULL(c.\`${colNumeroFarmacia}\`,'')) LIKE ?` : ''}
+              OR LOWER(IFNULL(c.\`${colDireccion}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colPoblacion}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colCodigoPostal}\`,'')) LIKE ?
+              ${colNomContacto ? `OR LOWER(IFNULL(c.\`${colNomContacto}\`,'')) LIKE ?` : ''}
+              ${colObservaciones ? `OR LOWER(IFNULL(c.\`${colObservaciones}\`,'')) LIKE ?` : ''}
               OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
               OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
             ${numericClause ? '))' : ')'}`);
             if (numericParams) params.push(...numericParams);
-            params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+            const nLike = 6 + (colNumeroFarmacia ? 1 : 0) + 3 + (colNomContacto ? 1 : 0) + (colObservaciones ? 1 : 0) + 2;
+            params.push(...Array(nLike).fill(like));
           }
         }
       }
@@ -743,7 +757,20 @@ module.exports = {
   async countClientesOptimizado(filters = {}) {
     let sql = '';
     try {
-      const { pk, colComercial, colEstadoCliente, colTipoContacto, colProvincia, colTipoCliente } = await this._ensureClientesMeta();
+      const meta = await this._ensureClientesMeta();
+      const { pk, colComercial, colEstadoCliente, colTipoContacto, colProvincia, colTipoCliente } = meta;
+      const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
+      const colCodigoPostal = this._pickCIFromColumns(colsClientes, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
+      const colPoblacion = this._pickCIFromColumns(colsClientes, ['cli_poblacion', 'Poblacion', 'poblacion']) || 'cli_poblacion';
+      const colDireccion = this._pickCIFromColumns(colsClientes, ['cli_direccion', 'Direccion', 'direccion']) || 'cli_direccion';
+      const colNombreCial = this._pickCIFromColumns(colsClientes, ['cli_nombre_cial', 'Nombre_Cial', 'NombreCial']) || 'cli_nombre_cial';
+      const colDniCif = this._pickCIFromColumns(colsClientes, ['cli_dni_cif', 'DNI_CIF', 'DniCif']) || 'cli_dni_cif';
+      const colEmail = this._pickCIFromColumns(colsClientes, ['cli_email', 'Email', 'email']) || 'cli_email';
+      const colTelefono = this._pickCIFromColumns(colsClientes, ['cli_telefono', 'Telefono', 'telefono']) || 'cli_telefono';
+      const colMovil = this._pickCIFromColumns(colsClientes, ['cli_movil', 'Movil', 'movil']) || 'cli_movil';
+      const colNumeroFarmacia = this._pickCIFromColumns(colsClientes, ['cli_numero_farmacia', 'NumeroFarmacia', 'numero_farmacia']);
+      const colNomContacto = this._pickCIFromColumns(colsClientes, ['cli_nom_contacto', 'NomContacto', 'nom_contacto']);
+      const colObservaciones = this._pickCIFromColumns(colsClientes, ['cli_observaciones', 'Observaciones', 'observaciones']);
       const whereConditions = [];
       const colProv = colProvincia || 'cli_prov_id';
       const colTipC = colTipoCliente || 'cli_tipc_id';
@@ -870,7 +897,7 @@ module.exports = {
         if (isOnlyDigits && rawDigits.length > 0) {
           const n = Number(rawDigits);
           if (Number.isFinite(n) && n > 0) {
-            numericClause = `(c.\`${pk}\` = ? OR c.CodigoPostal = ?)`;
+            numericClause = `(c.\`${pk}\` = ? OR c.\`${colCodigoPostal}\` = ?)`;
             numericParams = [n, rawDigits];
           }
         }
@@ -903,44 +930,46 @@ module.exports = {
             const like = `%${termLower}%`;
             whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
               LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
-              OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-              OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
-              OR LOWER(IFNULL(c.Email,'')) LIKE ?
-              OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
-              OR LOWER(IFNULL(c.Movil,'')) LIKE ?
-              OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
-              OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
-              OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
-              OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
-              OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
-              OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colNombreCial}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colDniCif}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colEmail}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colTelefono}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colMovil}\`,'')) LIKE ?
+              ${colNumeroFarmacia ? `OR LOWER(IFNULL(c.\`${colNumeroFarmacia}\`,'')) LIKE ?` : ''}
+              OR LOWER(IFNULL(c.\`${colDireccion}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colPoblacion}\`,'')) LIKE ?
+              OR LOWER(IFNULL(c.\`${colCodigoPostal}\`,'')) LIKE ?
+              ${colNomContacto ? `OR LOWER(IFNULL(c.\`${colNomContacto}\`,'')) LIKE ?` : ''}
+              ${colObservaciones ? `OR LOWER(IFNULL(c.\`${colObservaciones}\`,'')) LIKE ?` : ''}
               OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
               OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
             ${numericClause ? '))' : ')'}`);
             if (numericParams) params.push(...numericParams);
-            params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+            const nLikeFt = 6 + (colNumeroFarmacia ? 1 : 0) + 3 + (colNomContacto ? 1 : 0) + (colObservaciones ? 1 : 0) + 2;
+            params.push(...Array(nLikeFt).fill(like));
           }
         } else if (canTextSearch) {
           const termLower = raw.toLowerCase();
           const like = `%${termLower}%`;
           whereConditions.push(`${numericClause ? `(${numericClause} OR (` : '('}
             LOWER(IFNULL(c.cli_nombre_razon_social,'')) LIKE ?
-            OR LOWER(IFNULL(c.Nombre_Cial,'')) LIKE ?
-            OR LOWER(IFNULL(c.DNI_CIF,'')) LIKE ?
-            OR LOWER(IFNULL(c.Email,'')) LIKE ?
-            OR LOWER(IFNULL(c.Telefono,'')) LIKE ?
-            OR LOWER(IFNULL(c.Movil,'')) LIKE ?
-            OR LOWER(IFNULL(c.NumeroFarmacia,'')) LIKE ?
-            OR LOWER(IFNULL(c.Direccion,'')) LIKE ?
-            OR LOWER(IFNULL(c.Poblacion,'')) LIKE ?
-            OR LOWER(IFNULL(c.CodigoPostal,'')) LIKE ?
-            OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
-            OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
+            OR LOWER(IFNULL(c.\`${colNombreCial}\`,'')) LIKE ?
+            OR LOWER(IFNULL(c.\`${colDniCif}\`,'')) LIKE ?
+            OR LOWER(IFNULL(c.\`${colEmail}\`,'')) LIKE ?
+            OR LOWER(IFNULL(c.\`${colTelefono}\`,'')) LIKE ?
+            OR LOWER(IFNULL(c.\`${colMovil}\`,'')) LIKE ?
+            ${colNumeroFarmacia ? `OR LOWER(IFNULL(c.\`${colNumeroFarmacia}\`,'')) LIKE ?` : ''}
+            OR LOWER(IFNULL(c.\`${colDireccion}\`,'')) LIKE ?
+            OR LOWER(IFNULL(c.\`${colPoblacion}\`,'')) LIKE ?
+            OR LOWER(IFNULL(c.\`${colCodigoPostal}\`,'')) LIKE ?
+            ${colNomContacto ? `OR LOWER(IFNULL(c.\`${colNomContacto}\`,'')) LIKE ?` : ''}
+            ${colObservaciones ? `OR LOWER(IFNULL(c.\`${colObservaciones}\`,'')) LIKE ?` : ''}
             OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
             OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
           ${numericClause ? '))' : ')'}`);
           if (numericParams) params.push(...numericParams);
-          params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
+          const nLikeCount = 6 + (colNumeroFarmacia ? 1 : 0) + 3 + (colNomContacto ? 1 : 0) + (colObservaciones ? 1 : 0) + 2;
+          params.push(...Array(nLikeCount).fill(like));
         }
       }
 

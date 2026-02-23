@@ -364,7 +364,9 @@ const TABLE_LABEL_MAP = {
   tipos_clientes: ['tipc_tipo', 'Tipo', 'Nombre', 'nombre'],
   idiomas: ['idiom_nombre', 'Nombre', 'Idioma', 'descripcion'],
   monedas: ['mon_nombre', 'Nombre', 'Moneda', 'descripcion', 'Codigo', 'ISO'],
-  formas_pago: ['formp_nombre', 'FormaPago', 'Nombre', 'nombre']
+  formas_pago: ['formp_nombre', 'FormaPago', 'Nombre', 'nombre'],
+  provincias: ['prov_nombre', 'Nombre_provincia', 'Nombre', 'nombre', 'Provincia'],
+  paises: ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre', 'Pais']
 };
 
 async function loadSimpleCatalogForSelect(db, tableKey, { labelCandidates } = {}) {
@@ -2118,8 +2120,8 @@ app.get('/clientes/new', requireLogin, async (_req, res, next) => {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
-      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
@@ -2162,8 +2164,8 @@ app.post('/clientes/new', requireLogin, async (req, res, next) => {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
-      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
@@ -2279,8 +2281,8 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
-      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
@@ -2345,8 +2347,8 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
-      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
-      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
@@ -2400,8 +2402,8 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     const [item, meta, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras] = await Promise.all([
       db.getClienteById(id),
       db._ensureClientesMeta().catch(() => null),
-      _n(db.getProvincias && db.getProvincias().catch(() => []), []),
-      _n(db.getPaises && db.getPaises().catch(() => []), []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
