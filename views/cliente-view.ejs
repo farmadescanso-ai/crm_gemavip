@@ -1,11 +1,11 @@
-<%- include('partials/header', { title: 'Contacto' }) %>
+<%- include('partials/header', { title: 'Cliente' }) %>
 
-<% const cid = (item && (item.Id ?? item.id)) ? (item.Id ?? item.id) : ''; %>
+<% const cid = (item && (item.cli_id ?? item.clienteId ?? item.Id ?? item.id)) ? (item.cli_id ?? item.clienteId ?? item.Id ?? item.id) : ''; %>
 
 <section class="card gv-cliente-form" style="max-width: 1080px; margin: 0 auto;">
   <div class="card-hd">
-    <h1 class="card-title">Contacto #<%= cid %></h1>
-    <p class="card-subtitle"><%= item?.Nombre_Razon_Social ?? item?.Nombre ?? 'Detalle de contacto' %></p>
+    <h1 class="card-title">Cliente #<%= cid %></h1>
+    <p class="card-subtitle"><%= item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? item?.Nombre ?? 'Detalle de cliente' %></p>
   </div>
   <div class="card-bd">
     <% if (typeof solicitud !== 'undefined' && solicitud === 'ok') { %>
@@ -59,7 +59,13 @@
       const findById = (rows, id) => {
         const cur = Number(id ?? 0) || 0;
         if (!cur) return null;
-        return (rows || []).find((r) => Number(r?.id ?? r?.Id ?? r?.ID ?? 0) === cur) || null;
+        const pkKeys = ['id', 'Id', 'ID', 'pais_id', 'formp_id', 'idi_id', 'idiom_id', 'mon_id', 'tipc_id', 'prov_id'];
+        return (rows || []).find((r) => {
+          for (const k of pkKeys) {
+            if (r[k] !== undefined && r[k] !== null && Number(r[k]) === cur) return true;
+          }
+          return false;
+        }) || null;
       };
       const displayForField = (f) => {
         const name = f?.name;
@@ -173,14 +179,14 @@
                 <% } else { %>
                   <% agendaContactos.forEach((a) => { %>
                     <%
-                      const aid = a?.Id_Contacto ?? a?.id_contacto ?? a?.Id ?? a?.id ?? '';
-                      const anombre = [a?.Nombre, a?.Apellidos].filter(Boolean).join(' ').trim() || ('Contacto ' + aid);
+                      const aid = a?.Id_Contacto ?? a?.id_contacto ?? a?.ag_id ?? a?.Id ?? a?.id ?? '';
+                      const anombre = [a?.ag_nombre ?? a?.Nombre, a?.ag_apellidos ?? a?.Apellidos].filter(Boolean).join(' ').trim() || ('Contacto ' + aid);
                       const vigente = !a?.VigenteHasta;
                       const principal = String(a?.Es_Principal ?? 0) === '1';
                     %>
                     <tr>
                       <td><a href="/agenda/<%= aid %>"><%= anombre %></a></td>
-                      <td><%= a?.Empresa ?? '' %></td>
+                      <td><%= a?.ag_empresa ?? a?.Empresa ?? '' %></td>
                       <td><%= a?.Rol ?? '' %></td>
                       <td><%= principal ? 'Sí' : '—' %></td>
                       <td><%= vigente ? 'Sí' : 'No' %></td>

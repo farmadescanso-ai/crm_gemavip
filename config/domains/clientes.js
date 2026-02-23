@@ -147,22 +147,32 @@ module.exports = {
       const tProvincias = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
       const tComerciales = colComercial ? await this._resolveTableNameCaseInsensitive('comerciales').catch(() => null) : null;
       const comercialMeta = (colComercial && tComerciales) ? await this._ensureComercialesMeta().catch(() => null) : null;
-      const comercialPk = comercialMeta?.pk || 'id';
-      const comercialColNombre = comercialMeta?.colNombre || 'Nombre';
+      const comercialPk = comercialMeta?.pk || 'com_id';
+      const comercialColNombre = comercialMeta?.colNombre || 'com_nombre';
+
+      const colsProv = tProvincias ? await this._getColumns(tProvincias).catch(() => []) : [];
+      const colsTipc = tTiposClientes ? await this._getColumns(tTiposClientes).catch(() => []) : [];
+      const colsEst = tEstados ? await this._getColumns(tEstados).catch(() => []) : [];
+      const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'prov_id';
+      const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre']) || 'Nombre';
+      const tipcPk = this._pickCIFromColumns(colsTipc, ['tipc_id', 'id', 'Id']) || 'tipc_id';
+      const tipcTipo = this._pickCIFromColumns(colsTipc, ['tipc_tipo', 'Tipo', 'tipo']) || 'Tipo';
+      const estcliNombre = this._pickCIFromColumns(colsEst, ['estcli_nombre', 'Nombre', 'nombre']) || 'Nombre';
+      const estcliPk = this._pickCIFromColumns(colsEst, ['estcli_id', 'id', 'Id']) || 'estcli_id';
 
       const sql = `
         SELECT
           c.*,
-          ${tProvincias ? 'p.Nombre as ProvinciaNombre' : 'NULL as ProvinciaNombre'},
-          ${tTiposClientes ? 'tc.Tipo as TipoClienteNombre' : 'NULL as TipoClienteNombre'},
+          ${tProvincias ? `p.\`${provNombre}\` as ProvinciaNombre` : 'NULL as ProvinciaNombre'},
+          ${tTiposClientes ? `tc.\`${tipcTipo}\` as TipoClienteNombre` : 'NULL as TipoClienteNombre'},
           ${(colComercial && tComerciales) ? `cial.\`${comercialColNombre}\` as ComercialNombre` : 'NULL as ComercialNombre'},
-          ${(colEstadoCliente && tEstados) ? 'ec.Nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
+          ${(colEstadoCliente && tEstados) ? `ec.\`${estcliNombre ?? 'Nombre'}\` as EstadoClienteNombre` : 'NULL as EstadoClienteNombre'},
           ${(colEstadoCliente) ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
         FROM \`${tClientes}\` c
-        ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.\`${colProvincia}\` = p.id` : ''}
-        ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${colTipoCliente}\` = tc.id` : ''}
+        ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.\`${colProvincia}\` = p.\`${provPk}\`` : ''}
+        ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${colTipoCliente}\` = tc.\`${tipcPk}\`` : ''}
         ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
-        ${(colEstadoCliente && tEstados) ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.estcli_id` : ''}
+        ${(colEstadoCliente && tEstados) ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.\`${estcliPk}\`` : ''}
         WHERE c.\`${pk}\` = ?
         LIMIT 1
       `;

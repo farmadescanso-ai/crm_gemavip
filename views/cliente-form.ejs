@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: mode === 'edit' ? 'Editar contacto' : 'Nuevo contacto' }) %>
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' }) %>
 
 <% const missingFieldsList = (typeof missingFields !== 'undefined' && Array.isArray(missingFields)) ? missingFields : []; %>
 <% const cid = (typeof clienteId !== 'undefined' && clienteId != null && clienteId !== '') ? clienteId : (item && (item.Id ?? item.id ?? item.cli_id ?? (meta && meta.pk ? item[meta.pk] : null))); %>
@@ -7,7 +7,7 @@
 
 <section class="card gv-cliente-form" style="max-width: 1080px; margin: 0 auto;">
   <div class="card-hd">
-    <h1 class="card-title"><%= mode === 'edit' ? 'Editar contacto' : 'Nuevo contacto' %></h1>
+    <h1 class="card-title"><%= mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' %></h1>
     <p class="card-subtitle">Revisa y completa la ficha del cliente. Puedes moverte por pestañas sin perder cambios.</p>
   </div>
   <div class="card-bd">
@@ -344,6 +344,36 @@
       setTab(b.getAttribute('data-tab'));
     });
   });
+
+  // Auto-rellenar provincia al cambiar código postal
+  var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');
+  var provSelect = form.querySelector('select[name="cli_prov_id"], select[name="Id_Provincia"], select[name="id_provincia"]');
+  if (cpInput && provSelect) {
+    var cpTimeout = null;
+    function tryProvinciaFromCp() {
+      var cp = String(cpInput.value || '').trim().replace(/\s+/g, '');
+      if (cp.length < 2) return;
+      fetch('/api/provincia-by-cp?cp=' + encodeURIComponent(cp), { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+          if (json && json.ok && json.provinciaId && provSelect) {
+            var opt = provSelect.querySelector('option[value="' + String(json.provinciaId) + '"]');
+            if (opt) {
+              provSelect.value = String(json.provinciaId);
+              if (typeof form.dispatchEvent === 'function') {
+                form.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+          }
+        })
+        .catch(function () {});
+    }
+    cpInput.addEventListener('blur', tryProvinciaFromCp);
+    cpInput.addEventListener('input', function () {
+      if (cpTimeout) clearTimeout(cpTimeout);
+      cpTimeout = setTimeout(tryProvinciaFromCp, 600);
+    });
+  }
 
   // Dirty tracking
   var dirtyHint = document.getElementById('gvDirtyHint');

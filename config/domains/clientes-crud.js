@@ -104,15 +104,17 @@ module.exports = {
         }
       }
 
-      if (payload.CodigoPostal && !payload.Id_Provincia) {
+      const cpVal = payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal ?? '';
+      const provVal = payload.cli_prov_id ?? payload.Id_Provincia ?? payload.id_provincia;
+      if (cpVal && (provVal === undefined || provVal === null || provVal === '')) {
         try {
           const { obtenerProvinciaPorCodigoPostal } = require('../../scripts/asociar-provincia-por-codigo-postal');
           if (provincias && provincias.length > 0) {
-            const provinciaIdFromCP = obtenerProvinciaPorCodigoPostal(payload.CodigoPostal, provincias);
+            const provinciaIdFromCP = obtenerProvinciaPorCodigoPostal(String(cpVal).trim(), provincias);
             if (provinciaIdFromCP) {
-              payload.Id_Provincia = provinciaIdFromCP;
-              const provincia = provincias.find(p => p.id === provinciaIdFromCP);
-              if (provincia && !payload.Id_Pais && !payload.Pais) {
+              payload.cli_prov_id = payload.Id_Provincia = provinciaIdFromCP;
+              const provincia = provincias.find(p => (p?.id ?? p?.Id ?? p?.prov_id) == provinciaIdFromCP);
+              if (provincia && (payload.cli_pais_id ?? payload.Id_Pais ?? payload.Pais) == null) {
                 const pais = await this.getPaisByCodigoISO(provincia.CodigoPais);
                 if (pais) {
                   payload.Id_Pais = pais.id;
@@ -347,15 +349,17 @@ module.exports = {
         }
       }
 
-      if (payload.CodigoPostal && !payload.Id_Provincia) {
+      const cpValCreate = payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal ?? '';
+      const provValCreate = payload.cli_prov_id ?? payload.Id_Provincia ?? payload.id_provincia;
+      if (cpValCreate && (provValCreate === undefined || provValCreate === null || provValCreate === '')) {
         try {
           const { obtenerProvinciaPorCodigoPostal } = require('../../scripts/asociar-provincia-por-codigo-postal');
           if (provincias && provincias.length > 0) {
-            const provinciaId = obtenerProvinciaPorCodigoPostal(payload.CodigoPostal, provincias);
+            const provinciaId = obtenerProvinciaPorCodigoPostal(String(cpValCreate).trim(), provincias);
             if (provinciaId) {
-              payload.Id_Provincia = provinciaId;
-              const provincia = provincias.find(p => p.id === provinciaId);
-              if (provincia && !payload.Id_Pais && !payload.Pais) {
+              payload.cli_prov_id = payload.Id_Provincia = provinciaId;
+              const provincia = provincias.find(p => (p?.id ?? p?.Id ?? p?.prov_id) == provinciaId);
+              if (provincia && (payload.cli_pais_id ?? payload.Id_Pais ?? payload.Pais) == null) {
                 const pais = await this.getPaisByCodigoISO(provincia.CodigoPais);
                 if (pais) {
                   payload.Id_Pais = pais.id;

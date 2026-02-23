@@ -100,7 +100,7 @@ router.get(
     const rows = await db.getContactos({ search: qq, limit, offset: 0, includeInactivos: false }).catch(() => []);
     const items = (rows || [])
       .map((r) => {
-        const id = r?.Id ?? r?.id ?? null;
+        const id = r?.ag_id ?? r?.Id ?? r?.id ?? null;
         if (!id) return null;
         const nombre = [r?.Nombre, r?.Apellidos].filter(Boolean).join(' ').trim();
         const empresa = String(r?.Empresa || '').trim();
