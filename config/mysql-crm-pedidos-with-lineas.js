@@ -107,7 +107,6 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
 
       const conn = await this.pool.getConnection();
       try {
-        try { await conn.query("SET time_zone = 'Europe/Madrid'"); } catch (_) {}
         await conn.beginTransaction();
 
         // Leer pedido actual (dentro de la transacción)

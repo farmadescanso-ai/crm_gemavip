@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Portal CRM para comerciales de Farmadescaso 2021 SL",
   "main": "api/index.js",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node api/index.js",
     "dev": "nodemon api/index.js",
@@ -45,9 +47,9 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.10",
     "pdf-parse": "^1.1.1",
-    "puppeteer": "^22.5.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "web-push": "^3.6.7",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

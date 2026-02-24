@@ -882,7 +882,6 @@ const base = {
 
       const conn = await this.pool.getConnection();
       try {
-        try { await conn.query("SET time_zone = 'Europe/Madrid'"); } catch (_) {}
         await conn.beginTransaction();
 
         let deletedLineas = 0;

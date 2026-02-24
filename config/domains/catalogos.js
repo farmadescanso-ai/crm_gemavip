@@ -62,9 +62,10 @@ module.exports = {
     try {
       const table = await this._getFormasPagoTableName();
       if (!table) throw new Error('La tabla de formas de pago no existe (formas_pago/Formas_Pago).');
-      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(payload).map(() => '?').join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(key => `\`${key}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+      const values = keys.map(key => payload[key]);
       const sql = `INSERT INTO ${table} (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
       return { insertId: result.insertId || result.insertId };
@@ -80,8 +81,9 @@ module.exports = {
       if (!table) throw new Error('La tabla de formas de pago no existe (formas_pago/Formas_Pago).');
       const cols = await this._getColumns(table).catch(() => []);
       const pk = this._pickCIFromColumns(cols, ['formp_id', 'id', 'Id']) || 'id';
-      const fields = Object.keys(payload).map(key => `\`${key}\` = ?`).join(', ');
-      const values = [...Object.values(payload), id];
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(key => `\`${key}\` = ?`).join(', ');
+      const values = [...keys.map(key => payload[key]), id];
       const sql = `UPDATE ${table} SET ${fields} WHERE \`${pk}\` = ?`;
       await this.query(sql, values);
       return { affectedRows: 1 };
@@ -166,9 +168,10 @@ module.exports = {
     try {
       const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => null);
       const table = t || 'especialidades';
-      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(payload).map(() => '?').join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(key => `\`${key}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+      const values = keys.map(key => payload[key]);
       const sql = `INSERT INTO \`${table}\` (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
       return { insertId: result.insertId || result.insertId };
@@ -184,8 +187,9 @@ module.exports = {
       const table = t || 'especialidades';
       const cols = await this._getColumns(table).catch(() => []);
       const pk = this._pickCIFromColumns(cols, ['esp_id', 'id', 'Id']) || 'id';
-      const fields = Object.keys(payload).map(key => `\`${key}\` = ?`).join(', ');
-      const values = [...Object.values(payload), id];
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(key => `\`${key}\` = ?`).join(', ');
+      const values = [...keys.map(key => payload[key]), id];
       const sql = `UPDATE \`${table}\` SET ${fields} WHERE \`${pk}\` = ?`;
       await this.query(sql, values);
       return { affectedRows: 1 };

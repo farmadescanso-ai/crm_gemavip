@@ -80,11 +80,13 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'crm_gemavip', timestamp: new Date().toISOString() });
 });
 
-// Diagnóstico de login: DEBUG_LOGIN=1 o DEBUG_LOGIN_SECRET=xxx. GET /api/debug-login?email=tu@email.com
-// Con secret: /api/debug-login?secret=TU_SECRETO&email=tu@email.com
+// Diagnóstico de login: solo en desarrollo y con DEBUG_LOGIN_SECRET. Nunca en producción.
+// GET /api/debug-login?secret=TU_SECRETO&email=tu@email.com
 app.get('/api/debug-login', async (req, res) => {
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
   const secret = process.env.DEBUG_LOGIN_SECRET;
-  const hasAccess = process.env.DEBUG_LOGIN === '1' || (secret && secret === String(req.query?.secret || '').trim());
+  const providedSecret = String(req.query?.secret || '').trim();
+  const hasAccess = !isProd && secret && secret.length >= 16 && secret === providedSecret;
   if (!hasAccess) {
     return res.status(404).json({ error: 'No disponible' });
   }
@@ -171,6 +173,7 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
+app.set('view cache', process.env.NODE_ENV === 'production');
 app.use('/assets', express.static(path.join(__dirname, '..', 'public')));
 
 // Sesión por inactividad:
@@ -199,10 +202,16 @@ const sessionStore = new MySQLStore({
   expiration: sessionMaxAgeMs
 });
 
+const sessionSecret = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' || process.env.VERCEL ? null : 'dev-secret-change-me');
+if (!sessionSecret && (process.env.NODE_ENV === 'production' || process.env.VERCEL)) {
+  console.error('❌ SESSION_SECRET debe estar definido en producción. Configúralo en las variables de entorno.');
+  process.exit(1);
+}
+
 app.use(
   session({
     name: 'crm_session',
-    secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+    secret: sessionSecret || 'dev-secret-change-me',
     resave: false,
     saveUninitialized: false,
     rolling: true,
@@ -614,7 +623,10 @@ app.post('/login', async (req, res, next) => {
     if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
       ok = await bcrypt.compare(password, stored);
     } else {
-      // Legacy: comparación directa (texto plano)
+      // Legacy: comparación directa (texto plano). Migrar a bcrypt.
+      if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+        console.warn('[SEGURIDAD] Contraseña en texto plano detectada. Migrar a bcrypt para el comercial:', _n(comercial.com_email, comercial.Email));
+      }
       ok = password === String(stored).trim();
     }
 
@@ -1571,277 +1583,6 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
 });
 
 // ===========================
-// AGENDA DESACTIVADA - redirige a dashboard
-// ===========================
-app.use('/agenda', requireLogin, (_req, res) => res.redirect('/dashboard?agenda=desactivada'));
-
-// Rutas agenda originales eliminadas (ver historial git para restaurar)
-if (false) {
-app.get('/agenda', requireLogin, async (req, res, next) => {
-  try {
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
-    const q = typeof req.query.q === 'string' ? String(req.query.q).trim() : '';
-    const items = await db.getContactos({ search: q, limit, offset, includeInactivos: false }).catch(() => []);
-    const totalGuess = (Array.isArray(items) && items.length === limit) ? (page * limit + 1) : (offset + (items?.length || 0));
-    res.render('agenda', { items: items || [], q, paging: { page, limit, total: totalGuess } });
-  } catch (e) { next(e); }
-});
-app.get('/agenda/new', requireLogin, async (_req, res, next) => {
-  try {
-    const [roles, especialidades] = await Promise.all([
-      db.getAgendaRoles().catch(() => []),
-      db.getAgendaEspecialidades().catch(() => [])
-    ]);
-    res.render('agenda-form', { mode: 'create', item: {}, error: null, roles: roles || [], especialidades: especialidades || [] });
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.post('/agenda/new', requireLogin, async (req, res, next) => {
-  try {
-    const body = req.body || {};
-    const cargoFromSelect = String(body.Cargo || '').trim();
-    const cargoNew = String(body.CargoNew || '').trim();
-    const especFromSelect = String(body.Especialidad || '').trim();
-    const especNew = String(body.EspecialidadNew || '').trim();
-
-    const legacyPrefix = '__legacy_text__:';
-    const cargoIsLegacy = cargoFromSelect.startsWith(legacyPrefix);
-    const especIsLegacy = especFromSelect.startsWith(legacyPrefix);
-
-    const cargoFinalText =
-      cargoFromSelect === '__add__' ? cargoNew
-        : cargoIsLegacy ? cargoFromSelect.slice(legacyPrefix.length)
-          : '';
-    const especFinalText =
-      especFromSelect === '__add__' ? especNew
-        : especIsLegacy ? especFromSelect.slice(legacyPrefix.length)
-          : '';
-
-    const cargoId = (!cargoIsLegacy && cargoFromSelect && cargoFromSelect !== '__add__' && /^[0-9]+$/.test(cargoFromSelect)) ? Number(cargoFromSelect) : null;
-    const especId = (!especIsLegacy && especFromSelect && especFromSelect !== '__add__' && /^[0-9]+$/.test(especFromSelect)) ? Number(especFromSelect) : null;
-
-    const [rolesArr, especArr] = await Promise.all([
-      db.getAgendaRoles().catch(() => []),
-      db.getAgendaEspecialidades().catch(() => [])
-    ]);
-
-    const payload = {
-      Nombre: String(body.Nombre || '').trim().slice(0, 120),
-      Apellidos: String(body.Apellidos || '').trim().slice(0, 180) || null,
-      Cargo: null,
-      Especialidad: null,
-      Id_TipoCargoRol: cargoId || null,
-      Id_Especialidad: especId || null,
-      Empresa: String(body.Empresa || '').trim().slice(0, 180) || null,
-      Email: String(body.Email || '').trim().slice(0, 255) || null,
-      Movil: String(body.Movil || '').trim().slice(0, 20) || null,
-      Telefono: String(body.Telefono || '').trim().slice(0, 20) || null,
-      Extension: String(body.Extension || '').trim().slice(0, 10) || null,
-      Notas: String(body.Notas || '').trim().slice(0, 2000) || null,
-      Activo: (String(body.Activo || '1').trim() === '0') ? 0 : 1
-    };
-    if (!payload.Nombre) {
-      return res.render('agenda-form', { mode: 'create', item: payload, error: 'El campo Nombre es obligatorio', roles: rolesArr || [], especialidades: especArr || [] });
-    }
-
-    // Cargo/tipo/rol
-    if (cargoFinalText && String(cargoFinalText).trim()) {
-      const r = await db.createAgendaRol(String(cargoFinalText).trim()).catch(() => null);
-      if (r?.insertId) payload.Id_TipoCargoRol = r.insertId;
-      if (r?.nombre) payload.Cargo = r.nombre;
-    } else if (payload.Id_TipoCargoRol) {
-      const found = (rolesArr || []).find((x) => Number(x?.id) === Number(payload.Id_TipoCargoRol));
-      if (found?.Nombre) payload.Cargo = String(found.Nombre);
-    }
-
-    // Especialidad
-    if (especFinalText && String(especFinalText).trim()) {
-      const r = await db.createAgendaEspecialidad(String(especFinalText).trim()).catch(() => null);
-      if (r?.insertId) payload.Id_Especialidad = r.insertId;
-      if (r?.nombre) payload.Especialidad = r.nombre;
-    } else if (payload.Id_Especialidad) {
-      const found = (especArr || []).find((x) => Number(x?.id) === Number(payload.Id_Especialidad));
-      if (found?.Nombre) payload.Especialidad = String(found.Nombre);
-    }
-
-    const result = await db.createContacto(payload);
-    const id = result?.insertId;
-    return res.redirect(id ? `/agenda/${id}?created=1` : '/agenda');
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.get('/agenda/:id(\\d+)', requireLogin, async (req, res, next) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getContactoById(id);
-    if (!item) return res.status(404).send('No encontrado');
-    const [clientes, roles] = await Promise.all([
-      db.getClientesByContacto(id, { includeHistorico: true }).catch(() => []),
-      db.getAgendaRoles().catch(() => [])
-    ]);
-    const created = String(req.query.created || '') === '1';
-    res.render('agenda-view', {
-      item,
-      clientes: clientes || [],
-      roles: roles || [],
-      success: created ? 'Contacto creado.' : null,
-      error: req.query.error ?? null,
-      admin: isAdminUser(res.locals.user)
-    });
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.get('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const item = await db.getContactoById(id);
-    if (!item) return res.status(404).send('No encontrado');
-    const [roles, especialidades] = await Promise.all([
-      db.getAgendaRoles().catch(() => []),
-      db.getAgendaEspecialidades().catch(() => [])
-    ]);
-    res.render('agenda-form', { mode: 'edit', item, error: null, roles: roles || [], especialidades: especialidades || [] });
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.post('/agenda/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const current = await db.getContactoById(id);
-    if (!current) return res.status(404).send('No encontrado');
-    const body = req.body || {};
-    const cargoFromSelect = String(body.Cargo || '').trim();
-    const cargoNew = String(body.CargoNew || '').trim();
-    const especFromSelect = String(body.Especialidad || '').trim();
-    const especNew = String(body.EspecialidadNew || '').trim();
-
-    const legacyPrefix = '__legacy_text__:';
-    const cargoIsLegacy = cargoFromSelect.startsWith(legacyPrefix);
-    const especIsLegacy = especFromSelect.startsWith(legacyPrefix);
-
-    const cargoFinalText =
-      cargoFromSelect === '__add__' ? cargoNew
-        : cargoIsLegacy ? cargoFromSelect.slice(legacyPrefix.length)
-          : '';
-    const especFinalText =
-      especFromSelect === '__add__' ? especNew
-        : especIsLegacy ? especFromSelect.slice(legacyPrefix.length)
-          : '';
-
-    const cargoId = (!cargoIsLegacy && cargoFromSelect && cargoFromSelect !== '__add__' && /^[0-9]+$/.test(cargoFromSelect)) ? Number(cargoFromSelect) : null;
-    const especId = (!especIsLegacy && especFromSelect && especFromSelect !== '__add__' && /^[0-9]+$/.test(especFromSelect)) ? Number(especFromSelect) : null;
-
-    const [rolesArr, especArr] = await Promise.all([
-      db.getAgendaRoles().catch(() => []),
-      db.getAgendaEspecialidades().catch(() => [])
-    ]);
-
-    const payload = {
-      Nombre: String(body.Nombre || '').trim().slice(0, 120),
-      Apellidos: String(body.Apellidos || '').trim().slice(0, 180) || null,
-      Cargo: null,
-      Especialidad: null,
-      Id_TipoCargoRol: cargoId || null,
-      Id_Especialidad: especId || null,
-      Empresa: String(body.Empresa || '').trim().slice(0, 180) || null,
-      Email: String(body.Email || '').trim().slice(0, 255) || null,
-      Movil: String(body.Movil || '').trim().slice(0, 20) || null,
-      Telefono: String(body.Telefono || '').trim().slice(0, 20) || null,
-      Extension: String(body.Extension || '').trim().slice(0, 10) || null,
-      Notas: String(body.Notas || '').trim().slice(0, 2000) || null,
-      Activo: (String(body.Activo || '1').trim() === '0') ? 0 : 1
-    };
-    if (!payload.Nombre) {
-      return res.render('agenda-form', { mode: 'edit', item: { ...current, ...payload }, error: 'El campo Nombre es obligatorio', roles: rolesArr || [], especialidades: especArr || [] });
-    }
-
-    if (cargoFinalText && String(cargoFinalText).trim()) {
-      const r = await db.createAgendaRol(String(cargoFinalText).trim()).catch(() => null);
-      if (r?.insertId) payload.Id_TipoCargoRol = r.insertId;
-      if (r?.nombre) payload.Cargo = r.nombre;
-    } else if (payload.Id_TipoCargoRol) {
-      const found = (rolesArr || []).find((x) => Number(x?.id) === Number(payload.Id_TipoCargoRol));
-      if (found?.Nombre) payload.Cargo = String(found.Nombre);
-    }
-
-    if (especFinalText && String(especFinalText).trim()) {
-      const r = await db.createAgendaEspecialidad(String(especFinalText).trim()).catch(() => null);
-      if (r?.insertId) payload.Id_Especialidad = r.insertId;
-      if (r?.nombre) payload.Especialidad = r.nombre;
-    } else if (payload.Id_Especialidad) {
-      const found = (especArr || []).find((x) => Number(x?.id) === Number(payload.Id_Especialidad));
-      if (found?.Nombre) payload.Especialidad = String(found.Nombre);
-    }
-
-    await db.updateContacto(id, payload);
-    return res.redirect(`/agenda/${id}`);
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.get('/agenda/:id(\\d+)/clientes/link', requireLogin, (req, res) => {
-  res.redirect(`/agenda/${req.params.id}`);
-});
-app.post('/agenda/:id(\\d+)/clientes/link', requireLogin, async (req, res, next) => {
-  try {
-    const contactoId = Number(req.params.id);
-    if (!Number.isFinite(contactoId) || contactoId <= 0) return res.status(400).send('ID no válido');
-    const clienteId = Number(req.body?.clienteId || 0);
-    if (!Number.isFinite(clienteId) || clienteId <= 0) {
-      return res.redirect(`/agenda/${contactoId}?error=${encodeURIComponent('Selecciona un cliente válido')}`);
-    }
-    const admin = isAdminUser(res.locals.user);
-    if (!admin) {
-      const can = await db.canComercialEditCliente(clienteId, res.locals.user?.id).catch(() => false);
-      if (!can) return res.status(404).send('No encontrado');
-    }
-    const esPrincipal = String(req.body?.Es_Principal || '').trim() === '1' || String(req.body?.Es_Principal || '').toLowerCase() === 'on';
-    // Si no se indica rol en el vínculo (UI de Agenda), usar Cargo del contacto como valor por defecto.
-    // Mantiene integridad: el rol "oficial" sigue estando en clientes_contactos.Rol.
-    const contacto = await db.getContactoById(contactoId).catch(() => null);
-    const rolDefault = contacto?.Cargo ? String(contacto.Cargo).trim().slice(0, 120) : null;
-    await db.vincularContactoACliente(clienteId, contactoId, { Rol: rolDefault, Es_Principal: esPrincipal });
-    return res.redirect(`/agenda/${contactoId}`);
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.get('/agenda/:id(\\d+)/clientes/:clienteId(\\d+)/unlink', requireLogin, (req, res) => {
-  res.redirect(`/agenda/${req.params.id}`);
-});
-app.post('/agenda/:id(\\d+)/clientes/:clienteId(\\d+)/unlink', requireLogin, async (req, res, next) => {
-  try {
-    const contactoId = Number(req.params.id);
-    const clienteId = Number(req.params.clienteId);
-    if (!Number.isFinite(contactoId) || contactoId <= 0) return res.status(400).send('ID no válido');
-    if (!Number.isFinite(clienteId) || clienteId <= 0) return res.status(400).send('ID no válido');
-    const admin = isAdminUser(res.locals.user);
-    if (!admin) {
-      const can = await db.canComercialEditCliente(clienteId, res.locals.user?.id).catch(() => false);
-      if (!can) return res.status(404).send('No encontrado');
-    }
-    await db.cerrarVinculoContactoCliente(clienteId, contactoId, { MotivoBaja: 'Desasociado desde Agenda' });
-    return res.redirect(`/agenda/${contactoId}`);
-  } catch (e) {
-    next(e);
-  }
-});
-} // fin if (false) - rutas agenda desactivadas
-
-// ===========================
 // CLIENTES (HTML) - Admin CRUD
 // ===========================
 function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, canChangeComercial, missingFields }) {
@@ -2011,7 +1752,6 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     { id: 'avanzado', label: 'Avanzado', fields: [] }
   ];
   // Agenda desactivada: no añadir pestaña
-  // if (m === 'view' || m === 'edit') tabs.push({ id: 'agenda', label: 'Agenda', fields: [] });
   const byId = new Map(tabs.map((t) => [t.id, t]));
 
   for (const col of cols) {
@@ -2051,7 +1791,7 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
   byId.get('direccion').fields = promote(byId.get('direccion').fields, ['Direccion', 'Direccion2', 'CodigoPostal', 'Poblacion', 'Id_Provincia', 'Id_Pais', 'cli_direccion', 'cli_codigo_postal', 'cli_poblacion', 'cli_prov_id', 'cli_pais_id']);
   byId.get('condiciones').fields = promote(byId.get('condiciones').fields, [meta?.colComercial || 'Id_Cial', 'cli_com_id', 'Tarifa', 'cli_tarcli_id', 'cli_tarifa_legacy', 'Dto', 'cli_dto', 'Id_TipoCliente', 'cli_tipc_id', 'Id_FormaPago', 'cli_formp_id', 'Id_Idioma', 'cli_idiom_id', 'Id_Moneda', 'cli_mon_id']);
 
-  // Eliminar pestañas sin campos salvo Avanzado (agenda desactivada)
+  // Eliminar pestañas sin campos salvo Avanzado
   const tabsFiltered = tabs.filter((t) => t.id === 'avanzado' || (t.fields && t.fields.length));
 
   return {
@@ -2268,8 +2008,7 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
     const admin = isAdminUser(res.locals.user);
     const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
     if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
-    const includeAgendaHistorico = String(req.query.agendaHistorico || '').trim() === '1';
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta, agendaContactos, agendaRoles] = await Promise.all([
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
@@ -2282,9 +2021,7 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
       loadEstadosClienteForSelect(db),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
-      db._ensureClientesMeta().catch(() => null),
-      db.getContactosByCliente(id, { includeHistorico: includeAgendaHistorico }).catch(() => []),
-      db.getAgendaRoles().catch(() => [])
+      db._ensureClientesMeta().catch(() => null)
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
@@ -2307,8 +2044,6 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
       gruposCompras,
       canChangeComercial: false
     });
-    const agendaOk = String(req.query.agendaOk || '') === '1';
-    const agendaError = String(req.query.agendaError || '') === '1';
     res.render('cliente-view', {
       ...model,
       admin,
@@ -2317,11 +2052,11 @@ app.get('/clientes/:id', requireLogin, async (req, res, next) => {
       poolId,
       solicitud,
       contactoId: id,
-      agendaContactos: Array.isArray(agendaContactos) ? agendaContactos : [],
-      agendaRoles: Array.isArray(agendaRoles) ? agendaRoles : [],
-      agendaIncludeHistorico: includeAgendaHistorico,
-      agendaOk,
-      agendaError
+      agendaContactos: [],
+      agendaRoles: [],
+      agendaIncludeHistorico: false,
+      agendaOk: false,
+      agendaError: false
     });
   } catch (e) {
     next(e);
@@ -2334,8 +2069,7 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const includeAgendaHistorico = String(req.query.agendaHistorico || '').trim() === '1';
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta, agendaContactos] = await Promise.all([
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
@@ -2348,8 +2082,7 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       loadEstadosClienteForSelect(db),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
-      db._ensureClientesMeta().catch(() => null),
-      db.getContactosByCliente(id, { includeHistorico: includeAgendaHistorico }).catch(() => [])
+      db._ensureClientesMeta().catch(() => null)
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
@@ -2377,8 +2110,8 @@ app.get('/clientes/:id/edit', requireLogin, async (req, res, next) => {
       puedeSolicitarAsignacion,
       clienteId: id,
       contactoId: id,
-      agendaContactos: Array.isArray(agendaContactos) ? agendaContactos : [],
-      agendaIncludeHistorico: includeAgendaHistorico
+      agendaContactos: [],
+      agendaIncludeHistorico: false
     });
   } catch (e) {
     next(e);
@@ -2445,7 +2178,7 @@ app.post('/clientes/:id/edit', requireLogin, async (req, res, next) => {
         canChangeComercial: !!admin,
         missingFields
       });
-      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id });
+      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false });
     }
 
     await db.updateCliente(id, payload);
@@ -2472,13 +2205,6 @@ app.post('/clientes/:id/solicitar-asignacion', requireLogin, async (req, res, ne
     next(e);
   }
 });
-
-// ===========================
-// CLIENTES <-> AGENDA (HTML) - DESACTIVADO
-// ===========================
-app.post('/clientes/:id/agenda/link', requireLogin, (req, res) => res.redirect(`/clientes/${req.params.id}?agenda=desactivada`));
-app.post('/clientes/:id/agenda/:contactoId(\\d+)/principal', requireLogin, (req, res) => res.redirect(`/clientes/${req.params.id}?agenda=desactivada`));
-app.post('/clientes/:id/agenda/:contactoId(\\d+)/unlink', requireLogin, (req, res) => res.redirect(`/clientes/${req.params.id}?agenda=desactivada`));
 
 app.get('/notificaciones', requireAdmin, async (req, res, next) => {
   try {
@@ -5445,8 +5171,7 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
       latest,
       dashboardErrors: dashboardErrors || {},
       years,
-      selectedYear,
-      agendaDesactivada: req.query?.agenda === 'desactivada'
+      selectedYear
     });
   } catch (e) {
     next(e);

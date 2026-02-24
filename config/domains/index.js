@@ -12,7 +12,6 @@ const MODULE_DEPS = {
   articulos: 'articulos',
   pedidos: 'pedidos',
   comerciales: 'comerciales',
-  agenda: 'agenda',
   clientes: 'clientes',
   clientesCrud: 'clientes', // clientesCrud depende de clientesModule
   catalogos: 'catalogos',
@@ -32,7 +31,6 @@ function createDomains(ensureModule) {
           articulos: () => require('./articulos'),
           pedidos: () => require('./pedidos'),
           comerciales: () => require('./comerciales'),
-          agenda: () => require('./agenda'),
           clientes: () => require('./clientes'),
           clientesCrud: () => require('./clientes-crud'),
           catalogos: () => require('./catalogos'),

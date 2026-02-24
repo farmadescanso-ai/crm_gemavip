@@ -47,57 +47,7 @@
 
       <% (tabs || []).forEach((t, idx) => { %>
         <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
-          <% if (t.id === 'agenda') { %>
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                <h2 style="margin: 0; font-size: 1.05rem;">Agenda</h2>
-                <a class="btn secondary" href="/clientes/<%= cid %>" title="Gestionar en ficha del cliente">Gestionar</a>
-                <a class="btn secondary" href="/agenda" title="Abrir Agenda">Abrir Agenda</a>
-              </div>
-              <div style="color: var(--gv-muted); font-weight:800;">
-                <% const hist = (typeof agendaIncludeHistorico !== 'undefined' && agendaIncludeHistorico) ? true : false; %>
-                <a href="/clientes/<%= cid %>/edit?agendaHistorico=<%= hist ? '0' : '1' %>" style="text-decoration:none;">
-                  <%= hist ? 'Ocultar histórico' : 'Ver histórico' %>
-                </a>
-              </div>
-            </div>
-
-            <div class="table-wrap" style="margin-top: 12px;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Persona</th>
-                    <th>Empresa</th>
-                    <th>Rol</th>
-                    <th>Principal</th>
-                    <th>Vigente</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% if (!agendaContactos || agendaContactos.length === 0) { %>
-                    <tr><td colspan="5" style="color: var(--gv-muted); font-weight:800;">Sin contactos de agenda asociados.</td></tr>
-                  <% } else { %>
-                    <% agendaContactos.forEach((a) => { %>
-                      <%
-                        const aid = a?.Id_Contacto ?? a?.id_contacto ?? a?.Id ?? a?.id ?? '';
-                        const anombre = [a?.Nombre, a?.Apellidos].filter(Boolean).join(' ').trim() || ('Contacto ' + aid);
-                        const vigente = !a?.VigenteHasta;
-                        const principal = String(a?.Es_Principal ?? 0) === '1';
-                      %>
-                      <tr>
-                        <td><a href="/agenda/<%= aid %>"><%= anombre %></a></td>
-                        <td><%= a?.Empresa ?? '' %></td>
-                        <td><%= a?.Rol ?? '' %></td>
-                        <td><%= principal ? 'Sí' : '—' %></td>
-                        <td><%= vigente ? 'Sí' : 'No' %></td>
-                      </tr>
-                    <% }) %>
-                  <% } %>
-                </tbody>
-              </table>
-            </div>
-          <% } else { %>
-            <div class="grid cols-2" style="gap: 12px;">
+          <div class="grid cols-2" style="gap: 12px;">
               <% (t.fields || []).forEach((f) => { %>
                 <% const name = f.name; %>
                 <% const label = f.label; %>
@@ -280,7 +230,6 @@
               </label>
             <% }) %>
           </div>
-          <% } %>
         </section>
       <% }) %>
     </form>

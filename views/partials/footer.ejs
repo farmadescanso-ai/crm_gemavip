@@ -7,6 +7,37 @@
       </div>
     </footer>
     <script defer src="/assets/scripts/client-smart-search.js"></script>
+    <% if (typeof user !== 'undefined' && user && (roleNavLinks || []).some(function(l){ return l.href === '/notificaciones'; })) { %>
+    <script>
+    (function(){ if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    var ran = false;
+    function urlBase64ToUint8Array(base64) {
+      var padding = '='.repeat((4 - base64.length % 4) % 4);
+      var b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+      var raw = atob(b64);
+      var arr = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr;
+    }
+    function init() { if (ran) return; ran = true;
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
+        return reg.pushManager.getSubscription().then(function(sub) {
+          if (sub) return sub;
+          return fetch('/api/push/vapid-public', { headers: { Accept: 'application/json' } }).then(function(r) { return r.json(); }).then(function(j) {
+            if (!j || !j.ok || !j.publicKey) return null;
+            return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(j.publicKey) });
+          });
+        }).then(function(sub) {
+          if (!sub) return;
+          fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) }).catch(function(){});
+        });
+      }).catch(function(){});
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 800); });
+    else setTimeout(init, 800);
+    })();
+    </script>
+    <% } %>
   </body>
 </html>
 

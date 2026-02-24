@@ -17,8 +17,10 @@ class MySQLCRM {
       // (evita que apunte a otra BD por error y no veas cambios en phpMyAdmin).
       database: process.env.DB_NAME || (process.env.VERCEL ? 'crm_gemavip' : 'crm_gemavip'),
       charset: 'utf8mb4',
+      timezone: 'Europe/Madrid', // evita SET time_zone en cada query
       waitForConnections: true,
-      connectionLimit: 10,
+      // En serverless (Vercel) usar menos conexiones por instancia para evitar "too many connections"
+      connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || (process.env.VERCEL ? 3 : 10),
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 0,
@@ -436,22 +438,13 @@ class MySQLCRM {
       }
     }
 
-    // clientes_contactos (M:N) -> clientes / agenda(contactos legacy)
+    // clientes_contactos (M:N) -> clientes (agenda removido)
     try {
       const tClientesContactos = await this._resolveTableNameCaseInsensitive('clientes_contactos').catch(() => null);
       if (tClientesContactos) {
         const ccCols = await this._getColumns(tClientesContactos).catch(() => []);
         if (ccCols && ccCols.length) {
           const colCliente = this._pickCIFromColumns(ccCols, ['clicont_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
-          const colContacto = this._pickCIFromColumns(ccCols, ['clicont_ag_id', 'Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
-
-          const tAgenda = await this._resolveAgendaTableName().catch(() => null);
-          let agendaPk = 'Id';
-          if (tAgenda) {
-            const aCols = await this._getColumns(tAgenda).catch(() => []);
-            agendaPk = this._pickCIFromColumns(aCols, ['ag_id', 'Id', 'id']) || 'ag_id';
-          }
-
           if (colCliente && clientes?.tClientes) {
             await runCount(
               'clientes_contactos_orfanos_cliente',
@@ -459,16 +452,6 @@ class MySQLCRM {
                FROM \`${tClientesContactos}\` cc
                LEFT JOIN \`${clientes.tClientes}\` c ON cc.\`${colCliente}\` = c.\`${clientes.pk}\`
                WHERE cc.\`${colCliente}\` IS NOT NULL AND cc.\`${colCliente}\` != 0 AND c.\`${clientes.pk}\` IS NULL`
-            );
-          }
-
-          if (colContacto && tAgenda) {
-            await runCount(
-              'clientes_contactos_orfanos_agenda',
-              `SELECT COUNT(*) AS n
-               FROM \`${tClientesContactos}\` cc
-               LEFT JOIN \`${tAgenda}\` a ON cc.\`${colContacto}\` = a.\`${agendaPk}\`
-               WHERE cc.\`${colContacto}\` IS NOT NULL AND cc.\`${colContacto}\` != 0 AND a.\`${agendaPk}\` IS NULL`
             );
           }
         }
@@ -480,12 +463,30 @@ class MySQLCRM {
     return report;
   }
 
+  // Validar nombre de tabla/columna: solo alfanumérico y underscore (evita inyección SQL).
+  _sanitizeIdentifier(name, maxLen = 64) {
+    const s = String(name || '').trim();
+    if (!s || s.length > maxLen) return null;
+    if (!/^[a-zA-Z0-9_]+$/.test(s)) return null;
+    return s;
+  }
+
+  // Filtra claves de payload para usar en SQL (solo identificadores válidos).
+  _filterPayloadKeys(payload, excludeUndefined = false) {
+    const keys = Object.keys(payload || {}).filter((k) => {
+      if (!this._sanitizeIdentifier(k)) return false;
+      if (excludeUndefined && payload[k] === undefined) return false;
+      return true;
+    });
+    return keys;
+  }
+
   // Resolver nombre real de tabla sin depender de information_schema (puede estar restringido en hosting).
   // Útil en MySQL/MariaDB sobre Linux donde los nombres pueden ser case-sensitive (p.ej. `Clientes` vs `clientes`).
   async _resolveTableNameCaseInsensitive(baseName) {
     this._cache = this._cache || {};
-    const base = String(baseName || '').trim();
-    if (!base) return baseName;
+    const base = this._sanitizeIdentifier(baseName);
+    if (!base) throw new Error('Nombre de tabla inválido');
 
     const cacheKey = `tableName:${base}`;
     if (this._cache[cacheKey] !== undefined) return this._cache[cacheKey];
@@ -585,21 +586,8 @@ class MySQLCRM {
 
       this.pool = mysql.createPool(this.config);
       
-      // Configurar UTF-8 para todas las conexiones
+      // Verificar conexión (charset y timezone ya en config del pool)
       const connection = await this.pool.getConnection();
-      // Establecer UTF-8 explícitamente para esta conexión
-      await connection.query("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
-      await connection.query("SET CHARACTER SET utf8mb4");
-      await connection.query("SET character_set_connection=utf8mb4");
-      await connection.query("SET character_set_client=utf8mb4");
-      await connection.query("SET character_set_results=utf8mb4");
-      // Asegurar zona horaria Madrid/España para que NOW()/CURRENT_TIMESTAMP se graben en ese huso.
-      // Si el servidor no tiene tablas de zona horaria cargadas, puede fallar; en ese caso lo dejamos en default.
-      try {
-        await connection.query("SET time_zone = 'Europe/Madrid'");
-      } catch (tzErr) {
-        console.warn('⚠️ [DB TZ] No se pudo establecer time_zone=Europe/Madrid. Usando zona horaria por defecto del servidor.', tzErr?.message || tzErr);
-      }
       await connection.ping();
       connection.release();
       
@@ -669,19 +657,7 @@ class MySQLCRM {
       const connection = await this.pool.getConnection();
       
       try {
-        // Establecer UTF-8 para esta consulta específica
-        await connection.query("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
-        await connection.query("SET CHARACTER SET utf8mb4");
-        await connection.query("SET character_set_connection=utf8mb4");
-        await connection.query("SET character_set_client=utf8mb4");
-        await connection.query("SET character_set_results=utf8mb4");
-        // Zona horaria para esta sesión (Madrid/España)
-        try {
-          await connection.query("SET time_zone = 'Europe/Madrid'");
-        } catch (_) {
-          // no romper consultas si el servidor no lo soporta
-        }
-        
+        // Charset y timezone ya configurados en createPool (evita 6 queries extra por consulta)
         // Sin parámetros usar query() (protocolo simple) para evitar "Incorrect arguments to mysqld_stmt_execute" con execute()
         const hasParams = Array.isArray(params) && params.length > 0;
         const result = await Promise.race([
@@ -727,17 +703,7 @@ class MySQLCRM {
 
     const connection = await this.pool.getConnection();
     try {
-      await connection.query("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
-      await connection.query("SET CHARACTER SET utf8mb4");
-      await connection.query("SET character_set_connection=utf8mb4");
-      await connection.query("SET character_set_client=utf8mb4");
-      await connection.query("SET character_set_results=utf8mb4");
-      try {
-        await connection.query("SET time_zone = 'Europe/Madrid'");
-      } catch (_) {
-        // ignore
-      }
-
+      // Charset y timezone ya configurados en createPool
       const result = await Promise.race([
         connection.execute(sql, params),
         new Promise((_, reject) =>
@@ -949,9 +915,10 @@ class MySQLCRM {
   async createGrupoCompras(payload) {
     try {
       const t = await this._resolveTableNameCaseInsensitive('gruposCompras');
-      const fields = Object.keys(payload).map(k => `\`${k}\``).join(', ');
-      const placeholders = Object.keys(payload).map(() => '?').join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(k => `\`${k}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+      const values = keys.map(k => payload[k]);
       const sql = `INSERT INTO \`${t}\` (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
       return { insertId: result.insertId || result.insertId };
@@ -964,8 +931,9 @@ class MySQLCRM {
   async updateGrupoCompras(id, payload) {
     try {
       const t = await this._resolveTableNameCaseInsensitive('gruposCompras');
-      const fields = Object.keys(payload).map(k => `\`${k}\` = ?`).join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(k => `\`${k}\` = ?`).join(', ');
+      const values = keys.map(k => payload[k]);
       values.push(id);
       const sql = `UPDATE \`${t}\` SET ${fields} WHERE id = ?`;
       try {
@@ -999,9 +967,10 @@ class MySQLCRM {
   async createCooperativa(nombre, extra = {}) {
     try {
       const payload = { Nombre: nombre, ...extra };
-      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(payload).map(() => '?').join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(key => `\`${key}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+      const values = keys.map(key => payload[key]);
       
       const sql = `INSERT INTO cooperativas (${fields}) VALUES (${placeholders})`;
       const result = await this.query(sql, values);
@@ -1014,8 +983,9 @@ class MySQLCRM {
 
   async updateCooperativa(id, payload) {
     try {
-      const fields = Object.keys(payload).map(key => `\`${key}\` = ?`).join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(key => `\`${key}\` = ?`).join(', ');
+      const values = keys.map(key => payload[key]);
       values.push(id);
       
       try {
@@ -1231,47 +1201,6 @@ class MySQLCRM {
     }
   }
 
-  // AGENDA / CONTACTOS (delegado a domains/agenda.js)
-  async getAgendaRoles(options = {}) {
-    return domains.agenda.getAgendaRoles.apply(this, arguments);
-  }
-  async createAgendaRol(nombre) {
-    return domains.agenda.createAgendaRol.apply(this, arguments);
-  }
-  async getAgendaEspecialidades(options = {}) {
-    return domains.agenda.getAgendaEspecialidades.apply(this, arguments);
-  }
-  async createAgendaEspecialidad(nombre) {
-    return domains.agenda.createAgendaEspecialidad.apply(this, arguments);
-  }
-  async getContactos(options = {}) {
-    return domains.agenda.getContactos.apply(this, arguments);
-  }
-  async getContactoById(id) {
-    return domains.agenda.getContactoById.apply(this, arguments);
-  }
-  async createContacto(payload) {
-    return domains.agenda.createContacto.apply(this, arguments);
-  }
-  async updateContacto(id, payload) {
-    return domains.agenda.updateContacto.apply(this, arguments);
-  }
-  async getContactosByCliente(clienteId, options = {}) {
-    return domains.agenda.getContactosByCliente.apply(this, arguments);
-  }
-  async vincularContactoACliente(clienteId, contactoId, options = {}) {
-    return domains.agenda.vincularContactoACliente.apply(this, arguments);
-  }
-  async setContactoPrincipalForCliente(clienteId, contactoId) {
-    return domains.agenda.setContactoPrincipalForCliente.apply(this, arguments);
-  }
-  async cerrarVinculoContactoCliente(clienteId, contactoId, options = {}) {
-    return domains.agenda.cerrarVinculoContactoCliente.apply(this, arguments);
-  }
-  async getClientesByContacto(contactoId, options = {}) {
-    return domains.agenda.getClientesByContacto.apply(this, arguments);
-  }
-
   // =====================================================
   // DIRECCIONES DE ENVÍO
   // =====================================================
@@ -1410,9 +1339,10 @@ class MySQLCRM {
           );
         }
 
-        const fields = Object.keys(data).map(k => `\`${k}\``).join(', ');
-        const placeholders = Object.keys(data).map(() => '?').join(', ');
-        const values = Object.values(data);
+        const keys = this._filterPayloadKeys(data);
+        const fields = keys.map(k => `\`${k}\``).join(', ');
+        const placeholders = keys.map(() => '?').join(', ');
+        const values = keys.map(k => data[k]);
         const sql = `INSERT INTO \`${tDirecciones}\` (${fields}) VALUES (${placeholders})`;
         const [result] = await conn.execute(sql, values);
 
@@ -1649,7 +1579,9 @@ class MySQLCRM {
   // Método genérico para compatibilidad (no usado en MySQL directo)
   async getTableData(tableName, options = {}) {
     try {
-      const sql = `SELECT * FROM \`${tableName}\` ORDER BY Id ASC`;
+      const t = this._sanitizeIdentifier(tableName);
+      if (!t) throw new Error('Nombre de tabla inválido');
+      const sql = `SELECT * FROM \`${t}\` ORDER BY Id ASC`;
       const rows = await this.query(sql);
       return rows;
     } catch (error) {
@@ -2720,17 +2652,10 @@ class MySQLCRM {
     if (!payload || typeof payload !== 'object') throw new Error('Payload no válido');
     await this.ensureRegistroVisitasSchema();
 
-    const fields = Object.keys(payload)
-      .filter((k) => payload[k] !== undefined)
-      .map((k) => `\`${k}\``)
-      .join(', ');
-    const placeholders = Object.keys(payload)
-      .filter((k) => payload[k] !== undefined)
-      .map(() => '?')
-      .join(', ');
-    const values = Object.keys(payload)
-      .filter((k) => payload[k] !== undefined)
-      .map((k) => payload[k]);
+    const keys = this._filterPayloadKeys(payload, true);
+    const fields = keys.map((k) => `\`${k}\``).join(', ');
+    const placeholders = keys.map(() => '?').join(', ');
+    const values = keys.map((k) => payload[k]);
 
     const sql = `INSERT INTO \`registro_visitas\` (${fields}) VALUES (${placeholders})`;
     const result = await this.query(sql, values);

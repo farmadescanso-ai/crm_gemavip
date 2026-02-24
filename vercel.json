@@ -5,7 +5,9 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "config/**"
+      "includeFiles": "config/**",
+      "maxDuration": 60,
+      "memory": 1024
     }
   }
 }

@@ -460,9 +460,10 @@ module.exports = {
         }
       }
 
-      const fields = Object.keys(mappedPayload).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(mappedPayload).map(() => '?').join(', ');
-      const values = Object.values(mappedPayload);
+      const keys = this._filterPayloadKeys(mappedPayload);
+      const fields = keys.map(key => `\`${key}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+      const values = keys.map(key => mappedPayload[key]);
 
       if (!this.connected && !this.pool) {
         await this.connect();

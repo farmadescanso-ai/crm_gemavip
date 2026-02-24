@@ -502,9 +502,6 @@ module.exports = {
     if (!this.pool) await this.connect();
     const connection = await this.pool.getConnection();
     try {
-      try {
-        await connection.query("SET time_zone = 'Europe/Madrid'");
-      } catch (_) {}
       await connection.beginTransaction();
 
       const tRel = await this._resolveTableNameCaseInsensitive('clientes_gruposCompras');
@@ -545,8 +542,9 @@ module.exports = {
   async updateClienteGrupoCompras(id, payload) {
     try {
       const tRel = await this._resolveTableNameCaseInsensitive('clientes_gruposCompras');
-      const fields = Object.keys(payload).map(k => `\`${k}\` = ?`).join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(k => `\`${k}\` = ?`).join(', ');
+      const values = keys.map(k => payload[k]);
       values.push(id);
       const sql = `UPDATE \`${tRel}\` SET ${fields} WHERE id = ?`;
       await this.query(sql, values);
@@ -598,9 +596,10 @@ module.exports = {
         }
       }
 
-      const fields = Object.keys(payload).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(payload).map(() => '?').join(', ');
-      const values = Object.values(payload);
+      const keys = this._filterPayloadKeys(payload);
+      const fields = keys.map(key => `\`${key}\``).join(', ');
+      const placeholders = keys.map(() => '?').join(', ');
+      const values = keys.map(key => payload[key]);
 
       let sql = `INSERT INTO \`Clientes_Cooperativas\` (${fields}) VALUES (${placeholders})`;
       let result;
