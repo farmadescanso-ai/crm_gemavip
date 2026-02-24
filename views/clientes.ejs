@@ -50,11 +50,10 @@
           <col class="gv-contactos-col-acciones" />
           <col class="gv-contactos-col-nombre" />
           <col class="gv-contactos-col-tipo" />
-          <col class="gv-contactos-col-dnicif" />
-          <col class="gv-contactos-col-cp" />
-          <col class="gv-contactos-col-poblacion" />
+          <col class="gv-contactos-col-telefono" />
+          <col class="gv-contactos-col-email" />
+          <col class="gv-contactos-col-contacto" />
           <col class="gv-contactos-col-provincia" />
-          <col class="gv-contactos-col-comercial" />
           <col class="gv-contactos-col-estado" />
         </colgroup>
         <thead>
@@ -62,11 +61,10 @@
             <th>Acciones</th>
             <th class="gv-contactos-col-nombre">Nombre / Razón Social</th>
             <th>Tipo</th>
-            <th class="gv-contactos-col-dnicif">DNI/CIF</th>
-            <th>CP</th>
-            <th>Población</th>
+            <th class="gv-contactos-col-telefono">Teléfono</th>
+            <th class="gv-contactos-col-email">Email</th>
+            <th class="gv-contactos-col-contacto">Contacto</th>
             <th>Provincia</th>
-            <th>Comercial</th>
             <th class="gv-contactos-col-estado">Estado</th>
           </tr>
         </thead>
@@ -124,18 +122,10 @@
               </td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
               <td><span class="gv-badge gv-badge--<%= (c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa' ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona' ? 'persona' : 'otros') %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
-              <td class="gv-contactos-col-dnicif"><%= c.DNI_CIF ?? c.cli_dni_cif ?? '' %></td>
-              <td><%= c.CodigoPostal ?? c.cli_codigo_postal ?? '' %></td>
-              <td><%= c.Poblacion ?? c.cli_poblacion ?? '' %></td>
+              <td class="gv-contactos-col-telefono"><% const tel = String(c.Telefono ?? c.cli_telefono ?? c.Movil ?? c.cli_movil ?? '').trim(); %><% if (tel) { %><a href="tel:<%= tel.replace(/[^\d+]/g, '') %>" class="gv-contactos-link"><%= tel %></a><% } else { %>—<% } %></td>
+              <td class="gv-contactos-col-email"><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
+              <td class="gv-contactos-col-contacto"><%= c.NomContacto ?? c.cli_nom_contacto ?? c.Nombre_Contacto ?? '' || '—' %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>
-              <td><%
-  const cialId = Number(c.Id_Cial ?? c.id_cial ?? c.cli_com_id ?? 0) || 0;
-  let cialNombre = c.ComercialNombre ?? '';
-  if (!cialNombre && cialId && comerciales && comerciales.length) {
-    const com = comerciales.find(x => Number(x?.com_id ?? x?.id ?? x?.Id ?? 0) === cialId);
-    cialNombre = com?.com_nombre ?? com?.Nombre ?? com?.nombre ?? '';
-  }
-%><%= cialNombre || '' %></td>
               <td class="gv-contactos-col-estado"><%= c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? '' %></td>
             </tr>
           <% }) %>
@@ -177,22 +167,21 @@
 .gv-badge--empresa { background: rgba(0,139,210,.12); color: var(--gv-primary); }
 .gv-badge--persona { background: rgba(143,174,27,.15); color: var(--gv-green); }
 .gv-badge--otros { background: rgba(91,102,122,.15); color: var(--gv-muted); }
-/* Tabla contactos: margen 2px cada lado; CP ancho fijo (ES/PT); espacio ganado a Nombre / Razón Social */
+/* Tabla contactos: margen 2px cada lado; columnas Teléfono, Email, Contacto */
 .gv-contactos .gv-contactos-table-wrap { margin: 0 2px; }
 .gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 11%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 19%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 11%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-dnicif { width: 12%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-cp { width: 7%; }
-.gv-contactos .gv-contactos-table td.gv-contactos-col-cp { white-space: nowrap; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-poblacion { width: 11%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 10%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-telefono { width: 12%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-email { width: 14%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-contacto { width: 12%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 11%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-comercial { width: 11%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-estado { width: 8%; }
 .gv-contactos .gv-contactos-table th.gv-contactos-col-estado,
 .gv-contactos .gv-contactos-table td.gv-contactos-col-estado { white-space: nowrap; }
-.gv-contactos .gv-contactos-table td.gv-contactos-col-dnicif { overflow: hidden; max-width: 100%; }
+.gv-contactos-link { color: var(--gv-primary); text-decoration: none; }
+.gv-contactos-link:hover { color: var(--gv-primary-hover); text-decoration: underline; }
 /* Cabecera tabla – estilo Gemavip */
 .gv-contactos .gv-contactos-table thead th {
   background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
