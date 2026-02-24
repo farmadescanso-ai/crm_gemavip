@@ -1202,6 +1202,18 @@ main.container .gv-pedido-form{
   height: 18px;
   display: block;
 }
+.gv-btn-add-product{
+  background: linear-gradient(135deg, var(--gv-primary), var(--gv-primary-2));
+  color: #fff;
+  border: 0;
+  font-weight: 700;
+  letter-spacing: .3px;
+  box-shadow: 0 6px 16px rgba(0,139,210,.25);
+}
+.gv-btn-add-product:hover{
+  filter: brightness(1.06);
+  color: #fff;
+}
 .gv-pedido-form .gv-doc{
   padding: 12px;
 }
