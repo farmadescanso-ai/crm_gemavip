@@ -14,7 +14,7 @@
       <h2 class="card-title" style="color: #dc2626;">Errores al cargar el Dashboard</h2>
     </div>
     <div class="card-bd" style="font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-word;">
-      <% if (errs.clientes) { %><p><strong>Clientes (top facturación):</strong> <%= errs.clientes %></p><% } %>
+      <% if (errs.clientes) { %><p><strong>Contactos (top facturación):</strong> <%= errs.clientes %></p><% } %>
       <% if (errs.pedidos) { %><p><strong>Últimos pedidos:</strong> <%= errs.pedidos %></p><% } %>
     </div>
   </section>
@@ -45,9 +45,9 @@
     </form>
     <div class="dash-stats">
       <div class="dash-stat" data-variant="blue">
-        <div class="dash-stat-label">Clientes</div>
+        <div class="dash-stat-label">Contactos</div>
         <div class="dash-stat-value"><%= stats.clientes ?? '—' %></div>
-        <div class="dash-stat-foot"><%= isAdmin ? 'Total en BD' : 'Tus clientes' %></div>
+        <div class="dash-stat-foot"><%= isAdmin ? 'Total en BD' : 'Tus contactos' %></div>
       </div>
       <div class="dash-stat" data-variant="navy">
         <div class="dash-stat-label">Pedidos</div>
@@ -80,7 +80,7 @@
     </div>
 
     <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap;">
-      <a class="btn" href="/clientes">Clientes</a>
+      <a class="btn" href="/clientes">Contactos</a>
       <a class="btn secondary" href="/pedidos">Pedidos</a>
       <a class="btn secondary" href="/visitas">Visitas</a>
     </div>
@@ -90,7 +90,7 @@
 <div class="dash-grid" style="margin-top: 16px;">
   <section class="card dash-card">
     <div class="card-hd">
-      <h2 class="card-title"><%= isAdmin ? 'Clientes con más facturación' : 'Últimos clientes' %></h2>
+      <h2 class="card-title"><%= isAdmin ? 'Contactos con más facturación' : 'Últimos contactos' %></h2>
       <p class="card-subtitle"><%= isAdmin ? 'Top ' + (latest.clientes || []).length + ' por facturación' : 'Últimos ' + (latest.clientes || []).length %></p>
     </div>
     <div class="card-bd">
