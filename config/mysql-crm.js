@@ -1714,7 +1714,7 @@ MySQLCRM.prototype.getAdminPushSubscriptions = async function () {
       `SELECT ps.id, ps.user_id, ps.subscription
        FROM \`push_subscriptions\` ps
        INNER JOIN \`${tCom}\` c ON c.\`${colPk}\` = ps.user_id
-       WHERE c.\`${colRoll}\` LIKE '%admin%' OR c.\`${colRoll}\` LIKE '%Admin%'`
+       WHERE LOWER(IFNULL(c.\`${colRoll}\`,'')) LIKE '%admin%'`
     );
     return Array.isArray(rows) ? rows : [];
   } catch (e) {

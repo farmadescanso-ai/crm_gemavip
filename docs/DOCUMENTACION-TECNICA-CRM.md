@@ -342,6 +342,20 @@ Los índices **no se crean en startup por defecto** (CREATE INDEX bloquea tablas
 
 **Procedimiento completo:** Ver [PUNTO-19-INDICES.md](PUNTO-19-INDICES.md).
 
+**Búsquedas LIKE vs FULLTEXT:** Ver [PUNTO-23-LIKE-FULLTEXT.md](PUNTO-23-LIKE-FULLTEXT.md).
+
+**Caché de vistas EJS en producción:** Ver [PUNTO-24-EJS-CACHE.md](PUNTO-24-EJS-CACHE.md).
+
+**Límite body parser (DoS):** Ver [PUNTO-25-BODY-PARSER-LIMIT.md](PUNTO-25-BODY-PARSER-LIMIT.md).
+
+**Tests automatizados:** Ver [PUNTO-26-TESTS.md](PUNTO-26-TESTS.md).
+
+**Credenciales en código:** Ver [PUNTO-27-CREDENCIALES-EN-CODIGO.md](PUNTO-27-CREDENCIALES-EN-CODIGO.md).
+
+**Dependencias (crypto, xlsx, form-data):** Ver [PUNTO-28-DEPENDENCIAS.md](PUNTO-28-DEPENDENCIAS.md).
+
+**Resumen de la auditoría (puntos 17-28):** Ver [RESUMEN-AUDITORIA-CRM-GEMAVIP.md](RESUMEN-AUDITORIA-CRM-GEMAVIP.md).
+
 #### Clientes (`config/mysql-crm-clientes.js`)
 
 ```sql

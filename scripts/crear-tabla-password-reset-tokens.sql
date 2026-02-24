@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `password_reset_tokens` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_token` (`token`),
   KEY `idx_email_created` (`email`, `created_at`),
-  KEY `idx_expires` (`expires_at`)
+  KEY `idx_expires` (`expires_at`),
+  KEY `idx_prt_comercial_used` (`comercial_id`, `used`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Tokens de un solo uso para restablecer contraseña (caducidad 1h)';

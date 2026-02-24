@@ -59,7 +59,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '50kb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
 // Vercel rewrites: /login -> /api/index?__path=/login; usar __path para routing
 app.use((req, _res, next) => {
