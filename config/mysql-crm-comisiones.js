@@ -3,6 +3,7 @@
 
 const mysql = require('mysql2/promise');
 require('dotenv').config();
+const { debug } = require('../lib/logger');
 
 class ComisionesCRM {
   constructor() {
@@ -91,7 +92,25 @@ class ComisionesCRM {
     return this._cache.comisionesDetalleTable;
   }
 
+  /**
+   * Usar un pool externo compartido (auditoría punto 13).
+   * Evita duplicar conexiones con MySQLCRM y express-mysql-session.
+   */
+  setSharedPool(pool) {
+    if (this.pool && this.pool !== pool) {
+      try {
+        this.pool.end().catch(() => {});
+      } catch (_) {}
+    }
+    this._sharedPool = pool;
+    this.pool = pool;
+  }
+
   async connect() {
+    if (this._sharedPool) {
+      this.pool = this._sharedPool;
+      return this.pool;
+    }
     if (!this.pool) {
       this.pool = mysql.createPool(this.config);
     }
@@ -127,14 +146,14 @@ class ComisionesCRM {
         throw new Error('Parámetros undefined detectados antes de ejecutar la consulta SQL');
       }
       
-      console.log('🔍 [EXECUTE] Ejecutando SQL:', sql.substring(0, 200));
-      console.log('🔍 [EXECUTE] Parámetros:', params.map((p, i) => `[${i}]: ${p} (${typeof p})`).join(', '));
+      debug('🔍 [EXECUTE] Ejecutando SQL:', sql.substring(0, 200));
+      debug('🔍 [EXECUTE] Parámetros:', params.map((p, i) => `[${i}]: ${p} (${typeof p})`).join(', '));
       
       const [result] = await pool.execute(sql, params);
       
-      console.log('✅ [EXECUTE] SQL ejecutado exitosamente');
+      debug('✅ [EXECUTE] SQL ejecutado exitosamente');
       if (result.insertId) {
-        console.log('✅ [EXECUTE] ID insertado:', result.insertId);
+        debug('✅ [EXECUTE] ID insertado:', result.insertId);
       }
       
       return result;

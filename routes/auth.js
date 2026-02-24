@@ -13,34 +13,9 @@ const { _n, getStoredPasswordFromRow } = require('../lib/app-helpers');
 
 const router = express.Router();
 
-// Rate limit por IP para "olvidar contraseña" (anti-abuso)
-const passwordResetIpAttempts = new Map();
+// Rate limit por IP: usa BD (auditoría punto 7) para funcionar en serverless
 const PASSWORD_RESET_IP_MAX = 10;
-const PASSWORD_RESET_IP_WINDOW_MS = 60 * 60 * 1000;
-
-function checkPasswordResetRateLimitIp(ip) {
-  const now = Date.now();
-  for (const [key, data] of passwordResetIpAttempts.entries()) {
-    if (now - data.firstAt > PASSWORD_RESET_IP_WINDOW_MS) passwordResetIpAttempts.delete(key);
-  }
-  const data = passwordResetIpAttempts.get(ip);
-  if (!data) return true;
-  if (now - data.firstAt > PASSWORD_RESET_IP_WINDOW_MS) {
-    passwordResetIpAttempts.delete(ip);
-    return true;
-  }
-  return data.count < PASSWORD_RESET_IP_MAX;
-}
-
-function recordPasswordResetIp(ip) {
-  const now = Date.now();
-  const data = passwordResetIpAttempts.get(ip);
-  if (!data) {
-    passwordResetIpAttempts.set(ip, { count: 1, firstAt: now });
-  } else {
-    data.count += 1;
-  }
-}
+const PASSWORD_RESET_IP_WINDOW_HOURS = 1;
 
 router.get('/login', (req, res) => {
   if (req.session?.user) return res.redirect('/dashboard');
@@ -65,16 +40,13 @@ router.post('/login', async (req, res, next) => {
     if (!stored && process.env.DEBUG_LOGIN === '1') {
       console.warn('[DEBUG_LOGIN] Comercial encontrado pero sin columna de contraseña. Keys:', Object.keys(comercial));
     }
-    let ok = false;
-    if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
-      ok = await bcrypt.compare(password, stored);
-    } else {
-      if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-        console.warn('[SEGURIDAD] Contraseña en texto plano detectada. Migrar a bcrypt para el comercial:', _n(comercial.com_email, comercial.Email));
-      }
-      ok = password === String(stored).trim();
+    if (!stored || !stored.startsWith('$2')) {
+      return res.status(401).render('login', {
+        title: 'Login',
+        error: 'Contraseña no válida. Usa "¿Olvidaste tu contraseña?" para restablecerla.'
+      });
     }
-
+    const ok = await bcrypt.compare(password, stored);
     if (!ok) {
       if (process.env.DEBUG_LOGIN === '1') {
         console.warn('[DEBUG_LOGIN] Usuario encontrado pero contraseña no coincide.', {
@@ -116,7 +88,12 @@ router.post('/login/olvidar-contrasena', async (req, res, next) => {
   try {
     if (req.session?.user) return res.redirect('/dashboard');
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    if (!checkPasswordResetRateLimitIp(ip)) {
+    const canProceed = await db.checkPasswordResetRateLimitByIp(
+      ip,
+      PASSWORD_RESET_IP_MAX,
+      PASSWORD_RESET_IP_WINDOW_HOURS
+    );
+    if (!canProceed) {
       return res.status(429).render('login-olvidar-contrasena', {
         title: 'Recuperar contraseña',
         error: 'Demasiados intentos. Espera una hora e inténtalo de nuevo.',
@@ -142,11 +119,11 @@ router.post('/login/olvidar-contrasena', async (req, res, next) => {
       });
     }
     const comercial = await db.getComercialByEmail(email);
+    await db.recordPasswordResetIpAttempt(ip);
     if (comercial) {
       const token = crypto.randomBytes(32).toString('hex');
       const comercialId = _n(_n(comercial.com_id, comercial.id), comercial.Id);
       await db.createPasswordResetToken(comercialId, email, token, 1);
-      recordPasswordResetIp(ip);
       const resetLink = `${APP_BASE_URL.replace(/\/$/, '')}/login/restablecer-contrasena?token=${encodeURIComponent(token)}`;
       await sendPasswordResetEmail(email, resetLink, _n(comercial.com_nombre, comercial.Nombre || ''));
     }
@@ -243,15 +220,14 @@ router.post('/cuenta/cambiar-contrasena', requireLogin, async (req, res, next) =
     const comercial = await db.getComercialById(userId);
     if (!comercial) return res.redirect('/login');
     const stored = getStoredPasswordFromRow(comercial);
-    let ok = false;
-    if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
-      ok = await bcrypt.compare(current, stored);
-    } else {
-      if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-        console.warn('[SEGURIDAD] Contraseña en texto plano detectada. Migrar a bcrypt para el comercial:', userId);
-      }
-      ok = current === String(stored).trim();
+    if (!stored || !stored.startsWith('$2')) {
+      return res.status(400).render('cuenta-cambiar-contrasena', {
+        title: 'Cambiar contraseña',
+        error: 'Tu contraseña no está en formato seguro. Usa "¿Olvidaste tu contraseña?" para restablecerla.',
+        success: null
+      });
     }
+    const ok = await bcrypt.compare(current, stored);
     if (!ok) {
       return res.status(400).render('cuenta-cambiar-contrasena', {
         title: 'Cambiar contraseña',

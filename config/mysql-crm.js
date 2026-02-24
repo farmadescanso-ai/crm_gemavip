@@ -1,20 +1,16 @@
 const path = require('path');
 const mysql = require('mysql2/promise');
 const createDomains = require('./domains');
+const { getCatalogCached } = require('../lib/catalog-cache');
 
 class MySQLCRM {
   constructor() {
-    // Configuración de conexión MySQL directa
-    // Base de datos remota: crm_gemavip (Easypanel)
-    // phpMyAdmin: https://farmadescanso-sql-crm-farmadescanso-phpmyadmin.6f4r35.easypanel.host/
-    
     this.config = {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 3306,
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || '',
       // En Vercel, si DB_NAME no está configurada, por defecto usamos la BD del CRM
-      // (evita que apunte a otra BD por error y no veas cambios en phpMyAdmin).
       database: process.env.DB_NAME || (process.env.VERCEL ? 'crm_gemavip' : 'crm_gemavip'),
       charset: 'utf8mb4',
       timezone: 'Europe/Madrid', // evita SET time_zone en cada query
@@ -992,22 +988,33 @@ class MySQLCRM {
   }
 
   // CATÁLOGOS (delegado a domains/catalogos.js)
-  async getFormasPago() { return domains.catalogos.getFormasPago.apply(this, arguments); }
+  async getFormasPago() {
+    return getCatalogCached('formasPago', '', () => domains.catalogos.getFormasPago.apply(this, arguments));
+  }
   async getFormaPagoById(id) { return domains.catalogos.getFormaPagoById.apply(this, arguments); }
   async getFormaPagoByNombre(nombre) { return domains.catalogos.getFormaPagoByNombre.apply(this, arguments); }
   async createFormaPago(payload) { return domains.catalogos.createFormaPago.apply(this, arguments); }
   async updateFormaPago(id, payload) { return domains.catalogos.updateFormaPago.apply(this, arguments); }
   async deleteFormaPago(id) { return domains.catalogos.deleteFormaPago.apply(this, arguments); }
-  async getTiposPedido() { return domains.catalogos.getTiposPedido.apply(this, arguments); }
-  async getEspecialidades() { return domains.catalogos.getEspecialidades.apply(this, arguments); }
+  async getTiposPedido() {
+    return getCatalogCached('tiposPedido', '', () => domains.catalogos.getTiposPedido.apply(this, arguments));
+  }
+  async getEspecialidades() {
+    return getCatalogCached('especialidades', '', () => domains.catalogos.getEspecialidades.apply(this, arguments));
+  }
   async getEspecialidadById(id) { return domains.catalogos.getEspecialidadById.apply(this, arguments); }
   async createEspecialidad(payload) { return domains.catalogos.createEspecialidad.apply(this, arguments); }
   async updateEspecialidad(id, payload) { return domains.catalogos.updateEspecialidad.apply(this, arguments); }
   async deleteEspecialidad(id) { return domains.catalogos.deleteEspecialidad.apply(this, arguments); }
-  async getProvincias(filtroPais) { return domains.catalogos.getProvincias.apply(this, arguments); }
+  async getProvincias(filtroPais) {
+    const suffix = filtroPais != null ? String(filtroPais) : '';
+    return getCatalogCached('provincias', suffix, () => domains.catalogos.getProvincias.apply(this, arguments));
+  }
   async getProvinciaById(id) { return domains.catalogos.getProvinciaById.apply(this, arguments); }
   async getProvinciaByCodigo(codigo) { return domains.catalogos.getProvinciaByCodigo.apply(this, arguments); }
-  async getPaises() { return domains.catalogos.getPaises.apply(this, arguments); }
+  async getPaises() {
+    return getCatalogCached('paises', '', () => domains.catalogos.getPaises.apply(this, arguments));
+  }
   async getPaisById(id) { return domains.catalogos.getPaisById.apply(this, arguments); }
   async getPaisByCodigoISO(codigoISO) { return domains.catalogos.getPaisByCodigoISO.apply(this, arguments); }
 

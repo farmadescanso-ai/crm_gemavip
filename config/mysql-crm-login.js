@@ -127,5 +127,61 @@ module.exports = {
       console.error('❌ Error contando intentos recientes:', error.message);
       return 0;
     }
+  },
+
+  /**
+   * Rate limit por IP (auditoría punto 7): usa BD en lugar de memoria para serverless.
+   * @param {string} ip - IP del cliente
+   * @param {number} maxAttempts - Máximo de intentos permitidos
+   * @param {number} windowHours - Ventana en horas
+   * @returns {Promise<boolean>} true si puede continuar, false si excedió el límite
+   */
+  async checkPasswordResetRateLimitByIp(ip, maxAttempts = 10, windowHours = 1) {
+    try {
+      if (!this.connected && !this.pool) await this.connect();
+      await this._ensurePasswordResetIpAttemptsTable();
+
+      const sql = `SELECT COUNT(*) as count FROM password_reset_ip_attempts 
+                   WHERE ip = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? HOUR)`;
+      const [rows] = await this.pool.execute(sql, [ip, windowHours]);
+      const count = rows[0]?.count || 0;
+      return count < maxAttempts;
+    } catch (error) {
+      console.error('❌ Error comprobando rate limit por IP:', error.message);
+      return true; // En caso de error, permitir (fail-open)
+    }
+  },
+
+  /**
+   * Registra un intento de recuperación de contraseña por IP.
+   */
+  async recordPasswordResetIpAttempt(ip) {
+    try {
+      if (!this.connected && !this.pool) await this.connect();
+      await this._ensurePasswordResetIpAttemptsTable();
+
+      await this.pool.execute(
+        'INSERT INTO password_reset_ip_attempts (ip) VALUES (?)',
+        [ip]
+      );
+    } catch (error) {
+      console.error('❌ Error registrando intento por IP:', error.message);
+    }
+  },
+
+  async _ensurePasswordResetIpAttemptsTable() {
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS password_reset_ip_attempts (
+          id INT NOT NULL AUTO_INCREMENT,
+          ip VARCHAR(45) NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_ip_created (ip, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+    } catch (e) {
+      console.warn('⚠️ No se pudo asegurar tabla password_reset_ip_attempts:', e?.message);
+    }
   }
 };

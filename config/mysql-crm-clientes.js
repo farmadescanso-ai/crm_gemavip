@@ -7,6 +7,8 @@
  */
 'use strict';
 
+const { debug } = require('../lib/logger');
+
 module.exports = {
   async _ensureClientesMeta() {
     if (this._metaCache?.clientesMeta) return this._metaCache.clientesMeta;
@@ -246,16 +248,16 @@ module.exports = {
     try {
       try {
         const countQuery1 = await this.query('SELECT COUNT(*) as total FROM `Clientes_Cooperativas`');
-        console.log(`📊 [GET ALL] Total registros en Clientes_Cooperativas: ${countQuery1[0]?.total || 0}`);
+        debug('📊 [GET ALL] Total registros en Clientes_Cooperativas:', countQuery1[0]?.total || 0);
       } catch (e) {
-        console.log('⚠️ [GET ALL] No se pudo contar Clientes_Cooperativas:', e.message);
+        debug('⚠️ [GET ALL] No se pudo contar Clientes_Cooperativas:', e.message);
       }
 
       try {
         const countQuery2 = await this.query('SELECT COUNT(*) as total FROM clientes_cooperativas');
-        console.log(`📊 [GET ALL] Total registros en clientes_cooperativas: ${countQuery2[0]?.total || 0}`);
+        debug('📊 [GET ALL] Total registros en clientes_cooperativas:', countQuery2[0]?.total || 0);
       } catch (e) {
-        console.log('⚠️ [GET ALL] No se pudo contar clientes_cooperativas:', e.message);
+        debug('⚠️ [GET ALL] No se pudo contar clientes_cooperativas:', e.message);
       }
 
       let sql = `
@@ -275,13 +277,10 @@ module.exports = {
 
       try {
         rows = await this.query(sql);
-        console.log(`✅ [GET ALL] Relaciones obtenidas con tabla Clientes_Cooperativas: ${rows.length}`);
-        if (rows.length > 0) {
-          console.log(`📋 [GET ALL] Primer registro:`, JSON.stringify(rows[0], null, 2));
-        }
+        debug('✅ [GET ALL] Relaciones obtenidas con tabla Clientes_Cooperativas:', rows.length);
         return rows;
       } catch (error1) {
-        console.log('⚠️ [GET ALL] Error con Clientes_Cooperativas, intentando clientes_cooperativas:', error1.message);
+        debug('⚠️ [GET ALL] Error con Clientes_Cooperativas, intentando clientes_cooperativas:', error1.message);
         sql = `
           SELECT 
             cc.id,
@@ -297,16 +296,13 @@ module.exports = {
         `;
         try {
           rows = await this.query(sql);
-          console.log(`✅ [GET ALL] Relaciones obtenidas con tabla clientes_cooperativas: ${rows.length}`);
-          if (rows.length > 0) {
-            console.log(`📋 [GET ALL] Primer registro:`, JSON.stringify(rows[0], null, 2));
-          }
+          debug('✅ [GET ALL] Relaciones obtenidas con tabla clientes_cooperativas:', rows.length);
           return rows;
         } catch (error2) {
           console.error('❌ [GET ALL] Error con ambas variantes de nombre de tabla');
           try {
             const simpleQuery = await this.query('SELECT * FROM `Clientes_Cooperativas` LIMIT 5');
-            console.log(`✅ [GET ALL] Consulta simple exitosa, registros: ${simpleQuery.length}`);
+            debug('✅ [GET ALL] Consulta simple exitosa, registros:', simpleQuery.length);
             if (simpleQuery.length > 0) {
               const rowsWithNames = await Promise.all(simpleQuery.map(async (row) => {
                 const cliente = await this.getClienteById(row.Id_Cliente).catch(() => null);
@@ -542,7 +538,9 @@ module.exports = {
   async updateClienteGrupoCompras(id, payload) {
     try {
       const tRel = await this._resolveTableNameCaseInsensitive('clientes_gruposCompras');
-      const keys = this._filterPayloadKeys(payload);
+      const ALLOWED_COLUMNS = new Set(['Activa', 'Fecha_Baja', 'NumSocio', 'Observaciones']);
+      const keys = this._filterPayloadKeys(payload).filter((k) => ALLOWED_COLUMNS.has(k));
+      if (keys.length === 0) return { affectedRows: 0 };
       const fields = keys.map(k => `\`${k}\` = ?`).join(', ');
       const values = keys.map(k => payload[k]);
       values.push(id);

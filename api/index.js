@@ -58,7 +58,7 @@ const NOTIF_EMAILS_ENABLED =
 const app = express();
 app.set('trust proxy', 1);
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Vercel rewrites: /login -> /api/index?__path=/login; usar __path para routing
@@ -206,9 +206,17 @@ const sharedPoolConfig = {
 const sharedPool = mysql.createPool(sharedPoolConfig);
 db.setSharedPool(sharedPool);
 
+const comisionesCrm = require('../config/mysql-crm-comisiones');
+comisionesCrm.setSharedPool(sharedPool);
+
 const MySQLStore = MySQLStoreFactory(session);
 const sessionStore = new MySQLStore(
-  { createDatabaseTable: true, expiration: sessionMaxAgeMs },
+  {
+    createDatabaseTable: true,
+    expiration: sessionMaxAgeMs,
+    clearExpired: true,
+    checkExpirationInterval: 900000
+  },
   sharedPool
 );
 
