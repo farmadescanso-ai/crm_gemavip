@@ -18,11 +18,12 @@ router.get('/', (_req, res) => {
 });
 
 router.use('/comerciales', require('./comerciales'));
-router.use('/agenda', require('./agenda'));
+// router.use('/agenda', require('./agenda')); // Agenda desactivada
 router.use('/clientes', require('./clientes'));
 router.use('/db', require('./db'));
 router.use('/notificaciones', require('./notificaciones'));
 router.use('/pedidos', require('./pedidos'));
+router.use('/push', require('./push'));
 router.use('/visitas', require('./visitas'));
 
 module.exports = router;

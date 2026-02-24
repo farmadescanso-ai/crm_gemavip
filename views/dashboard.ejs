@@ -3,6 +3,11 @@
 <% const isAdmin = user && (user.roles || []).some((r) => String(r).toLowerCase().includes('admin')); %>
 <% const errs = typeof dashboardErrors !== 'undefined' ? (dashboardErrors || {}) : {}; %>
 
+<% if (typeof agendaDesactivada !== 'undefined' && agendaDesactivada) { %>
+  <section class="card gv-alert gv-alert--info" style="margin-bottom: 16px;">
+    <p style="margin: 0; font-weight: 700;">La vista de Agenda está desactivada.</p>
+  </section>
+<% } %>
 <% if (isAdmin && (errs.clientes || errs.pedidos)) { %>
   <section class="card" style="margin-bottom: 16px; border-color: #dc2626;">
     <div class="card-hd" style="background: #fef2f2;">

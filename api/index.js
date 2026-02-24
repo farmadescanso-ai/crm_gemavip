@@ -1571,28 +1571,21 @@ app.get('/clientes', requireLogin, async (req, res, next) => {
 });
 
 // ===========================
-// AGENDA (HTML) - Comercial + Admin
+// AGENDA DESACTIVADA - redirige a dashboard
 // ===========================
+app.use('/agenda', requireLogin, (_req, res) => res.redirect('/dashboard?agenda=desactivada'));
+
+// Rutas agenda originales eliminadas (ver historial git para restaurar)
+if (false) {
 app.get('/agenda', requireLogin, async (req, res, next) => {
   try {
     const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
     const q = typeof req.query.q === 'string' ? String(req.query.q).trim() : '';
-
-    // Nota: db.getContactos soporta FULLTEXT/LIKE y paginación saneada.
     const items = await db.getContactos({ search: q, limit, offset, includeInactivos: false }).catch(() => []);
-    // No tenemos COUNT barato aquí; aproximamos total por "hay siguiente" (si llegan limit, asumir hay más).
     const totalGuess = (Array.isArray(items) && items.length === limit) ? (page * limit + 1) : (offset + (items?.length || 0));
-
-    res.render('agenda', {
-      items: items || [],
-      q,
-      paging: { page, limit, total: totalGuess }
-    });
-  } catch (e) {
-    next(e);
-  }
+    res.render('agenda', { items: items || [], q, paging: { page, limit, total: totalGuess } });
+  } catch (e) { next(e); }
 });
-
 app.get('/agenda/new', requireLogin, async (_req, res, next) => {
   try {
     const [roles, especialidades] = await Promise.all([
@@ -1846,6 +1839,7 @@ app.post('/agenda/:id(\\d+)/clientes/:clienteId(\\d+)/unlink', requireLogin, asy
     next(e);
   }
 });
+} // fin if (false) - rutas agenda desactivadas
 
 // ===========================
 // CLIENTES (HTML) - Admin CRUD
@@ -2016,10 +2010,8 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
     { id: 'notas', label: 'Notas', fields: [] },
     { id: 'avanzado', label: 'Avanzado', fields: [] }
   ];
-  {
-    const m = String(mode || '').toLowerCase();
-    if (m === 'view' || m === 'edit') tabs.push({ id: 'agenda', label: 'Agenda', fields: [] });
-  }
+  // Agenda desactivada: no añadir pestaña
+  // if (m === 'view' || m === 'edit') tabs.push({ id: 'agenda', label: 'Agenda', fields: [] });
   const byId = new Map(tabs.map((t) => [t.id, t]));
 
   for (const col of cols) {
@@ -2059,8 +2051,8 @@ function buildClienteFormModel({ mode, meta, item, comerciales, tarifas, provinc
   byId.get('direccion').fields = promote(byId.get('direccion').fields, ['Direccion', 'Direccion2', 'CodigoPostal', 'Poblacion', 'Id_Provincia', 'Id_Pais', 'cli_direccion', 'cli_codigo_postal', 'cli_poblacion', 'cli_prov_id', 'cli_pais_id']);
   byId.get('condiciones').fields = promote(byId.get('condiciones').fields, [meta?.colComercial || 'Id_Cial', 'cli_com_id', 'Tarifa', 'cli_tarcli_id', 'cli_tarifa_legacy', 'Dto', 'cli_dto', 'Id_TipoCliente', 'cli_tipc_id', 'Id_FormaPago', 'cli_formp_id', 'Id_Idioma', 'cli_idiom_id', 'Id_Moneda', 'cli_mon_id']);
 
-  // Eliminar pestañas sin campos salvo Avanzado/Agenda
-  const tabsFiltered = tabs.filter((t) => t.id === 'avanzado' || t.id === 'agenda' || (t.fields && t.fields.length));
+  // Eliminar pestañas sin campos salvo Avanzado (agenda desactivada)
+  const tabsFiltered = tabs.filter((t) => t.id === 'avanzado' || (t.fields && t.fields.length));
 
   return {
     mode,
@@ -2482,75 +2474,11 @@ app.post('/clientes/:id/solicitar-asignacion', requireLogin, async (req, res, ne
 });
 
 // ===========================
-// CLIENTES <-> AGENDA (HTML)
+// CLIENTES <-> AGENDA (HTML) - DESACTIVADO
 // ===========================
-app.post('/clientes/:id/agenda/link', requireLogin, async (req, res, next) => {
-  try {
-    const clienteId = Number(req.params.id);
-    if (!Number.isFinite(clienteId) || clienteId <= 0) return res.status(400).send('ID no válido');
-    const contactoId = Number(req.body?.agendaContactoId || req.body?.contactoId || 0);
-    if (!Number.isFinite(contactoId) || contactoId <= 0) return res.redirect(`/clientes/${clienteId}?agendaError=1`);
-
-    const admin = isAdminUser(res.locals.user);
-    if (!admin) {
-      const can = await db.canComercialEditCliente(clienteId, res.locals.user?.id).catch(() => false);
-      if (!can) return res.status(404).send('No encontrado');
-    }
-
-    let rol = String(req.body?.Rol || '').trim().slice(0, 120) || null;
-    const esPrincipal = String(req.body?.Es_Principal || '').trim() === '1' || String(req.body?.Es_Principal || '').toLowerCase() === 'on';
-    const notas = String(req.body?.Notas || '').trim().slice(0, 500) || null;
-    if (rol) {
-      const r = await db.createAgendaRol(rol).catch(() => null);
-      if (r?.nombre) rol = r.nombre;
-    }
-
-    await db.vincularContactoACliente(clienteId, contactoId, { Rol: rol, Es_Principal: esPrincipal, Notas: notas });
-    return res.redirect(`/clientes/${clienteId}?agendaOk=1`);
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.post('/clientes/:id/agenda/:contactoId(\\d+)/principal', requireLogin, async (req, res, next) => {
-  try {
-    const clienteId = Number(req.params.id);
-    const contactoId = Number(req.params.contactoId);
-    if (!Number.isFinite(clienteId) || clienteId <= 0) return res.status(400).send('ID no válido');
-    if (!Number.isFinite(contactoId) || contactoId <= 0) return res.status(400).send('ID no válido');
-
-    const admin = isAdminUser(res.locals.user);
-    if (!admin) {
-      const can = await db.canComercialEditCliente(clienteId, res.locals.user?.id).catch(() => false);
-      if (!can) return res.status(404).send('No encontrado');
-    }
-
-    await db.setContactoPrincipalForCliente(clienteId, contactoId);
-    return res.redirect(`/clientes/${clienteId}?agendaOk=1`);
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.post('/clientes/:id/agenda/:contactoId(\\d+)/unlink', requireLogin, async (req, res, next) => {
-  try {
-    const clienteId = Number(req.params.id);
-    const contactoId = Number(req.params.contactoId);
-    if (!Number.isFinite(clienteId) || clienteId <= 0) return res.status(400).send('ID no válido');
-    if (!Number.isFinite(contactoId) || contactoId <= 0) return res.status(400).send('ID no válido');
-
-    const admin = isAdminUser(res.locals.user);
-    if (!admin) {
-      const can = await db.canComercialEditCliente(clienteId, res.locals.user?.id).catch(() => false);
-      if (!can) return res.status(404).send('No encontrado');
-    }
-
-    await db.cerrarVinculoContactoCliente(clienteId, contactoId, { MotivoBaja: 'Desasociado desde ficha de cliente' });
-    return res.redirect(`/clientes/${clienteId}?agendaOk=1`);
-  } catch (e) {
-    next(e);
-  }
-});
+app.post('/clientes/:id/agenda/link', requireLogin, (req, res) => res.redirect(`/clientes/${req.params.id}?agenda=desactivada`));
+app.post('/clientes/:id/agenda/:contactoId(\\d+)/principal', requireLogin, (req, res) => res.redirect(`/clientes/${req.params.id}?agenda=desactivada`));
+app.post('/clientes/:id/agenda/:contactoId(\\d+)/unlink', requireLogin, (req, res) => res.redirect(`/clientes/${req.params.id}?agenda=desactivada`));
 
 app.get('/notificaciones', requireAdmin, async (req, res, next) => {
   try {
@@ -5512,7 +5440,14 @@ app.get('/dashboard', requireLogin, async (req, res, next) => {
       }
     }
 
-    res.render('dashboard', { stats, latest, dashboardErrors: dashboardErrors || {}, years, selectedYear });
+    res.render('dashboard', {
+      stats,
+      latest,
+      dashboardErrors: dashboardErrors || {},
+      years,
+      selectedYear,
+      agendaDesactivada: req.query?.agenda === 'desactivada'
+    });
   } catch (e) {
     next(e);
   }
