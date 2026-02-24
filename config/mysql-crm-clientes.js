@@ -273,7 +273,7 @@ module.exports = {
 
   async getClienteCooperativaById(id) {
     try {
-      let sqlSimple = 'SELECT * FROM `Clientes_Cooperativas` WHERE id = ? LIMIT 1';
+      let sqlSimple = 'SELECT id, Id_Cliente, Id_Cooperativa, NumAsociado FROM `Clientes_Cooperativas` WHERE id = ? LIMIT 1';
       let rowSimple;
 
       try {
@@ -283,7 +283,7 @@ module.exports = {
         }
       } catch (error1) {
         try {
-          sqlSimple = 'SELECT * FROM clientes_cooperativas WHERE id = ? LIMIT 1';
+          sqlSimple = 'SELECT id, Id_Cliente, Id_Cooperativa, NumAsociado FROM clientes_cooperativas WHERE id = ? LIMIT 1';
           const rowsSimple2 = await this.query(sqlSimple, [id]);
           if (rowsSimple2.length > 0) {
             rowSimple = rowsSimple2[0];
@@ -510,7 +510,7 @@ module.exports = {
 
   async findCooperativaByNombre(nombre) {
     try {
-      const sql = 'SELECT * FROM cooperativas WHERE Nombre = ? OR nombre = ? LIMIT 1';
+      const sql = 'SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas WHERE Nombre = ? OR nombre = ? LIMIT 1';
       const rows = await this.query(sql, [nombre, nombre]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -640,7 +640,7 @@ module.exports = {
         cooperativa = { id: result.insertId };
       }
 
-      const sqlCheck = 'SELECT * FROM `Clientes_Cooperativas` WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1';
+      const sqlCheck = 'SELECT id, Id_Cliente, Id_Cooperativa, NumAsociado FROM `Clientes_Cooperativas` WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1';
       const cooperativaId = cooperativa.id || cooperativa.Id;
       const existing = await this.query(sqlCheck, [clienteId, cooperativaId]);
 

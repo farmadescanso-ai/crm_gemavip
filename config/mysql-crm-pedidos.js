@@ -207,7 +207,9 @@ const base = {
     try {
       const meta = await this._ensureEstadosPedidoMeta().catch(() => null);
       if (!meta?.table) return null;
-      const rows = await this.query(`SELECT * FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`, [n]);
+      const cols = await this._getColumns(meta.table).catch(() => []);
+      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+      const rows = await this.query(`SELECT ${colList} FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`, [n]);
       return rows?.[0] ?? null;
     } catch (_) {
       return null;
@@ -311,7 +313,9 @@ const base = {
       if (!Number.isFinite(idNum) || idNum <= 0) return null;
       const meta = await this._ensureDescuentosPedidoMeta();
       if (!meta?.table) return null;
-      const sql = `SELECT * FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`;
+      const cols = await this._getColumns(meta.table).catch(() => []);
+      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+      const sql = `SELECT ${colList} FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [idNum]).catch(() => []);
       return rows && rows[0] ? rows[0] : null;
     } catch (_) {
@@ -769,7 +773,8 @@ const base = {
         const colInicio = pickTar(['FechaInicio', 'fecha_inicio', 'Fecha_Inicio', 'inicio']);
         const colFin = pickTar(['FechaFin', 'fecha_fin', 'Fecha_Fin', 'fin']);
 
-        const [tRows] = await this.pool.query(`SELECT * FROM \`${tTar}\` WHERE \`${tarPk}\` = ? LIMIT 1`, [tId]);
+        const tarColList = tarCols.length ? tarCols.map((c) => `\`${c}\``).join(', ') : '*';
+        const [tRows] = await this.pool.query(`SELECT ${tarColList} FROM \`${tTar}\` WHERE \`${tarPk}\` = ? LIMIT 1`, [tId]);
         const row = (tRows && tRows[0]) ? tRows[0] : null;
         if (row) {
           const activaRaw = colActiva ? row[colActiva] : 1;

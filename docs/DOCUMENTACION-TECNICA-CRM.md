@@ -334,6 +334,8 @@ ALTER TABLE `notificaciones` ADD CONSTRAINT `fk_notif_ped`
   FOREIGN KEY (`notif_ped_id`) REFERENCES `pedidos`(`ped_id`) ON DELETE SET NULL ON UPDATE CASCADE;
 ```
 
+**Procedimiento completo:** Ver [PUNTO-17-FOREIGN-KEYS.md](PUNTO-17-FOREIGN-KEYS.md) para requisitos previos, orden de ejecución, diagnóstico de huérfanos y troubleshooting.
+
 ### 5.7 Índices
 
 Los índices se crean dinámicamente al arrancar (métodos `ensure*Indexes`). Endpoint `/api/db/ensure-indexes` (admin) los recrea. Las columnas pueden variar según esquema legacy vs normalizado.

@@ -256,10 +256,12 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           const colComercial = pedidosMeta?.colComercial || null;
           const colFecha = pedidosMeta?.colFecha || null;
           if (colComercial && colFecha) {
+            const pedCols = await db._getColumns(tPedidos).catch(() => []);
+            const pedColList = pedCols.length ? pedCols.map((c) => `\`${c}\``).join(', ') : '*';
             const sql =
               selectedYear === 'all'
-                ? `SELECT * FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`
-                : `SELECT * FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? AND DATE(\`${colFecha}\`) BETWEEN ? AND ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`;
+                ? `SELECT ${pedColList} FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`
+                : `SELECT ${pedColList} FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? AND DATE(\`${colFecha}\`) BETWEEN ? AND ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`;
             const params = selectedYear === 'all' ? [userId] : [userId, yearFrom, yearTo];
             const rows = await db.query(sql, params);
             latest.pedidos = Array.isArray(rows) ? rows : [];

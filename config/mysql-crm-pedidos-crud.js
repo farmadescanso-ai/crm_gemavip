@@ -81,7 +81,8 @@ module.exports = {
                   const colActiva = pickTar(['Activa', 'activa']);
                   const colInicio = pickTar(['FechaInicio', 'fecha_inicio', 'Fecha_Inicio', 'inicio']);
                   const colFin = pickTar(['FechaFin', 'fecha_fin', 'Fecha_Fin', 'fin']);
-                  const rows = await this.query(`SELECT * FROM \`${tTar}\` WHERE \`${tarPk}\` = ? LIMIT 1`, [tId]);
+                  const tarColList = tarCols.length ? tarCols.map((c) => `\`${c}\``).join(', ') : '*';
+                  const rows = await this.query(`SELECT ${tarColList} FROM \`${tTar}\` WHERE \`${tarPk}\` = ? LIMIT 1`, [tId]);
                   const row = Array.isArray(rows) && rows.length ? rows[0] : null;
                   if (!row) {
                     tId = 0;

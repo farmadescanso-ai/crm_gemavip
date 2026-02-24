@@ -198,7 +198,7 @@ module.exports = {
 
   async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) {
     await this._ensureNotificacionesTable();
-    const rows = await this.query('SELECT * FROM `notificaciones` WHERE id = ? AND estado = ?', [idNotif, 'pendiente']);
+    const rows = await this.query('SELECT id, tipo, id_contacto, id_comercial_solicitante, id_pedido, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM `notificaciones` WHERE id = ? AND estado = ?', [idNotif, 'pendiente']);
     if (!rows?.length) return { ok: false, message: 'Notificación no encontrada o ya resuelta' };
     const notif = rows[0];
     const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');

@@ -77,7 +77,7 @@ module.exports = {
       if (!this.connected && !this.pool) await this.connect();
       await this._ensurePasswordResetTokensTable();
 
-      const sql = `SELECT * FROM password_reset_tokens 
+      const sql = `SELECT id, comercial_id, token, email, expires_at, used, created_at FROM password_reset_tokens 
                    WHERE token = ? AND used = 0 AND expires_at > NOW() 
                    LIMIT 1`;
       const [rows] = await this.pool.execute(sql, [token]);

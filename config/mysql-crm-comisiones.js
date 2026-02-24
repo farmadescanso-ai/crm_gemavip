@@ -236,7 +236,7 @@ class ComisionesCRM {
   async getConfigObjetivosVentaMensual({ plan = 'GEMAVIP', año }) {
     if (!año) throw new Error('año es requerido');
     const sql = `
-      SELECT *
+      SELECT id, plan, año, mes, canal, importe_por_delegado, activo, observaciones, creado_en, actualizado_en
       FROM config_objetivos_venta_mensual
       WHERE plan = ?
         AND año = ?
@@ -271,7 +271,7 @@ class ComisionesCRM {
   async getConfigRepartoPresupuestoMarca({ plan = 'GEMAVIP', año, canal }) {
     if (!año) throw new Error('año es requerido');
     let sql = `
-      SELECT *
+      SELECT id, plan, año, canal, marca, porcentaje, activo, observaciones, creado_en, actualizado_en
       FROM config_reparto_presupuesto_marca
       WHERE plan = ?
         AND año = ?
@@ -792,7 +792,7 @@ class ComisionesCRM {
    */
   async getEstadoComisionById(id) {
     try {
-      const rows = await this.query('SELECT * FROM estadoComisiones WHERE id = ? LIMIT 1', [id]);
+      const rows = await this.query('SELECT id, comision_id, estado, fecha_estado, actualizado_por, notas, creado_en, actualizado_en FROM estadoComisiones WHERE id = ? LIMIT 1', [id]);
       return rows[0] || null;
     } catch (error) {
       console.error('❌ Error obteniendo estadoComision:', error.message);
@@ -867,7 +867,7 @@ class ComisionesCRM {
       await this.execute(sql, [comisionId, estado, fechaEstado, actualizadoPor, notas]);
 
       // devolver el row actual
-      const row = await this.query('SELECT * FROM estadoComisiones WHERE comision_id = ? LIMIT 1', [comisionId]);
+      const row = await this.query('SELECT id, comision_id, estado, fecha_estado, actualizado_por, notas, creado_en, actualizado_en FROM estadoComisiones WHERE comision_id = ? LIMIT 1', [comisionId]);
       return row[0] || { comision_id: comisionId, estado };
     } catch (error) {
       console.error('❌ Error guardando estadoComision:', error.message);
@@ -1867,7 +1867,7 @@ class ComisionesCRM {
    */
   async getRapelesConfiguracion(filters = {}) {
     try {
-      let sql = 'SELECT * FROM rapeles_configuracion WHERE 1=1';
+      let sql = 'SELECT id, marca, porcentaje_cumplimiento_min, porcentaje_cumplimiento_max, porcentaje_rapel, activo, observaciones, creado_en, actualizado_en FROM rapeles_configuracion WHERE 1=1';
       const params = [];
 
       if (filters.marca) {
@@ -3121,7 +3121,7 @@ class ComisionesCRM {
 
   async getConfigComisionTipoPedidoById(id) {
     try {
-      const sql = 'SELECT * FROM config_comisiones_tipo_pedido WHERE id = ?';
+      const sql = 'SELECT id, marca, tipo_pedido_id, nombre_tipo_pedido, porcentaje_comision, descripcion, activo, fecha_inicio, fecha_fin, año_aplicable, creado_en, actualizado_en FROM config_comisiones_tipo_pedido WHERE id = ?';
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -3264,7 +3264,7 @@ class ComisionesCRM {
 
   async getConfigRappelPresupuesto(filters = {}) {
     try {
-      let sql = 'SELECT * FROM config_rappel_presupuesto WHERE 1=1';
+      let sql = 'SELECT id, marca, porcentaje_rappel, descripcion, activo, fecha_inicio, fecha_fin, año_aplicable, creado_en, actualizado_en FROM config_rappel_presupuesto WHERE 1=1';
       const params = [];
 
       if (filters.marca !== undefined) {
@@ -3294,7 +3294,7 @@ class ComisionesCRM {
 
   async getConfigRappelPresupuestoById(id) {
     try {
-      const sql = 'SELECT * FROM config_rappel_presupuesto WHERE id = ?';
+      const sql = 'SELECT id, marca, porcentaje_rappel, descripcion, activo, fecha_inicio, fecha_fin, año_aplicable, creado_en, actualizado_en FROM config_rappel_presupuesto WHERE id = ?';
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -3380,7 +3380,7 @@ class ComisionesCRM {
 
   async getConfigFijoMensualList(filters = {}) {
     try {
-      let sql = 'SELECT * FROM config_fijo_mensual WHERE 1=1';
+      let sql = 'SELECT id, año_limite, porcentaje_minimo_ventas, descripcion, activo, fecha_inicio, fecha_fin, creado_en, actualizado_en FROM config_fijo_mensual WHERE 1=1';
       const params = [];
 
       if (filters.activo !== undefined) {
@@ -3398,7 +3398,7 @@ class ComisionesCRM {
 
   async getConfigFijoMensualById(id) {
     try {
-      const sql = 'SELECT * FROM config_fijo_mensual WHERE id = ?';
+      const sql = 'SELECT id, año_limite, porcentaje_minimo_ventas, descripcion, activo, fecha_inicio, fecha_fin, creado_en, actualizado_en FROM config_fijo_mensual WHERE id = ?';
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -3475,7 +3475,7 @@ class ComisionesCRM {
 
   async getConfigDescuentoTransporte(filters = {}) {
     try {
-      let sql = 'SELECT * FROM config_descuento_transporte WHERE 1=1';
+      let sql = 'SELECT id, marca, porcentaje_descuento, descripcion, activo, fecha_inicio, fecha_fin, año_aplicable, creado_en, actualizado_en FROM config_descuento_transporte WHERE 1=1';
       const params = [];
 
       if (filters.marca !== undefined) {
@@ -3505,7 +3505,7 @@ class ComisionesCRM {
 
   async getConfigDescuentoTransporteById(id) {
     try {
-      const sql = 'SELECT * FROM config_descuento_transporte WHERE id = ?';
+      const sql = 'SELECT id, marca, porcentaje_descuento, descripcion, activo, fecha_inicio, fecha_fin, año_aplicable, creado_en, actualizado_en FROM config_descuento_transporte WHERE id = ?';
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {

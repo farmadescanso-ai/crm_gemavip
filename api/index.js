@@ -95,9 +95,10 @@ app.get('/api/debug-login', async (req, res) => {
     const t = await db._resolveTableNameCaseInsensitive('comerciales');
     const cols = await db._getColumns(t);
     const colEmail = db._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'com_email';
+    const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
     const rawRows = email
       ? await db.query(
-          `SELECT * FROM \`${t}\` WHERE LOWER(TRIM(\`${colEmail}\`)) = LOWER(TRIM(?)) LIMIT 1`,
+          `SELECT ${colList} FROM \`${t}\` WHERE LOWER(TRIM(\`${colEmail}\`)) = LOWER(TRIM(?)) LIMIT 1`,
           [email]
         )
       : [];

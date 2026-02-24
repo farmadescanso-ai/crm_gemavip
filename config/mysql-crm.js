@@ -809,10 +809,10 @@ class MySQLCRM {
     try {
       // En algunos entornos (MariaDB/Linux) la PK puede ser `id` en lugar de `Id`.
       try {
-        const rows = await this.query('SELECT * FROM cooperativas ORDER BY Id ASC');
+        const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas ORDER BY Id ASC');
         return rows;
       } catch (e1) {
-        const rows = await this.query('SELECT * FROM cooperativas ORDER BY id ASC');
+        const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas ORDER BY id ASC');
         return rows;
       }
     } catch (error) {
@@ -824,10 +824,10 @@ class MySQLCRM {
   async getCooperativaById(id) {
     try {
       try {
-        const rows = await this.query('SELECT * FROM cooperativas WHERE Id = ? LIMIT 1', [id]);
+        const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas WHERE Id = ? LIMIT 1', [id]);
         return rows.length > 0 ? rows[0] : null;
       } catch (e1) {
-        const rows = await this.query('SELECT * FROM cooperativas WHERE id = ? LIMIT 1', [id]);
+        const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas WHERE id = ? LIMIT 1', [id]);
         return rows.length > 0 ? rows[0] : null;
       }
     } catch (error) {
@@ -843,9 +843,9 @@ class MySQLCRM {
   async getGruposCompras() {
     try {
       const t = await this._resolveTableNameCaseInsensitive('gruposCompras');
-      const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY id ASC`).catch(async () => {
-        // fallback por si la PK está como Id en algún entorno
-        return await this.query(`SELECT * FROM \`${t}\` ORDER BY Id ASC`);
+      const colList = 'id, Nombre, CIF, Email, Telefono, Contacto, Direccion, Poblacion, CodigoPostal, Provincia, Pais, Observaciones, Activo, CreadoEn, ActualizadoEn';
+      const rows = await this.query(`SELECT ${colList} FROM \`${t}\` ORDER BY id ASC`).catch(async () => {
+        return await this.query(`SELECT ${colList} FROM \`${t}\` ORDER BY Id ASC`);
       });
       return rows || [];
     } catch (error) {
@@ -857,11 +857,12 @@ class MySQLCRM {
   async getGrupoComprasById(id) {
     try {
       const t = await this._resolveTableNameCaseInsensitive('gruposCompras');
+      const colList = 'id, Nombre, CIF, Email, Telefono, Contacto, Direccion, Poblacion, CodigoPostal, Provincia, Pais, Observaciones, Activo, CreadoEn, ActualizadoEn';
       try {
-        const rows = await this.query(`SELECT * FROM \`${t}\` WHERE id = ? LIMIT 1`, [id]);
+        const rows = await this.query(`SELECT ${colList} FROM \`${t}\` WHERE id = ? LIMIT 1`, [id]);
         return rows?.[0] || null;
       } catch (_) {
-        const rows = await this.query(`SELECT * FROM \`${t}\` WHERE Id = ? LIMIT 1`, [id]);
+        const rows = await this.query(`SELECT ${colList} FROM \`${t}\` WHERE Id = ? LIMIT 1`, [id]);
         return rows?.[0] || null;
       }
     } catch (error) {
@@ -1062,7 +1063,8 @@ class MySQLCRM {
       const cols = await this._getColumns(t).catch(() => []);
       const pk = this._pickCIFromColumns(cols, ['tarcli_id', 'Id', 'id']) || 'Id';
       const colNombre = this._pickCIFromColumns(cols, ['tarcli_nombre', 'NombreTarifa', 'Nombre', 'nombre']) || 'NombreTarifa';
-      const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
+      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+      const rows = await this.query(`SELECT ${colList} FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
       return (rows || []).map((r) => ({
         ...r,
         id: r?.[pk] ?? r?.tarcli_id ?? r?.Id ?? r?.id ?? null,
@@ -1077,7 +1079,8 @@ class MySQLCRM {
         const cols = await this._getColumns(t).catch(() => []);
         const pk = this._pickCIFromColumns(cols, ['Id', 'id']) || 'id';
         const colNombre = this._pickCIFromColumns(cols, ['NombreTarifa', 'Nombre', 'nombre']) || 'NombreTarifa';
-        const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
+        const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+        const rows = await this.query(`SELECT ${colList} FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
         return (rows || []).map((r) => ({
           ...r,
           id: r?.[pk] ?? r?.Id ?? r?.id ?? null,
@@ -1234,7 +1237,7 @@ class MySQLCRM {
   // CENTROS DE SALUD
   async getCentrosSalud() {
     try {
-      const sql = 'SELECT * FROM centros_salud ORDER BY Id ASC';
+      const sql = 'SELECT id, Id_Ruta, Nombre_Centro, Direccion, Poblacion, Cod_Postal, Municipio, Telefono, Email, Coordinador, Telf_Coordinador, Email_Coordinador, Area_Salud FROM centros_salud ORDER BY id ASC';
       const rows = await this.query(sql);
       return rows;
     } catch (error) {
@@ -1245,7 +1248,7 @@ class MySQLCRM {
 
   async getCentroSaludById(id) {
     try {
-      const sql = 'SELECT * FROM centros_salud WHERE Id = ? LIMIT 1';
+      const sql = 'SELECT id, Id_Ruta, Nombre_Centro, Direccion, Poblacion, Cod_Postal, Municipio, Telefono, Email, Coordinador, Telf_Coordinador, Email_Coordinador, Area_Salud FROM centros_salud WHERE id = ? LIMIT 1';
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -1257,7 +1260,7 @@ class MySQLCRM {
   // MÉDICOS Y ENFERMERAS
   async getMedicosEnfermeras() {
     try {
-      const sql = 'SELECT * FROM medicos_enfermeras ORDER BY Id ASC';
+      const sql = 'SELECT id, Id, CentroSaludId, centroSaludId, Nombre, Apellidos, Especialidad, Telefono, Email FROM medicos_enfermeras ORDER BY Id ASC';
       const rows = await this.query(sql);
       return rows;
     } catch (error) {
@@ -1268,7 +1271,7 @@ class MySQLCRM {
 
   async getMedicosEnfermerasByCentro(centroId) {
     try {
-      const sql = 'SELECT * FROM medicos_enfermeras WHERE CentroSaludId = ? OR centroSaludId = ? ORDER BY Id ASC';
+      const sql = 'SELECT id, Id, CentroSaludId, centroSaludId, Nombre, Apellidos, Especialidad, Telefono, Email FROM medicos_enfermeras WHERE CentroSaludId = ? OR centroSaludId = ? ORDER BY Id ASC';
       const rows = await this.query(sql, [centroId, centroId]);
       return rows;
     } catch (error) {
@@ -1282,7 +1285,9 @@ class MySQLCRM {
     try {
       const t = this._sanitizeIdentifier(tableName);
       if (!t) throw new Error('Nombre de tabla inválido');
-      const sql = `SELECT * FROM \`${t}\` ORDER BY Id ASC`;
+      const cols = await this._getColumns(t).catch(() => []);
+      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+      const sql = `SELECT ${colList} FROM \`${t}\` ORDER BY Id ASC`;
       const rows = await this.query(sql);
       return rows;
     } catch (error) {
@@ -1294,7 +1299,7 @@ class MySQLCRM {
   // CONFIGURACIONES
   async getConfiguracion(clave) {
     try {
-      const sql = 'SELECT * FROM Configuraciones WHERE clave = ? LIMIT 1';
+      const sql = 'SELECT id, clave, valor, descripcion, tipo FROM Configuraciones WHERE clave = ? LIMIT 1';
       const rows = await this.query(sql, [clave]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -1339,7 +1344,7 @@ class MySQLCRM {
 
   async getAllConfiguraciones() {
     try {
-      const sql = 'SELECT * FROM Configuraciones ORDER BY clave ASC';
+      const sql = 'SELECT id, clave, valor, descripcion, tipo FROM Configuraciones ORDER BY clave ASC';
       const rows = await this.query(sql);
       return rows;
     } catch (error) {
@@ -1351,7 +1356,7 @@ class MySQLCRM {
   // API KEYS
   async getApiKeyByKey(apiKey) {
     try {
-      const sql = 'SELECT * FROM `api_keys` WHERE api_key = ? AND activa = 1 LIMIT 1';
+      const sql = 'SELECT id, nombre, api_key, descripcion, activa, permisos, ultimo_uso, creado_en, actualizado_en, creado_por FROM `api_keys` WHERE api_key = ? AND activa = 1 LIMIT 1';
       const rows = await this.query(sql, [apiKey]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {

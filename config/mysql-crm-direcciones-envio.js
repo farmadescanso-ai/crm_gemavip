@@ -151,8 +151,10 @@ module.exports = {
     try {
       const meta = await this._ensureDireccionesEnvioMeta();
       if (!meta?.table) return null;
+      const cols = await this._getColumns(meta.table).catch(() => []);
+      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
       const rows = await this.query(
-        `SELECT * FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`,
+        `SELECT ${colList} FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`,
         [id]
       );
       return rows && rows.length > 0 ? rows[0] : null;

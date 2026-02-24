@@ -12,7 +12,9 @@ module.exports = {
   async getClientes(comercialId = null) {
     try {
       const { tClientes, pk, colComercial } = await this._ensureClientesMeta();
-      let sql = `SELECT * FROM \`${tClientes}\``;
+      const cols = await this._getColumns(tClientes).catch(() => []);
+      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+      let sql = `SELECT ${colList} FROM \`${tClientes}\``;
       const params = [];
 
       if (comercialId) {
@@ -38,8 +40,10 @@ module.exports = {
 
   async getClientesByComercial(comercialId) {
     try {
-      const { pk, colComercial } = await this._ensureClientesMeta();
-      const sql = `SELECT * FROM clientes WHERE \`${colComercial || 'cli_com_id'}\` = ? ORDER BY \`${pk}\` ASC`;
+      const { tClientes, pk, colComercial } = await this._ensureClientesMeta();
+      const cols = await this._getColumns(tClientes).catch(() => []);
+      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+      const sql = `SELECT ${colList} FROM \`${tClientes}\` WHERE \`${colComercial || 'cli_com_id'}\` = ? ORDER BY \`${pk}\` ASC`;
       const rows = await this.query(sql, [comercialId]);
       return rows;
     } catch (error) {
@@ -185,7 +189,9 @@ module.exports = {
         const meta = await this._ensureClientesMeta().catch(() => null);
         const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
         const pk = meta?.pk || 'Id';
-        const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+        const cols = await this._getColumns(tClientes).catch(() => []);
+        const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
+        const rows = await this.query(`SELECT ${colList} FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
         return rows.length > 0 ? rows[0] : null;
       } catch (_) {
         return null;
