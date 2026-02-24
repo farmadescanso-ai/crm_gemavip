@@ -13,7 +13,7 @@ const MODULE_DEPS = {
   pedidos: 'pedidos',
   comerciales: 'comerciales',
   clientes: 'clientes',
-  clientesCrud: 'clientes', // clientesCrud depende de clientesModule
+  clientesCrud: ['clientes', 'codigos-postales'], // clientesCrud usa createCodigoPostal, _getCodigosPostalesTableName
   catalogos: 'catalogos',
   notificaciones: ['clientes', 'comerciales', 'pedidos', 'notificaciones'] // múltiples deps
 };

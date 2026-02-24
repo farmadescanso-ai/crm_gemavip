@@ -219,81 +219,16 @@ class MySQLCRM {
     );
   }
 
+  // [Direcciones de envío: ver mysql-crm-direcciones-envio.js]
   async _ensureDireccionesEnvioMeta() {
-    if (this._metaCache?.direccionesEnvioMeta) return this._metaCache.direccionesEnvioMeta;
-
-    const candidates = [
-      'direccionesEnvio',
-      'direcciones_envio',
-      'direcciones_envios',
-      'direccionesDeEnvio',
-      'direcciones_de_envio',
-      'clientes_direcciones_envio',
-      'clientes_direccionesEnvio'
-    ];
-
-    let t = null;
-    let cols = [];
-    for (const base of candidates) {
-      const tt = await this._resolveTableNameCaseInsensitive(base);
-      const cc = await this._getColumns(tt);
-      if (Array.isArray(cc) && cc.length) {
-        t = tt;
-        cols = cc;
-        break;
-      }
-    }
-
-    const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
-    const pk = pickCI(['direnv_id', 'id', 'Id']) || 'direnv_id';
-    const colCliente = pickCI(['direnv_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'clienteId', 'cliente_id']);
-    const colActiva = pickCI(['direnv_activa', 'Activa', 'activa', 'Activo', 'activo']);
-    const colPrincipal = pickCI(['direnv_es_principal', 'Es_Principal', 'es_principal', 'EsPrincipal', 'esPrincipal', 'Principal', 'principal']);
-    const colContacto = pickCI(['direnv_ag_id', 'Id_Contacto', 'id_contacto', 'ContactoId', 'contactoId', 'contacto_id']);
-
-    const meta = { table: t, pk, colCliente, colActiva, colPrincipal, colContacto, _cols: cols };
-    this._metaCache.direccionesEnvioMeta = meta;
-    return meta;
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod._ensureDireccionesEnvioMeta.apply(this, arguments);
   }
-
   async ensureDireccionesEnvioIndexes() {
-    if (this._direccionesEnvioIndexesEnsured) return;
-    this._direccionesEnvioIndexesEnsured = true;
-
-    try {
-      if (!this.pool) return;
-      const meta = await this._ensureDireccionesEnvioMeta();
-      if (!meta?.table) return;
-
-      const t = meta.table;
-      const cols = await this._getColumns(t);
-      const colsSet = new Set(cols);
-      const hasCol = (c) => c && colsSet.has(c);
-
-      const idxRows = await this.query(`SHOW INDEX FROM \`${t}\``).catch(() => []);
-      const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
-
-      const createIfMissing = async (name, colsToUse) => {
-        if (!name || existing.has(name)) return;
-        const cleanCols = (colsToUse || []).filter(hasCol);
-        if (!cleanCols.length) return;
-        const colsSql = cleanCols.map(c => `\`${c}\``).join(', ');
-        await this.query(`CREATE INDEX \`${name}\` ON \`${t}\` (${colsSql})`);
-        existing.add(name);
-        console.log(`✅ [INDEX] Creado ${name} en ${t} (${colsSql})`);
-      };
-
-      // Lecturas típicas: por cliente + filtros Activa/Principal
-      await createIfMissing('idx_direnvio_cliente', [meta.colCliente]);
-      await createIfMissing('idx_direnvio_cliente_activa', [meta.colCliente, meta.colActiva]);
-      await createIfMissing('idx_direnvio_cliente_activa_principal', [meta.colCliente, meta.colActiva, meta.colPrincipal]);
-
-      if (hasCol(meta.pk)) {
-        await createIfMissing('idx_direnvio_pk', [meta.pk]);
-      }
-    } catch (e) {
-      console.warn('⚠️ [INDEX] No se pudieron asegurar índices en direcciones de envío:', e?.message || e);
-    }
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod.ensureDireccionesEnvioIndexes.apply(this, arguments);
   }
 
   /**
@@ -1241,304 +1176,36 @@ class MySQLCRM {
     }
   }
 
-  // =====================================================
-  // DIRECCIONES DE ENVÍO
-  // =====================================================
+  // [Direcciones de envío: ver mysql-crm-direcciones-envio.js]
   async getDireccionesEnvioByCliente(clienteId, options = {}) {
-    try {
-      const includeInactivas = Boolean(options.includeInactivas);
-      const compact = Boolean(options.compact);
-      const meta = await this._ensureDireccionesEnvioMeta();
-      if (!meta?.table || !meta?.colCliente) return [];
-
-      const cols = Array.isArray(meta?._cols) ? meta._cols : [];
-      const pickCI = (cands) => this._pickCIFromColumns(cols, cands);
-
-      const colAlias = pickCI(['Alias', 'alias']);
-      const colDest = pickCI(['Nombre_Destinatario', 'nombre_destinatario', 'Destinatario', 'destinatario', 'Nombre', 'nombre']);
-      const colDir1 = pickCI(['Direccion', 'direccion', 'Dirección']);
-      const colDir2 = pickCI(['Direccion2', 'direccion2', 'Dirección2']);
-      const colPob = pickCI(['Poblacion', 'poblacion']);
-      const colCP = pickCI(['CodigoPostal', 'codigo_postal', 'CP', 'cp']);
-      const colPais = pickCI(['Pais', 'pais']);
-      const colEmail = pickCI(['Email', 'email']);
-      const colTel = pickCI(['Telefono', 'telefono', 'Tel', 'tel']);
-      const colMov = pickCI(['Movil', 'movil', 'Móvil']);
-      const colObs = pickCI(['Observaciones', 'observaciones', 'Notas', 'notas']);
-
-      const select = [];
-      select.push(`d.\`${meta.pk}\` AS id`);
-      select.push(`d.\`${meta.colCliente}\` AS Id_Cliente`);
-      if (colAlias) select.push(`d.\`${colAlias}\` AS Alias`);
-      if (colDest) select.push(`d.\`${colDest}\` AS Nombre_Destinatario`);
-      if (colDir1) select.push(`d.\`${colDir1}\` AS Direccion`);
-      if (colDir2) select.push(`d.\`${colDir2}\` AS Direccion2`);
-      if (colPob) select.push(`d.\`${colPob}\` AS Poblacion`);
-      if (colCP) select.push(`d.\`${colCP}\` AS CodigoPostal`);
-      if (colPais) select.push(`d.\`${colPais}\` AS Pais`);
-      if (!compact) {
-        if (colEmail) select.push(`d.\`${colEmail}\` AS Email`);
-        if (colTel) select.push(`d.\`${colTel}\` AS Telefono`);
-        if (colMov) select.push(`d.\`${colMov}\` AS Movil`);
-        if (colObs) select.push(`d.\`${colObs}\` AS Observaciones`);
-      }
-      if (meta.colActiva) select.push(`d.\`${meta.colActiva}\` AS Activa`);
-      if (meta.colPrincipal) select.push(`d.\`${meta.colPrincipal}\` AS Es_Principal`);
-
-      let sql = `SELECT ${select.join(', ')} FROM \`${meta.table}\` d WHERE d.\`${meta.colCliente}\` = ?`;
-      const params = [clienteId];
-
-      if (!includeInactivas && meta.colActiva) {
-        sql += ` AND d.\`${meta.colActiva}\` = 1`;
-      }
-
-      const order = [];
-      if (meta.colActiva) order.push(`d.\`${meta.colActiva}\` DESC`);
-      if (meta.colPrincipal) order.push(`d.\`${meta.colPrincipal}\` DESC`);
-      order.push(`d.\`${meta.pk}\` DESC`);
-      sql += ` ORDER BY ${order.join(', ')}`;
-
-      return await this.query(sql, params);
-    } catch (error) {
-      // Si la tabla no existe aún, no romper flujos: devolver vacío.
-      const msg = String(error?.sqlMessage || error?.message || '');
-      if (error?.code === 'ER_NO_SUCH_TABLE' || /doesn't exist/i.test(msg)) {
-        return [];
-      }
-      console.error('❌ Error obteniendo direcciones de envío por cliente:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod.getDireccionesEnvioByCliente.apply(this, arguments);
   }
-
   async getDireccionEnvioById(id) {
-    try {
-      const meta = await this._ensureDireccionesEnvioMeta();
-      if (!meta?.table) return null;
-      const rows = await this.query(
-        `SELECT * FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`,
-        [id]
-      );
-      return rows && rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      const msg = String(error?.sqlMessage || error?.message || '');
-      if (error?.code === 'ER_NO_SUCH_TABLE' || /doesn't exist/i.test(msg)) return null;
-      console.error('❌ Error obteniendo dirección de envío por ID:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod.getDireccionEnvioById.apply(this, arguments);
   }
-
   async createDireccionEnvio(payload) {
-    try {
-      if (!this.connected && !this.pool) await this.connect();
-
-      const allowed = new Set([
-        'Id_Cliente',
-        'Id_Contacto',
-        'Alias',
-        'Nombre_Destinatario',
-        'Direccion',
-        'Direccion2',
-        'Poblacion',
-        'CodigoPostal',
-        'Id_Provincia',
-        'Id_CodigoPostal',
-        'Id_Pais',
-        'Pais',
-        'Telefono',
-        'Movil',
-        'Email',
-        'Observaciones',
-        'Es_Principal',
-        'Activa'
-      ]);
-
-      const data = {};
-      for (const [k, v] of Object.entries(payload || {})) {
-        if (!allowed.has(k)) continue;
-        data[k] = v === undefined ? null : v;
-      }
-
-      if (!data.Id_Cliente) throw new Error('Id_Cliente es obligatorio');
-
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
-
-      // Si se marca como principal activa, desmarcar otras antes para evitar UNIQUE.
-      const esPrincipal = Number(data.Es_Principal) === 1;
-      const activa = (data.Activa === undefined || data.Activa === null) ? true : (Number(data.Activa) === 1);
-
-      // Transacción para consistencia
-      if (!this.pool) await this.connect();
-      const conn = await this.pool.getConnection();
-      try {
-        await conn.beginTransaction();
-
-        if (esPrincipal && activa) {
-          await conn.execute(
-            `UPDATE \`${tDirecciones}\` SET Es_Principal = 0 WHERE Id_Cliente = ? AND Activa = 1`,
-            [Number(data.Id_Cliente)]
-          );
-        }
-
-        const keys = this._filterPayloadKeys(data);
-        const fields = keys.map(k => `\`${k}\``).join(', ');
-        const placeholders = keys.map(() => '?').join(', ');
-        const values = keys.map(k => data[k]);
-        const sql = `INSERT INTO \`${tDirecciones}\` (${fields}) VALUES (${placeholders})`;
-        const [result] = await conn.execute(sql, values);
-
-        await conn.commit();
-        return { insertId: result.insertId };
-      } catch (e) {
-        try { await conn.rollback(); } catch (_) {}
-        throw e;
-      } finally {
-        conn.release();
-      }
-    } catch (error) {
-      console.error('❌ Error creando dirección de envío:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod.createDireccionEnvio.apply(this, arguments);
   }
-
-  /**
-   * Si un cliente no tiene direcciones de envío, crea una (principal) a partir de la dirección fiscal.
-   * Devuelve { created: boolean, id: number|null }.
-   */
   async ensureDireccionEnvioFiscal(clienteId) {
-    const cid = Number.parseInt(String(clienteId ?? '').trim(), 10);
-    if (!Number.isFinite(cid) || cid <= 0) return { created: false, id: null };
-    try {
-      // Si ya existe alguna dirección activa, no crear nada.
-      const existing = await this.getDireccionesEnvioByCliente(cid, { compact: true }).catch(() => []);
-      const arr = Array.isArray(existing) ? existing : [];
-      if (arr.length > 0) {
-        const firstId = Number.parseInt(String(arr[0]?.id ?? arr[0]?.Id ?? '').trim(), 10);
-        return { created: false, id: Number.isFinite(firstId) ? firstId : null };
-      }
-
-      const c = await this.getClienteById(cid).catch(() => null);
-      if (!c) return { created: false, id: null };
-
-      const nombre = String(c.cli_nombre_razon_social ?? c.Nombre ?? '').trim();
-      const direccion = String(c.Direccion ?? c.direccion ?? '').trim();
-      const poblacion = String(c.Poblacion ?? c.poblacion ?? '').trim();
-      const cp = String(c.CodigoPostal ?? c.codigo_postal ?? c.CP ?? c.cp ?? '').trim();
-      const pais = String(c.Pais ?? c.pais ?? '').trim();
-
-      // Si no hay una dirección fiscal mínima, no podemos crear.
-      if (!direccion && !poblacion && !cp) return { created: false, id: null };
-
-      const created = await this.createDireccionEnvio({
-        Id_Cliente: cid,
-        Alias: 'Fiscal',
-        Nombre_Destinatario: nombre || null,
-        Direccion: direccion || null,
-        Poblacion: poblacion || null,
-        CodigoPostal: cp || null,
-        Pais: pais || null,
-        Es_Principal: 1,
-        Activa: 1
-      });
-      const id = Number(created?.insertId ?? 0) || null;
-      return { created: Boolean(id), id };
-    } catch (e) {
-      console.warn('⚠️ Error asegurando dirección envío fiscal:', e?.message || e);
-      return { created: false, id: null };
-    }
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod.ensureDireccionEnvioFiscal.apply(this, arguments);
   }
-
   async updateDireccionEnvio(id, payload) {
-    try {
-      if (!this.connected && !this.pool) {
-        await this.connect();
-      }
-
-      const allowed = new Set([
-        'Id_Contacto',
-        'Alias',
-        'Nombre_Destinatario',
-        'Direccion',
-        'Direccion2',
-        'Poblacion',
-        'CodigoPostal',
-        'Id_Provincia',
-        'Id_CodigoPostal',
-        'Id_Pais',
-        'Pais',
-        'Telefono',
-        'Movil',
-        'Email',
-        'Observaciones',
-        'Es_Principal',
-        'Activa'
-      ]);
-
-      const fields = [];
-      const values = [];
-      for (const [k, v] of Object.entries(payload || {})) {
-        if (!allowed.has(k)) continue;
-        fields.push(`\`${k}\` = ?`);
-        values.push(v === undefined ? null : v);
-      }
-      if (!fields.length) return { affectedRows: 0 };
-
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
-
-      // Si se pone como principal activa, desmarcar otras antes.
-      const willSetPrincipal = Object.prototype.hasOwnProperty.call(payload || {}, 'Es_Principal') && Number(payload.Es_Principal) === 1;
-      const willBeActive = !Object.prototype.hasOwnProperty.call(payload || {}, 'Activa') || Number(payload.Activa) === 1;
-
-      if (!this.pool) await this.connect();
-      const conn = await this.pool.getConnection();
-      try {
-        await conn.beginTransaction();
-
-        let clienteId = null;
-        try {
-          const [rows] = await conn.execute(`SELECT Id_Cliente FROM \`${tDirecciones}\` WHERE id = ? LIMIT 1`, [id]);
-          clienteId = rows?.[0]?.Id_Cliente ?? null;
-        } catch (_) {
-          clienteId = null;
-        }
-
-        if (clienteId && willSetPrincipal && willBeActive) {
-          await conn.execute(
-            `UPDATE \`${tDirecciones}\` SET Es_Principal = 0 WHERE Id_Cliente = ? AND Activa = 1`,
-            [Number(clienteId)]
-          );
-        }
-
-        values.push(id);
-        const sql = `UPDATE \`${tDirecciones}\` SET ${fields.join(', ')} WHERE id = ?`;
-        const [result] = await conn.execute(sql, values);
-
-        await conn.commit();
-        return { affectedRows: result.affectedRows || 0 };
-      } catch (e) {
-        try { await conn.rollback(); } catch (_) {}
-        throw e;
-      } finally {
-        conn.release();
-      }
-    } catch (error) {
-      console.error('❌ Error actualizando dirección de envío:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod.updateDireccionEnvio.apply(this, arguments);
   }
-
   async desactivarDireccionEnvio(id) {
-    try {
-      if (!this.connected && !this.pool) {
-        await this.connect();
-      }
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
-      const sql = `UPDATE \`${tDirecciones}\` SET Activa = 0, Es_Principal = 0 WHERE id = ?`;
-      const result = await this.query(sql, [id]);
-      return { affectedRows: result.affectedRows || 0 };
-    } catch (error) {
-      console.error('❌ Error desactivando dirección de envío:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('direcciones-envio');
+    const mod = require(path.join(__dirname, 'mysql-crm-direcciones-envio.js'));
+    return mod.desactivarDireccionEnvio.apply(this, arguments);
   }
 
   // VISITAS (delegado a domains/visitas.js)
@@ -1764,893 +1431,86 @@ class MySQLCRM {
     }
   }
 
-  // =====================================================
-  // Helpers internos (tablas con case variable)
-  // =====================================================
+  // [Códigos postales y asignaciones: ver mysql-crm-codigos-postales.js]
   async _getCodigosPostalesTableName() {
-    // Cache simple en la instancia
-    this._cache = this._cache || {};
-    if (this._cache.codigosPostalesTableName !== undefined) return this._cache.codigosPostalesTableName;
-    try {
-      const rows = await this.query(
-        `SELECT table_name AS name
-         FROM information_schema.tables
-         WHERE table_schema = DATABASE()
-           AND LOWER(table_name) = 'codigos_postales'
-         ORDER BY (table_name = 'codigos_postales') DESC, table_name ASC
-         LIMIT 1`
-      );
-      const name = rows?.[0]?.name || null;
-      this._cache.codigosPostalesTableName = name;
-      return name;
-    } catch (_) {
-      this._cache.codigosPostalesTableName = null;
-      return null;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod._getCodigosPostalesTableName.apply(this, arguments);
   }
-
   async _getAsignacionesCpMarcasTableName() {
-    this._cache = this._cache || {};
-    if (this._cache.asignacionesCpMarcasTableName !== undefined) return this._cache.asignacionesCpMarcasTableName;
-    try {
-      const rows = await this.query(
-        `SELECT table_name AS name
-         FROM information_schema.tables
-         WHERE table_schema = DATABASE()
-           AND LOWER(table_name) = 'comerciales_codigos_postales_marcas'
-         ORDER BY (table_name = 'comerciales_codigos_postales_marcas') DESC, table_name ASC
-         LIMIT 1`
-      );
-      const name = rows?.[0]?.name || null;
-      this._cache.asignacionesCpMarcasTableName = name;
-      return name;
-    } catch (_) {
-      this._cache.asignacionesCpMarcasTableName = null;
-      return null;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod._getAsignacionesCpMarcasTableName.apply(this, arguments);
   }
-
   async _getComercialesTableName() {
-    this._cache = this._cache || {};
-    if (this._cache.comercialesTableName !== undefined) return this._cache.comercialesTableName;
-    try {
-      const rows = await this.query(
-        `SELECT table_name AS name
-         FROM information_schema.tables
-         WHERE table_schema = DATABASE()
-           AND LOWER(table_name) = 'comerciales'
-         ORDER BY (table_name = 'comerciales') DESC, table_name ASC
-         LIMIT 1`
-      );
-      const name = rows?.[0]?.name || 'Comerciales';
-      this._cache.comercialesTableName = name;
-      return name;
-    } catch (_) {
-      this._cache.comercialesTableName = 'Comerciales';
-      return 'Comerciales';
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod._getComercialesTableName.apply(this, arguments);
   }
-
   async _getMarcasTableName() {
-    this._cache = this._cache || {};
-    if (this._cache.marcasTableName !== undefined) return this._cache.marcasTableName;
-    try {
-      const rows = await this.query(
-        `SELECT table_name AS name
-         FROM information_schema.tables
-         WHERE table_schema = DATABASE()
-           AND LOWER(table_name) = 'marcas'
-         ORDER BY (table_name = 'marcas') DESC, table_name ASC
-         LIMIT 1`
-      );
-      const name = rows?.[0]?.name || 'Marcas';
-      this._cache.marcasTableName = name;
-      return name;
-    } catch (_) {
-      this._cache.marcasTableName = 'Marcas';
-      return 'Marcas';
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod._getMarcasTableName.apply(this, arguments);
   }
-
-  // =====================================================
-  // MÉTODOS CRUD PARA CÓDIGOS POSTALES
-  // =====================================================
-
   async getCodigosPostales(filtros = {}) {
-    try {
-      const codigosPostalesTable = await this._getCodigosPostalesTableName();
-      if (!codigosPostalesTable) {
-        console.warn('⚠️ [CODIGOS-POSTALES] La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
-        return [];
-      }
-      
-      let sql = `
-        SELECT cp.*, p.Nombre AS NombreProvincia, p.Codigo AS CodigoProvincia
-        FROM ${codigosPostalesTable} cp
-        LEFT JOIN provincias p ON (cp.Id_Provincia = p.id OR cp.Id_Provincia = p.Id)
-        WHERE 1=1
-      `;
-      const params = [];
-
-      if (filtros.codigoPostal) {
-        sql += ' AND cp.CodigoPostal LIKE ?';
-        params.push(`%${filtros.codigoPostal}%`);
-      }
-      if (filtros.localidad) {
-        sql += ' AND cp.Localidad LIKE ?';
-        params.push(`%${filtros.localidad}%`);
-      }
-      if (filtros.provincia) {
-        sql += ' AND cp.Provincia LIKE ?';
-        params.push(`%${filtros.provincia}%`);
-      }
-      if (filtros.idProvincia) {
-        sql += ' AND cp.Id_Provincia = ?';
-        params.push(filtros.idProvincia);
-      }
-      if (filtros.activo !== undefined) {
-        sql += ' AND cp.Activo = ?';
-        params.push(filtros.activo ? 1 : 0);
-      }
-
-      sql += ' ORDER BY cp.Provincia, cp.Localidad, cp.CodigoPostal';
-      
-      if (filtros.limit) {
-        sql += ' LIMIT ?';
-        params.push(filtros.limit);
-        if (filtros.offset) {
-          sql += ' OFFSET ?';
-          params.push(filtros.offset);
-        }
-      }
-
-      const rows = await this.query(sql, params);
-      return rows;
-    } catch (error) {
-      console.error('❌ Error obteniendo códigos postales:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.getCodigosPostales.apply(this, arguments);
   }
-
   async getCodigoPostalById(id) {
-    try {
-      const codigosPostalesTable = await this._getCodigosPostalesTableName();
-      if (!codigosPostalesTable) return null;
-      const sql = `
-        SELECT cp.*, p.Nombre AS NombreProvincia, p.Codigo AS CodigoProvincia
-        FROM ${codigosPostalesTable} cp
-        LEFT JOIN provincias p ON (cp.Id_Provincia = p.id OR cp.Id_Provincia = p.Id)
-        WHERE cp.id = ?
-      `;
-      const rows = await this.query(sql, [id]);
-      return rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      console.error('❌ Error obteniendo código postal por ID:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.getCodigoPostalById.apply(this, arguments);
   }
-
   async createCodigoPostal(data) {
-    try {
-      // Resolver nombre real de la tabla de códigos postales (en algunos servidores MySQL es case-sensitive)
-      const cpTableRows = await this.query(
-        `SELECT table_name AS name
-         FROM information_schema.tables
-         WHERE table_schema = DATABASE()
-           AND LOWER(table_name) = 'codigos_postales'
-         LIMIT 1`
-      );
-      const codigosPostalesTable = cpTableRows?.[0]?.name;
-      if (!codigosPostalesTable) {
-        throw new Error('La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
-      }
-      
-      const sql = `
-        INSERT INTO ${codigosPostalesTable}
-        (CodigoPostal, Localidad, Provincia, Id_Provincia, ComunidadAutonoma, Latitud, Longitud, Activo)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      const params = [
-        data.CodigoPostal,
-        data.Localidad,
-        data.Provincia,
-        data.Id_Provincia || null,
-        data.ComunidadAutonoma || null,
-        data.Latitud || null,
-        data.Longitud || null,
-        data.Activo !== undefined ? (data.Activo ? 1 : 0) : 1
-      ];
-      
-      const result = await this.query(sql, params);
-      return {
-        success: true,
-        insertId: result.insertId,
-        affectedRows: result.affectedRows
-      };
-    } catch (error) {
-      console.error('❌ Error creando código postal:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.createCodigoPostal.apply(this, arguments);
   }
-
   async updateCodigoPostal(id, data) {
-    try {
-      const codigosPostalesTable = await this._getCodigosPostalesTableName();
-      if (!codigosPostalesTable) {
-        throw new Error('La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
-      }
-      const campos = [];
-      const params = [];
-
-      if (data.CodigoPostal !== undefined) {
-        campos.push('CodigoPostal = ?');
-        params.push(data.CodigoPostal);
-      }
-      if (data.Localidad !== undefined) {
-        campos.push('Localidad = ?');
-        params.push(data.Localidad);
-      }
-      if (data.Provincia !== undefined) {
-        campos.push('Provincia = ?');
-        params.push(data.Provincia);
-      }
-      if (data.Id_Provincia !== undefined) {
-        campos.push('Id_Provincia = ?');
-        params.push(data.Id_Provincia);
-      }
-      if (data.ComunidadAutonoma !== undefined) {
-        campos.push('ComunidadAutonoma = ?');
-        params.push(data.ComunidadAutonoma);
-      }
-      if (data.Latitud !== undefined) {
-        campos.push('Latitud = ?');
-        params.push(data.Latitud);
-      }
-      if (data.Longitud !== undefined) {
-        campos.push('Longitud = ?');
-        params.push(data.Longitud);
-      }
-      if (data.Activo !== undefined) {
-        campos.push('Activo = ?');
-        params.push(data.Activo ? 1 : 0);
-      }
-
-      if (campos.length === 0) {
-        return { success: true, affectedRows: 0 };
-      }
-
-      params.push(id);
-      const sql = `UPDATE ${codigosPostalesTable} SET ${campos.join(', ')} WHERE id = ?`;
-      const result = await this.query(sql, params);
-      
-      return {
-        success: true,
-        affectedRows: result.affectedRows,
-        changedRows: result.changedRows
-      };
-    } catch (error) {
-      console.error('❌ Error actualizando código postal:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.updateCodigoPostal.apply(this, arguments);
   }
-
   async deleteCodigoPostal(id) {
-    try {
-      const codigosPostalesTable = await this._getCodigosPostalesTableName();
-      if (!codigosPostalesTable) {
-        throw new Error('La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
-      }
-      const sql = `DELETE FROM ${codigosPostalesTable} WHERE id = ?`;
-      const result = await this.query(sql, [id]);
-      return {
-        success: true,
-        affectedRows: result.affectedRows
-      };
-    } catch (error) {
-      console.error('❌ Error eliminando código postal:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.deleteCodigoPostal.apply(this, arguments);
   }
-
-  // =====================================================
-  // MÉTODOS CRUD PARA ASIGNACIONES COMERCIALES - CÓDIGOS POSTALES - MARCAS
-  // =====================================================
-
   async getAsignaciones(filtros = {}) {
-    try {
-      const asignacionesTable = await this._getAsignacionesCpMarcasTableName();
-      if (!asignacionesTable) {
-        console.warn('⚠️ [ASIGNACIONES] La tabla de asignaciones no existe (Comerciales_Codigos_Postales_Marcas/comerciales_codigos_postales_marcas).');
-        return [];
-      }
-      const codigosPostalesTable = await this._getCodigosPostalesTableName();
-      if (!codigosPostalesTable) {
-        console.warn('⚠️ [ASIGNACIONES] La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
-        return [];
-      }
-      const comercialesTable = await this._getComercialesTableName();
-      const marcasTable = await this._getMarcasTableName();
-      
-      let sql = `
-        SELECT 
-          ccp.id,
-          ccp.Id_Comercial,
-          ccp.Id_CodigoPostal,
-          ccp.Id_Marca,
-          ccp.FechaInicio,
-          ccp.FechaFin,
-          ccp.Activo,
-          ccp.Prioridad,
-          ccp.Observaciones,
-          ccp.CreadoPor,
-          ccp.CreadoEn,
-          ccp.ActualizadoEn,
-          c.Nombre AS NombreComercial,
-          c.Email AS EmailComercial,
-          cp.CodigoPostal,
-          cp.Localidad,
-          cp.Provincia,
-          m.Nombre AS NombreMarca,
-          COALESCE(
-            (SELECT cl.Poblacion 
-             FROM Clientes cl 
-             WHERE (cl.Id_CodigoPostal = cp.id OR cl.CodigoPostal = cp.CodigoPostal)
-               AND cl.Poblacion IS NOT NULL 
-               AND cl.Poblacion != ''
-             GROUP BY cl.Poblacion 
-             ORDER BY COUNT(*) DESC 
-             LIMIT 1),
-            cp.Localidad
-          ) AS Poblacion,
-          COALESCE(cp.NumClientes, 0) AS NumClientes
-        FROM ${asignacionesTable} ccp
-        INNER JOIN ${comercialesTable} c ON (ccp.Id_Comercial = c.id OR ccp.Id_Comercial = c.Id)
-        INNER JOIN ${codigosPostalesTable} cp ON (ccp.Id_CodigoPostal = cp.id OR ccp.Id_CodigoPostal = cp.Id)
-        INNER JOIN ${marcasTable} m ON (ccp.Id_Marca = m.id OR ccp.Id_Marca = m.Id)
-        WHERE 1=1
-      `;
-      const params = [];
-
-      if (filtros.idComercial) {
-        sql += ' AND ccp.Id_Comercial = ?';
-        params.push(filtros.idComercial);
-      }
-      if (filtros.idCodigoPostal) {
-        sql += ' AND ccp.Id_CodigoPostal = ?';
-        params.push(filtros.idCodigoPostal);
-      }
-      if (filtros.idMarca) {
-        sql += ' AND ccp.Id_Marca = ?';
-        params.push(filtros.idMarca);
-      }
-      if (filtros.idProvincia) {
-        sql += ' AND cp.Id_Provincia = ?';
-        params.push(filtros.idProvincia);
-      }
-      if (filtros.provincia) {
-        sql += ' AND cp.Provincia = ?';
-        params.push(filtros.provincia);
-      }
-      if (filtros.activo !== undefined) {
-        sql += ' AND ccp.Activo = ?';
-        params.push(filtros.activo ? 1 : 0);
-      }
-      if (filtros.soloActivos === true) {
-        sql += ' AND ccp.Activo = 1 AND (ccp.FechaFin IS NULL OR ccp.FechaFin >= CURDATE())';
-      }
-
-      sql += ' ORDER BY cp.Provincia, cp.Localidad, m.Nombre, ccp.Prioridad DESC';
-      
-      if (filtros.limit) {
-        sql += ' LIMIT ?';
-        params.push(filtros.limit);
-        if (filtros.offset) {
-          sql += ' OFFSET ?';
-          params.push(filtros.offset);
-        }
-      }
-
-      console.log(`✅ [ASIGNACIONES] Ejecutando consulta SQL: ${sql.substring(0, 200)}...`);
-      console.log(`✅ [ASIGNACIONES] Parámetros:`, params);
-      const rows = await this.query(sql, params);
-      console.log(`✅ [ASIGNACIONES] Resultados obtenidos: ${rows ? rows.length : 0} asignaciones`);
-      if (rows && rows.length > 0) {
-        const ejemplo = rows[0];
-        console.log(`✅ [ASIGNACIONES] Ejemplo de asignación:`);
-        console.log(`   - CodigoPostal: ${ejemplo.CodigoPostal}`);
-        console.log(`   - Poblacion: ${ejemplo.Poblacion}`);
-        console.log(`   - NumClientes: ${ejemplo.NumClientes}`);
-        console.log(`   - Localidad: ${ejemplo.Localidad}`);
-        console.log(`✅ [ASIGNACIONES] Primera asignación completa:`, JSON.stringify({
-          CodigoPostal: ejemplo.CodigoPostal,
-          Poblacion: ejemplo.Poblacion,
-          NumClientes: ejemplo.NumClientes,
-          Localidad: ejemplo.Localidad
-        }, null, 2));
-      } else {
-        console.warn(`⚠️ [ASIGNACIONES] No se encontraron asignaciones con los filtros aplicados`);
-      }
-      return Array.isArray(rows) ? rows : [];
-    } catch (error) {
-      console.error('❌ [ASIGNACIONES] Error obteniendo asignaciones:', error.message);
-      console.error('❌ [ASIGNACIONES] Stack:', error.stack);
-      // Devolver array vacío en lugar de lanzar error para evitar 500
-      return [];
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.getAsignaciones.apply(this, arguments);
   }
-
   async getAsignacionById(id) {
-    try {
-      const asignacionesTable = await this._getAsignacionesCpMarcasTableName();
-      const codigosPostalesTable = await this._getCodigosPostalesTableName();
-      const comercialesTable = await this._getComercialesTableName();
-      const marcasTable = await this._getMarcasTableName();
-      if (!asignacionesTable || !codigosPostalesTable) return null;
-      const sql = `
-        SELECT 
-          ccp.*,
-          c.Nombre AS NombreComercial,
-          c.Email AS EmailComercial,
-          cp.CodigoPostal,
-          cp.Localidad,
-          cp.Provincia,
-          m.Nombre AS NombreMarca
-        FROM ${asignacionesTable} ccp
-        INNER JOIN ${comercialesTable} c ON (ccp.Id_Comercial = c.id OR ccp.Id_Comercial = c.Id)
-        INNER JOIN ${codigosPostalesTable} cp ON (ccp.Id_CodigoPostal = cp.id OR ccp.Id_CodigoPostal = cp.Id)
-        INNER JOIN ${marcasTable} m ON (ccp.Id_Marca = m.id OR ccp.Id_Marca = m.Id)
-        WHERE ccp.id = ?
-      `;
-      const rows = await this.query(sql, [id]);
-      return rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      console.error('❌ Error obteniendo asignación por ID:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.getAsignacionById.apply(this, arguments);
   }
-
   async createAsignacion(data) {
-    try {
-      // Validación defensiva (evita errores SQL tipo "Field 'Id_CodigoPostal' doesn't have a default value")
-      if (!data || !data.Id_Comercial) {
-        throw new Error('Id_Comercial es obligatorio');
-      }
-      if (!data.Id_CodigoPostal) {
-        throw new Error('Id_CodigoPostal es obligatorio');
-      }
-      if (!data.Id_Marca) {
-        throw new Error('Id_Marca es obligatorio');
-      }
-
-      const asignacionesTable = await this._getAsignacionesCpMarcasTableName();
-      if (!asignacionesTable) {
-        throw new Error('La tabla de asignaciones no existe (Comerciales_Codigos_Postales_Marcas/comerciales_codigos_postales_marcas). Ejecuta `scripts/crear-tabla-codigos-postales.sql` en la BD correcta.');
-      }
-      
-      const sql = `
-        INSERT INTO ${asignacionesTable} 
-        (Id_Comercial, Id_CodigoPostal, Id_Marca, FechaInicio, FechaFin, Activo, Prioridad, Observaciones, CreadoPor)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      const params = [
-        data.Id_Comercial,
-        data.Id_CodigoPostal,
-        data.Id_Marca,
-        data.FechaInicio || null,
-        data.FechaFin || null,
-        data.Activo !== undefined ? (data.Activo ? 1 : 0) : 1,
-        data.Prioridad || 0,
-        data.Observaciones || null,
-        data.CreadoPor || null
-      ];
-      
-      const result = await this.query(sql, params);
-      return {
-        success: true,
-        insertId: result.insertId,
-        affectedRows: result.affectedRows
-      };
-    } catch (error) {
-      console.error('❌ Error creando asignación:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.createAsignacion.apply(this, arguments);
   }
-
   async updateAsignacion(id, data) {
-    try {
-      const asignacionesTable = await this._getAsignacionesCpMarcasTableName();
-      if (!asignacionesTable) {
-        throw new Error('La tabla de asignaciones no existe (Comerciales_Codigos_Postales_Marcas/comerciales_codigos_postales_marcas).');
-      }
-      const campos = [];
-      const params = [];
-
-      if (data.Id_Comercial !== undefined) {
-        campos.push('Id_Comercial = ?');
-        params.push(data.Id_Comercial);
-      }
-      if (data.Id_CodigoPostal !== undefined) {
-        campos.push('Id_CodigoPostal = ?');
-        params.push(data.Id_CodigoPostal);
-      }
-      if (data.Id_Marca !== undefined) {
-        campos.push('Id_Marca = ?');
-        params.push(data.Id_Marca);
-      }
-      if (data.FechaInicio !== undefined) {
-        campos.push('FechaInicio = ?');
-        params.push(data.FechaInicio);
-      }
-      if (data.FechaFin !== undefined) {
-        campos.push('FechaFin = ?');
-        params.push(data.FechaFin);
-      }
-      if (data.Activo !== undefined) {
-        campos.push('Activo = ?');
-        params.push(data.Activo ? 1 : 0);
-      }
-      if (data.Prioridad !== undefined) {
-        campos.push('Prioridad = ?');
-        params.push(data.Prioridad);
-      }
-      if (data.Observaciones !== undefined) {
-        campos.push('Observaciones = ?');
-        params.push(data.Observaciones);
-      }
-
-      if (campos.length === 0) {
-        return { success: true, affectedRows: 0 };
-      }
-
-      params.push(id);
-      const sql = `UPDATE ${asignacionesTable} SET ${campos.join(', ')} WHERE id = ?`;
-      const result = await this.query(sql, params);
-      
-      return {
-        success: true,
-        affectedRows: result.affectedRows,
-        changedRows: result.changedRows
-      };
-    } catch (error) {
-      console.error('❌ Error actualizando asignación:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.updateAsignacion.apply(this, arguments);
   }
-
   async deleteAsignacion(id) {
-    try {
-      const asignacionesTable = await this._getAsignacionesCpMarcasTableName();
-      if (!asignacionesTable) {
-        throw new Error('La tabla de asignaciones no existe (Comerciales_Codigos_Postales_Marcas/comerciales_codigos_postales_marcas).');
-      }
-      const sql = `DELETE FROM ${asignacionesTable} WHERE id = ?`;
-      const result = await this.query(sql, [id]);
-      return {
-        success: true,
-        affectedRows: result.affectedRows
-      };
-    } catch (error) {
-      console.error('❌ Error eliminando asignación:', error.message);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.deleteAsignacion.apply(this, arguments);
   }
-
-  // =====================================================
-  // MÉTODOS PARA ASIGNACIONES MASIVAS
-  // =====================================================
-
-  /**
-   * Crear asignaciones masivas
-   * @param {Object} data - Datos de la asignación masiva
-   * @param {number} data.Id_Comercial - ID del comercial
-   * @param {Array<number>} data.Ids_CodigosPostales - Array de IDs de códigos postales
-   * @param {number|null} data.Id_Marca - ID de la marca (null = todas las marcas)
-   * @param {Date|null} data.FechaInicio - Fecha de inicio
-   * @param {Date|null} data.FechaFin - Fecha de fin
-   * @param {number} data.Prioridad - Prioridad
-   * @param {boolean} data.Activo - Si está activo
-   * @param {string|null} data.Observaciones - Observaciones
-   * @param {number|null} data.CreadoPor - ID del usuario que crea
-   * @param {boolean} data.ActualizarClientes - Si actualizar clientes automáticamente
-   * @returns {Object} Resultado con asignaciones creadas y clientes actualizados
-   */
   async createAsignacionesMasivas(data) {
-    const connection = await this.pool.getConnection();
-    try {
-      await connection.beginTransaction();
-
-      const {
-        Id_Comercial,
-        Ids_CodigosPostales = [],
-        Id_Marca = null,
-        FechaInicio = null,
-        FechaFin = null,
-        Prioridad = 0,
-        Activo = true,
-        Observaciones = null,
-        CreadoPor = null,
-        ActualizarClientes = true
-      } = data;
-
-      if (!Id_Comercial || !Ids_CodigosPostales || Ids_CodigosPostales.length === 0) {
-        throw new Error('Id_Comercial e Ids_CodigosPostales son obligatorios');
-      }
-
-      // Obtener todas las marcas si Id_Marca es null
-      let marcas = [];
-      if (Id_Marca === null || Id_Marca === '') {
-        // Verificar si la columna Activo existe en Marcas antes de usarla
-        let hasActivoColumn = false;
-        try {
-          const [columns] = await this.query(`
-            SELECT COLUMN_NAME 
-            FROM INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_SCHEMA = DATABASE() 
-              AND TABLE_NAME = 'Marcas' 
-              AND COLUMN_NAME = 'Activo'
-          `);
-          hasActivoColumn = columns && columns.length > 0;
-        } catch (e) {
-          console.warn('⚠️ [ASIGNACIONES-MASIVAS] No se pudo verificar la columna Activo en Marcas:', e.message);
-        }
-        
-        // Consultar marcas (con filtro Activo solo si existe)
-        const sqlMarcas = hasActivoColumn 
-          ? 'SELECT id FROM Marcas WHERE Activo = 1'
-          : 'SELECT id FROM Marcas';
-        const marcasResult = await this.query(sqlMarcas);
-        marcas = marcasResult.map(m => m.id);
-      } else {
-        marcas = [Id_Marca];
-      }
-
-      const asignacionesCreadas = [];
-      const asignacionesExistentes = [];
-      const errores = [];
-
-      // Crear asignaciones para cada código postal y marca
-      for (const Id_CodigoPostal of Ids_CodigosPostales) {
-        for (const marcaId of marcas) {
-          try {
-            // Verificar si ya existe
-            const existe = await this.query(
-              `SELECT id FROM Comerciales_Codigos_Postales_Marcas 
-               WHERE Id_Comercial = ? AND Id_CodigoPostal = ? AND Id_Marca = ? 
-               AND (FechaInicio IS NULL OR FechaInicio = ?)`,
-              [Id_Comercial, Id_CodigoPostal, marcaId, FechaInicio]
-            );
-
-            if (existe && existe.length > 0) {
-              asignacionesExistentes.push({
-                Id_CodigoPostal,
-                Id_Marca: marcaId
-              });
-              continue;
-            }
-
-            // Crear nueva asignación
-            const result = await this.query(
-              `INSERT INTO Comerciales_Codigos_Postales_Marcas 
-               (Id_Comercial, Id_CodigoPostal, Id_Marca, FechaInicio, FechaFin, Activo, Prioridad, Observaciones, CreadoPor)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                Id_Comercial,
-                Id_CodigoPostal,
-                marcaId,
-                FechaInicio,
-                FechaFin,
-                Activo ? 1 : 0,
-                Prioridad,
-                Observaciones,
-                CreadoPor
-              ]
-            );
-
-            asignacionesCreadas.push({
-              id: result.insertId,
-              Id_CodigoPostal,
-              Id_Marca: marcaId
-            });
-          } catch (error) {
-            errores.push({
-              Id_CodigoPostal,
-              Id_Marca: marcaId,
-              error: error.message
-            });
-          }
-        }
-      }
-
-      // Actualizar clientes si se solicita
-      let clientesActualizados = 0;
-      if (ActualizarClientes && asignacionesCreadas.length > 0) {
-        // Obtener códigos postales únicos de las asignaciones creadas
-        const codigosPostalesUnicos = [...new Set(asignacionesCreadas.map(a => a.Id_CodigoPostal))];
-        
-        // Actualizar clientes que tengan estos códigos postales
-        // Usar el comercial específico que acabamos de asignar
-        if (codigosPostalesUnicos.length > 0) {
-          // Usar placeholders para evitar inyección SQL
-          const placeholders = codigosPostalesUnicos.map(() => '?').join(',');
-          
-          console.log(`✅ [ACTUALIZAR-CLIENTES] Actualizando clientes con códigos postales: ${codigosPostalesUnicos.join(', ')}`);
-          console.log(`✅ [ACTUALIZAR-CLIENTES] Comercial asignado: ${Id_Comercial}, Prioridad: ${Prioridad}`);
-          
-          // Obtener la prioridad máxima del comercial asignado para estos códigos postales
-          const prioridadPlaceholders = codigosPostalesUnicos.map(() => '?').join(',');
-          const prioridadResult = await this.query(
-            `SELECT MAX(Prioridad) as maxPrioridad 
-             FROM Comerciales_Codigos_Postales_Marcas 
-             WHERE Id_Comercial = ? 
-               AND Id_CodigoPostal IN (${prioridadPlaceholders})
-               AND Activo = 1
-               AND (FechaFin IS NULL OR FechaFin >= CURDATE())
-               AND (FechaInicio IS NULL OR FechaInicio <= CURDATE())`,
-            [Id_Comercial, ...codigosPostalesUnicos]
-          );
-          
-          const prioridadComercial = prioridadResult[0]?.maxPrioridad || Prioridad || 0;
-          console.log(`✅ [ACTUALIZAR-CLIENTES] Prioridad del comercial asignado: ${prioridadComercial}`);
-          
-          // Obtener los códigos postales (texto) de los IDs
-          const codigosPostalesTexto = await this.query(
-            `SELECT CodigoPostal FROM Codigos_Postales WHERE id IN (${placeholders})`,
-            codigosPostalesUnicos
-          );
-          const codigosPostalesArray = codigosPostalesTexto.map(cp => cp.CodigoPostal);
-          const codigosPostalesPlaceholders = codigosPostalesArray.map(() => '?').join(',');
-          
-          console.log(`✅ [ACTUALIZAR-CLIENTES] Códigos postales a buscar: ${codigosPostalesArray.join(', ')}`);
-          
-          // Actualizar clientes directamente con el comercial asignado
-          // Buscar por Id_CodigoPostal O por CodigoPostal (texto) si Id_CodigoPostal es null
-          // Solo actualizar si el cliente no tiene comercial o si la prioridad del nuevo comercial es mayor
-          const updateResult = await this.query(
-            `UPDATE Clientes c
-             LEFT JOIN Codigos_Postales cp ON c.Id_CodigoPostal = cp.id
-             SET c.Id_Cial = ?
-             WHERE (
-               (c.Id_CodigoPostal IN (${placeholders}))
-               OR (c.Id_CodigoPostal IS NULL AND c.CodigoPostal IN (${codigosPostalesPlaceholders}))
-             )
-               AND (
-                 c.Id_Cial IS NULL 
-                 OR c.Id_Cial = 0
-                 OR ? > COALESCE((
-                   SELECT MAX(ccp2.Prioridad)
-                   FROM Comerciales_Codigos_Postales_Marcas ccp2
-                   INNER JOIN Codigos_Postales cp2 ON ccp2.Id_CodigoPostal = cp2.id
-                   WHERE (cp2.id = c.Id_CodigoPostal OR cp2.CodigoPostal = c.CodigoPostal)
-                     AND ccp2.Id_Comercial = c.Id_Cial
-                     AND ccp2.Activo = 1
-                     AND (ccp2.FechaFin IS NULL OR ccp2.FechaFin >= CURDATE())
-                     AND (ccp2.FechaInicio IS NULL OR ccp2.FechaInicio <= CURDATE())
-                 ), -1)
-               )`,
-            [Id_Comercial, ...codigosPostalesUnicos, ...codigosPostalesArray, prioridadComercial]
-          );
-
-          clientesActualizados = updateResult.affectedRows || 0;
-          console.log(`✅ [ACTUALIZAR-CLIENTES] Clientes actualizados con comercial ${Id_Comercial}: ${clientesActualizados}`);
-        }
-      }
-
-      await connection.commit();
-
-      return {
-        success: true,
-        asignacionesCreadas: asignacionesCreadas.length,
-        asignacionesExistentes: asignacionesExistentes.length,
-        clientesActualizados,
-        errores: errores.length,
-        detalles: {
-          asignacionesCreadas,
-          asignacionesExistentes,
-          errores
-        }
-      };
-    } catch (error) {
-      await connection.rollback();
-      console.error('❌ Error creando asignaciones masivas:', error.message);
-      throw error;
-    } finally {
-      connection.release();
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.createAsignacionesMasivas.apply(this, arguments);
   }
-
-  /**
-   * Crear asignaciones masivas por provincia
-   * @param {Object} data - Datos de la asignación masiva por provincia
-   * @param {number} data.Id_Comercial - ID del comercial
-   * @param {number|string} data.Id_Provincia - ID o nombre de la provincia
-   * @param {number|null} data.Id_Marca - ID de la marca (null = todas las marcas)
-   * @param {Date|null} data.FechaInicio - Fecha de inicio
-   * @param {Date|null} data.FechaFin - Fecha de fin
-   * @param {number} data.Prioridad - Prioridad
-   * @param {boolean} data.Activo - Si está activo
-   * @param {string|null} data.Observaciones - Observaciones
-   * @param {number|null} data.CreadoPor - ID del usuario que crea
-   * @param {boolean} data.ActualizarClientes - Si actualizar clientes automáticamente
-   * @returns {Object} Resultado con asignaciones creadas y clientes actualizados
-   */
   async createAsignacionesPorProvincia(data) {
-    try {
-      const {
-        Id_Comercial,
-        Id_Provincia,
-        Id_Marca = null,
-        FechaInicio = null,
-        FechaFin = null,
-        Prioridad = 0,
-        Activo = true,
-        Observaciones = null,
-        CreadoPor = null,
-        ActualizarClientes = true
-      } = data;
-
-      console.log(`✅ [ASIGNACIONES-PROVINCIA] Iniciando asignación por provincia:`);
-      console.log(`   - Id_Comercial: ${Id_Comercial}`);
-      console.log(`   - Id_Provincia: ${Id_Provincia}`);
-      console.log(`   - Id_Marca: ${Id_Marca}`);
-      console.log(`   - Prioridad: ${Prioridad}`);
-      console.log(`   - ActualizarClientes: ${ActualizarClientes}`);
-
-      if (!Id_Comercial || !Id_Provincia) {
-        throw new Error('Id_Comercial e Id_Provincia son obligatorios');
-      }
-
-      // Obtener todos los códigos postales activos de la provincia
-      let sql = `
-        SELECT id FROM Codigos_Postales 
-        WHERE Activo = 1
-      `;
-      const params = [];
-
-      // Si Id_Provincia es numérico, usar Id_Provincia, si no, usar Provincia
-      if (typeof Id_Provincia === 'number' || /^\d+$/.test(Id_Provincia)) {
-        sql += ' AND Id_Provincia = ?';
-        params.push(parseInt(Id_Provincia));
-      } else {
-        sql += ' AND Provincia = ?';
-        params.push(Id_Provincia);
-      }
-
-      console.log(`✅ [ASIGNACIONES-PROVINCIA] Consultando códigos postales con SQL: ${sql}`);
-      console.log(`✅ [ASIGNACIONES-PROVINCIA] Parámetros:`, params);
-
-      const codigosPostales = await this.query(sql, params);
-
-      console.log(`✅ [ASIGNACIONES-PROVINCIA] Códigos postales encontrados: ${codigosPostales ? codigosPostales.length : 0}`);
-
-      if (!codigosPostales || codigosPostales.length === 0) {
-        throw new Error(`No se encontraron códigos postales para la provincia: ${Id_Provincia}`);
-      }
-
-      const Ids_CodigosPostales = codigosPostales.map(cp => cp.id);
-      console.log(`✅ [ASIGNACIONES-PROVINCIA] IDs de códigos postales: ${Ids_CodigosPostales.slice(0, 10).join(', ')}... (${Ids_CodigosPostales.length} total)`);
-
-      // Usar el método de asignaciones masivas
-      const resultado = await this.createAsignacionesMasivas({
-        Id_Comercial,
-        Ids_CodigosPostales,
-        Id_Marca,
-        FechaInicio,
-        FechaFin,
-        Prioridad,
-        Activo,
-        Observaciones,
-        CreadoPor,
-        ActualizarClientes
-      });
-
-      console.log(`✅ [ASIGNACIONES-PROVINCIA] Resultado:`, JSON.stringify(resultado, null, 2));
-
-      return resultado;
-    } catch (error) {
-      console.error('❌ Error creando asignaciones por provincia:', error.message);
-      console.error('❌ Stack:', error.stack);
-      throw error;
-    }
+    if (typeof ensureModule === 'function') ensureModule('codigos-postales');
+    const mod = require(path.join(__dirname, 'mysql-crm-codigos-postales.js'));
+    return mod.createAsignacionesPorProvincia.apply(this, arguments);
   }
 
   // REGISTRO PÚBLICO DE VISITAS (layout tipo Excel)
@@ -2746,7 +1606,7 @@ class MySQLCRM {
 // Fase 3: Lazy loading - dominios y módulos se cargan solo cuando se usan
 const _modulesApplied = new Set();
 const _configDir = __dirname;
-const MODULE_NAMES = ['visitas', 'articulos', 'pedidos', 'comerciales', 'agenda', 'clientes', 'catalogos', 'notificaciones'];
+const MODULE_NAMES = ['visitas', 'articulos', 'pedidos', 'comerciales', 'agenda', 'clientes', 'catalogos', 'notificaciones', 'direcciones-envio', 'codigos-postales'];
 
 function ensureModule(name) {
   if (_modulesApplied.has(name)) return;

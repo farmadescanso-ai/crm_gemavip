@@ -53,7 +53,7 @@ Orden sugerido según impacto en login y vistas lentas:
 - ~~`login.js`~~ ✅ (mysql-crm-login.js)
 - ~~`catalogos.js`~~ ✅ (mysql-crm-catalogos.js + domains/catalogos.js)
 - ~~`notificaciones.js`~~ ✅ (mysql-crm-notificaciones.js + domains/notificaciones.js)
-- `direcciones-envio.js`, `codigos-postales.js`
+- ~~`direcciones-envio.js`, `codigos-postales.js`~~ ✅ (mysql-crm-direcciones-envio.js, mysql-crm-codigos-postales.js)
 
 ### Fase 3: Lazy loading ✅
 - ~~Sustituir `require('./domains/visitas')` por getter que cargue bajo demanda~~ ✅
@@ -102,6 +102,8 @@ Los dominios se comunican vía el objeto `db` compartido (this) o llamando a mé
   - `mysql-crm-login.js` – updateComercialPassword, password_reset_tokens (create, find, markUsed, cleanup, countRecentAttempts)
   - `mysql-crm-catalogos.js` – _getFormasPagoTableName (usado por ensureFormaPagoTransfer)
   - `mysql-crm-notificaciones.js` – _getPedidosNumsByIds (usado por getNotificaciones)
+  - `mysql-crm-direcciones-envio.js` – _ensureDireccionesEnvioMeta, ensureDireccionesEnvioIndexes, getDireccionesEnvioByCliente, getDireccionEnvioById, createDireccionEnvio, updateDireccionEnvio, desactivarDireccionEnvio, ensureDireccionEnvioFiscal
+  - `mysql-crm-codigos-postales.js` – _getCodigosPostalesTableName, _getAsignacionesCpMarcasTableName, _getComercialesTableName, _getMarcasTableName, getCodigosPostales, getCodigoPostalById, createCodigoPostal, updateCodigoPostal, deleteCodigoPostal, getAsignaciones, getAsignacionById, createAsignacion, updateAsignacion, deleteAsignacion, createAsignacionesMasivas, createAsignacionesPorProvincia
 - **Dominios delegados** (config/domains/): visitas, articulos, comerciales, pedidos, agenda, catalogos, notificaciones, etc.
 - **Fase 3**: Lazy loading activo. `domains/index.js` exporta factory `createDomains(ensureModule)`. `mysql-crm.js` aplica mysql-crm-* y carga dominios solo al primer uso.
 - **Consumidores**: api/index.js, routes/api/*.js, lib/auth.js, lib/mailer.js
