@@ -397,6 +397,22 @@ class MySQLCRM {
     return s;
   }
 
+  /**
+   * Construye cláusula IN segura para arrays (auditoría punto 20).
+   * Si arr está vacío, devuelve "1=0" (nunca coincide) en lugar de IN () que da error SQL.
+   * @param {string} columnExpr - Expresión de columna, ej: "c.Id_CodigoPostal"
+   * @param {Array} arr - Array de valores (se filtran null/undefined/'')
+   * @returns {{ sql: string, params: Array }}
+   */
+  _buildInClauseSafe(columnExpr, arr) {
+    const safe = Array.isArray(arr) ? arr.filter((x) => x != null && x !== '') : [];
+    if (safe.length === 0) {
+      return { sql: '1=0', params: [] };
+    }
+    const placeholders = safe.map(() => '?').join(', ');
+    return { sql: `${columnExpr} IN (${placeholders})`, params: safe };
+  }
+
   // Filtra claves de payload para usar en SQL (solo identificadores válidos).
   _filterPayloadKeys(payload, excludeUndefined = false) {
     const keys = Object.keys(payload || {}).filter((k) => {
@@ -531,14 +547,16 @@ class MySQLCRM {
         }
         await this.ensureComercialesReunionesNullable();
         await this.ensureVisitasSchema();
-        await this.ensureVisitasIndexes();
         await this.ensureEstadosVisitaCatalog();
-        await this.ensureClientesIndexes();
         await this.ensurePedidosSchema();
-        await this.ensurePedidosIndexes();
-        await this.ensurePedidosArticulosIndexes();
-        await this.ensureContactosIndexes();
-        await this.ensureDireccionesEnvioIndexes();
+        if (process.env.ENABLE_INDEX_CREATION_ON_STARTUP === '1') {
+          await this.ensureVisitasIndexes();
+          await this.ensureClientesIndexes();
+          await this.ensurePedidosIndexes();
+          await this.ensurePedidosArticulosIndexes();
+          await this.ensureContactosIndexes();
+          await this.ensureDireccionesEnvioIndexes();
+        }
         return true;
       }
 
@@ -560,18 +578,19 @@ class MySQLCRM {
       }
       // Asegurar compatibilidad de esquema (evita errores tipo "Column 'meet_email' cannot be null").
       await this.ensureComercialesReunionesNullable();
-      // Índices recomendados para rendimiento del CRM (best-effort)
-      // Schema/relaciones (best-effort)
       await this.ensureVisitasSchema();
-      await this.ensureVisitasIndexes();
-      // Catálogos (best-effort)
       await this.ensureEstadosVisitaCatalog();
-      await this.ensureClientesIndexes();
       await this.ensurePedidosSchema();
-      await this.ensurePedidosIndexes();
-      await this.ensurePedidosArticulosIndexes();
-      await this.ensureContactosIndexes();
-      await this.ensureDireccionesEnvioIndexes();
+      // Índices: NO crear en startup por defecto (CREATE INDEX bloquea tablas en producción).
+      // Usar scripts/indices-migracion.sql o POST /api/db/ensure-indexes (admin) manualmente.
+      if (process.env.ENABLE_INDEX_CREATION_ON_STARTUP === '1') {
+        await this.ensureVisitasIndexes();
+        await this.ensureClientesIndexes();
+        await this.ensurePedidosIndexes();
+        await this.ensurePedidosArticulosIndexes();
+        await this.ensureContactosIndexes();
+        await this.ensureDireccionesEnvioIndexes();
+      }
       return true;
     } catch (error) {
       console.error('❌ Error conectando a MySQL:', error.message);

@@ -45,6 +45,7 @@ router.post(
     await db.ensurePedidosIndexes();
     await db.ensurePedidosArticulosIndexes();
     await db.ensureContactosIndexes();
+    await db.ensureDireccionesEnvioIndexes();
     res.json({ ok: true });
   })
 );

@@ -338,7 +338,9 @@ ALTER TABLE `notificaciones` ADD CONSTRAINT `fk_notif_ped`
 
 ### 5.7 Índices
 
-Los índices se crean dinámicamente al arrancar (métodos `ensure*Indexes`). Endpoint `/api/db/ensure-indexes` (admin) los recrea. Las columnas pueden variar según esquema legacy vs normalizado.
+Los índices **no se crean en startup por defecto** (CREATE INDEX bloquea tablas en producción). Crear como migración manual con `scripts/indices-migracion.sql` o usar `POST /api/db/ensure-indexes` (admin). Opcional: `ENABLE_INDEX_CREATION_ON_STARTUP=1` para desarrollo.
+
+**Procedimiento completo:** Ver [PUNTO-19-INDICES.md](PUNTO-19-INDICES.md).
 
 #### Clientes (`config/mysql-crm-clientes.js`)
 

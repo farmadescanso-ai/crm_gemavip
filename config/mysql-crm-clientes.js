@@ -689,7 +689,8 @@ module.exports = {
 
   async actualizarClientesPorCodigosPostales(Ids_CodigosPostales, Id_Marca = null) {
     try {
-      if (!Ids_CodigosPostales || Ids_CodigosPostales.length === 0) {
+      const { sql: inClause, params: inParams } = this._buildInClauseSafe('c.Id_CodigoPostal', Ids_CodigosPostales);
+      if (inParams.length === 0) {
         return { success: true, clientesActualizados: 0 };
       }
 
@@ -698,12 +699,12 @@ module.exports = {
         INNER JOIN Codigos_Postales cp ON c.Id_CodigoPostal = cp.id
         INNER JOIN Comerciales_Codigos_Postales_Marcas ccp ON cp.id = ccp.Id_CodigoPostal
         SET c.Id_Cial = ccp.Id_Comercial
-        WHERE c.Id_CodigoPostal IN (?)
+        WHERE ${inClause}
           AND ccp.Activo = 1
           AND (ccp.FechaFin IS NULL OR ccp.FechaFin >= CURDATE())
           AND (ccp.FechaInicio IS NULL OR ccp.FechaInicio <= CURDATE())
       `;
-      const params = [Ids_CodigosPostales];
+      const params = [...inParams];
 
       if (Id_Marca !== null) {
         sql += ' AND ccp.Id_Marca = ?';
