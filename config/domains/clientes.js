@@ -6,6 +6,7 @@
 'use strict';
 
 const clientesCrud = require('./clientes-crud');
+const { debug } = require('../../lib/logger');
 
 module.exports = {
   async getClientes(comercialId = null) {
@@ -21,13 +22,13 @@ module.exports = {
         }
         sql += ` WHERE \`${colComercial}\` = ?`;
         params.push(comercialId);
-        console.log(`🔐 [GET_CLIENTES] Filtro aplicado: ${colComercial} = ${comercialId}`);
+        debug('🔐 [GET_CLIENTES] Filtro aplicado:', colComercial, '=', comercialId);
       }
 
       sql += ` ORDER BY \`${pk}\` ASC`;
 
       const rows = await this.query(sql, params);
-      console.log(`✅ Obtenidos ${rows.length} clientes${comercialId ? ` (filtrado por comercial ${comercialId})` : ''}`);
+      debug('✅ Obtenidos', rows.length, 'clientes', comercialId ? `(filtrado por comercial ${comercialId})` : '');
       return rows;
     } catch (error) {
       console.error('❌ Error obteniendo clientes:', error.message);
@@ -73,14 +74,14 @@ module.exports = {
       const sql = 'SELECT COUNT(*) as count FROM clientes';
       const rows = await this.query(sql);
       const count = rows[0]?.count || rows[0]?.COUNT || 0;
-      console.log(`📊 [COUNT CLIENTES] Total de clientes: ${count}`);
+      debug('📊 [COUNT CLIENTES] Total de clientes:', count);
       return parseInt(count, 10) || 0;
     } catch (error) {
       console.error('❌ Error obteniendo conteo de clientes:', error.message);
       try {
         const todos = await this.getClientes();
         const fallbackCount = Array.isArray(todos) ? todos.length : 0;
-        console.log(`⚠️ [COUNT CLIENTES] Usando fallback, contados: ${fallbackCount}`);
+        debug('⚠️ [COUNT CLIENTES] Usando fallback, contados:', fallbackCount);
         return fallbackCount;
       } catch (fallbackError) {
         console.error('❌ Error en fallback de conteo:', fallbackError.message);
@@ -109,7 +110,7 @@ module.exports = {
       }
 
       const inactivos = total - activos;
-      console.log(`📊 [ESTADISTICAS CLIENTES] Total: ${total}, Activos: ${activos}, Inactivos: ${inactivos}`);
+      debug('📊 [ESTADISTICAS CLIENTES] Total:', total, 'Activos:', activos, 'Inactivos:', inactivos);
 
       return { total, activos, inactivos };
     } catch (error) {
@@ -328,7 +329,7 @@ module.exports = {
         if (!isNaN(tipoClienteId) && tipoClienteId > 0) {
           whereConditions.push(`c.\`${colTipC}\` = ?`);
           params.push(tipoClienteId);
-          console.log('✅ [OPTIMIZADO] Filtro tipoCliente aplicado:', tipoClienteId);
+          debug('✅ [OPTIMIZADO] Filtro tipoCliente aplicado:', tipoClienteId);
         }
       }
 
@@ -345,7 +346,7 @@ module.exports = {
         if (!isNaN(provinciaId) && provinciaId > 0) {
           whereConditions.push(`c.\`${colProv}\` = ?`);
           params.push(provinciaId);
-          console.log('✅ [OPTIMIZADO] Filtro provincia aplicado:', provinciaId);
+          debug('✅ [OPTIMIZADO] Filtro provincia aplicado:', provinciaId);
         }
       }
 
@@ -361,12 +362,12 @@ module.exports = {
             whereConditions.push(`c.\`${colComercial}\` = ?`);
           }
           params.push(comercialId);
-          console.log(`✅ [OPTIMIZADO] Filtro comercial aplicado: c.${colComercial} = ${comercialId}${filters.comercialIncludePool && comercialId !== 1 ? ' (+pool=1)' : ''}`);
+          debug('✅ [OPTIMIZADO] Filtro comercial aplicado:', `c.${colComercial} =`, comercialId, filters.comercialIncludePool && comercialId !== 1 ? '(+pool=1)' : '');
         } else {
-          console.warn(`⚠️ [OPTIMIZADO] Filtro comercial inválido (valor recibido: ${filters.comercial}, tipo: ${typeof filters.comercial})`);
+          debug('⚠️ [OPTIMIZADO] Filtro comercial inválido');
         }
       } else {
-        console.log(`ℹ️ [OPTIMIZADO] No se aplica filtro de comercial (valor: ${filters.comercial}, tipo: ${typeof filters.comercial})`);
+        debug('ℹ️ [OPTIMIZADO] No se aplica filtro de comercial');
       }
 
       if (colEstadoCliente && filters.estadoCliente !== null && filters.estadoCliente !== undefined && filters.estadoCliente !== '' && !isNaN(filters.estadoCliente)) {
@@ -380,24 +381,24 @@ module.exports = {
       if (filters.conVentas !== undefined && filters.conVentas !== null && filters.conVentas !== '') {
         if (filters.conVentas === true || filters.conVentas === 'true' || filters.conVentas === '1') {
           whereConditions.push(`EXISTS (SELECT 1 FROM pedidos WHERE ped_cli_id = c.\`${pk}\`)`);
-          console.log('✅ [OPTIMIZADO] Filtro conVentas aplicado: true');
+          debug('✅ [OPTIMIZADO] Filtro conVentas aplicado: true');
         } else if (filters.conVentas === false || filters.conVentas === 'false' || filters.conVentas === '0') {
           whereConditions.push(`NOT EXISTS (SELECT 1 FROM pedidos WHERE ped_cli_id = c.\`${pk}\`)`);
-          console.log('✅ [OPTIMIZADO] Filtro conVentas aplicado: false');
+          debug('✅ [OPTIMIZADO] Filtro conVentas aplicado: false');
         }
       }
 
       if (whereConditions.length > 0) {
         sql += ' WHERE ' + whereConditions.join(' AND ');
-        console.log(`✅ [OPTIMIZADO] ${whereConditions.length} condición(es) WHERE aplicada(s)`);
+        debug('✅ [OPTIMIZADO]', whereConditions.length, 'condición(es) WHERE aplicada(s)');
       } else {
-        console.log('⚠️ [OPTIMIZADO] No hay condiciones WHERE, devolviendo todos los clientes');
+        debug('⚠️ [OPTIMIZADO] No hay condiciones WHERE, devolviendo todos los clientes');
       }
 
       sql += ` ORDER BY c.\`${pk}\` ASC`;
 
-      console.log('🔍 [OPTIMIZADO] SQL:', sql);
-      console.log('🔍 [OPTIMIZADO] Params:', params);
+      debug('🔍 [OPTIMIZADO] SQL:', sql);
+      debug('🔍 [OPTIMIZADO] Params:', params);
 
       const rows = await this.query(sql, params);
 
@@ -433,13 +434,13 @@ module.exports = {
         }
       }
 
-      console.log(`✅ [OPTIMIZADO] Obtenidos ${rows.length} clientes con filtros:`, filters);
+      debug('✅ [OPTIMIZADO] Obtenidos', rows.length, 'clientes con filtros');
       return rows;
     } catch (error) {
       console.error('❌ Error obteniendo clientes optimizado:', error.message);
       console.error('❌ Stack:', error.stack);
       console.error('❌ SQL que falló:', sql);
-      console.log('⚠️ [FALLBACK] Usando método getClientes() original');
+      debug('⚠️ [FALLBACK] Usando método getClientes() original');
       return await this.getClientes();
     }
   },
@@ -1035,13 +1036,13 @@ module.exports = {
       const valores = Object.values(datosPapelera);
 
       const sqlInsert = `INSERT INTO \`Papelera-Clientes\` (${campos}) VALUES (${placeholders})`;
-      console.log('📝 [PAPELERA] Insertando cliente en papelera:', { clienteId, eliminadoPor });
+      debug('📝 [PAPELERA] Insertando cliente en papelera:', clienteId, eliminadoPor);
       await this.query(sqlInsert, valores);
 
       const sqlDelete = 'DELETE FROM clientes WHERE id = ?';
       await this.query(sqlDelete, [clienteId]);
 
-      console.log(`✅ Cliente ${clienteId} movido a la papelera por usuario ${eliminadoPor}`);
+      debug('✅ Cliente', clienteId, 'movido a la papelera por usuario', eliminadoPor);
       return { success: true, message: 'Cliente movido a la papelera correctamente' };
     } catch (error) {
       console.error('❌ Error moviendo cliente a la papelera:', error.message);
@@ -1101,7 +1102,7 @@ module.exports = {
         const sql = `UPDATE clientes SET cli_ok_ko = ? WHERE \`${pkElse}\` = ?`;
         await this.query(sql, [okKoValue, id]);
       }
-      console.log(`✅ [TOGGLE OK_KO] Cliente ${id} actualizado: OK_KO = ${okKoValue} (${okKoValue === 1 ? 'Activo' : 'Inactivo'})`);
+      debug('✅ [TOGGLE OK_KO] Cliente', id, 'actualizado: OK_KO =', okKoValue);
       if (colEstadoCliente) {
         return { affectedRows: 1, OK_KO: okKoValue, Id_EstdoCliente: estadoFinal, EstadoClienteNombre: estadoNombre };
       }

@@ -4,6 +4,8 @@
  */
 'use strict';
 
+const { debug } = require('../lib/logger');
+
 module.exports = {
   async createPedido(pedidoData) {
     try {
@@ -151,8 +153,8 @@ module.exports = {
       };
 
       let insert = buildInsert(mysqlData);
-      console.log('🔍 [CREATE PEDIDO] SQL:', insert.sql);
-      console.log('🔍 [CREATE PEDIDO] Values:', insert.values);
+      const { debug } = require('../lib/logger');
+      debug('🔍 [CREATE PEDIDO] SQL:', insert.sql?.substring?.(0, 100));
 
       let result;
       try {
@@ -176,11 +178,11 @@ module.exports = {
         throw new Error('No se pudo obtener el ID del pedido creado');
       }
 
-      console.log(`✅ [CREATE PEDIDO] Pedido creado con ID: ${insertId}`);
+      debug('✅ [CREATE PEDIDO] Pedido creado con ID:', insertId);
       return { Id: insertId, id: insertId, insertId: insertId };
     } catch (error) {
       console.error('❌ [CREATE PEDIDO] Error creando pedido:', error.message);
-      console.error('❌ [CREATE PEDIDO] Datos que fallaron:', JSON.stringify(pedidoData, null, 2));
+      debug('❌ [CREATE PEDIDO] Datos que fallaron:', pedidoData?.Id_Cliente, pedidoData?.Id_Cial);
       throw error;
     }
   },

@@ -5,6 +5,8 @@
  */
 'use strict';
 
+const { debug } = require('../../lib/logger');
+
 module.exports = {
   async updateCliente(id, payload) {
     try {
@@ -479,7 +481,7 @@ module.exports = {
         throw new Error('No se pudo obtener el ID del cliente creado');
       }
 
-      console.log(`✅ Cliente creado con ID: ${insertId}`);
+      debug('✅ Cliente creado con ID:', insertId);
       return {
         insertId: insertId,
         Id: insertId,

@@ -2,6 +2,7 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 const createDomains = require('./domains');
 const { getCatalogCached } = require('../lib/catalog-cache');
+const { debug } = require('../lib/logger');
 
 class MySQLCRM {
   constructor() {
@@ -23,13 +24,7 @@ class MySQLCRM {
       connectTimeout: 10000 // 10 segundos para conectar
     };
 
-    // Debug: Log de configuración (solo en producción para diagnosticar)
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      console.log('🔍 [DB CONFIG] DB_HOST:', this.config.host);
-      console.log('🔍 [DB CONFIG] DB_PORT:', this.config.port);
-      console.log('🔍 [DB CONFIG] DB_NAME:', this.config.database);
-      console.log('🔍 [DB CONFIG] DB_USER:', this.config.user);
-    }
+    debug('🔍 [DB CONFIG] DB_HOST:', this.config.host, 'DB_NAME:', this.config.database);
 
     this.pool = null;
     this.connected = false;
@@ -555,10 +550,9 @@ class MySQLCRM {
       connection.release();
       
       this.connected = true;
-      console.log('✅ Conectado a MySQL correctamente');
-      console.log(`📊 Base de datos: ${this.config.database}`);
-      console.log(`🌐 Host: ${this.config.host}:${this.config.port}`);
-      console.log('✅ UTF-8 configurado: utf8mb4_unicode_ci');
+      debug('✅ Conectado a MySQL correctamente');
+      debug('📊 Base de datos:', this.config.database);
+      debug('🌐 Host:', this.config.host + ':' + this.config.port);
 
       // Cargar módulos necesarios para ensureSchema (lazy loading Fase 3)
       if (typeof ensureModule === 'function') {
@@ -604,7 +598,7 @@ class MySQLCRM {
     if (this.pool && !this._sharedPool) {
       await this.pool.end();
       this.connected = false;
-      console.log('🔌 Desconectado de MySQL');
+      debug('🔌 Desconectado de MySQL');
     }
   }
 
@@ -1168,7 +1162,7 @@ class MySQLCRM {
       const placeholders = lineasIds.map(() => '?').join(',');
       const sql = `UPDATE pedidos_articulos SET Id_NumPedido = ? WHERE id IN (${placeholders}) AND (Id_NumPedido IS NULL OR Id_NumPedido != ?)`;
       const result = await this.query(sql, [pedidoId, ...lineasIds, pedidoId]);
-      console.log(`✅ ${result.affectedRows || 0} líneas verificadas/actualizadas para el pedido ${pedidoId}`);
+      debug('✅ Líneas verificadas/actualizadas para el pedido:', pedidoId);
       return { affectedRows: result.affectedRows || 0 };
     } catch (error) {
       console.error('❌ Error vinculando líneas de pedido:', error.message);

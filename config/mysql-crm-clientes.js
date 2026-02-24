@@ -129,7 +129,7 @@ module.exports = {
             : `CREATE INDEX \`${name}\` ON \`${tClientes}\` (${colsSql})`;
         await this.query(stmt);
         existing.add(name);
-        console.log(`✅ [INDEX] Creado ${name} en ${tClientes} (${colsSql})`);
+        debug('✅ [INDEX] Creado', name, 'en', tClientes);
       };
 
       await createIfMissing('idx_clientes_provincia', ['cli_prov_id', 'Id_Provincia']);

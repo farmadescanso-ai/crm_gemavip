@@ -499,9 +499,9 @@ class ComisionesCRM {
 
       sql += ' ORDER BY p.año DESC, p.mes ASC, c.com_nombre, a.art_nombre';
 
-      console.log('🔍 [PRESUPUESTOS] SQL:', sql);
-      console.log('🔍 [PRESUPUESTOS] Params:', params);
-      console.log('🔍 [PRESUPUESTOS] Filters:', filters);
+      debug('🔍 [PRESUPUESTOS] SQL:', sql);
+      debug('🔍 [PRESUPUESTOS] Params:', params);
+      debug('🔍 [PRESUPUESTOS] Filters:', filters);
 
       return await this.query(sql, params);
     } catch (error) {
@@ -540,16 +540,14 @@ class ComisionesCRM {
    */
   async createPresupuesto(presupuestoData) {
     try {
-      console.log('💾 [PRESUPUESTO] createPresupuesto llamado con datos:', JSON.stringify(presupuestoData, null, 2));
-      console.log('💾 [PRESUPUESTO] comercial_id:', presupuestoData.comercial_id, 'tipo:', typeof presupuestoData.comercial_id);
-      console.log('💾 [PRESUPUESTO] articulo_id:', presupuestoData.articulo_id, 'tipo:', typeof presupuestoData.articulo_id);
+      debug('💾 [PRESUPUESTO] createPresupuesto llamado');
       
       // Verificar que comercial_id existe antes de continuar
       const verificarComercial = await this.query(
         'SELECT com_id FROM comerciales WHERE com_id = ? LIMIT 1',
         [presupuestoData.comercial_id]
       );
-      console.log('💾 [PRESUPUESTO] Verificación comercial en BD:', verificarComercial.length > 0 ? '✅ Existe' : '❌ NO existe');
+      debug('💾 [PRESUPUESTO] Verificación comercial en BD:', verificarComercial.length > 0 ? 'OK' : 'NO existe');
       if (verificarComercial.length === 0) {
         throw new Error(`El comercial con ID ${presupuestoData.comercial_id} no existe en la base de datos`);
       }
@@ -559,7 +557,7 @@ class ComisionesCRM {
         'SELECT art_id FROM articulos WHERE art_id = ? LIMIT 1',
         [presupuestoData.articulo_id]
       );
-      console.log('💾 [PRESUPUESTO] Verificación artículo en BD:', verificarArticulo.length > 0 ? '✅ Existe' : '❌ NO existe');
+      debug('💾 [PRESUPUESTO] Verificación artículo en BD:', verificarArticulo.length > 0 ? 'OK' : 'NO existe');
       if (verificarArticulo.length === 0) {
         throw new Error(`El artículo con ID ${presupuestoData.articulo_id} no existe en la base de datos`);
       }
@@ -570,22 +568,17 @@ class ComisionesCRM {
       const articuloIdForQuery = Number(presupuestoData.articulo_id);
       const añoForQuery = Number(presupuestoData.año);
       
-      console.log('💾 [PRESUPUESTO] Buscando duplicados con:', {
-        comercial_id: comercialIdForQuery,
-        articulo_id: articuloIdForQuery,
-        año: añoForQuery
-      });
+      debug('💾 [PRESUPUESTO] Buscando duplicados');
       
       const existing = await this.query(
         'SELECT id FROM presupuestos WHERE comercial_id = ? AND articulo_id = ? AND año = ?',
         [comercialIdForQuery, articuloIdForQuery, añoForQuery]
       );
-      console.log('💾 [PRESUPUESTO] Presupuesto existente encontrado:', existing.length > 0 ? `Sí (ID: ${existing[0].id})` : 'No');
+      debug('💾 [PRESUPUESTO] Presupuesto existente:', existing.length > 0 ? 'Sí' : 'No');
 
       if (existing.length > 0) {
-        // Si existe, NO actualizar automáticamente, lanzar un error
         const existingId = existing[0].id;
-        console.log(`💾 [PRESUPUESTO] Presupuesto duplicado detectado (ID: ${existingId}).`);
+        debug('💾 [PRESUPUESTO] Presupuesto duplicado detectado');
         throw new Error(`Ya existe un presupuesto para este comercial (ID: ${comercialIdForQuery}), artículo (ID: ${articuloIdForQuery}) y año (${añoForQuery}). Presupuesto existente ID: ${existingId}`);
       }
 
@@ -607,13 +600,13 @@ class ComisionesCRM {
       }
       
       // VERIFICACIÓN FINAL justo antes del INSERT usando la misma conexión
-      console.log('🔍 [PRESUPUESTO] Verificación final antes de INSERT...');
+      debug('🔍 [PRESUPUESTO] Verificación final antes de INSERT');
       const pool = await this.connect();
       const [comercialCheck] = await pool.execute('SELECT com_id FROM comerciales WHERE com_id = ?', [comercialId]);
       const [articuloCheck] = await pool.execute('SELECT art_id FROM articulos WHERE art_id = ?', [articuloId]);
       
-      console.log('🔍 [PRESUPUESTO] Verificación final - Comercial:', comercialCheck.length > 0 ? `✅ Existe (ID: ${comercialCheck[0].com_id})` : `❌ NO existe (buscado: ${comercialId})`);
-      console.log('🔍 [PRESUPUESTO] Verificación final - Artículo:', articuloCheck.length > 0 ? `✅ Existe (ID: ${articuloCheck[0].art_id})` : `❌ NO existe (buscado: ${articuloId})`);
+      debug('🔍 [PRESUPUESTO] Verificación final Comercial:', comercialCheck.length > 0 ? 'OK' : 'NO existe');
+      debug('🔍 [PRESUPUESTO] Verificación final Artículo:', articuloCheck.length > 0 ? 'OK' : 'NO existe');
       
       if (comercialCheck.length === 0) {
         throw new Error(`VERIFICACIÓN FINAL FALLIDA: El comercial con ID ${comercialId} no existe en la base de datos`);
@@ -641,24 +634,16 @@ class ComisionesCRM {
         presupuestoData.creado_por ? parseInt(presupuestoData.creado_por) : null
       ];
       
-      console.log('💾 [PRESUPUESTO] Ejecutando INSERT con parámetros:');
-      console.log('   comercial_id:', params[0], 'tipo:', typeof params[0], 'es número:', !isNaN(params[0]));
-      console.log('   articulo_id:', params[1], 'tipo:', typeof params[1], 'es número:', !isNaN(params[1]));
-      console.log('   año:', params[2], 'tipo:', typeof params[2], 'es número:', !isNaN(params[2]));
-      console.log('   Parámetros completos:', params);
-      console.log('   SQL completo:', sql.replace(/\?/g, (match, offset) => {
-        const index = sql.substring(0, offset).split('?').length - 1;
-        return params[index] !== null && params[index] !== undefined ? params[index] : 'NULL';
-      }));
+      debug('💾 [PRESUPUESTO] Ejecutando INSERT');
 
       const result = await this.execute(sql, params);
       const presupuestoCreado = { id: result.insertId, ...presupuestoData, actualizado: false };
-      console.log('✅ [PRESUPUESTO] Presupuesto creado en BD con ID:', result.insertId);
+      debug('✅ [PRESUPUESTO] Presupuesto creado en BD con ID:', result.insertId);
       return presupuestoCreado;
     } catch (error) {
       console.error('❌ Error creando/actualizando presupuesto:', error.message);
-      console.error('❌ Stack:', error.stack);
-      console.error('❌ Datos que causaron el error:', JSON.stringify(presupuestoData, null, 2));
+      debug('❌ Stack:', error.stack);
+      debug('❌ Datos que causaron el error:', presupuestoData?.comercial_id, presupuestoData?.articulo_id);
       
       // Agregar información adicional al error para debugging
       const errorInfo = {
