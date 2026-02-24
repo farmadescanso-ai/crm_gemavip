@@ -246,81 +246,25 @@ module.exports = {
 
   async getClientesCooperativa() {
     try {
-      try {
-        const countQuery1 = await this.query('SELECT COUNT(*) as total FROM `Clientes_Cooperativas`');
-        debug('📊 [GET ALL] Total registros en Clientes_Cooperativas:', countQuery1[0]?.total || 0);
-      } catch (e) {
-        debug('⚠️ [GET ALL] No se pudo contar Clientes_Cooperativas:', e.message);
-      }
+      const tRel = await this._resolveTableNameCaseInsensitive('clientes_cooperativas');
+      const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
+      const tCooperativas = await this._resolveTableNameCaseInsensitive('cooperativas');
 
-      try {
-        const countQuery2 = await this.query('SELECT COUNT(*) as total FROM clientes_cooperativas');
-        debug('📊 [GET ALL] Total registros en clientes_cooperativas:', countQuery2[0]?.total || 0);
-      } catch (e) {
-        debug('⚠️ [GET ALL] No se pudo contar clientes_cooperativas:', e.message);
-      }
-
-      let sql = `
+      const sql = `
         SELECT 
           cc.id,
           cc.Id_Cliente,
           cc.Id_Cooperativa,
           cc.NumAsociado,
-          c.cli_nombre_razon_social as ClienteNombre,
+          COALESCE(c.cli_nombre_razon_social, c.Nombre_Razon_Social) as ClienteNombre,
           co.Nombre as CooperativaNombre
-        FROM \`Clientes_Cooperativas\` cc
-        LEFT JOIN clientes c ON cc.Id_Cliente = c.id
-        LEFT JOIN cooperativas co ON cc.Id_Cooperativa = co.id
+        FROM \`${tRel}\` cc
+        LEFT JOIN \`${tClientes}\` c ON cc.Id_Cliente = c.id
+        LEFT JOIN \`${tCooperativas}\` co ON cc.Id_Cooperativa = co.id
         ORDER BY cc.id DESC
       `;
-      let rows;
-
-      try {
-        rows = await this.query(sql);
-        debug('✅ [GET ALL] Relaciones obtenidas con tabla Clientes_Cooperativas:', rows.length);
-        return rows;
-      } catch (error1) {
-        debug('⚠️ [GET ALL] Error con Clientes_Cooperativas, intentando clientes_cooperativas:', error1.message);
-        sql = `
-          SELECT 
-            cc.id,
-            cc.Id_Cliente,
-            cc.Id_Cooperativa,
-            cc.NumAsociado,
-            c.cli_nombre_razon_social as ClienteNombre,
-            co.Nombre as CooperativaNombre
-          FROM clientes_cooperativas cc
-          LEFT JOIN clientes c ON cc.Id_Cliente = c.id
-          LEFT JOIN cooperativas co ON cc.Id_Cooperativa = co.id
-          ORDER BY cc.id DESC
-        `;
-        try {
-          rows = await this.query(sql);
-          debug('✅ [GET ALL] Relaciones obtenidas con tabla clientes_cooperativas:', rows.length);
-          return rows;
-        } catch (error2) {
-          console.error('❌ [GET ALL] Error con ambas variantes de nombre de tabla');
-          try {
-            const simpleQuery = await this.query('SELECT * FROM `Clientes_Cooperativas` LIMIT 5');
-            debug('✅ [GET ALL] Consulta simple exitosa, registros:', simpleQuery.length);
-            if (simpleQuery.length > 0) {
-              const rowsWithNames = await Promise.all(simpleQuery.map(async (row) => {
-                const cliente = await this.getClienteById(row.Id_Cliente).catch(() => null);
-                const cooperativa = await this.getCooperativaById(row.Id_Cooperativa).catch(() => null);
-                return {
-                  ...row,
-                  ClienteNombre: cliente ? (cliente.Nombre_Razon_Social || cliente.cli_nombre_razon_social || cliente.Nombre || cliente.nombre) : null,
-                  CooperativaNombre: cooperativa ? (cooperativa.Nombre || cooperativa.nombre) : null
-                };
-              }));
-              return rowsWithNames;
-            }
-          } catch (e) {
-            console.error('❌ [GET ALL] Error en consulta simple:', e.message);
-          }
-          throw error2;
-        }
-      }
+      const rows = await this.query(sql);
+      return rows || [];
     } catch (error) {
       console.error('❌ Error obteniendo clientes_cooperativas:', error.message);
       return [];
