@@ -564,6 +564,21 @@ class MySQLCRM {
     return mod.getEstadosVisita.apply(this, arguments);
   }
 
+  /**
+   * Usar un pool externo compartido (p.ej. con express-mysql-session) para evitar duplicar conexiones.
+   * Debe llamarse antes de la primera consulta.
+   */
+  setSharedPool(pool) {
+    if (this.pool && this.pool !== pool) {
+      try {
+        this.pool.end().catch(() => {});
+      } catch (_) {}
+    }
+    this._sharedPool = pool;
+    this.pool = pool;
+    // No marcar connected para que connect() ejecute ensureSchema en el primer uso
+  }
+
   async connect() {
     // En entornos serverless (Vercel), este módulo puede vivir entre invocaciones.
     // Si ya estamos conectados, reutilizar el pool.
@@ -573,8 +588,8 @@ class MySQLCRM {
     
     try {
       // Si existe un pool previo pero no está marcado como conectado (p.ej. fallo anterior),
-      // cerrarlo para evitar quedar en un estado inconsistente.
-      if (this.pool && !this.connected) {
+      // cerrarlo para evitar quedar en un estado inconsistente (solo si es nuestro pool, no el compartido).
+      if (this.pool && !this.connected && !this._sharedPool) {
         try {
           await this.pool.end();
         } catch (_) {
@@ -582,6 +597,30 @@ class MySQLCRM {
         } finally {
           this.pool = null;
         }
+      }
+
+      // Si se configuró un pool compartido (api/index.js), usarlo.
+      if (this._sharedPool) {
+        this.pool = this._sharedPool;
+        this.connected = true;
+        const connection = await this.pool.getConnection();
+        await connection.ping();
+        connection.release();
+        // Cargar módulos y ensureSchema (igual que el flujo normal)
+        if (typeof ensureModule === 'function') {
+          ['comerciales', 'visitas', 'clientes', 'pedidos', 'agenda', 'catalogos', 'notificaciones'].forEach((m) => ensureModule(m));
+        }
+        await this.ensureComercialesReunionesNullable();
+        await this.ensureVisitasSchema();
+        await this.ensureVisitasIndexes();
+        await this.ensureEstadosVisitaCatalog();
+        await this.ensureClientesIndexes();
+        await this.ensurePedidosSchema();
+        await this.ensurePedidosIndexes();
+        await this.ensurePedidosArticulosIndexes();
+        await this.ensureContactosIndexes();
+        await this.ensureDireccionesEnvioIndexes();
+        return true;
       }
 
       this.pool = mysql.createPool(this.config);
@@ -621,8 +660,9 @@ class MySQLCRM {
       console.error(`🔍 [DEBUG] Intentando conectar a: ${this.config.host}:${this.config.port}`);
       console.error(`🔍 [DEBUG] Base de datos: ${this.config.database}`);
       
-      // Evitar quedar con un pool creado a medias si la conexión falló (muy importante en serverless)
-      if (this.pool) {
+      // Evitar quedar con un pool creado a medias si la conexión falló (muy importante en serverless).
+      // No cerrar el pool compartido (lo gestiona api/index.js).
+      if (this.pool && !this._sharedPool) {
         try {
           await this.pool.end();
         } catch (_) {
@@ -637,7 +677,7 @@ class MySQLCRM {
   }
 
   async disconnect() {
-    if (this.pool) {
+    if (this.pool && !this._sharedPool) {
       await this.pool.end();
       this.connected = false;
       console.log('🔌 Desconectado de MySQL');

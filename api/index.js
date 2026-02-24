@@ -190,17 +190,30 @@ const sessionMaxAgeMs = Number.isFinite(idleMinutes)
     ? Math.max(1, sessionMaxAgeDays) * 24 * 60 * 60 * 1000
     : 60 * 60 * 1000;
 
-const MySQLStore = MySQLStoreFactory(session);
-const sessionStore = new MySQLStore({
-  host: process.env.DB_HOST,
+// Pool compartido: sesión y db usan el mismo pool para evitar duplicar conexiones (auditoría paso 11).
+const sharedPoolConfig = {
+  host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'crm_gemavip',
-  // Tabla por defecto: sessions
-  createDatabaseTable: true,
-  expiration: sessionMaxAgeMs
-});
+  charset: 'utf8mb4',
+  timezone: 'Europe/Madrid',
+  waitForConnections: true,
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || (process.env.VERCEL ? 3 : 10),
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
+  connectTimeout: 10000
+};
+const sharedPool = mysql.createPool(sharedPoolConfig);
+db.setSharedPool(sharedPool);
+
+const MySQLStore = MySQLStoreFactory(session);
+const sessionStore = new MySQLStore(
+  { createDatabaseTable: true, expiration: sessionMaxAgeMs },
+  sharedPool
+);
 
 const sessionSecret = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' || process.env.VERCEL ? null : 'dev-secret-change-me');
 if (!sessionSecret && (process.env.NODE_ENV === 'production' || process.env.VERCEL)) {
