@@ -412,13 +412,15 @@ class MySQLCRM {
     return keys;
   }
 
-  // Resolver nombre real de tabla sin depender de information_schema (puede estar restringido en hosting).
-  // Útil en MySQL/MariaDB sobre Linux donde los nombres pueden ser case-sensitive (p.ej. `Clientes` vs `clientes`).
+  // Resolver nombre real de tabla (auditoría punto 14: config estático evita 20-60 queries en cold start).
   async _resolveTableNameCaseInsensitive(baseName) {
-    this._cache = this._cache || {};
     const base = this._sanitizeIdentifier(baseName);
     if (!base) throw new Error('Nombre de tabla inválido');
 
+    const staticName = require('./table-names').getTableName(base);
+    if (staticName) return staticName;
+
+    this._cache = this._cache || {};
     const cacheKey = `tableName:${base}`;
     if (this._cache[cacheKey] !== undefined) return this._cache[cacheKey];
 
@@ -426,29 +428,20 @@ class MySQLCRM {
     const upper = base.toUpperCase();
     const candidates = Array.from(new Set([base, cap, upper].filter(Boolean)));
 
-    // Probar con SHOW COLUMNS (no requiere information_schema en muchos setups).
     for (const cand of candidates) {
       try {
         await this.query(`SHOW COLUMNS FROM \`${cand}\``);
         this._cache[cacheKey] = cand;
         return cand;
-      } catch (_) {
-        // seguir probando
-      }
+      } catch (_) {}
     }
-
-    // Fallback: si SHOW COLUMNS está restringido pero SELECT está permitido, probar con SELECT LIMIT 0.
     for (const cand of candidates) {
       try {
         await this.queryWithFields(`SELECT * FROM \`${cand}\` LIMIT 0`);
         this._cache[cacheKey] = cand;
         return cand;
-      } catch (_) {
-        // seguir probando
-      }
+      } catch (_) {}
     }
-
-    // Fallback: usar el nombre base tal cual.
     this._cache[cacheKey] = base;
     return base;
   }
