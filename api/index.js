@@ -210,13 +210,15 @@ db.setSharedPool(sharedPool);
 const comisionesCrm = require('../config/mysql-crm-comisiones');
 comisionesCrm.setSharedPool(sharedPool);
 
+// Auditoría punto 21: limpieza automática de sesiones expiradas (evita crecimiento ilimitado de tabla sessions)
+const sessionCheckExpirationMs = Number(process.env.SESSION_CHECK_EXPIRATION_MS) || 900000; // 15 min por defecto
 const MySQLStore = MySQLStoreFactory(session);
 const sessionStore = new MySQLStore(
   {
     createDatabaseTable: true,
     expiration: sessionMaxAgeMs,
     clearExpired: true,
-    checkExpirationInterval: 900000
+    checkExpirationInterval: sessionCheckExpirationMs
   },
   sharedPool
 );
