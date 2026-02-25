@@ -1719,5 +1719,9 @@ MySQLCRM.prototype.getAdminPushSubscriptions = async function () {
   }
 };
 
-module.exports = new MySQLCRM();
+const db = new MySQLCRM();
+// Stubs para compatibilidad: evitan error en Vercel si código antiguo los llama
+db.checkPasswordResetRateLimitByIp = async () => true;
+db.recordPasswordResetIpAttempt = async () => {};
+module.exports = db;
 
