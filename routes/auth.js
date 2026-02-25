@@ -163,7 +163,8 @@ router.post('/login/restablecer-contrasena', async (req, res, next) => {
       });
     }
     const hashed = await bcrypt.hash(password, 12);
-    await db.updateComercialPassword(row.comercial_id, hashed);
+    const comercialId = row.comercial_id ?? row.pwdres_com_id ?? row.Id_Comercial;
+    await db.updateComercialPassword(comercialId, hashed);
     await db.markPasswordResetTokenAsUsed(token);
     res.redirect('/login?restablecido=1');
   } catch (e) {

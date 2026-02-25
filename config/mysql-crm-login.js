@@ -54,15 +54,18 @@ module.exports = {
       if (!this.connected && !this.pool) await this.connect();
       await this._ensurePasswordResetTokensTable();
 
+      const cols = (await this._getColumns('password_reset_tokens')) || [];
+      const colComercial = this._pickCIFromColumns(cols, ['pwdres_com_id', 'comercial_id', 'Id_Comercial', 'id_comercial']) || 'comercial_id';
+
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + expiresInHours);
 
       await this.pool.execute(
-        'UPDATE password_reset_tokens SET used = 1 WHERE comercial_id = ? AND used = 0',
+        `UPDATE password_reset_tokens SET used = 1 WHERE \`${colComercial}\` = ? AND used = 0`,
         [comercialId]
       );
 
-      const sql = `INSERT INTO password_reset_tokens (comercial_id, token, email, expires_at, used) 
+      const sql = `INSERT INTO password_reset_tokens (\`${colComercial}\`, token, email, expires_at, used) 
                    VALUES (?, ?, ?, ?, 0)`;
       const [result] = await this.pool.execute(sql, [comercialId, token, email, expiresAt]);
       return { insertId: result.insertId, expiresAt };
@@ -77,11 +80,19 @@ module.exports = {
       if (!this.connected && !this.pool) await this.connect();
       await this._ensurePasswordResetTokensTable();
 
-      const sql = `SELECT id, comercial_id, token, email, expires_at, used, created_at FROM password_reset_tokens 
+      const cols = (await this._getColumns('password_reset_tokens')) || [];
+      const colComercial = this._pickCIFromColumns(cols, ['pwdres_com_id', 'comercial_id', 'Id_Comercial', 'id_comercial']) || 'comercial_id';
+      const colId = this._pickCIFromColumns(cols, ['pwdres_id', 'id']) || 'id';
+
+      const sql = `SELECT \`${colId}\`, \`${colComercial}\`, token, email, expires_at, used, created_at FROM password_reset_tokens 
                    WHERE token = ? AND used = 0 AND expires_at > NOW() 
                    LIMIT 1`;
       const [rows] = await this.pool.execute(sql, [token]);
-      return rows.length > 0 ? rows[0] : null;
+      const row = rows.length > 0 ? rows[0] : null;
+      if (row && colComercial !== 'comercial_id') {
+        row.comercial_id = row[colComercial];
+      }
+      return row;
     } catch (error) {
       console.error('❌ Error buscando token de recuperación:', error.message);
       return null;
