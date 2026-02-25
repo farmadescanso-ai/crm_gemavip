@@ -1637,13 +1637,10 @@ function ensureModule(name) {
 
 const domains = createDomains(ensureModule);
 
-// Login: lazy load (usado solo en rutas de auth)
-let _loginModule = null;
+// Login: cargar al inicio para que checkPasswordResetRateLimitByIp etc. existan en serverless (Vercel)
+const _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
+Object.assign(MySQLCRM.prototype, _loginModule);
 function getLoginModule() {
-  if (!_loginModule) {
-    _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
-    Object.assign(MySQLCRM.prototype, _loginModule);
-  }
   return _loginModule;
 }
 
