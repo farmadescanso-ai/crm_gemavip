@@ -1666,6 +1666,12 @@ MySQLCRM.prototype.countRecentPasswordResetAttempts = async function (email, hou
 MySQLCRM.prototype.cleanupExpiredTokens = async function () {
   return getLoginModule().cleanupExpiredTokens.call(this);
 };
+MySQLCRM.prototype.checkPasswordResetRateLimitByIp = async function (ip, maxAttempts, windowHours) {
+  return getLoginModule().checkPasswordResetRateLimitByIp.call(this, ip, maxAttempts, windowHours);
+};
+MySQLCRM.prototype.recordPasswordResetIpAttempt = async function (ip) {
+  return getLoginModule().recordPasswordResetIpAttempt.call(this, ip);
+};
 
 // ===========================
 // Web Push (suscripciones)
