@@ -88,17 +88,19 @@ router.post('/login/olvidar-contrasena', async (req, res, next) => {
   try {
     if (req.session?.user) return res.redirect('/dashboard');
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    const canProceed = await db.checkPasswordResetRateLimitByIp(
-      ip,
-      PASSWORD_RESET_IP_MAX,
-      PASSWORD_RESET_IP_WINDOW_HOURS
-    );
-    if (!canProceed) {
-      return res.status(429).render('login-olvidar-contrasena', {
-        title: 'Recuperar contraseña',
-        error: 'Demasiados intentos. Espera una hora e inténtalo de nuevo.',
-        success: null
-      });
+    if (typeof db.checkPasswordResetRateLimitByIp === 'function') {
+      const canProceed = await db.checkPasswordResetRateLimitByIp(
+        ip,
+        PASSWORD_RESET_IP_MAX,
+        PASSWORD_RESET_IP_WINDOW_HOURS
+      );
+      if (!canProceed) {
+        return res.status(429).render('login-olvidar-contrasena', {
+          title: 'Recuperar contraseña',
+          error: 'Demasiados intentos. Espera una hora e inténtalo de nuevo.',
+          success: null
+        });
+      }
     }
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!email) {
@@ -119,7 +121,9 @@ router.post('/login/olvidar-contrasena', async (req, res, next) => {
       });
     }
     const comercial = await db.getComercialByEmail(email);
-    await db.recordPasswordResetIpAttempt(ip);
+    if (typeof db.recordPasswordResetIpAttempt === 'function') {
+      await db.recordPasswordResetIpAttempt(ip);
+    }
     if (comercial) {
       const token = crypto.randomBytes(32).toString('hex');
       const comercialId = _n(_n(comercial.com_id, comercial.id), comercial.Id);
