@@ -403,7 +403,7 @@ const base = {
 
     try {
       if (!this.pool) return;
-      const { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido } = await this._ensurePedidosMeta();
+      const { tPedidos, pk, colComercial, colCliente, colFecha, colNumPedido, colEstado } = await this._ensurePedidosMeta();
       const cols = await this._getColumns(tPedidos);
       const colsSet = new Set(cols);
       const hasCol = (c) => c && colsSet.has(c);
@@ -411,12 +411,16 @@ const base = {
       const idxRows = await this.query(`SHOW INDEX FROM \`${tPedidos}\``).catch(() => []);
       const existing = new Set((idxRows || []).map(r => String(r.Key_name || r.key_name || '').trim()).filter(Boolean));
 
-      const createIfMissing = async (name, colsToUse) => {
+      const createIfMissing = async (name, colsToUse, kind = 'INDEX') => {
         if (!name || existing.has(name)) return;
         const cleanCols = (colsToUse || []).filter(hasCol);
         if (!cleanCols.length) return;
         const colsSql = cleanCols.map(c => `\`${c}\``).join(', ');
-        await this.query(`CREATE INDEX \`${name}\` ON \`${tPedidos}\` (${colsSql})`);
+        const stmt =
+          kind === 'FULLTEXT'
+            ? `CREATE FULLTEXT INDEX \`${name}\` ON \`${tPedidos}\` (${colsSql})`
+            : `CREATE INDEX \`${name}\` ON \`${tPedidos}\` (${colsSql})`;
+        await this.query(stmt);
         existing.add(name);
         console.log(`✅ [INDEX] Creado ${name} en ${tPedidos} (${colsSql})`);
       };
@@ -427,6 +431,7 @@ const base = {
       await createIfMissing('idx_pedidos_cliente_fecha', [colCliente, colFecha]);
       await createIfMissing('idx_pedidos_comercial_fecha', [colComercial, colFecha]);
       await createIfMissing('idx_pedidos_num_pedido', [colNumPedido]);
+      await createIfMissing('ft_pedidos_busqueda', [colNumPedido, colEstado].filter(Boolean), 'FULLTEXT');
 
       if (hasCol(pk)) {
         await createIfMissing('idx_pedidos_pk', [pk]);

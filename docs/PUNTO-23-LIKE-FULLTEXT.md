@@ -19,9 +19,10 @@
 
 ### Pedidos (`routes/pedidos.js`)
 
-- Usa `LIKE '%term%'` en búsqueda de texto libre sobre pedidos + clientes + comerciales.
-- FULLTEXT en una query con múltiples JOINs sería complejo; los índices BTREE existentes (cliente, fecha, comercial) ayudan a filtrar antes del LIKE.
-- **Impacto:** Aceptable si hay filtros previos (comercial, fechas, etc.) que reducen el conjunto.
+- **FULLTEXT aplicado (25/02/2026):** Usa `MATCH...AGAINST` cuando existen índices `ft_clientes_busqueda` y `ft_pedidos_busqueda`.
+- Helper `buildPedidosTermClauses` en `lib/pedido-helpers.js`: combina MATCH en clientes + pedidos con LIKE para catálogos (provincia, comercial, tipo cliente, estado).
+- Índice `ft_pedidos_busqueda` en `pedidos` (ped_numero, ped_estado_txt) — `scripts/indices-migracion.sql` y `ensurePedidosIndexes()`.
+- **Fallback LIKE:** Términos &lt; 3 caracteres o cuando no hay índices FULLTEXT.
 
 ### Comerciales – rol admin (`config/mysql-crm.js`)
 
@@ -38,7 +39,5 @@
 ## Recomendaciones
 
 1. **Clientes:** Mantener la lógica actual (MATCH cuando puede, LIKE como fallback).
-2. **Pedidos:** Si la búsqueda de pedidos se vuelve lenta, valorar:
-   - FULLTEXT en `pedidos` + `clientes` para campos de texto
-   - O limitar búsqueda a campos indexados (número pedido, DNI, etc.)
+2. **Pedidos:** ✅ Implementado — FULLTEXT en `pedidos` y reutilización de `ft_clientes_busqueda` en búsquedas combinadas.
 3. **Comerciales:** La tabla es pequeña; no requiere FULLTEXT.

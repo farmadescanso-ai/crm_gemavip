@@ -59,6 +59,7 @@ CALL _add_index_if_not_exists('pedidos', 'idx_pedidos_fecha', '`ped_fecha`', 'BT
 CALL _add_index_if_not_exists('pedidos', 'idx_pedidos_cliente_fecha', '`ped_cli_id`,`ped_fecha`', 'BTREE');
 CALL _add_index_if_not_exists('pedidos', 'idx_pedidos_comercial_fecha', '`ped_com_id`,`ped_fecha`', 'BTREE');
 CALL _add_index_if_not_exists('pedidos', 'idx_pedidos_num_pedido', '`ped_numero`', 'BTREE');
+CALL _add_index_if_not_exists('pedidos', 'ft_pedidos_busqueda', '`ped_numero`,`ped_estado_txt`', 'FULLTEXT');
 
 -- PEDIDOS_ARTICULOS
 CALL _add_index_if_not_exists('pedidos_articulos', 'idx_pedidos_articulos_num_pedido', '`pedart_numero`', 'BTREE');

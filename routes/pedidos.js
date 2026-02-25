@@ -26,7 +26,9 @@ const {
   isTransferPedido,
   renderHefameInfoPage,
   buildStandardPedidoXlsxBuffer,
-  buildHefameXlsxBuffer
+  buildHefameXlsxBuffer,
+  buildPedidosTokenClauses,
+  buildPedidosTermClauses
 } = require('../lib/pedido-helpers');
 
 const router = express.Router();
@@ -155,153 +157,52 @@ router.get('/', requireLogin, async (req, res, next) => {
         params.push(scopeUserId);
       }
 
-      // Tokens campo:valor
-      const tokenClauses = [];
-      for (const t of (smartQ.tokens || [])) {
-        const f = t.field;
-        const v = t.value;
-        const neg = !!t.neg;
-        const per = [];
-        const perParamsStart = params.length;
+      const tokenClauses = buildPedidosTokenClauses(smartQ, {
+        colFecha,
+        colComercial,
+        colNumPedido,
+        colNumPedidoCliente,
+        colNumAsociadoHefame,
+        colEstadoTxt,
+        colEstadoId,
+        colEspecial,
+        colEspecialEstado,
+        colTotal,
+        cColNombre,
+        cColNombreCial,
+        cColDniCif,
+        cColPoblacion,
+        cColProvinciaId,
+        cColTipoClienteId,
+        joinProvincia,
+        joinComerciales,
+        joinTipoCliente,
+        hasEstadoIdCol,
+        pedidosPk: pedidosMeta?.pk || 'ped_id',
+        params
+      });
 
-        const addPerLike = (expr) => {
-          per.push(`${expr} LIKE ?`);
-          params.push(`%${v}%`);
-        };
-        const addPerEqNum = (expr) => {
-          const n = Number(String(v).trim());
-          if (Number.isFinite(n) && n > 0) {
-            per.push(`${expr} = ?`);
-            params.push(n);
-            return true;
-          }
-          return false;
-        };
-
-        if (['cliente', 'c'].includes(f)) {
-          if (cColNombre) addPerLike(`c.\`${cColNombre}\``);
-          if (cColNombreCial) addPerLike(`c.\`${cColNombreCial}\``);
-          if (cColDniCif) addPerLike(`c.\`${cColDniCif}\``);
-        } else if (['provincia', 'prov', 'p'].includes(f)) {
-          if (!(cColProvinciaId && addPerEqNum(`c.\`${cColProvinciaId}\``))) {
-            if (joinProvincia) addPerLike(`COALESCE(pr.prov_nombre,'')`);
-          }
-        } else if (['poblacion', 'pob'].includes(f)) {
-          if (cColPoblacion) addPerLike(`c.\`${cColPoblacion}\``);
-        } else if (['comercial', 'com'].includes(f)) {
-          if (!addPerEqNum(`p.\`${colComercial}\``)) {
-            if (joinComerciales) {
-              addPerLike(`COALESCE(co.com_nombre,'')`);
-              addPerLike(`COALESCE(co.Email,'')`);
-            }
-          }
-        } else if (['tipo', 'tipocliente', 'tc'].includes(f)) {
-          if (!(cColTipoClienteId && addPerEqNum(`c.\`${cColTipoClienteId}\``))) {
-            if (joinTipoCliente) addPerLike(`COALESCE(tc.tipc_tipo,'')`);
-          }
-        } else if (['estado', 'st'].includes(f)) {
-          if (hasEstadoIdCol && addPerEqNum(`p.\`${colEstadoId}\``)) {
-            // ok
-          } else {
-            if (hasEstadoIdCol) addPerLike(`COALESCE(ep.estped_nombre,'')`);
-            addPerLike(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
-          }
-        } else if (['pedido', 'num'].includes(f)) {
-          if (!addPerEqNum(`p.\`${pedidosMeta?.pk || 'Id'}\``)) addPerLike(`COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')`);
-        } else if (['ref', 'pedidocliente', 'pedidoCliente'].includes(f)) {
-          if (colNumPedidoCliente) addPerLike(`COALESCE(CONCAT(p.\`${colNumPedidoCliente}\`,''),'')`);
-        } else if (['hefame'].includes(f)) {
-          if (colNumAsociadoHefame) addPerLike(`COALESCE(CONCAT(p.\`${colNumAsociadoHefame}\`,''),'')`);
-        } else if (['especial'].includes(f)) {
-          if (colEspecial) {
-            const vv = String(v).trim().toLowerCase();
-            if (['1', 'si', 'sí', 'true', 'yes'].includes(vv)) {
-              per.push(`COALESCE(p.\`${colEspecial}\`,0) = 1`);
-            } else if (['0', 'no', 'false'].includes(vv)) {
-              per.push(`COALESCE(p.\`${colEspecial}\`,0) = 0`);
-            }
-          }
-        } else if (['especialestado', 'espestado'].includes(f)) {
-          if (colEspecialEstado) addPerLike(`COALESCE(CONCAT(p.\`${colEspecialEstado}\`,''),'')`);
-        } else if (['total', 'importe'].includes(f)) {
-          if (colTotal) {
-            const m = String(v).trim().match(/^([<>]=?|=)?\s*([0-9]+(?:[.,][0-9]+)?)$/);
-            if (m) {
-              const op = m[1] || '=';
-              const num = Number(String(m[2]).replace(',', '.'));
-              if (Number.isFinite(num)) {
-                per.push(`COALESCE(p.\`${colTotal}\`,0) ${op} ?`);
-                params.push(num);
-              }
-            } else if (String(v).includes('..')) {
-              const parts = String(v).split('..').map(s => s.trim());
-              const a = Number(String(parts[0] || '').replace(',', '.'));
-              const b = Number(String(parts[1] || '').replace(',', '.'));
-              if (Number.isFinite(a) && Number.isFinite(b)) {
-                per.push(`COALESCE(p.\`${colTotal}\`,0) BETWEEN ? AND ?`);
-                params.push(Math.min(a, b), Math.max(a, b));
-              }
-            }
-          }
-        } else if (['fecha', 'desde', 'hasta'].includes(f)) {
-          // Formato ISO YYYY-MM-DD o rango YYYY-MM-DD..YYYY-MM-DD
-          const vv = String(v).trim();
-          if (vv.includes('..')) {
-            const [aRaw, bRaw] = vv.split('..');
-            const a = String(aRaw || '').trim();
-            const b = String(bRaw || '').trim();
-            if (a && b) {
-              per.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
-              params.push(a, b);
-            }
-          } else if (/^\d{4}-\d{2}-\d{2}$/.test(vv)) {
-            if (f === 'desde') {
-              per.push(`DATE(p.\`${colFecha}\`) >= ?`);
-              params.push(vv);
-            } else if (f === 'hasta') {
-              per.push(`DATE(p.\`${colFecha}\`) <= ?`);
-              params.push(vv);
-            } else {
-              per.push(`DATE(p.\`${colFecha}\`) = ?`);
-              params.push(vv);
-            }
-          }
-        }
-
-        if (per.length) {
-          const clause = `(${per.join(' OR ')})`;
-          tokenClauses.push(neg ? `NOT ${clause}` : clause);
-        } else {
-          // si no se pudo construir nada, revertir params añadidos por error
-          params.splice(perParamsStart);
-        }
-      }
-
-      // Texto libre: AND por término, OR por campo
-      const termClauses = [];
-      for (const term of (smartQ.terms || [])) {
-        const ors = [];
-        const likeVal = `%${term}%`;
-        const addOr = (expr) => {
-          ors.push(`${expr} LIKE ?`);
-          params.push(likeVal);
-        };
-        addOr(`COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')`);
-        if (colNumPedidoCliente) addOr(`COALESCE(CONCAT(p.\`${colNumPedidoCliente}\`,''),'')`);
-        if (colNumAsociadoHefame) addOr(`COALESCE(CONCAT(p.\`${colNumAsociadoHefame}\`,''),'')`);
-        if (cColNombre) addOr(`COALESCE(CONCAT(c.\`${cColNombre}\`,''),'')`);
-        if (cColNombreCial) addOr(`COALESCE(CONCAT(c.\`${cColNombreCial}\`,''),'')`);
-        if (cColDniCif) addOr(`COALESCE(CONCAT(c.\`${cColDniCif}\`,''),'')`);
-        if (cColEmail) addOr(`COALESCE(CONCAT(c.\`${cColEmail}\`,''),'')`);
-        if (cColTelefono) addOr(`COALESCE(CONCAT(c.\`${cColTelefono}\`,''),'')`);
-        if (cColPoblacion) addOr(`COALESCE(CONCAT(c.\`${cColPoblacion}\`,''),'')`);
-        if (joinProvincia) addOr(`COALESCE(pr.prov_nombre,'')`);
-        if (joinComerciales) addOr(`COALESCE(co.com_nombre,'')`);
-        if (joinTipoCliente) addOr(`COALESCE(tc.tipc_tipo,'')`);
-        if (hasEstadoIdCol) addOr(`COALESCE(ep.estped_nombre,'')`);
-        addOr(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
-        if (ors.length) termClauses.push(`(${ors.join(' OR ')})`);
-      }
+      // Texto libre: FULLTEXT (MATCH...AGAINST) cuando hay índices, si no LIKE
+      const termClauses = await buildPedidosTermClauses(db, {
+        smartQ,
+        colNumPedido,
+        colNumPedidoCliente,
+        colNumAsociadoHefame,
+        colEstadoTxt,
+        cColNombre,
+        cColNombreCial,
+        cColDniCif,
+        cColEmail,
+        cColTelefono,
+        cColPoblacion,
+        joinProvincia,
+        joinComerciales,
+        joinTipoCliente,
+        hasEstadoIdCol,
+        tClientes,
+        tPedidos,
+        params
+      });
 
       if (tokenClauses.length) where.push(tokenClauses.join(' AND '));
       if (termClauses.length) where.push(termClauses.join(' AND '));
@@ -355,154 +256,51 @@ router.get('/', requireLogin, async (req, res, next) => {
         params.push(scopeUserId);
       }
 
-      const tokenClauses = [];
-      const addEqNum = (expr, value) => {
-        const n = Number(String(value).trim());
-        if (Number.isFinite(n) && n > 0) {
-          tokenClauses.push(`${expr} = ?`);
-          params.push(n);
-          return true;
-        }
-        return false;
-      };
-      for (const t of (smartQ.tokens || [])) {
-        const f = t.field;
-        const v = t.value;
-        const neg = !!t.neg;
-        const per = [];
-        const perParamsStart = params.length;
-        const addPerLike = (expr) => {
-          per.push(`${expr} LIKE ?`);
-          params.push(`%${v}%`);
-        };
-        const addPerEqNum = (expr) => {
-          const n = Number(String(v).trim());
-          if (Number.isFinite(n) && n > 0) {
-            per.push(`${expr} = ?`);
-            params.push(n);
-            return true;
-          }
-          return false;
-        };
+      const tokenClauses = buildPedidosTokenClauses(smartQ, {
+        colFecha,
+        colComercial,
+        colNumPedido,
+        colNumPedidoCliente,
+        colNumAsociadoHefame,
+        colEstadoTxt,
+        colEstadoId,
+        colEspecial,
+        colEspecialEstado,
+        colTotal,
+        cColNombre,
+        cColNombreCial,
+        cColDniCif,
+        cColPoblacion,
+        cColProvinciaId,
+        cColTipoClienteId,
+        joinProvincia,
+        joinComerciales,
+        joinTipoCliente,
+        hasEstadoIdCol,
+        pedidosPk: pedidosMeta?.pk || 'ped_id',
+        params
+      });
 
-        if (['cliente', 'c'].includes(f)) {
-          if (cColNombre) addPerLike(`c.\`${cColNombre}\``);
-          if (cColNombreCial) addPerLike(`c.\`${cColNombreCial}\``);
-          if (cColDniCif) addPerLike(`c.\`${cColDniCif}\``);
-        } else if (['provincia', 'prov', 'p'].includes(f)) {
-          if (!(cColProvinciaId && addPerEqNum(`c.\`${cColProvinciaId}\``))) {
-            if (joinProvincia) addPerLike(`COALESCE(pr.prov_nombre,'')`);
-          }
-        } else if (['poblacion', 'pob'].includes(f)) {
-          if (cColPoblacion) addPerLike(`c.\`${cColPoblacion}\``);
-        } else if (['comercial', 'com'].includes(f)) {
-          if (!addPerEqNum(`p.\`${colComercial}\``)) {
-            if (joinComerciales) {
-              addPerLike(`COALESCE(co.com_nombre,'')`);
-              addPerLike(`COALESCE(co.Email,'')`);
-            }
-          }
-        } else if (['tipo', 'tipocliente', 'tc'].includes(f)) {
-          if (!(cColTipoClienteId && addPerEqNum(`c.\`${cColTipoClienteId}\``))) {
-            if (joinTipoCliente) addPerLike(`COALESCE(tc.tipc_tipo,'')`);
-          }
-        } else if (['estado', 'st'].includes(f)) {
-          if (hasEstadoIdCol && addPerEqNum(`p.\`${colEstadoId}\``)) {
-            // ok
-          } else {
-            if (hasEstadoIdCol) addPerLike(`COALESCE(ep.estped_nombre,'')`);
-            addPerLike(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
-          }
-        } else if (['pedido', 'num'].includes(f)) {
-          if (!addPerEqNum(`p.\`${pedidosMeta?.pk || 'Id'}\``)) addPerLike(`COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')`);
-        } else if (['ref', 'pedidocliente', 'pedidoCliente'].includes(f)) {
-          if (colNumPedidoCliente) addPerLike(`COALESCE(CONCAT(p.\`${colNumPedidoCliente}\`,''),'')`);
-        } else if (['hefame'].includes(f)) {
-          if (colNumAsociadoHefame) addPerLike(`COALESCE(CONCAT(p.\`${colNumAsociadoHefame}\`,''),'')`);
-        } else if (['especial'].includes(f)) {
-          if (colEspecial) {
-            const vv = String(v).trim().toLowerCase();
-            if (['1', 'si', 'sí', 'true', 'yes'].includes(vv)) per.push(`COALESCE(p.\`${colEspecial}\`,0) = 1`);
-            else if (['0', 'no', 'false'].includes(vv)) per.push(`COALESCE(p.\`${colEspecial}\`,0) = 0`);
-          }
-        } else if (['especialestado', 'espestado'].includes(f)) {
-          if (colEspecialEstado) addPerLike(`COALESCE(CONCAT(p.\`${colEspecialEstado}\`,''),'')`);
-        } else if (['total', 'importe'].includes(f)) {
-          if (colTotal) {
-            const m = String(v).trim().match(/^([<>]=?|=)?\s*([0-9]+(?:[.,][0-9]+)?)$/);
-            if (m) {
-              const op = m[1] || '=';
-              const num = Number(String(m[2]).replace(',', '.'));
-              if (Number.isFinite(num)) {
-                per.push(`COALESCE(p.\`${colTotal}\`,0) ${op} ?`);
-                params.push(num);
-              }
-            } else if (String(v).includes('..')) {
-              const parts = String(v).split('..').map(s => s.trim());
-              const a = Number(String(parts[0] || '').replace(',', '.'));
-              const b = Number(String(parts[1] || '').replace(',', '.'));
-              if (Number.isFinite(a) && Number.isFinite(b)) {
-                per.push(`COALESCE(p.\`${colTotal}\`,0) BETWEEN ? AND ?`);
-                params.push(Math.min(a, b), Math.max(a, b));
-              }
-            }
-          }
-        } else if (['fecha', 'desde', 'hasta'].includes(f)) {
-          const vv = String(v).trim();
-          if (vv.includes('..')) {
-            const [aRaw, bRaw] = vv.split('..');
-            const a = String(aRaw || '').trim();
-            const b = String(bRaw || '').trim();
-            if (a && b) {
-              per.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
-              params.push(a, b);
-            }
-          } else if (/^\d{4}-\d{2}-\d{2}$/.test(vv)) {
-            if (f === 'desde') {
-              per.push(`DATE(p.\`${colFecha}\`) >= ?`);
-              params.push(vv);
-            } else if (f === 'hasta') {
-              per.push(`DATE(p.\`${colFecha}\`) <= ?`);
-              params.push(vv);
-            } else {
-              per.push(`DATE(p.\`${colFecha}\`) = ?`);
-              params.push(vv);
-            }
-          }
-        }
-
-        if (per.length) {
-          const clause = `(${per.join(' OR ')})`;
-          tokenClauses.push(neg ? `NOT ${clause}` : clause);
-        } else {
-          params.splice(perParamsStart);
-        }
-      }
-
-      const termClauses = [];
-      for (const term of (smartQ.terms || [])) {
-        const ors = [];
-        const likeVal = `%${term}%`;
-        const addOr = (expr) => {
-          ors.push(`${expr} LIKE ?`);
-          params.push(likeVal);
-        };
-        addOr(`COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')`);
-        if (colNumPedidoCliente) addOr(`COALESCE(CONCAT(p.\`${colNumPedidoCliente}\`,''),'')`);
-        if (colNumAsociadoHefame) addOr(`COALESCE(CONCAT(p.\`${colNumAsociadoHefame}\`,''),'')`);
-        if (cColNombre) addOr(`COALESCE(CONCAT(c.\`${cColNombre}\`,''),'')`);
-        if (cColNombreCial) addOr(`COALESCE(CONCAT(c.\`${cColNombreCial}\`,''),'')`);
-        if (cColDniCif) addOr(`COALESCE(CONCAT(c.\`${cColDniCif}\`,''),'')`);
-        if (cColEmail) addOr(`COALESCE(CONCAT(c.\`${cColEmail}\`,''),'')`);
-        if (cColTelefono) addOr(`COALESCE(CONCAT(c.\`${cColTelefono}\`,''),'')`);
-        if (cColPoblacion) addOr(`COALESCE(CONCAT(c.\`${cColPoblacion}\`,''),'')`);
-        if (joinProvincia) addOr(`COALESCE(pr.prov_nombre,'')`);
-        if (joinComerciales) addOr(`COALESCE(co.com_nombre,'')`);
-        if (joinTipoCliente) addOr(`COALESCE(tc.tipc_tipo,'')`);
-        if (hasEstadoIdCol) addOr(`COALESCE(ep.estped_nombre,'')`);
-        addOr(`COALESCE(CONCAT(p.\`${colEstadoTxt}\`,''),'')`);
-        if (ors.length) termClauses.push(`(${ors.join(' OR ')})`);
-      }
+      const termClauses = await buildPedidosTermClauses(db, {
+        smartQ,
+        colNumPedido,
+        colNumPedidoCliente,
+        colNumAsociadoHefame,
+        colEstadoTxt,
+        cColNombre,
+        cColNombreCial,
+        cColDniCif,
+        cColEmail,
+        cColTelefono,
+        cColPoblacion,
+        joinProvincia,
+        joinComerciales,
+        joinTipoCliente,
+        hasEstadoIdCol,
+        tClientes,
+        tPedidos,
+        params
+      });
 
       if (tokenClauses.length) where.push(tokenClauses.join(' AND '));
       if (termClauses.length) where.push(termClauses.join(' AND '));

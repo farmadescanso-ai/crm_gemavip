@@ -536,85 +536,36 @@ class ComisionesCRM {
   }
 
   /**
-   * Crear un nuevo presupuesto (o actualizar si ya existe)
+   * Crear un nuevo presupuesto.
+   * Solo 2 queries: verificación de duplicado + INSERT.
+   * Las FKs (comercial_id, articulo_id) se validan en la BD; si no existen, el INSERT falla.
    */
   async createPresupuesto(presupuestoData) {
     try {
-      debug('💾 [PRESUPUESTO] createPresupuesto llamado');
-      
-      // Verificar que comercial_id existe antes de continuar
-      const verificarComercial = await this.query(
-        'SELECT com_id FROM comerciales WHERE com_id = ? LIMIT 1',
-        [presupuestoData.comercial_id]
-      );
-      debug('💾 [PRESUPUESTO] Verificación comercial en BD:', verificarComercial.length > 0 ? 'OK' : 'NO existe');
-      if (verificarComercial.length === 0) {
-        throw new Error(`El comercial con ID ${presupuestoData.comercial_id} no existe en la base de datos`);
-      }
-      
-      // Verificar que articulo_id existe antes de continuar
-      const verificarArticulo = await this.query(
-        'SELECT art_id FROM articulos WHERE art_id = ? LIMIT 1',
-        [presupuestoData.articulo_id]
-      );
-      debug('💾 [PRESUPUESTO] Verificación artículo en BD:', verificarArticulo.length > 0 ? 'OK' : 'NO existe');
-      if (verificarArticulo.length === 0) {
-        throw new Error(`El artículo con ID ${presupuestoData.articulo_id} no existe en la base de datos`);
-      }
-      
-      // Verificar si ya existe un presupuesto con la misma combinación de comercial_id, articulo_id y año
-      // Asegurar que los valores sean números para la comparación
-      const comercialIdForQuery = Number(presupuestoData.comercial_id);
-      const articuloIdForQuery = Number(presupuestoData.articulo_id);
-      const añoForQuery = Number(presupuestoData.año);
-      
-      debug('💾 [PRESUPUESTO] Buscando duplicados');
-      
-      const existing = await this.query(
-        'SELECT id FROM presupuestos WHERE comercial_id = ? AND articulo_id = ? AND año = ?',
-        [comercialIdForQuery, articuloIdForQuery, añoForQuery]
-      );
-      debug('💾 [PRESUPUESTO] Presupuesto existente:', existing.length > 0 ? 'Sí' : 'No');
+      const comercialId = parseInt(presupuestoData.comercial_id, 10);
+      const articuloId = parseInt(presupuestoData.articulo_id, 10);
+      const año = parseInt(presupuestoData.año, 10);
 
-      if (existing.length > 0) {
-        const existingId = existing[0].id;
-        debug('💾 [PRESUPUESTO] Presupuesto duplicado detectado');
-        throw new Error(`Ya existe un presupuesto para este comercial (ID: ${comercialIdForQuery}), artículo (ID: ${articuloIdForQuery}) y año (${añoForQuery}). Presupuesto existente ID: ${existingId}`);
-      }
-
-      // Si no existe, crear un nuevo presupuesto
-      // Asegurar que los IDs sean números enteros
-      const comercialId = parseInt(presupuestoData.comercial_id);
-      const articuloId = parseInt(presupuestoData.articulo_id);
-      const año = parseInt(presupuestoData.año);
-      
-      // Verificar una vez más que los IDs son válidos antes de insertar
-      if (isNaN(comercialId) || comercialId <= 0) {
+      if (!Number.isFinite(comercialId) || comercialId <= 0) {
         throw new Error(`comercial_id inválido: ${presupuestoData.comercial_id}`);
       }
-      if (isNaN(articuloId) || articuloId <= 0) {
+      if (!Number.isFinite(articuloId) || articuloId <= 0) {
         throw new Error(`articulo_id inválido: ${presupuestoData.articulo_id}`);
       }
-      if (isNaN(año) || año <= 0) {
+      if (!Number.isFinite(año) || año <= 0) {
         throw new Error(`año inválido: ${presupuestoData.año}`);
       }
-      
-      // VERIFICACIÓN FINAL justo antes del INSERT usando la misma conexión
-      debug('🔍 [PRESUPUESTO] Verificación final antes de INSERT');
-      const pool = await this.connect();
-      const [comercialCheck] = await pool.execute('SELECT com_id FROM comerciales WHERE com_id = ?', [comercialId]);
-      const [articuloCheck] = await pool.execute('SELECT art_id FROM articulos WHERE art_id = ?', [articuloId]);
-      
-      debug('🔍 [PRESUPUESTO] Verificación final Comercial:', comercialCheck.length > 0 ? 'OK' : 'NO existe');
-      debug('🔍 [PRESUPUESTO] Verificación final Artículo:', articuloCheck.length > 0 ? 'OK' : 'NO existe');
-      
-      if (comercialCheck.length === 0) {
-        throw new Error(`VERIFICACIÓN FINAL FALLIDA: El comercial con ID ${comercialId} no existe en la base de datos`);
+
+      // 1. Verificar duplicado
+      const existing = await this.query(
+        'SELECT id FROM presupuestos WHERE comercial_id = ? AND articulo_id = ? AND año = ?',
+        [comercialId, articuloId, año]
+      );
+      if (existing.length > 0) {
+        throw new Error(`Ya existe un presupuesto para este comercial (ID: ${comercialId}), artículo (ID: ${articuloId}) y año (${año}). Presupuesto existente ID: ${existing[0].id}`);
       }
-      if (articuloCheck.length === 0) {
-        throw new Error(`VERIFICACIÓN FINAL FALLIDA: El artículo con ID ${articuloId} no existe en la base de datos`);
-      }
-      
+
+      // 2. INSERT directo — si comercial_id o articulo_id no existen, la BD falla (FK o integridad)
       const sql = `
         INSERT INTO presupuestos 
         (comercial_id, articulo_id, año, mes, cantidad_presupuestada, importe_presupuestado, 
@@ -622,9 +573,9 @@ class ComisionesCRM {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       const params = [
-        comercialId,  // Asegurar que es un número entero
-        articuloId,   // Asegurar que es un número entero
-        año,          // Asegurar que es un número entero
+        comercialId,
+        articuloId,
+        año,
         presupuestoData.mes !== undefined && presupuestoData.mes !== null && presupuestoData.mes !== '' ? parseInt(presupuestoData.mes) : null,
         parseFloat(presupuestoData.cantidad_presupuestada) || 0,
         parseFloat(presupuestoData.importe_presupuestado) || 0,
