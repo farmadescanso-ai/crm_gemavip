@@ -13,10 +13,6 @@ const { _n, getStoredPasswordFromRow } = require('../lib/app-helpers');
 
 const router = express.Router();
 
-// Rate limit por IP: usa BD (auditoría punto 7) para funcionar en serverless
-const PASSWORD_RESET_IP_MAX = 10;
-const PASSWORD_RESET_IP_WINDOW_HOURS = 1;
-
 router.get('/login', (req, res) => {
   if (req.session?.user) return res.redirect('/dashboard');
   const restablecido = req.query?.restablecido === '1';
@@ -87,21 +83,6 @@ router.get('/login/olvidar-contrasena', (req, res) => {
 router.post('/login/olvidar-contrasena', async (req, res, next) => {
   try {
     if (req.session?.user) return res.redirect('/dashboard');
-    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    if (typeof db.checkPasswordResetRateLimitByIp === 'function') {
-      const canProceed = await db.checkPasswordResetRateLimitByIp(
-        ip,
-        PASSWORD_RESET_IP_MAX,
-        PASSWORD_RESET_IP_WINDOW_HOURS
-      );
-      if (!canProceed) {
-        return res.status(429).render('login-olvidar-contrasena', {
-          title: 'Recuperar contraseña',
-          error: 'Demasiados intentos. Espera una hora e inténtalo de nuevo.',
-          success: null
-        });
-      }
-    }
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!email) {
       return res.status(400).render('login-olvidar-contrasena', {
@@ -111,19 +92,20 @@ router.post('/login/olvidar-contrasena', async (req, res, next) => {
       });
     }
     const MAX_EMAIL_ATTEMPTS = 3;
-    const recentByEmail = await db.countRecentPasswordResetAttempts(email, 1);
-    if (recentByEmail >= MAX_EMAIL_ATTEMPTS) {
-      return res.render('login-olvidar-contrasena', {
-        title: 'Recuperar contraseña',
-        error: null,
-        success:
-          'Si existe una cuenta con ese correo, ya has recibido un enlace recientemente. Revisa tu bandeja o espera 1 hora para solicitar otro.'
-      });
-    }
+    try {
+      if (typeof db.countRecentPasswordResetAttempts === 'function') {
+        const recentByEmail = await db.countRecentPasswordResetAttempts(email, 1);
+        if (recentByEmail >= MAX_EMAIL_ATTEMPTS) {
+          return res.render('login-olvidar-contrasena', {
+            title: 'Recuperar contraseña',
+            error: null,
+            success:
+              'Si existe una cuenta con ese correo, ya has recibido un enlace recientemente. Revisa tu bandeja o espera 1 hora para solicitar otro.'
+          });
+        }
+      }
+    } catch (_) { /* ignorar si no disponible */ }
     const comercial = await db.getComercialByEmail(email);
-    if (typeof db.recordPasswordResetIpAttempt === 'function') {
-      await db.recordPasswordResetIpAttempt(ip);
-    }
     if (comercial) {
       const token = crypto.randomBytes(32).toString('hex');
       const comercialId = _n(_n(comercial.com_id, comercial.id), comercial.Id);
