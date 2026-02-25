@@ -1,6 +1,8 @@
 {
   "rewrites": [
     {"source": "/health", "destination": "/api/health"},
+    {"source": "/health/ip", "destination": "/api/index?__path=/health/ip"},
+    {"source": "/health/db", "destination": "/api/index?__path=/health/db"},
     {"source": "/(.*)", "destination": "/api/index?__path=/$1"}
   ],
   "functions": {

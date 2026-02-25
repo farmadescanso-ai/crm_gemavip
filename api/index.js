@@ -1,4 +1,5 @@
 const express = require('express');
+const helmet = require('helmet');
 const fs = require('fs').promises;
 const mysql = require('mysql2/promise');
 const swaggerUi = require('swagger-ui-express');
@@ -56,7 +57,22 @@ const NOTIF_EMAILS_ENABLED =
   String(process.env.NOTIF_EMAILS_ENABLED || '').toLowerCase() === 'true';
 
 const app = express();
+// trust proxy: 1 = confiar en el primer proxy (Vercel). Necesario para req.ip correcto en rate limiting.
 app.set('trust proxy', 1);
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdn.jsdelivr.net"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      fontSrc: ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'self'"]
+    }
+  }
+}));
 
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));
@@ -75,6 +91,16 @@ app.use((req, _res, next) => {
 // Health check (sin sesión/DB) para diagnosticar crashes en Vercel
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'crm_gemavip', timestamp: new Date().toISOString() });
+});
+
+// Diagnóstico de IP para verificar trust proxy (rate limiting en Vercel)
+app.get('/health/ip', requireApiKeyIfConfigured, (req, res) => {
+  res.json({
+    ip: req.ip,
+    ips: req.ips,
+    xForwardedFor: req.headers['x-forwarded-for'],
+    remoteAddress: req.socket?.remoteAddress
+  });
 });
 
 // Diagnóstico de login: solo en desarrollo y con DEBUG_LOGIN_SECRET. Nunca en producción.
