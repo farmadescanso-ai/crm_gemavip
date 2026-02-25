@@ -83,15 +83,6 @@ router.get('/login/olvidar-contrasena', (req, res) => {
 router.post('/login/olvidar-contrasena', async (req, res, next) => {
   try {
     if (req.session?.user) return res.redirect('/dashboard');
-    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    const canProceed = await db.checkPasswordResetRateLimitByIp(ip, 10, 1);
-    if (!canProceed) {
-      return res.status(429).render('login-olvidar-contrasena', {
-        title: 'Recuperar contraseña',
-        error: 'Demasiados intentos. Espera una hora e inténtalo de nuevo.',
-        success: null
-      });
-    }
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!email) {
       return res.status(400).render('login-olvidar-contrasena', {
@@ -115,7 +106,6 @@ router.post('/login/olvidar-contrasena', async (req, res, next) => {
       }
     } catch (_) { /* ignorar si no disponible */ }
     const comercial = await db.getComercialByEmail(email);
-    await db.recordPasswordResetIpAttempt(ip);
     if (comercial) {
       const token = crypto.randomBytes(32).toString('hex');
       const comercialId = _n(_n(comercial.com_id, comercial.id), comercial.Id);

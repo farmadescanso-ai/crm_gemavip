@@ -1637,19 +1637,14 @@ function ensureModule(name) {
 
 const domains = createDomains(ensureModule);
 
-// Login: cargar al inicio. Si falla (Vercel bundling), los stubs en dbInstance cubrirán
-let _loginModule = null;
-try {
-  _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
-  Object.assign(MySQLCRM.prototype, _loginModule);
-} catch (e) {
-  console.warn('[mysql-crm] Login module no cargado:', e?.message);
-}
+// Login: cargar al inicio (createPasswordResetToken, findPasswordResetToken, etc.)
+const _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
+Object.assign(MySQLCRM.prototype, _loginModule);
 function getLoginModule() {
   return _loginModule;
 }
 
-// Wrappers para métodos de login (delegan al módulo cargado bajo demanda)
+// Wrappers para métodos de login
 MySQLCRM.prototype.updateComercialPassword = async function (comercialId, hashedPassword) {
   return getLoginModule().updateComercialPassword.call(this, comercialId, hashedPassword);
 };
@@ -1667,17 +1662,6 @@ MySQLCRM.prototype.countRecentPasswordResetAttempts = async function (email, hou
 };
 MySQLCRM.prototype.cleanupExpiredTokens = async function () {
   return getLoginModule().cleanupExpiredTokens.call(this);
-};
-MySQLCRM.prototype.checkPasswordResetRateLimitByIp = async function (ip, maxAttempts, windowHours) {
-  const mod = getLoginModule();
-  if (!mod || typeof mod.checkPasswordResetRateLimitByIp !== 'function') return true;
-  return mod.checkPasswordResetRateLimitByIp.call(this, ip, maxAttempts, windowHours);
-};
-MySQLCRM.prototype.recordPasswordResetIpAttempt = async function (ip) {
-  const mod = getLoginModule();
-  if (mod && typeof mod.recordPasswordResetIpAttempt === 'function') {
-    return mod.recordPasswordResetIpAttempt.call(this, ip);
-  }
 };
 
 // ===========================
@@ -1735,13 +1719,5 @@ MySQLCRM.prototype.getAdminPushSubscriptions = async function () {
   }
 };
 
-const dbInstance = new MySQLCRM();
-// Fallback para Vercel: si los métodos de rate limit no existen, añadir stubs no-op
-if (typeof dbInstance.checkPasswordResetRateLimitByIp !== 'function') {
-  dbInstance.checkPasswordResetRateLimitByIp = async () => true;
-}
-if (typeof dbInstance.recordPasswordResetIpAttempt !== 'function') {
-  dbInstance.recordPasswordResetIpAttempt = async () => {};
-}
-module.exports = dbInstance;
+module.exports = new MySQLCRM();
 
