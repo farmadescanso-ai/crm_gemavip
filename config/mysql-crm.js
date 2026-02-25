@@ -1637,9 +1637,14 @@ function ensureModule(name) {
 
 const domains = createDomains(ensureModule);
 
-// Login: cargar al inicio para que checkPasswordResetRateLimitByIp etc. existan en serverless (Vercel)
-const _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
-Object.assign(MySQLCRM.prototype, _loginModule);
+// Login: cargar al inicio. Si falla (Vercel bundling), los stubs en dbInstance cubrirán
+let _loginModule = null;
+try {
+  _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
+  Object.assign(MySQLCRM.prototype, _loginModule);
+} catch (e) {
+  console.warn('[mysql-crm] Login module no cargado:', e?.message);
+}
 function getLoginModule() {
   return _loginModule;
 }
@@ -1664,10 +1669,15 @@ MySQLCRM.prototype.cleanupExpiredTokens = async function () {
   return getLoginModule().cleanupExpiredTokens.call(this);
 };
 MySQLCRM.prototype.checkPasswordResetRateLimitByIp = async function (ip, maxAttempts, windowHours) {
-  return getLoginModule().checkPasswordResetRateLimitByIp.call(this, ip, maxAttempts, windowHours);
+  const mod = getLoginModule();
+  if (!mod || typeof mod.checkPasswordResetRateLimitByIp !== 'function') return true;
+  return mod.checkPasswordResetRateLimitByIp.call(this, ip, maxAttempts, windowHours);
 };
 MySQLCRM.prototype.recordPasswordResetIpAttempt = async function (ip) {
-  return getLoginModule().recordPasswordResetIpAttempt.call(this, ip);
+  const mod = getLoginModule();
+  if (mod && typeof mod.recordPasswordResetIpAttempt === 'function') {
+    return mod.recordPasswordResetIpAttempt.call(this, ip);
+  }
 };
 
 // ===========================
@@ -1725,5 +1735,13 @@ MySQLCRM.prototype.getAdminPushSubscriptions = async function () {
   }
 };
 
-module.exports = new MySQLCRM();
+const dbInstance = new MySQLCRM();
+// Fallback para Vercel: si los métodos de rate limit no existen, añadir stubs no-op
+if (typeof dbInstance.checkPasswordResetRateLimitByIp !== 'function') {
+  dbInstance.checkPasswordResetRateLimitByIp = async () => true;
+}
+if (typeof dbInstance.recordPasswordResetIpAttempt !== 'function') {
+  dbInstance.recordPasswordResetIpAttempt = async () => {};
+}
+module.exports = dbInstance;
 
