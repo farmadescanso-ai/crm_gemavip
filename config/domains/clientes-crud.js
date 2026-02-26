@@ -229,7 +229,11 @@ module.exports = {
         Modelo_347: 'cli_modelo_347',
         cli_modelo_347: 'cli_modelo_347',
         NumeroFarmacia: 'cli_numero_farmacia',
-        cli_numero_farmacia: 'cli_numero_farmacia'
+        cli_numero_farmacia: 'cli_numero_farmacia',
+        NomContacto: 'NomContacto',
+        Web: 'Web',
+        MotivoBaja: 'MotivoBaja',
+        FechaBaja: 'FechaBaja'
       };
       const pickColName = (key) => {
         const mapped = legacyToCol[key];
@@ -482,7 +486,11 @@ module.exports = {
         Modelo_347: 'cli_modelo_347',
         cli_modelo_347: 'cli_modelo_347',
         NumeroFarmacia: 'cli_numero_farmacia',
-        cli_numero_farmacia: 'cli_numero_farmacia'
+        cli_numero_farmacia: 'cli_numero_farmacia',
+        NomContacto: 'NomContacto',
+        Web: 'Web',
+        MotivoBaja: 'MotivoBaja',
+        FechaBaja: 'FechaBaja'
       };
       const colsListCreate = meta?.cols || [];
       const mappedPayload = {};
