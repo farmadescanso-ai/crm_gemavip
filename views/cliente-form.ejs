@@ -269,14 +269,14 @@
             </div>
           <% }) %>
         </div>
-        <button type="button" class="btn secondary" id="gvBtnAddRelaciones">Añadir clientes relacionados</button>
+        <button type="button" class="btn" id="gvBtnAddRelaciones">Añadir contactos relacionados</button>
       </div>
 
       <div class="gv-modal-backdrop" id="gvRelacionesModalBackdrop" hidden></div>
       <div class="gv-modal" id="gvRelacionesModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvRelacionesModalTitle">
         <div class="gv-modal-card" style="max-width: 640px;">
           <div class="gv-modal-hd">
-            <div class="gv-modal-title" id="gvRelacionesModalTitle">Buscar y añadir clientes relacionados</div>
+            <div class="gv-modal-title" id="gvRelacionesModalTitle">Buscar y añadir contactos relacionados</div>
             <div class="gv-modal-subtitle">Escribe para buscar. Selecciona varios y guarda.</div>
           </div>
           <div class="gv-modal-bd" style="padding: 16px;">
@@ -317,6 +317,7 @@
 (function () {
   var form = document.getElementById('gvClienteForm');
   if (!form) return;
+  var mode = "<%= mode %>";
 
   // Tabs
   var tabButtons = Array.prototype.slice.call(document.querySelectorAll('.gv-tab[data-tab]'));
@@ -552,7 +553,6 @@
   }
 
   // Duplicados (solo alta)
-  var mode = "<%= mode %>";
   if (mode === 'create') {
     var dupBackdrop = document.getElementById('gvDupBackdrop');
     var dupModal = document.getElementById('gvDupModal');
