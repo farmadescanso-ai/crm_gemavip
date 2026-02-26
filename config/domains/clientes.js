@@ -1007,52 +1007,61 @@ module.exports = {
         throw new Error('Cliente no encontrado');
       }
 
+      const pick = (obj, ...keys) => {
+        for (const k of keys) {
+          const v = obj && obj[k];
+          if (v !== undefined && v !== null) return v;
+        }
+        return null;
+      };
       const datosPapelera = {
-        id: cliente.id || cliente.Id,
-        Id_Cial: cliente.Id_Cial || cliente.id_Cial,
-        DNI_CIF: cliente.DNI_CIF,
-        Nombre_Razon_Social: cliente.Nombre_Razon_Social || cliente.Nombre,
-        Nombre_Cial: cliente.Nombre_Cial,
-        NumeroFarmacia: cliente.NumeroFarmacia,
-        Direccion: cliente.Direccion,
-        Poblacion: cliente.Poblacion,
-        Id_Provincia: cliente.Id_Provincia || cliente.id_Provincia,
-        CodigoPostal: cliente.CodigoPostal,
-        Movil: cliente.Movil,
-        Telefono: cliente.Telefono,
-        Email: cliente.Email,
-        TipoCliente: cliente.TipoCliente,
-        Id_TipoCliente: cliente.Id_TipoCliente || cliente.id_TipoCliente,
-        CodPais: cliente.CodPais,
-        Id_Pais: cliente.Id_Pais || cliente.id_Pais,
-        Pais: cliente.Pais,
-        Idioma: cliente.Idioma,
-        Id_Idioma: cliente.Id_Idioma || cliente.id_Idioma,
-        Moneda: cliente.Moneda,
-        Id_Moneda: cliente.Id_Moneda || cliente.id_Moneda,
-        NomContacto: cliente.NomContacto,
-        Tarifa: cliente.Tarifa,
-        Id_FormaPago: cliente.Id_FormaPago || cliente.id_FormaPago,
-        Dto: cliente.Dto,
-        CuentaContable: cliente.CuentaContable,
-        RE: cliente.RE,
-        Banco: cliente.Banco,
-        Swift: cliente.Swift,
-        IBAN: cliente.IBAN,
-        Modelo_347: cliente.Modelo_347,
+        id: cliente.id ?? cliente.Id ?? cliente.cli_id ?? clienteId,
+        Id_Cial: pick(cliente, 'Id_Cial', 'id_Cial', 'cli_com_id'),
+        DNI_CIF: pick(cliente, 'DNI_CIF', 'cli_dni_cif'),
+        Nombre_Razon_Social: pick(cliente, 'Nombre_Razon_Social', 'Nombre', 'cli_nombre_razon_social'),
+        Nombre_Cial: pick(cliente, 'Nombre_Cial', 'cli_nombre_cial'),
+        NumeroFarmacia: pick(cliente, 'NumeroFarmacia', 'cli_numero_farmacia'),
+        Direccion: pick(cliente, 'Direccion', 'cli_direccion'),
+        Poblacion: pick(cliente, 'Poblacion', 'cli_poblacion'),
+        Id_Provincia: pick(cliente, 'Id_Provincia', 'id_Provincia', 'cli_prov_id'),
+        CodigoPostal: pick(cliente, 'CodigoPostal', 'cli_codigo_postal'),
+        Movil: pick(cliente, 'Movil', 'cli_movil'),
+        Telefono: pick(cliente, 'Telefono', 'cli_telefono'),
+        Email: pick(cliente, 'Email', 'cli_email'),
+        TipoCliente: pick(cliente, 'TipoCliente', 'cli_tipo_cliente_txt'),
+        Id_TipoCliente: pick(cliente, 'Id_TipoCliente', 'id_TipoCliente', 'cli_tipc_id'),
+        CodPais: pick(cliente, 'CodPais', 'cli_cod_pais'),
+        Id_Pais: pick(cliente, 'Id_Pais', 'id_Pais', 'cli_pais_id'),
+        Pais: pick(cliente, 'Pais', 'cli_pais_txt'),
+        Idioma: pick(cliente, 'Idioma', 'cli_idioma_txt'),
+        Id_Idioma: pick(cliente, 'Id_Idioma', 'id_Idioma', 'cli_idiom_id'),
+        Moneda: pick(cliente, 'Moneda', 'cli_moneda_txt'),
+        Id_Moneda: pick(cliente, 'Id_Moneda', 'id_Moneda', 'cli_mon_id'),
+        NomContacto: pick(cliente, 'NomContacto', 'cli_nom_contacto'),
+        Tarifa: pick(cliente, 'Tarifa', 'cli_tarifa_legacy', 'cli_tarcli_id'),
+        Id_FormaPago: pick(cliente, 'Id_FormaPago', 'id_FormaPago', 'cli_formp_id'),
+        Dto: pick(cliente, 'Dto', 'cli_dto'),
+        CuentaContable: pick(cliente, 'CuentaContable', 'cli_cuenta_contable'),
+        RE: pick(cliente, 'RE', 'cli_re'),
+        Banco: pick(cliente, 'Banco', 'cli_banco'),
+        Swift: pick(cliente, 'Swift', 'cli_swift'),
+        IBAN: pick(cliente, 'IBAN', 'cli_iban'),
+        Modelo_347: pick(cliente, 'Modelo_347', 'cli_modelo_347'),
         FechaEliminacion: new Date(),
-        EliminadoPor: eliminadoPor
+        EliminadoPor: eliminadoPor ?? 'admin'
       };
 
       const campos = Object.keys(datosPapelera).map(key => `\`${key}\``).join(', ');
       const placeholders = Object.keys(datosPapelera).map(() => '?').join(', ');
-      const valores = Object.values(datosPapelera);
+      const valores = Object.values(datosPapelera).map(v => (v === undefined ? null : v));
 
       const sqlInsert = `INSERT INTO \`Papelera-Clientes\` (${campos}) VALUES (${placeholders})`;
       debug('📝 [PAPELERA] Insertando cliente en papelera:', clienteId, eliminadoPor);
       await this.query(sqlInsert, valores);
 
-      const sqlDelete = 'DELETE FROM clientes WHERE id = ?';
+      const meta = await this._ensureClientesMeta().catch(() => null);
+      const pk = meta?.pk || 'cli_id';
+      const sqlDelete = `DELETE FROM clientes WHERE \`${pk}\` = ?`;
       await this.query(sqlDelete, [clienteId]);
 
       debug('✅ Cliente', clienteId, 'movido a la papelera por usuario', eliminadoPor);
