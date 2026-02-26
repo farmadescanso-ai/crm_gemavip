@@ -199,7 +199,33 @@ module.exports = {
 
       if (!data.Id_Cliente) throw new Error('Id_Cliente es obligatorio');
 
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
+      const meta = await this._ensureDireccionesEnvioMeta();
+      if (!meta?.table) throw new Error('Tabla direccionesEnvio no encontrada');
+
+      const tDirecciones = meta.table;
+      const cols = new Set(meta._cols || []);
+      const pickCI = (cands) => this._pickCIFromColumns(meta._cols || [], cands);
+
+      const payloadToCol = {
+        Id_Cliente: meta.colCliente,
+        Id_Contacto: meta.colContacto,
+        Alias: pickCI(['direnv_alias', 'Alias']),
+        Nombre_Destinatario: pickCI(['direnv_nombre_destinatario', 'Nombre_Destinatario']),
+        Direccion: pickCI(['direnv_direccion', 'Direccion']),
+        Direccion2: pickCI(['direnv_direccion2', 'Direccion2']),
+        Poblacion: pickCI(['direnv_poblacion', 'Poblacion']),
+        CodigoPostal: pickCI(['direnv_codigo_postal', 'CodigoPostal']),
+        Id_Provincia: pickCI(['direnv_prov_id', 'Id_Provincia']),
+        Id_CodigoPostal: pickCI(['direnv_codp_id', 'Id_CodigoPostal']),
+        Id_Pais: pickCI(['direnv_pais_id', 'Id_Pais']),
+        Pais: pickCI(['direnv_pais', 'Pais']),
+        Telefono: pickCI(['direnv_telefono', 'Telefono']),
+        Movil: pickCI(['direnv_movil', 'Movil']),
+        Email: pickCI(['direnv_email', 'Email']),
+        Observaciones: pickCI(['direnv_observaciones', 'Observaciones']),
+        Es_Principal: meta.colPrincipal,
+        Activa: meta.colActiva
+      };
 
       const esPrincipal = Number(data.Es_Principal) === 1;
       const activa = (data.Activa === undefined || data.Activa === null) ? true : (Number(data.Activa) === 1);
@@ -209,18 +235,24 @@ module.exports = {
       try {
         await conn.beginTransaction();
 
-        if (esPrincipal && activa) {
+        if (esPrincipal && activa && meta.colPrincipal && meta.colCliente && meta.colActiva) {
           await conn.execute(
-            `UPDATE \`${tDirecciones}\` SET Es_Principal = 0 WHERE Id_Cliente = ? AND Activa = 1`,
+            `UPDATE \`${tDirecciones}\` SET \`${meta.colPrincipal}\` = 0 WHERE \`${meta.colCliente}\` = ? AND \`${meta.colActiva}\` = 1`,
             [Number(data.Id_Cliente)]
           );
         }
 
-        const keys = this._filterPayloadKeys(data);
-        const fields = keys.map(k => `\`${k}\``).join(', ');
-        const placeholders = keys.map(() => '?').join(', ');
-        const values = keys.map(k => data[k]);
-        const sql = `INSERT INTO \`${tDirecciones}\` (${fields}) VALUES (${placeholders})`;
+        const dbFields = [];
+        const values = [];
+        for (const [apiKey, dbCol] of Object.entries(payloadToCol)) {
+          if (!dbCol || !cols.has(dbCol) || !Object.prototype.hasOwnProperty.call(data, apiKey)) continue;
+          dbFields.push(`\`${dbCol}\``);
+          values.push(data[apiKey]);
+        }
+        if (dbFields.length === 0) throw new Error('No hay campos válidos para insertar');
+
+        const placeholders = dbFields.map(() => '?').join(', ');
+        const sql = `INSERT INTO \`${tDirecciones}\` (${dbFields.join(', ')}) VALUES (${placeholders})`;
         const [result] = await conn.execute(sql, values);
 
         await conn.commit();
@@ -304,16 +336,42 @@ module.exports = {
         'Activa'
       ]);
 
+      const meta = await this._ensureDireccionesEnvioMeta();
+      if (!meta?.table) throw new Error('Tabla direccionesEnvio no encontrada');
+
+      const cols = new Set(meta._cols || []);
+      const pickCI = (cands) => this._pickCIFromColumns(meta._cols || [], cands);
+
+      const payloadToCol = {
+        Id_Contacto: meta.colContacto,
+        Alias: pickCI(['direnv_alias', 'Alias']),
+        Nombre_Destinatario: pickCI(['direnv_nombre_destinatario', 'Nombre_Destinatario']),
+        Direccion: pickCI(['direnv_direccion', 'Direccion']),
+        Direccion2: pickCI(['direnv_direccion2', 'Direccion2']),
+        Poblacion: pickCI(['direnv_poblacion', 'Poblacion']),
+        CodigoPostal: pickCI(['direnv_codigo_postal', 'CodigoPostal']),
+        Id_Provincia: pickCI(['direnv_prov_id', 'Id_Provincia']),
+        Id_CodigoPostal: pickCI(['direnv_codp_id', 'Id_CodigoPostal']),
+        Id_Pais: pickCI(['direnv_pais_id', 'Id_Pais']),
+        Pais: pickCI(['direnv_pais', 'Pais']),
+        Telefono: pickCI(['direnv_telefono', 'Telefono']),
+        Movil: pickCI(['direnv_movil', 'Movil']),
+        Email: pickCI(['direnv_email', 'Email']),
+        Observaciones: pickCI(['direnv_observaciones', 'Observaciones']),
+        Es_Principal: meta.colPrincipal,
+        Activa: meta.colActiva
+      };
+
       const fields = [];
       const values = [];
-      for (const [k, v] of Object.entries(payload || {})) {
-        if (!allowed.has(k)) continue;
-        fields.push(`\`${k}\` = ?`);
-        values.push(v === undefined ? null : v);
+      for (const [apiKey, dbCol] of Object.entries(payloadToCol)) {
+        if (!dbCol || !cols.has(dbCol) || !Object.prototype.hasOwnProperty.call(payload || {}, apiKey)) continue;
+        fields.push(`\`${dbCol}\` = ?`);
+        values.push(payload[apiKey] === undefined ? null : payload[apiKey]);
       }
       if (!fields.length) return { affectedRows: 0 };
 
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
+      const tDirecciones = meta.table;
 
       const willSetPrincipal = Object.prototype.hasOwnProperty.call(payload || {}, 'Es_Principal') && Number(payload.Es_Principal) === 1;
       const willBeActive = !Object.prototype.hasOwnProperty.call(payload || {}, 'Activa') || Number(payload.Activa) === 1;
@@ -325,21 +383,24 @@ module.exports = {
 
         let clienteId = null;
         try {
-          const [rows] = await conn.execute(`SELECT Id_Cliente FROM \`${tDirecciones}\` WHERE id = ? LIMIT 1`, [id]);
-          clienteId = rows?.[0]?.Id_Cliente ?? null;
+          const [rows] = await conn.execute(
+            `SELECT \`${meta.colCliente}\` FROM \`${tDirecciones}\` WHERE \`${meta.pk}\` = ? LIMIT 1`,
+            [id]
+          );
+          clienteId = rows?.[0]?.[meta.colCliente] ?? null;
         } catch (_) {
           clienteId = null;
         }
 
-        if (clienteId && willSetPrincipal && willBeActive) {
+        if (clienteId && willSetPrincipal && willBeActive && meta.colPrincipal && meta.colCliente && meta.colActiva) {
           await conn.execute(
-            `UPDATE \`${tDirecciones}\` SET Es_Principal = 0 WHERE Id_Cliente = ? AND Activa = 1`,
+            `UPDATE \`${tDirecciones}\` SET \`${meta.colPrincipal}\` = 0 WHERE \`${meta.colCliente}\` = ? AND \`${meta.colActiva}\` = 1`,
             [Number(clienteId)]
           );
         }
 
         values.push(id);
-        const sql = `UPDATE \`${tDirecciones}\` SET ${fields.join(', ')} WHERE id = ?`;
+        const sql = `UPDATE \`${tDirecciones}\` SET ${fields.join(', ')} WHERE \`${meta.pk}\` = ?`;
         const [result] = await conn.execute(sql, values);
 
         await conn.commit();
@@ -361,8 +422,11 @@ module.exports = {
       if (!this.connected && !this.pool) {
         await this.connect();
       }
-      const tDirecciones = await this._resolveTableNameCaseInsensitive('direccionesEnvio');
-      const sql = `UPDATE \`${tDirecciones}\` SET Activa = 0, Es_Principal = 0 WHERE id = ?`;
+      const meta = await this._ensureDireccionesEnvioMeta();
+      if (!meta?.table || !meta.colActiva || !meta.colPrincipal || !meta.pk) {
+        throw new Error('Tabla direccionesEnvio no encontrada o sin columnas esperadas');
+      }
+      const sql = `UPDATE \`${meta.table}\` SET \`${meta.colActiva}\` = 0, \`${meta.colPrincipal}\` = 0 WHERE \`${meta.pk}\` = ?`;
       const result = await this.query(sql, [id]);
       return { affectedRows: result.affectedRows || 0 };
     } catch (error) {

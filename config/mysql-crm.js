@@ -823,6 +823,17 @@ class MySQLCRM {
     return domains.clientes.toggleClienteOkKo.apply(this, arguments);
   }
 
+  // CLIENTES RELACIONADOS
+  async getRelacionesByClienteOrigen(cliOrigenId) { return domains.clientesRelacionados.getRelacionesByClienteOrigen.apply(this, arguments); }
+  async getRelacionesByClienteRelacionado(cliRelacionadoId) { return domains.clientesRelacionados.getRelacionesByClienteRelacionado.apply(this, arguments); }
+  async getRelacionesByCliente(cliId) { return domains.clientesRelacionados.getRelacionesByCliente.apply(this, arguments); }
+  async createRelacion(cliOrigenId, cliRelacionadoId, descripcion) { return domains.clientesRelacionados.createRelacion.apply(this, arguments); }
+  async createRelacionesBatch(cliOrigenId, items) { return domains.clientesRelacionados.createRelacionesBatch.apply(this, arguments); }
+  async updateRelacion(clirelId, payload) { return domains.clientesRelacionados.updateRelacion.apply(this, arguments); }
+  async deleteRelacion(cliOrigenId, cliRelacionadoId) { return domains.clientesRelacionados.deleteRelacion.apply(this, arguments); }
+  async getClienteRelacionadoPrincipal(cliId) { return domains.clientesRelacionados.getClienteRelacionadoPrincipal.apply(this, arguments); }
+  async tieneRelaciones(cliId) { return domains.clientesRelacionados.tieneRelaciones.apply(this, arguments); }
+
   // COOPERATIVAS
   async getCooperativas() {
     try {

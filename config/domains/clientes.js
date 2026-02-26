@@ -486,6 +486,13 @@ module.exports = {
       const colProv = colProvincia || 'cli_prov_id';
       const colTipC = colTipoCliente || 'cli_tipc_id';
       const colNombre = colNombreRazonSocial || 'cli_nombre_razon_social';
+      if (filters.exclude != null && filters.exclude !== '' && !isNaN(filters.exclude)) {
+        const excludeId = Number(filters.exclude);
+        if (excludeId > 0) {
+          whereConditions.push(`c.\`${pk}\` != ?`);
+          params.push(excludeId);
+        }
+      }
 
       sql = `
         SELECT 

@@ -14,6 +14,7 @@ const MODULE_DEPS = {
   comerciales: 'comerciales',
   clientes: 'clientes',
   clientesCrud: ['clientes', 'codigos-postales'], // clientesCrud usa createCodigoPostal, _getCodigosPostalesTableName
+  clientesRelacionados: 'clientes',
   catalogos: 'catalogos',
   notificaciones: ['clientes', 'comerciales', 'pedidos', 'notificaciones'] // múltiples deps
 };
@@ -33,6 +34,7 @@ function createDomains(ensureModule) {
           comerciales: () => require('./comerciales'),
           clientes: () => require('./clientes'),
           clientesCrud: () => require('./clientes-crud'),
+          clientesRelacionados: () => require('./clientes-relacionados'),
           catalogos: () => require('./catalogos'),
           notificaciones: () => require('./notificaciones')
         };

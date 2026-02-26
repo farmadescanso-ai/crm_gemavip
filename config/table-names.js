@@ -18,6 +18,7 @@ const DEFAULT_TABLE_NAMES = {
   clientes_contactos: 'clientes_contactos',
   clientes_cooperativas: 'clientes_cooperativas',
   clientes_gruposCompras: 'clientes_gruposCompras',
+  clientes_relacionados: 'clientes_relacionados',
   codigos_postales: 'codigos_postales',
   comerciales: 'comerciales',
   comerciales_codigos_postales_marcas: 'comerciales_codigos_postales_marcas',

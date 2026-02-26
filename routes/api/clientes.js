@@ -143,6 +143,49 @@ router.get(
   })
 );
 
+/**
+ * GET /api/clientes/buscar - Búsqueda FULLTEXT para modal de clientes relacionados
+ * q=termo&limit=20&exclude=id (excluir cliente actual)
+ */
+router.get(
+  '/buscar',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const { limit } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
+    const q = typeof req.query.q === 'string' ? String(req.query.q).trim() : '';
+    const exclude = toInt(req.query.exclude, 0) || 0;
+    const scope = String(req.query.scope || '').trim().toLowerCase();
+    const allowAll = !!sessionUser && scope === 'all';
+
+    if (q.length < 2) return res.json({ ok: true, items: [] });
+
+    const filters = {
+      q,
+      exclude: exclude > 0 ? exclude : undefined,
+      comercial: (sessionUser && !isAdmin && !allowAll) ? sessionUser.id : undefined
+    };
+
+    const items = await db.getClientesOptimizadoPaged(filters, {
+      limit,
+      offset: 0,
+      compact: true,
+      compactSearch: q.length < 3
+    });
+
+    const out = (Array.isArray(items) ? items : []).map((c) => ({
+      cli_id: c.Id ?? c.cli_id ?? c.id,
+      cli_nombre_razon_social: c.Nombre_Razon_Social ?? c.cli_nombre_razon_social,
+      cli_nombre_cial: c.Nombre_Cial ?? c.cli_nombre_cial,
+      cli_dni_cif: c.DNI_CIF ?? c.cli_dni_cif,
+      cli_email: c.Email ?? c.cli_email,
+      cli_numero_farmacia: c.cli_numero_farmacia
+    }));
+
+    res.json({ ok: true, items: out });
+  })
+);
+
 router.get(
   '/duplicates',
   asyncHandler(async (req, res) => {
@@ -298,6 +341,111 @@ router.post(
 
     const result = await db.ensureDireccionEnvioFiscal(id);
     return res.json({ ok: true, ...result });
+  })
+);
+
+/**
+ * GET /api/clientes/:id/relaciones - Listar relaciones del cliente
+ */
+router.get(
+  '/:id/relaciones',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const id = toInt(req.params.id, 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    if (sessionUser && !isAdmin) {
+      const c = await db.getClienteById(id);
+      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const selfId = toInt(sessionUser.id, 0) ?? 0;
+      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    const { comoOrigen, comoRelacionado } = await db.getRelacionesByCliente(id);
+    const items = [...comoOrigen.map((r) => ({ ...r, rol: 'origen' })), ...comoRelacionado.map((r) => ({ ...r, rol: 'relacionado' }))];
+    res.json({ ok: true, items });
+  })
+);
+
+/**
+ * POST /api/clientes/:id/relaciones - Crear una relación
+ */
+router.post(
+  '/:id/relaciones',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const id = toInt(req.params.id, 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    const cliRelacionadoId = toInt(req.body?.cliRelacionadoId ?? req.body?.cli_relacionado_id ?? req.body?.id, 0);
+    if (!cliRelacionadoId) return res.status(400).json({ ok: false, error: 'Falta cliRelacionadoId' });
+
+    if (sessionUser && !isAdmin) {
+      const c = await db.getClienteById(id);
+      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const selfId = toInt(sessionUser.id, 0) ?? 0;
+      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    const descripcion = req.body?.descripcion ?? null;
+    const result = await db.createRelacion(id, cliRelacionadoId, descripcion);
+    res.status(201).json({ ok: true, result });
+  })
+);
+
+/**
+ * POST /api/clientes/:id/relaciones/batch - Crear varias relaciones
+ */
+router.post(
+  '/:id/relaciones/batch',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const id = toInt(req.params.id, 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    const items = Array.isArray(req.body?.items) ? req.body.items : Array.isArray(req.body) ? req.body : [];
+    if (items.length === 0) return res.status(400).json({ ok: false, error: 'Falta array items' });
+
+    if (sessionUser && !isAdmin) {
+      const c = await db.getClienteById(id);
+      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const selfId = toInt(sessionUser.id, 0) ?? 0;
+      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    const result = await db.createRelacionesBatch(id, items);
+    res.status(201).json({ ok: true, result });
+  })
+);
+
+/**
+ * DELETE /api/clientes/:id/relaciones/:relacionadoId
+ */
+router.delete(
+  '/:id/relaciones/:relacionadoId',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const id = toInt(req.params.id, 0);
+    const relacionadoId = toInt(req.params.relacionadoId, 0);
+    if (!id || !relacionadoId) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    if (sessionUser && !isAdmin) {
+      const c = await db.getClienteById(id);
+      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const selfId = toInt(sessionUser.id, 0) ?? 0;
+      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    await db.deleteRelacion(id, relacionadoId);
+    res.json({ ok: true, deleted: true });
   })
 );
 

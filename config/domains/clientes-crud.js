@@ -213,7 +213,9 @@ module.exports = {
         Tarifa: 'cli_tarifa_legacy',
         Dto: 'cli_dto',
         TipoCliente: 'cli_tipo_cliente_txt',
-        Activo: 'cli_activo'
+        Activo: 'cli_activo',
+        Id_Cliente_Relacionado: 'cli_Id_cliente_relacionado',
+        cli_Id_cliente_relacionado: 'cli_Id_cliente_relacionado'
       };
       const pickColName = (key) => {
         const mapped = legacyToCol[key];
@@ -450,7 +452,9 @@ module.exports = {
         Tarifa: 'cli_tarifa_legacy',
         Dto: 'cli_dto',
         TipoCliente: 'cli_tipo_cliente_txt',
-        Activo: 'cli_activo'
+        Activo: 'cli_activo',
+        Id_Cliente_Relacionado: 'cli_Id_cliente_relacionado',
+        cli_Id_cliente_relacionado: 'cli_Id_cliente_relacionado'
       };
       const colsListCreate = meta?.cols || [];
       const mappedPayload = {};

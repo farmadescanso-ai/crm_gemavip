@@ -125,6 +125,13 @@ router.post('/new', requireLogin, async (req, res, next) => {
       payload[real] = coerceClienteValue(real, v);
     }
 
+    // Mapear alias del formulario (Nombre_Razon_Social) a columna real (cli_nombre_razon_social)
+    const colNombre = meta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+    const aliasVal = body.Nombre_Razon_Social ?? body.nombre_razon_social;
+    if (colNombre && (aliasVal !== undefined && aliasVal !== null) && (payload[colNombre] === undefined || payload[colNombre] === null || String(payload[colNombre] || '').trim() === '')) {
+      payload[colNombre] = coerceClienteValue(colNombre, aliasVal);
+    }
+
     if (!isAdmin && meta?.colComercial && res.locals.user?.id) {
       payload[meta.colComercial] = Number(res.locals.user.id);
     }
@@ -135,9 +142,9 @@ router.post('/new', requireLogin, async (req, res, next) => {
 
     const dup = await db.findPosiblesDuplicadosClientes(
       {
-        dniCif: payload.DNI_CIF,
-        nombre: payload.Nombre_Razon_Social,
-        nombreCial: payload.Nombre_Cial
+        dniCif: payload.DNI_CIF ?? payload.cli_dni_cif,
+        nombre: payload[colNombre] ?? payload.Nombre_Razon_Social ?? payload.cli_nombre_razon_social,
+        nombreCial: payload.Nombre_Cial ?? payload.cli_nombre_cial
       },
       { limit: 6, userId: _n(res.locals.user && res.locals.user.id, null), isAdmin }
     );
@@ -170,7 +177,11 @@ router.post('/new', requireLogin, async (req, res, next) => {
     }
 
     const missingFieldsNew = [];
-    if (!payload.Nombre_Razon_Social) missingFieldsNew.push('Nombre_Razon_Social');
+    const nombreVal = payload[colNombre] ?? payload.Nombre_Razon_Social ?? payload.cli_nombre_razon_social;
+    if (!nombreVal || !String(nombreVal || '').trim()) {
+      missingFieldsNew.push(colNombre);
+      if (colNombre !== 'Nombre_Razon_Social') missingFieldsNew.push('Nombre_Razon_Social');
+    }
     if (missingFieldsNew.length > 0) {
       const model = buildClienteFormModel({
         mode: 'create',
@@ -226,6 +237,11 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const poolId = await db.getComercialIdPool();
     const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
+    const [tieneRelaciones, relacionesData] = await Promise.all([
+      db.tieneRelaciones(id).catch(() => false),
+      db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }))
+    ]);
+    const relaciones = [...(relacionesData.comoOrigen || []), ...(relacionesData.comoRelacionado || [])];
     const model = buildClienteFormModel({
       mode: 'view',
       meta,
@@ -255,7 +271,9 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       agendaRoles: [],
       agendaIncludeHistorico: false,
       agendaOk: false,
-      agendaError: false
+      agendaError: false,
+      tieneRelaciones: !!tieneRelaciones,
+      relaciones: relaciones || []
     });
   } catch (e) {
     next(e);
@@ -285,6 +303,8 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
+    const relacionesData = await db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }));
+    const relaciones = [...(relacionesData.comoOrigen || []), ...(relacionesData.comoRelacionado || [])];
     const model = buildClienteFormModel({
       mode: 'edit',
       meta,
@@ -310,7 +330,8 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       clienteId: id,
       contactoId: id,
       agendaContactos: [],
-      agendaIncludeHistorico: false
+      agendaIncludeHistorico: false,
+      relaciones: relaciones || []
     });
   } catch (e) {
     next(e);
