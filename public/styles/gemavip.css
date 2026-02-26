@@ -1711,7 +1711,8 @@ table.calendar td.is-empty{
 /* Pestaña Contactos relacionados */
 .gv-relaciones-tab{
   padding: 20px 0;
-  max-width: 720px;
+  width: 100%;
+  max-width: 100%;
 }
 .gv-relaciones-tab__hd{ margin-bottom: 20px; }
 .gv-relaciones-tab__title{
@@ -1769,8 +1770,8 @@ table.calendar td.is-empty{
   margin-top: 12px;
 }
 /* Tabla Contactos relacionados – mismo estilo que vista Contactos */
-.gv-relaciones-table-wrap { margin: 16px 0 0; }
-.gv-relaciones-table-wrap .gv-relaciones-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
+.gv-relaciones-table-wrap { margin: 16px 0 0; width: 100%; }
+.gv-relaciones-table-wrap .gv-relaciones-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 6px 0; font-size: 0.8125rem; }
 .gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-nombre { width: 20%; }
 .gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-tipo { width: 10%; }
 .gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-telefono { width: 12%; }
