@@ -1766,7 +1766,41 @@ table.calendar td.is-empty{
   background: linear-gradient(135deg, var(--gv-primary), var(--gv-primary-2));
   color: #fff;
   box-shadow: 0 10px 18px rgba(0,139,210,.20);
+  margin-top: 12px;
 }
+/* Tabla Contactos relacionados – mismo estilo que vista Contactos */
+.gv-relaciones-table-wrap { margin: 16px 0 0; }
+.gv-relaciones-table-wrap .gv-relaciones-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-nombre { width: 20%; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-tipo { width: 10%; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-telefono { width: 12%; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-email { width: 16%; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-contacto { width: 14%; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-provincia { width: 12%; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-estado { width: 8%; }
+.gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-acciones { width: 8%; }
+.gv-relaciones-table-wrap .gv-relaciones-table thead th {
+  background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
+  color: var(--gv-ink);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gv-border);
+  padding: 12px 5px;
+  white-space: nowrap;
+}
+.gv-relaciones-table-wrap .gv-relaciones-table th,
+.gv-relaciones-table-wrap .gv-relaciones-table td {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 5px;
+  vertical-align: middle;
+}
+.gv-relaciones-table-wrap .gv-relaciones-table tbody tr:hover { background: rgba(0,139,210,.04); }
+.gv-relaciones-empty { font-size: 13px; color: var(--gv-muted); margin: 16px 0 0; }
 
 .gv-readonly{
   padding: 10px 12px;

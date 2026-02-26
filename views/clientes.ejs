@@ -73,6 +73,7 @@
         <tbody>
           <% items.forEach((c) => { %>
             <% const cid = c.id ?? c.Id ?? c.cli_id; %>
+            <% const cial = Number(c.Id_Cial ?? c.id_cial ?? c.cli_com_id ?? 0) || 0; const uid = user && Number(user.id); const canEditRow = admin || (uid && (cial === uid || (poolId && cial === Number(poolId)))); %>
             <tr>
               <td>
                 <div class="gv-actions">
@@ -82,7 +83,25 @@
                       <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                   </a>
-                  <% const cial = Number(c.Id_Cial ?? c.id_cial ?? c.cli_com_id ?? 0) || 0; const uid = user && Number(user.id); const canEditRow = admin || (uid && (cial === uid || (poolId && cial === Number(poolId)))); %>
+                  <% const relCount = Number(c.relaciones_count ?? 0) || 0; %>
+                  <% if (relCount > 0) { %>
+                    <a class="btn secondary icon" href="/clientes/<%= cid %>/edit#tab_relaciones" title="Ver contactos relacionados (<%= relCount %>)" aria-label="Ver relaciones de <%= cid %>">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                      </svg>
+                    </a>
+                  <% } %>
+                  <% if (canEditRow) { %>
+                    <button type="button" class="btn secondary icon gv-add-relacion-btn" data-cid="<%= cid %>" data-nombre="<%= (c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '').replace(/"/g, '&quot;') %>" title="Añadir relación" aria-label="Añadir relación con este contacto">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                      </svg>
+                    </button>
+                  <% } %>
                   <% const puedeSolicitar = !admin && uid && (cial === 0 || (poolId && cial === Number(poolId))); %>
                   <% if (puedeSolicitar) { %>
                     <form method="post" action="/clientes/<%= cid %>/solicitar-asignacion" style="display:inline; margin:0;" class="gv-solicitar-asignacion-form" data-cid="<%= cid %>">
@@ -137,6 +156,25 @@
     </div>
   </div>
 </section>
+
+<div class="gv-modal-backdrop" id="gvAddRelModalBackdrop" hidden></div>
+<div class="gv-modal" id="gvAddRelModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvAddRelModalTitle">
+  <div class="gv-modal-card" style="max-width: 640px;">
+    <div class="gv-modal-hd">
+      <div class="gv-modal-title" id="gvAddRelModalTitle">Añadir relación</div>
+      <div class="gv-modal-subtitle" id="gvAddRelModalSub">Vincula este contacto con otros. Escribe para buscar.</div>
+    </div>
+    <div class="gv-modal-bd" style="padding: 16px;">
+      <input type="search" id="gvAddRelSearch" placeholder="Buscar por nombre, DNI, email..." style="width:100%; padding:10px 14px; margin-bottom:12px; border:1px solid var(--gv-border); border-radius:8px;" />
+      <div id="gvAddRelResults" style="max-height: 280px; overflow-y: auto; display:grid; gap: 8px;"></div>
+      <div id="gvAddRelSelected" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gv-border);"></div>
+    </div>
+    <div class="gv-modal-actions" style="display:flex; gap:10px; justify-content:flex-end;">
+      <button type="button" class="btn secondary" id="gvAddRelModalCerrar">Cancelar</button>
+      <button type="button" class="btn" id="gvAddRelModalGuardar">Guardar seleccionados</button>
+    </div>
+  </div>
+</div>
 
 <style>
 /* Vista Contactos – estilo Gemavip */
@@ -246,6 +284,111 @@
       if (icon) icon.style.display = 'none';
     });
   });
+
+  var addRelBackdrop = document.getElementById('gvAddRelModalBackdrop');
+  var addRelModal = document.getElementById('gvAddRelModal');
+  var addRelTitle = document.getElementById('gvAddRelModalTitle');
+  var addRelSub = document.getElementById('gvAddRelModalSub');
+  var addRelSearch = document.getElementById('gvAddRelSearch');
+  var addRelResults = document.getElementById('gvAddRelResults');
+  var addRelSelected = document.getElementById('gvAddRelSelected');
+  var addRelCerrar = document.getElementById('gvAddRelModalCerrar');
+  var addRelGuardar = document.getElementById('gvAddRelModalGuardar');
+  var addRelCurrentCid = null;
+  var addRelSelectedIds = {};
+  var addRelSearchTimeout = null;
+
+  function hideAddRelModal() {
+    if (addRelBackdrop) addRelBackdrop.hidden = true;
+    if (addRelModal) addRelModal.hidden = true;
+  }
+  function showAddRelModal(cid, nombre) {
+    addRelCurrentCid = cid;
+    addRelSelectedIds = {};
+    if (addRelTitle) addRelTitle.textContent = 'Añadir relación';
+    if (addRelSub) addRelSub.textContent = 'Vincula "' + (nombre || 'este contacto') + '" con otros. Escribe para buscar.';
+    if (addRelSearch) { addRelSearch.value = ''; addRelSearch.focus(); }
+    if (addRelResults) addRelResults.innerHTML = '';
+    if (addRelSelected) addRelSelected.innerHTML = '';
+    if (addRelBackdrop) addRelBackdrop.hidden = false;
+    if (addRelModal) addRelModal.hidden = false;
+    if (addRelSearch) addRelSearch.dispatchEvent(new Event('input'));
+  }
+  function renderAddRelSelected() {
+    if (!addRelSelected) return;
+    var ids = Object.keys(addRelSelectedIds).filter(function(k){ return addRelSelectedIds[k]; });
+    var html = ids.length ? '<div style="font-weight:800; margin-bottom:8px;">Seleccionados: ' + ids.length + '</div>' : '';
+    addRelSelected.innerHTML = html;
+  }
+  function renderAddRelResults(items) {
+    if (!addRelResults) return;
+    if (!items || !items.length) {
+      addRelResults.innerHTML = '<div style="color:var(--gv-muted); padding:12px;">Sin resultados. Escribe al menos 2 caracteres.</div>';
+      return;
+    }
+    addRelResults.innerHTML = items.map(function(c) {
+      var id = c.cli_id || c.Id || c.id;
+      var nom = c.cli_nombre_razon_social || c.Nombre_Razon_Social || c.Nombre_Cial || '';
+      var dni = c.cli_dni_cif || c.DNI_CIF || '';
+      var email = c.cli_email || c.Email || '';
+      var checked = addRelSelectedIds[id] ? 'checked' : '';
+      return '<label style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid var(--gv-border); border-radius:8px; cursor:pointer;">' +
+        '<input type="checkbox" class="gv-add-rel-check" data-id="' + id + '" ' + checked + ' />' +
+        '<div><div style="font-weight:800;">' + (nom || 'Cliente ' + id) + '</div>' +
+        (dni || email ? '<div style="font-size:12px; color:var(--gv-muted);">' + [dni, email].filter(Boolean).join(' · ') + '</div>' : '') + '</div></label>';
+    }).join('');
+    addRelResults.querySelectorAll('.gv-add-rel-check').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        addRelSelectedIds[this.getAttribute('data-id')] = this.checked;
+        renderAddRelSelected();
+      });
+    });
+  }
+  function doAddRelSearch() {
+    var q = addRelSearch ? String(addRelSearch.value || '').trim() : '';
+    if (q.length < 2) { renderAddRelResults([]); return; }
+    var url = '/api/clientes/buscar?q=' + encodeURIComponent(q) + '&limit=20&exclude=' + encodeURIComponent(addRelCurrentCid || '') + '&scope=all';
+    fetch(url, { headers: { Accept: 'application/json' } })
+      .then(function(r) { return r.json(); })
+      .then(function(json) {
+        if (json && json.ok && json.items) renderAddRelResults(json.items);
+        else renderAddRelResults([]);
+      })
+      .catch(function() { renderAddRelResults([]); });
+  }
+  document.querySelectorAll('.gv-add-relacion-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var cid = this.getAttribute('data-cid');
+      var nombre = this.getAttribute('data-nombre');
+      if (cid) showAddRelModal(cid, nombre);
+    });
+  });
+  if (addRelBackdrop) addRelBackdrop.addEventListener('click', hideAddRelModal);
+  if (addRelCerrar) addRelCerrar.addEventListener('click', hideAddRelModal);
+  if (addRelSearch) {
+    addRelSearch.addEventListener('input', function() {
+      if (addRelSearchTimeout) clearTimeout(addRelSearchTimeout);
+      addRelSearchTimeout = setTimeout(doAddRelSearch, 300);
+    });
+  }
+  if (addRelGuardar) {
+    addRelGuardar.addEventListener('click', function() {
+      var ids = Object.keys(addRelSelectedIds).filter(function(k){ return addRelSelectedIds[k]; });
+      if (!ids.length || !addRelCurrentCid) { hideAddRelModal(); return; }
+      var items = ids.map(function(id){ return { cliRelacionadoId: Number(id) }; });
+      fetch('/api/clientes/' + addRelCurrentCid + '/relaciones/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ items: items })
+      })
+        .then(function(r) { return r.json().catch(function() { return { ok: false, error: 'Respuesta no válida' }; }); })
+        .then(function(json) {
+          if (json && json.ok) window.location.href = '/clientes/' + addRelCurrentCid + '/edit#tab_relaciones';
+          else alert((json && json.error) ? json.error : 'Error al guardar.');
+        })
+        .catch(function() { alert('Error de conexión.'); });
+    });
+  }
 })();
 </script>
 

@@ -16,9 +16,17 @@ module.exports = {
              c.cli_nombre_cial AS relacionado_nombre_cial,
              c.cli_dni_cif AS relacionado_dni_cif,
              c.cli_email AS relacionado_email,
-             c.cli_numero_farmacia AS relacionado_numero_farmacia
+             c.cli_telefono AS relacionado_telefono,
+             c.cli_movil AS relacionado_movil,
+             c.cli_tipo_contacto AS relacionado_tipo,
+             c.NomContacto AS relacionado_nom_contacto,
+             c.cli_numero_farmacia AS relacionado_numero_farmacia,
+             COALESCE(p.prov_nombre, p.Nombre) AS relacionado_provincia,
+             COALESCE(ec.estcli_nombre, ec.Nombre) AS relacionado_estado
       FROM \`${t}\` r
       LEFT JOIN clientes c ON c.cli_id = r.clirel_cli_relacionado_id
+      LEFT JOIN provincias p ON c.cli_prov_id = p.prov_id
+      LEFT JOIN estdoClientes ec ON c.cli_estcli_id = ec.estcli_id
       WHERE r.clirel_cli_origen_id = ?
       ORDER BY r.clirel_id ASC
     `;
@@ -31,9 +39,18 @@ module.exports = {
     const sql = `
       SELECT r.clirel_id, r.clirel_cli_origen_id, r.clirel_cli_relacionado_id, r.clirel_descripcion,
              c.cli_nombre_razon_social AS origen_nombre,
-             c.cli_nombre_cial AS origen_nombre_cial
+             c.cli_nombre_cial AS origen_nombre_cial,
+             c.cli_email AS origen_email,
+             c.cli_telefono AS origen_telefono,
+             c.cli_movil AS origen_movil,
+             c.cli_tipo_contacto AS origen_tipo,
+             c.NomContacto AS origen_nom_contacto,
+             COALESCE(p.prov_nombre, p.Nombre) AS origen_provincia,
+             COALESCE(ec.estcli_nombre, ec.Nombre) AS origen_estado
       FROM \`${t}\` r
       LEFT JOIN clientes c ON c.cli_id = r.clirel_cli_origen_id
+      LEFT JOIN provincias p ON c.cli_prov_id = p.prov_id
+      LEFT JOIN estdoClientes ec ON c.cli_estcli_id = ec.estcli_id
       WHERE r.clirel_cli_relacionado_id = ?
       ORDER BY r.clirel_id ASC
     `;

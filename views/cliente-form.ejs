@@ -53,26 +53,76 @@
               <div class="gv-relaciones-tab__hd">
                 <h3 class="gv-relaciones-tab__title">Contactos relacionados</h3>
                 <p class="gv-relaciones-tab__sub">Vincula este contacto con otros para ver relaciones cruzadas.</p>
+                <button type="button" class="btn gv-relaciones-add" id="gvBtnAddRelaciones">Añadir contactos relacionados</button>
               </div>
-              <div id="gvRelacionesList" class="gv-relaciones-list">
-                <% (relaciones || []).forEach((r) => { %>
-                  <% const nom = r.relacionado_nombre || r.relacionado_nombre_cial || r.origen_nombre || r.origen_nombre_cial || 'Cliente'; %>
-                  <% const relId = r.clirel_cli_relacionado_id || r.clirel_cli_origen_id; %>
-                  <% const origenId = r.clirel_cli_origen_id; %>
-                  <% const relacionadoId = r.clirel_cli_relacionado_id; %>
-                  <div class="gv-relacion-item" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>">
-                    <div class="gv-relacion-item__info">
-                      <span class="gv-relacion-item__nombre"><%= nom %></span>
-                      <% if (r.clirel_descripcion) { %><span class="gv-relacion-item__desc"><%= r.clirel_descripcion %></span><% } %>
-                    </div>
-                    <div class="gv-relacion-item__actions">
-                      <a class="btn secondary" href="/clientes/<%= relId %>" target="_blank">Ver</a>
-                      <button type="button" class="btn secondary gv-remove-relacion" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>" title="Quitar relación">✕</button>
-                    </div>
-                  </div>
-                <% }) %>
+              <div class="table-wrap gv-relaciones-table-wrap" <%= (!relaciones || relaciones.length === 0) ? 'style="display:none;"' : '' %>>
+                <table class="gv-contactos-table gv-relaciones-table">
+                  <colgroup>
+                    <col class="gv-contactos-col-nombre" />
+                    <col class="gv-contactos-col-tipo" />
+                    <col class="gv-contactos-col-telefono" />
+                    <col class="gv-contactos-col-email" />
+                    <col class="gv-contactos-col-contacto" />
+                    <col class="gv-contactos-col-provincia" />
+                    <col class="gv-contactos-col-estado" />
+                    <col class="gv-contactos-col-acciones" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th class="gv-contactos-col-nombre">Nombre / Razón Social</th>
+                      <th>Tipo</th>
+                      <th class="gv-contactos-col-telefono">Teléfono</th>
+                      <th class="gv-contactos-col-email">Email</th>
+                      <th class="gv-contactos-col-contacto">Contacto</th>
+                      <th>Provincia</th>
+                      <th class="gv-contactos-col-estado">Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gvRelacionesList">
+                    <% (relaciones || []).forEach((r) => { %>
+                      <% const nom = r.relacionado_nombre || r.relacionado_nombre_cial || r.origen_nombre || r.origen_nombre_cial || 'Cliente'; %>
+                      <% const tipo = r.relacionado_tipo || r.origen_tipo || '—'; %>
+                      <% const tel = String(r.relacionado_telefono || r.relacionado_movil || r.origen_telefono || r.origen_movil || '').trim(); %>
+                      <% const email = String(r.relacionado_email || r.origen_email || '').trim(); %>
+                      <% const contacto = r.relacionado_nom_contacto || r.origen_nom_contacto || '—'; %>
+                      <% const provincia = r.relacionado_provincia || r.origen_provincia || '—'; %>
+                      <% const estado = r.relacionado_estado || r.origen_estado || '—'; %>
+                      <% const relId = r.clirel_cli_relacionado_id || r.clirel_cli_origen_id; %>
+                      <% const origenId = r.clirel_cli_origen_id; %>
+                      <% const relacionadoId = r.clirel_cli_relacionado_id; %>
+                      <tr class="gv-relacion-row" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>">
+                        <td class="gv-contactos-col-nombre"><%= nom %></td>
+                        <td><% const tipoClase = (String(tipo).toLowerCase() === 'empresa') ? 'empresa' : (String(tipo).toLowerCase() === 'persona') ? 'persona' : 'otros'; %><span class="gv-badge gv-badge--<%= tipoClase %>"><%= tipo %></span></td>
+                        <td class="gv-contactos-col-telefono"><% if (tel) { %><a href="tel:<%= tel %>" class="gv-contactos-link"><%= tel %></a><% } else { %>—<% } %></td>
+                        <td class="gv-contactos-col-email"><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
+                        <td class="gv-contactos-col-contacto"><%= contacto %></td>
+                        <td><%= provincia %></td>
+                        <td class="gv-contactos-col-estado"><%= estado %></td>
+                        <td>
+                          <div class="gv-actions">
+                            <a class="btn secondary icon" href="/clientes/<%= relId %>" target="_blank" title="Ver" aria-label="Ver contacto <%= relId %>">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                              </svg>
+                            </a>
+                            <button type="button" class="btn secondary icon gv-remove-relacion" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>" title="Quitar relación" aria-label="Quitar relación">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
               </div>
-              <button type="button" class="btn gv-relaciones-add" id="gvBtnAddRelaciones">Añadir contactos relacionados</button>
+              <p class="gv-relaciones-empty" id="gvRelacionesEmpty" <%= (relaciones && relaciones.length > 0) ? 'style="display:none;"' : '' %>>
+                No hay contactos relacionados. Usa el botón superior para añadirlos.
+              </p>
             </div>
           <% } else { %>
           <div class="grid cols-2 gv-form-grid" style="gap: 12px;">
