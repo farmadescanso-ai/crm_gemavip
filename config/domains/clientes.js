@@ -140,17 +140,32 @@ module.exports = {
   async getClienteById(id) {
     try {
       const meta = await this._ensureClientesMeta().catch(() => null);
+      const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
+      const colsLower = new Set(colsClientes.map((c) => String(c).toLowerCase()));
+      const hasCol = (name) => colsLower.has(String(name).toLowerCase());
+
       const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
       const pk = meta?.pk || 'Id';
       const colComercial = meta?.colComercial || null;
       const colProvincia = meta?.colProvincia || 'Id_Provincia';
       const colTipoCliente = meta?.colTipoCliente || 'Id_TipoCliente';
       const colEstadoCliente = meta?.colEstadoCliente || null;
+      const colIdioma = hasCol('cli_idiom_id') ? 'cli_idiom_id' : (hasCol('Id_Idioma') ? 'Id_Idioma' : null);
+      const colMoneda = hasCol('cli_mon_id') ? 'cli_mon_id' : (hasCol('Id_Moneda') ? 'Id_Moneda' : null);
+      const colFormaPago = hasCol('cli_formp_id') ? 'cli_formp_id' : (hasCol('Id_FormaPago') ? 'Id_FormaPago' : null);
+      const colPais = hasCol('cli_pais_id') ? 'cli_pais_id' : (hasCol('Id_Pais') ? 'Id_Pais' : null);
+      const colClienteRel = hasCol('cli_Id_cliente_relacionado') ? 'cli_Id_cliente_relacionado' : null;
+      const colNombreRazon = meta?.colNombreRazonSocial || 'cli_nombre_razon_social';
 
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes').catch(() => null) : null;
       const tTiposClientes = await this._resolveTableNameCaseInsensitive('tipos_clientes').catch(() => null);
       const tProvincias = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
       const tComerciales = colComercial ? await this._resolveTableNameCaseInsensitive('comerciales').catch(() => null) : null;
+      const tIdiomas = colIdioma ? await this._resolveTableNameCaseInsensitive('idiomas').catch(() => null) : null;
+      const tMonedas = colMoneda ? await this._resolveTableNameCaseInsensitive('monedas').catch(() => null) : null;
+      const tFormasPago = colFormaPago ? await this._resolveTableNameCaseInsensitive('formas_pago').catch(() => null) : null;
+      const tPaises = colPais ? await this._resolveTableNameCaseInsensitive('paises').catch(() => null) : null;
+
       const comercialMeta = (colComercial && tComerciales) ? await this._ensureComercialesMeta().catch(() => null) : null;
       const comercialPk = comercialMeta?.pk || 'com_id';
       const comercialColNombre = comercialMeta?.colNombre || 'com_nombre';
@@ -158,12 +173,25 @@ module.exports = {
       const colsProv = tProvincias ? await this._getColumns(tProvincias).catch(() => []) : [];
       const colsTipc = tTiposClientes ? await this._getColumns(tTiposClientes).catch(() => []) : [];
       const colsEst = tEstados ? await this._getColumns(tEstados).catch(() => []) : [];
+      const colsIdiom = tIdiomas ? await this._getColumns(tIdiomas).catch(() => []) : [];
+      const colsMon = tMonedas ? await this._getColumns(tMonedas).catch(() => []) : [];
+      const colsFormp = tFormasPago ? await this._getColumns(tFormasPago).catch(() => []) : [];
+      const colsPais = tPaises ? await this._getColumns(tPaises).catch(() => []) : [];
+
       const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'prov_id';
       const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre']) || 'Nombre';
       const tipcPk = this._pickCIFromColumns(colsTipc, ['tipc_id', 'id', 'Id']) || 'tipc_id';
       const tipcTipo = this._pickCIFromColumns(colsTipc, ['tipc_tipo', 'Tipo', 'tipo']) || 'Tipo';
       const estcliNombre = this._pickCIFromColumns(colsEst, ['estcli_nombre', 'Nombre', 'nombre']) || 'Nombre';
       const estcliPk = this._pickCIFromColumns(colsEst, ['estcli_id', 'id', 'Id']) || 'estcli_id';
+      const idiomPk = this._pickCIFromColumns(colsIdiom, ['idiom_id', 'id', 'Id']) || 'idiom_id';
+      const idiomNombre = this._pickCIFromColumns(colsIdiom, ['idiom_nombre', 'Nombre', 'Idioma', 'nombre']) || 'Nombre';
+      const monPk = this._pickCIFromColumns(colsMon, ['mon_id', 'id', 'Id']) || 'mon_id';
+      const monNombre = this._pickCIFromColumns(colsMon, ['mon_nombre', 'Nombre', 'Moneda', 'nombre']) || 'Nombre';
+      const formpPk = this._pickCIFromColumns(colsFormp, ['formp_id', 'id', 'Id']) || 'formp_id';
+      const formpNombre = this._pickCIFromColumns(colsFormp, ['formp_nombre', 'FormaPago', 'Nombre', 'nombre']) || 'Nombre';
+      const paisPk = this._pickCIFromColumns(colsPais, ['pais_id', 'id', 'Id', 'Id_pais']) || 'pais_id';
+      const paisNombre = this._pickCIFromColumns(colsPais, ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre', 'Pais']) || 'Nombre';
 
       const sql = `
         SELECT
@@ -172,12 +200,22 @@ module.exports = {
           ${tTiposClientes ? `tc.\`${tipcTipo}\` as TipoClienteNombre` : 'NULL as TipoClienteNombre'},
           ${(colComercial && tComerciales) ? `cial.\`${comercialColNombre}\` as ComercialNombre` : 'NULL as ComercialNombre'},
           ${(colEstadoCliente && tEstados) ? `ec.\`${estcliNombre ?? 'Nombre'}\` as EstadoClienteNombre` : 'NULL as EstadoClienteNombre'},
-          ${(colEstadoCliente) ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
+          ${(colEstadoCliente) ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'},
+          ${(colIdioma && tIdiomas) ? `idiom.\`${idiomNombre}\` as IdiomaNombre` : 'NULL as IdiomaNombre'},
+          ${(colMoneda && tMonedas) ? `mon.\`${monNombre}\` as MonedaNombre` : 'NULL as MonedaNombre'},
+          ${(colFormaPago && tFormasPago) ? `fp.\`${formpNombre}\` as FormaPagoNombre` : 'NULL as FormaPagoNombre'},
+          ${(colPais && tPaises) ? `pais.\`${paisNombre}\` as PaisNombre` : 'NULL as PaisNombre'},
+          ${(colClienteRel && colNombreRazon) ? `rel_cli.\`${colNombreRazon}\` as ClienteRelacionadoNombre` : 'NULL as ClienteRelacionadoNombre'}
         FROM \`${tClientes}\` c
         ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.\`${colProvincia}\` = p.\`${provPk}\`` : ''}
         ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${colTipoCliente}\` = tc.\`${tipcPk}\`` : ''}
         ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
         ${(colEstadoCliente && tEstados) ? `LEFT JOIN \`${tEstados}\` ec ON c.\`${colEstadoCliente}\` = ec.\`${estcliPk}\`` : ''}
+        ${(colIdioma && tIdiomas) ? `LEFT JOIN \`${tIdiomas}\` idiom ON c.\`${colIdioma}\` = idiom.\`${idiomPk}\`` : ''}
+        ${(colMoneda && tMonedas) ? `LEFT JOIN \`${tMonedas}\` mon ON c.\`${colMoneda}\` = mon.\`${monPk}\`` : ''}
+        ${(colFormaPago && tFormasPago) ? `LEFT JOIN \`${tFormasPago}\` fp ON c.\`${colFormaPago}\` = fp.\`${formpPk}\`` : ''}
+        ${(colPais && tPaises) ? `LEFT JOIN \`${tPaises}\` pais ON c.\`${colPais}\` = pais.\`${paisPk}\`` : ''}
+        ${(colClienteRel) ? `LEFT JOIN \`${tClientes}\` rel_cli ON c.\`${colClienteRel}\` = rel_cli.\`${pk}\`` : ''}
         WHERE c.\`${pk}\` = ?
         LIMIT 1
       `;

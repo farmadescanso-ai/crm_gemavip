@@ -44,6 +44,7 @@
 
       <% const pickVal = (name) => { const v = (item && item[name] !== undefined) ? item[name] : ''; return (v === null || v === undefined) ? '' : String(v); }; %>
       <% const numVal = (name) => { const v = pickVal(name); return v === '' ? '' : v; }; %>
+      <% const pickDisplayVal = (name) => { const fn = typeof resolveDisplayValue === 'function' ? resolveDisplayValue : null; const val = fn ? fn(name, item) : pickVal(name); return (val && String(val).trim()) ? String(val).trim() : '—'; }; %>
 
       <% (tabs || []).forEach((t, idx) => { %>
         <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
@@ -74,6 +75,26 @@
               <button type="button" class="btn gv-relaciones-add" id="gvBtnAddRelaciones">Añadir contactos relacionados</button>
             </div>
           <% } else { %>
+          <% if (t.id === 'avanzado') { %>
+            <div class="gv-avanzado-resumen" style="margin-bottom: 20px; padding: 16px; background: var(--gv-bg-alt, #f8f9fa); border-radius: 12px; border: 1px solid var(--gv-border, #e0e0e0);">
+              <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--gv-ink);">Resumen de datos</h3>
+              <div class="grid cols-2" style="gap: 10px 20px; font-size: 13px;">
+                <div><strong>Nombre:</strong> <%= pickDisplayVal('cli_nombre_razon_social') || pickDisplayVal('Nombre_Razon_Social') || '—' %></div>
+                <div><strong>Nombre comercial:</strong> <%= pickDisplayVal('cli_nombre_cial') || pickDisplayVal('Nombre_Cial') || '—' %></div>
+                <div><strong>DNI/CIF:</strong> <%= pickVal('cli_dni_cif') || pickVal('DNI_CIF') || '—' %></div>
+                <div><strong>Provincia:</strong> <%= pickDisplayVal('cli_prov_id') || pickDisplayVal('Id_Provincia') || '—' %></div>
+                <div><strong>Población:</strong> <%= pickVal('cli_poblacion') || pickVal('Poblacion') || '—' %></div>
+                <div><strong>Código postal:</strong> <%= pickVal('cli_codigo_postal') || pickVal('CodigoPostal') || '—' %></div>
+                <div><strong>Delegado:</strong> <%= pickDisplayVal('cli_com_id') || pickDisplayVal('Id_Cial') || '—' %></div>
+                <div><strong>Tipo cliente:</strong> <%= pickDisplayVal('cli_tipc_id') || pickDisplayVal('Id_TipoCliente') || '—' %></div>
+                <div><strong>Estado:</strong> <%= pickDisplayVal('cli_estcli_id') || pickDisplayVal('cli_ok_ko') || '—' %></div>
+                <div><strong>Forma de pago:</strong> <%= pickDisplayVal('cli_formp_id') || pickDisplayVal('Id_FormaPago') || '—' %></div>
+                <div><strong>Idioma:</strong> <%= pickDisplayVal('cli_idiom_id') || pickDisplayVal('Id_Idioma') || '—' %></div>
+                <div><strong>Moneda:</strong> <%= pickDisplayVal('cli_mon_id') || pickDisplayVal('Id_Moneda') || '—' %></div>
+                <div><strong>País:</strong> <%= pickDisplayVal('cli_pais_id') || pickDisplayVal('Id_Pais') || '—' %></div>
+              </div>
+            </div>
+          <% } %>
           <div class="grid cols-2 gv-form-grid" style="gap: 12px;">
               <% (t.fields || []).forEach((f) => { %>
                 <% const name = f.name; %>
@@ -88,7 +109,7 @@
                   <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %></span>
 
                   <% if (spec.kind === 'readonly') { %>
-                    <div class="gv-readonly"><%= pickVal(name) || '—' %></div>
+                    <div class="gv-readonly"><%= pickDisplayVal(name) %></div>
                   <% } else if (spec.kind === 'textarea') { %>
                     <textarea id="<%= inputId %>" name="<%= name %>" rows="4" <%= required ? 'required' : '' %> aria-invalid="<%= isMissing ? 'true' : 'false' %>"><%= pickVal(name) %></textarea>
                   <% } else if (spec.kind === 'checkbox') { %>

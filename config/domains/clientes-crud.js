@@ -215,7 +215,21 @@ module.exports = {
         TipoCliente: 'cli_tipo_cliente_txt',
         Activo: 'cli_activo',
         Id_Cliente_Relacionado: 'cli_Id_cliente_relacionado',
-        cli_Id_cliente_relacionado: 'cli_Id_cliente_relacionado'
+        cli_Id_cliente_relacionado: 'cli_Id_cliente_relacionado',
+        CuentaContable: 'cli_cuenta_contable',
+        cli_cuenta_contable: 'cli_cuenta_contable',
+        RE: 'cli_re',
+        cli_re: 'cli_re',
+        Banco: 'cli_banco',
+        cli_banco: 'cli_banco',
+        Swift: 'cli_swift',
+        cli_swift: 'cli_swift',
+        IBAN: 'cli_iban',
+        cli_iban: 'cli_iban',
+        Modelo_347: 'cli_modelo_347',
+        cli_modelo_347: 'cli_modelo_347',
+        NumeroFarmacia: 'cli_numero_farmacia',
+        cli_numero_farmacia: 'cli_numero_farmacia'
       };
       const pickColName = (key) => {
         const mapped = legacyToCol[key];
@@ -454,7 +468,21 @@ module.exports = {
         TipoCliente: 'cli_tipo_cliente_txt',
         Activo: 'cli_activo',
         Id_Cliente_Relacionado: 'cli_Id_cliente_relacionado',
-        cli_Id_cliente_relacionado: 'cli_Id_cliente_relacionado'
+        cli_Id_cliente_relacionado: 'cli_Id_cliente_relacionado',
+        CuentaContable: 'cli_cuenta_contable',
+        cli_cuenta_contable: 'cli_cuenta_contable',
+        RE: 'cli_re',
+        cli_re: 'cli_re',
+        Banco: 'cli_banco',
+        cli_banco: 'cli_banco',
+        Swift: 'cli_swift',
+        cli_swift: 'cli_swift',
+        IBAN: 'cli_iban',
+        cli_iban: 'cli_iban',
+        Modelo_347: 'cli_modelo_347',
+        cli_modelo_347: 'cli_modelo_347',
+        NumeroFarmacia: 'cli_numero_farmacia',
+        cli_numero_farmacia: 'cli_numero_farmacia'
       };
       const colsListCreate = meta?.cols || [];
       const mappedPayload = {};
