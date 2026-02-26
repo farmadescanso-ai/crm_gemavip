@@ -12,12 +12,16 @@ const { loadMarcasForSelect } = require('../lib/articulo-helpers');
 
 const router = express.Router();
 
+/** Temporal: fijar Marca=Todas para todos los roles. Cambiar a false para reactivar el filtro. */
+const FILTRO_MARCA_FIJO = true;
+
 router.get('/', requireLogin, async (req, res, next) => {
   try {
     const admin = isAdminUser(res.locals.user);
     const rawMarca = String(req.query.marca || req.query.brand || '').trim();
     const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
-    const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
+    let selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
+    if (FILTRO_MARCA_FIJO) selectedMarcaId = null;
 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = 10;
@@ -45,6 +49,7 @@ router.get('/', requireLogin, async (req, res, next) => {
       admin,
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
+      filtroMarcaFijo: FILTRO_MARCA_FIJO,
       page,
       totalPages,
       total: total ?? 0,
