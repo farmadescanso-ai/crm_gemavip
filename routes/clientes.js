@@ -132,8 +132,11 @@ router.post('/new', requireLogin, async (req, res, next) => {
       payload[colNombre] = coerceClienteValue(colNombre, aliasVal);
     }
 
-    if (!isAdmin && meta?.colComercial && res.locals.user?.id) {
-      payload[meta.colComercial] = Number(res.locals.user.id);
+    if (meta?.colComercial && res.locals.user?.id) {
+      const comVal = payload[meta.colComercial];
+      if (!isAdmin || comVal === undefined || comVal === null || String(comVal || '').trim() === '') {
+        payload[meta.colComercial] = Number(res.locals.user.id);
+      }
     }
 
     if (payload.OK_KO === null || payload.OK_KO === undefined) payload.OK_KO = 1;
