@@ -1707,6 +1707,67 @@ table.calendar td.is-empty{
 }
 .gv-tabpanel{ display:none; }
 .gv-tabpanel.is-active{ display:block; }
+
+/* Pestaña Contactos relacionados */
+.gv-relaciones-tab{
+  padding: 20px 0;
+  max-width: 720px;
+}
+.gv-relaciones-tab__hd{ margin-bottom: 20px; }
+.gv-relaciones-tab__title{
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--gv-ink);
+  margin: 0 0 6px 0;
+}
+.gv-relaciones-tab__sub{
+  font-size: 13px;
+  color: var(--gv-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+.gv-relaciones-list{
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.gv-relacion-item{
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--gv-border);
+  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,250,252,.9));
+  transition: box-shadow .15s, border-color .15s;
+}
+.gv-relacion-item:hover{
+  border-color: rgba(0,139,210,.3);
+  box-shadow: 0 4px 12px rgba(0,139,210,.08);
+}
+.gv-relacion-item__info{ flex: 1; min-width: 0; }
+.gv-relacion-item__nombre{
+  font-weight: 800;
+  color: var(--gv-ink);
+  display: block;
+}
+.gv-relacion-item__desc{
+  font-size: 12px;
+  color: var(--gv-muted);
+  margin-top: 4px;
+}
+.gv-relacion-item__actions{
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.gv-relaciones-add{
+  background: linear-gradient(135deg, var(--gv-primary), var(--gv-primary-2));
+  color: #fff;
+  box-shadow: 0 10px 18px rgba(0,139,210,.20);
+}
+
 .gv-readonly{
   padding: 10px 12px;
   border-radius: 12px;

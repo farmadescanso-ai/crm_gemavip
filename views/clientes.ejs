@@ -50,6 +50,7 @@
           <col class="gv-contactos-col-acciones" />
           <col class="gv-contactos-col-nombre" />
           <col class="gv-contactos-col-tipo" />
+          <col class="gv-contactos-col-relaciones" />
           <col class="gv-contactos-col-telefono" />
           <col class="gv-contactos-col-email" />
           <col class="gv-contactos-col-contacto" />
@@ -61,6 +62,7 @@
             <th>Acciones</th>
             <th class="gv-contactos-col-nombre">Nombre / Razón Social</th>
             <th>Tipo</th>
+            <th class="gv-contactos-col-relaciones" title="Contactos relacionados">Rel.</th>
             <th class="gv-contactos-col-telefono">Teléfono</th>
             <th class="gv-contactos-col-email">Email</th>
             <th class="gv-contactos-col-contacto">Contacto</th>
@@ -122,6 +124,7 @@
               </td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
               <td><% const tipoClase = ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa') ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona') ? 'persona' : 'otros'; %><span class="gv-badge gv-badge--<%= tipoClase %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
+              <td class="gv-contactos-col-relaciones"><% const relCount = Number(c.relaciones_count ?? 0) || 0; %><% if (relCount > 0) { %><a href="/clientes/<%= cid %>/edit#tab_relaciones" class="gv-relaciones-badge" title="<%= relCount %> contacto(s) relacionado(s)"><%= relCount %></a><% } else { %>—<% } %></td>
               <td class="gv-contactos-col-telefono"><% const tel = String(c.Telefono ?? c.cli_telefono ?? c.Movil ?? c.cli_movil ?? '').trim(); %><% if (tel) { %><a href="tel:<%= tel %>" class="gv-contactos-link"><%= tel %></a><% } else { %>—<% } %></td>
               <td class="gv-contactos-col-email"><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
               <td class="gv-contactos-col-contacto"><%= (c.NomContacto || c.cli_nom_contacto || c.Nombre_Contacto) || '—' %></td>
@@ -170,10 +173,11 @@
 /* Tabla contactos: margen 2px cada lado; columnas Teléfono, Email, Contacto */
 .gv-contactos .gv-contactos-table-wrap { margin: 0 2px; }
 .gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 11%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 19%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 10%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-telefono { width: 12%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 10%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 17%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 9%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-relaciones { width: 4%; text-align: center; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-telefono { width: 11%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-email { width: 14%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-contacto { width: 12%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 11%; }
@@ -182,6 +186,16 @@
 .gv-contactos .gv-contactos-table td.gv-contactos-col-estado { white-space: nowrap; }
 .gv-contactos-link { color: var(--gv-primary); text-decoration: none; }
 .gv-contactos-link:hover { color: var(--gv-primary-hover); text-decoration: underline; }
+.gv-relaciones-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  font-size: 12px; font-weight: 700;
+  color: #fff; background: linear-gradient(135deg, var(--gv-primary), var(--gv-primary-2));
+  border-radius: 10px; text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0,139,210,.25);
+}
+.gv-relaciones-badge:hover { filter: brightness(1.08); text-decoration: none; color: #fff; }
+.gv-contactos .gv-contactos-table td.gv-contactos-col-relaciones { text-align: center; }
 /* Cabecera tabla – estilo Gemavip */
 .gv-contactos .gv-contactos-table thead th {
   background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);

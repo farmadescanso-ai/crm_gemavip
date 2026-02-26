@@ -486,6 +486,31 @@ module.exports = {
       const colProv = colProvincia || 'cli_prov_id';
       const colTipC = colTipoCliente || 'cli_tipc_id';
       const colNombre = colNombreRazonSocial || 'cli_nombre_razon_social';
+
+      let tieneTablaRelaciones = this.__clientesRelacionadosTableExists;
+      let tRel = this.__clientesRelacionadosTableName;
+      if (tieneTablaRelaciones === undefined) {
+        try {
+          const { getTableName } = require('../table-names');
+          tRel = getTableName('clientes_relacionados') || 'clientes_relacionados';
+          const check = await this.query(
+            `SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND LOWER(table_name) = LOWER(?) LIMIT 1`,
+            [tRel]
+          );
+          tieneTablaRelaciones = Array.isArray(check) && check.length > 0;
+          this.__clientesRelacionadosTableName = tRel;
+        } catch (_) {
+          tieneTablaRelaciones = false;
+          tRel = 'clientes_relacionados';
+        }
+        this.__clientesRelacionadosTableExists = tieneTablaRelaciones;
+      }
+      if (!tRel) tRel = 'clientes_relacionados';
+
+      const selectRelacionesCount = tieneTablaRelaciones
+        ? `(SELECT COUNT(*) FROM \`${tRel}\` r WHERE r.clirel_cli_origen_id = c.\`${pk}\` OR r.clirel_cli_relacionado_id = c.\`${pk}\`) as relaciones_count`
+        : '0 as relaciones_count';
+
       if (filters.exclude != null && filters.exclude !== '' && !isNaN(filters.exclude)) {
         const excludeId = Number(filters.exclude);
         if (excludeId > 0) {
@@ -518,7 +543,8 @@ module.exports = {
           tc.tipc_tipo as TipoClienteNombre,
           ${(colComercial && tComerciales) ? `cial.\`${comercialColNombre}\` as ComercialNombre` : 'NULL as ComercialNombre'},
           ${colEstadoCliente ? 'ec.estcli_nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
-          ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
+          ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'},
+          ${selectRelacionesCount}
         FROM clientes c
         LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id
         LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id

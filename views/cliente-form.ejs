@@ -47,12 +47,40 @@
 
       <% (tabs || []).forEach((t, idx) => { %>
         <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
-          <div class="grid cols-2" style="gap: 12px;">
+          <% if (t.id === 'relaciones' && mode === 'edit' && cid) { %>
+            <div class="gv-relaciones-tab">
+              <div class="gv-relaciones-tab__hd">
+                <h3 class="gv-relaciones-tab__title">Contactos relacionados</h3>
+                <p class="gv-relaciones-tab__sub">Vincula este contacto con otros para ver relaciones cruzadas.</p>
+              </div>
+              <div id="gvRelacionesList" class="gv-relaciones-list">
+                <% (relaciones || []).forEach((r) => { %>
+                  <% const nom = r.relacionado_nombre || r.relacionado_nombre_cial || r.origen_nombre || r.origen_nombre_cial || 'Cliente'; %>
+                  <% const relId = r.clirel_cli_relacionado_id || r.clirel_cli_origen_id; %>
+                  <% const origenId = r.clirel_cli_origen_id; %>
+                  <% const relacionadoId = r.clirel_cli_relacionado_id; %>
+                  <div class="gv-relacion-item" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>">
+                    <div class="gv-relacion-item__info">
+                      <span class="gv-relacion-item__nombre"><%= nom %></span>
+                      <% if (r.clirel_descripcion) { %><span class="gv-relacion-item__desc"><%= r.clirel_descripcion %></span><% } %>
+                    </div>
+                    <div class="gv-relacion-item__actions">
+                      <a class="btn secondary" href="/clientes/<%= relId %>" target="_blank">Ver</a>
+                      <button type="button" class="btn secondary gv-remove-relacion" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>" title="Quitar relación">✕</button>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+              <button type="button" class="btn gv-relaciones-add" id="gvBtnAddRelaciones">Añadir contactos relacionados</button>
+            </div>
+          <% } else { %>
+          <div class="grid cols-2 gv-form-grid" style="gap: 12px;">
               <% (t.fields || []).forEach((f) => { %>
                 <% const name = f.name; %>
                 <% const label = f.label; %>
                 <% const required = !!f.required; %>
                 <% const spec = f.spec || {}; %>
+                <% if (spec.kind === 'relaciones') return; %>
                 <% const isMissing = missingFieldsList.indexOf(name) !== -1; %>
                 <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
 
@@ -230,6 +258,7 @@
               </label>
             <% }) %>
           </div>
+          <% } %>
         </section>
       <% }) %>
     </form>
@@ -249,29 +278,6 @@
     </div>
 
     <% if (mode === 'edit' && cid) { %>
-      <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--gv-border);">
-        <h3 style="font-size: 16px; font-weight: 900; margin-bottom: 12px;">Clientes relacionados</h3>
-        <div id="gvRelacionesList" style="display:grid; gap: 10px; margin-bottom: 12px;">
-          <% (relaciones || []).forEach((r) => { %>
-            <% const nom = r.relacionado_nombre || r.relacionado_nombre_cial || r.origen_nombre || r.origen_nombre_cial || 'Cliente'; %>
-            <% const relId = r.clirel_cli_relacionado_id || r.clirel_cli_origen_id; %>
-            <% const origenId = r.clirel_cli_origen_id; %>
-            <% const relacionadoId = r.clirel_cli_relacionado_id; %>
-            <div class="gv-relacion-item" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>" style="display:flex; gap:10px; align-items:center; justify-content:space-between; border:1px solid var(--gv-border); border-radius:12px; padding:12px;">
-              <div>
-                <span style="font-weight:900;"><%= nom %></span>
-                <% if (r.clirel_descripcion) { %><span style="color:var(--gv-muted); margin-left:8px;">— <%= r.clirel_descripcion %></span><% } %>
-              </div>
-              <div style="display:flex; gap:8px;">
-                <a class="btn secondary" href="/clientes/<%= relId %>" target="_blank">Ver</a>
-                <button type="button" class="btn secondary gv-remove-relacion" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>" title="Quitar relación">✕</button>
-              </div>
-            </div>
-          <% }) %>
-        </div>
-        <button type="button" class="btn" id="gvBtnAddRelaciones">Añadir contactos relacionados</button>
-      </div>
-
       <div class="gv-modal-backdrop" id="gvRelacionesModalBackdrop" hidden></div>
       <div class="gv-modal" id="gvRelacionesModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvRelacionesModalTitle">
         <div class="gv-modal-card" style="max-width: 640px;">
@@ -338,6 +344,10 @@
       setTab(b.getAttribute('data-tab'));
     });
   });
+  var hashTab = (window.location.hash || '').replace('#tab_', '');
+  if (hashTab && tabButtons.some(function(b){ return b.getAttribute('data-tab') === hashTab; })) {
+    setTab(hashTab);
+  }
 
   // Auto-rellenar provincia al cambiar código postal
   var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');
