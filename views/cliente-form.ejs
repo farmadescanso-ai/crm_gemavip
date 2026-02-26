@@ -29,6 +29,11 @@
         </div>
       </div>
 
+      <div class="gv-cliente-name-bar" id="gvClienteNameBar">
+        <span class="gv-cliente-name-bar__label">Contacto:</span>
+        <span class="gv-cliente-name-bar__name" id="gvClienteNameDisplay"><%= mode === 'edit' && item ? (item.cli_nombre_razon_social || item.Nombre_Razon_Social || item.Nombre_Cial || item.cli_nombre_cial || '—') : '—' %></span>
+      </div>
+
       <div class="gv-tabs" role="tablist" aria-label="Secciones del contacto">
         <% (tabs || []).forEach((t, idx) => { %>
           <button
@@ -294,6 +299,7 @@
                   </select>
                 <% } else { %>
                   <% const type = spec.type || 'text'; %>
+                  <% const isNombreField = (label && String(label).indexOf('Nombre / Razón social') !== -1); %>
                   <input
                     id="<%= inputId %>"
                     name="<%= name %>"
@@ -302,6 +308,7 @@
                     value="<%= (type === 'number') ? numVal(name) : pickVal(name) %>"
                     aria-invalid="<%= isMissing ? 'true' : 'false' %>"
                     <%= type === 'number' ? 'step="0.01"' : '' %>
+                    <%= isNombreField ? 'data-gv-nombre-field="1"' : '' %>
                   />
                 <% } %>
 
@@ -324,6 +331,20 @@
         <div class="gv-modal-actions">
           <button type="button" class="btn secondary" id="gvUnsavedStay">Seguir editando</button>
           <a class="btn" href="<%= cancelHref %>" id="gvUnsavedLeave">Salir sin guardar</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="gv-modal-backdrop" id="gvFormatBackdrop" hidden></div>
+    <div class="gv-modal" id="gvFormatModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvFormatTitle">
+      <div class="gv-modal-card gv-modal-card--format">
+        <div class="gv-modal-hd">
+          <div class="gv-modal-title" id="gvFormatTitle">¿Es correcto el formato?</div>
+          <div class="gv-modal-subtitle" id="gvFormatSubtitle">Para personas se recomienda: Apellido1 Apellido2, Nombre. Para empresas: Nombre de la empresa.</div>
+        </div>
+        <div class="gv-modal-actions">
+          <button type="button" class="btn secondary" id="gvFormatNo">Corregir</button>
+          <button type="button" class="btn" id="gvFormatYes">Sí, es correcto</button>
         </div>
       </div>
     </div>
@@ -399,6 +420,76 @@
   if (hashTab && tabButtons.some(function(b){ return b.getAttribute('data-tab') === hashTab; })) {
     setTab(hashTab);
   }
+
+  // Barra de nombre del cliente (encima de pestañas)
+  var nameBar = document.getElementById('gvClienteNameBar');
+  var nameDisplay = document.getElementById('gvClienteNameDisplay');
+  var nameInput = form.querySelector('input[data-gv-nombre-field="1"]') || form.querySelector('input[name="cli_nombre_razon_social"]') || form.querySelector('input[name="Nombre_Razon_Social"]');
+  var dniInput = form.querySelector('input[name="cli_dni_cif"]') || form.querySelector('input[name="DNI_CIF"]');
+  function isPersonByDniCif(val) {
+    var v = String(val || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+    if (!v) return true;
+    var cif = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/;
+    var dni = /^[0-9]{8}[A-Z]$/;
+    var nie = /^[XYZ][0-9]{7}[A-Z]$/;
+    if (cif.test(v)) return false;
+    return dni.test(v) || nie.test(v);
+  }
+  function updateNameBar() {
+    if (!nameDisplay) return;
+    var nom = nameInput ? String(nameInput.value || '').trim() : '';
+    nameDisplay.textContent = nom || '—';
+  }
+  function updateNombrePlaceholder() {
+    if (!nameInput) return;
+    var isPerson = isPersonByDniCif(dniInput ? dniInput.value : '');
+    nameInput.placeholder = isPerson ? 'Apellido1 Apellido2, Nombre' : 'Nombre de la empresa';
+  }
+  if (nameInput) {
+    nameInput.addEventListener('input', updateNameBar);
+    nameInput.addEventListener('change', updateNameBar);
+  }
+  if (dniInput) {
+    dniInput.addEventListener('input', updateNombrePlaceholder);
+    dniInput.addEventListener('change', updateNombrePlaceholder);
+  }
+  updateNameBar();
+  updateNombrePlaceholder();
+
+  // Modal formato nombre: si no cumple regla, preguntar
+  var formatBackdrop = document.getElementById('gvFormatBackdrop');
+  var formatModal = document.getElementById('gvFormatModal');
+  var formatNo = document.getElementById('gvFormatNo');
+  var formatYes = document.getElementById('gvFormatYes');
+  var formatPendingBlur = null;
+  function looksLikeCorrectFormat(nom, isPerson) {
+    var n = String(nom || '').trim();
+    if (!n || n.length < 3) return true;
+    if (isPerson) return n.indexOf(',') !== -1;
+    return true;
+  }
+  function checkNombreFormat(el) {
+    if (!nameInput || !el || el !== nameInput) return;
+    var nom = String(nameInput.value || '').trim();
+    if (!nom || nom.length < 4) return;
+    var isPerson = isPersonByDniCif(dniInput ? dniInput.value : '');
+    if (looksLikeCorrectFormat(nom, isPerson)) return;
+    formatPendingBlur = el;
+    if (formatBackdrop) formatBackdrop.hidden = false;
+    if (formatModal) formatModal.hidden = false;
+    if (formatNo) formatNo.focus();
+  }
+  function hideFormatModal() {
+    if (formatBackdrop) formatBackdrop.hidden = true;
+    if (formatModal) formatModal.hidden = true;
+    formatPendingBlur = null;
+  }
+  if (nameInput) {
+    nameInput.addEventListener('blur', function () { checkNombreFormat(this); });
+  }
+  if (formatBackdrop) formatBackdrop.addEventListener('click', hideFormatModal);
+  if (formatNo) formatNo.addEventListener('click', function () { hideFormatModal(); if (nameInput) nameInput.focus(); });
+  if (formatYes) formatYes.addEventListener('click', hideFormatModal);
 
   // Auto-rellenar provincia al cambiar código postal
   var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');

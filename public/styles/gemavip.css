@@ -1680,6 +1680,31 @@ table.calendar td.is-empty{
   background: rgba(255,255,255,.90);
   backdrop-filter: blur(8px);
 }
+/* Barra nombre cliente (encima de pestañas) */
+.gv-cliente-name-bar{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--gv-border);
+  background: linear-gradient(180deg, rgba(0,139,210,.06), rgba(255,255,255,.95));
+  margin-bottom: 12px;
+}
+.gv-cliente-name-bar__label{
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .35px;
+  color: var(--gv-muted);
+}
+.gv-cliente-name-bar__name{
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--gv-ink);
+  letter-spacing: -.2px;
+}
+
 .gv-tabs{
   display:flex;
   gap: 8px;
