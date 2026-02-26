@@ -21,8 +21,8 @@ module.exports = {
              c.cli_tipo_contacto AS relacionado_tipo,
              c.NomContacto AS relacionado_nom_contacto,
              c.cli_numero_farmacia AS relacionado_numero_farmacia,
-             COALESCE(p.prov_nombre, p.Nombre) AS relacionado_provincia,
-             COALESCE(ec.estcli_nombre, ec.Nombre) AS relacionado_estado
+             p.prov_nombre AS relacionado_provincia,
+             ec.estcli_nombre AS relacionado_estado
       FROM \`${t}\` r
       LEFT JOIN clientes c ON c.cli_id = r.clirel_cli_relacionado_id
       LEFT JOIN provincias p ON c.cli_prov_id = p.prov_id
@@ -45,8 +45,8 @@ module.exports = {
              c.cli_movil AS origen_movil,
              c.cli_tipo_contacto AS origen_tipo,
              c.NomContacto AS origen_nom_contacto,
-             COALESCE(p.prov_nombre, p.Nombre) AS origen_provincia,
-             COALESCE(ec.estcli_nombre, ec.Nombre) AS origen_estado
+             p.prov_nombre AS origen_provincia,
+             ec.estcli_nombre AS origen_estado
       FROM \`${t}\` r
       LEFT JOIN clientes c ON c.cli_id = r.clirel_cli_origen_id
       LEFT JOIN provincias p ON c.cli_prov_id = p.prov_id
