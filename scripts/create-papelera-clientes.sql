@@ -1,0 +1,45 @@
+-- =============================================================================
+-- Crear tabla Papelera-Clientes para backup antes de eliminar clientes
+-- Ejecutar en la base de datos crm_gemavip
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS `Papelera-Clientes` (
+  `id` INT DEFAULT NULL,
+  `Id_Cial` INT DEFAULT NULL,
+  `DNI_CIF` VARCHAR(15) DEFAULT NULL,
+  `Nombre_Razon_Social` VARCHAR(255) DEFAULT NULL,
+  `Nombre_Cial` VARCHAR(255) DEFAULT NULL,
+  `NumeroFarmacia` VARCHAR(255) DEFAULT NULL,
+  `Direccion` VARCHAR(255) DEFAULT NULL,
+  `Poblacion` VARCHAR(255) DEFAULT NULL,
+  `Id_Provincia` INT DEFAULT NULL,
+  `CodigoPostal` VARCHAR(8) DEFAULT NULL,
+  `Movil` VARCHAR(13) DEFAULT NULL,
+  `Telefono` VARCHAR(13) DEFAULT NULL,
+  `Email` VARCHAR(255) DEFAULT NULL,
+  `TipoCliente` VARCHAR(255) DEFAULT NULL,
+  `Id_TipoCliente` INT DEFAULT NULL,
+  `CodPais` VARCHAR(10) DEFAULT NULL,
+  `Id_Pais` INT DEFAULT NULL,
+  `Pais` VARCHAR(255) DEFAULT NULL,
+  `Idioma` VARCHAR(255) DEFAULT NULL,
+  `Id_Idioma` INT DEFAULT NULL,
+  `Moneda` VARCHAR(255) DEFAULT NULL,
+  `Id_Moneda` INT DEFAULT NULL,
+  `NomContacto` VARCHAR(255) DEFAULT NULL,
+  `Tarifa` INT DEFAULT NULL,
+  `Id_FormaPago` INT DEFAULT NULL,
+  `Dto` DECIMAL(5,2) DEFAULT NULL,
+  `CuentaContable` VARCHAR(255) DEFAULT NULL,
+  `RE` VARCHAR(255) DEFAULT NULL,
+  `Banco` VARCHAR(255) DEFAULT NULL,
+  `Swift` VARCHAR(255) DEFAULT NULL,
+  `IBAN` VARCHAR(255) DEFAULT NULL,
+  `Modelo_347` VARCHAR(255) DEFAULT NULL,
+  `FechaEliminacion` DATETIME DEFAULT NULL,
+  `EliminadoPor` VARCHAR(255) DEFAULT NULL,
+  `papelera_id` INT NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`papelera_id`),
+  KEY `idx_papelera_fecha` (`FechaEliminacion`),
+  KEY `idx_papelera_id` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

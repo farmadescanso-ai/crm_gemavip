@@ -1055,16 +1055,26 @@ module.exports = {
       const placeholders = Object.keys(datosPapelera).map(() => '?').join(', ');
       const valores = Object.values(datosPapelera).map(v => (v === undefined ? null : v));
 
-      const sqlInsert = `INSERT INTO \`Papelera-Clientes\` (${campos}) VALUES (${placeholders})`;
-      debug('📝 [PAPELERA] Insertando cliente en papelera:', clienteId, eliminadoPor);
-      await this.query(sqlInsert, valores);
-
       const meta = await this._ensureClientesMeta().catch(() => null);
       const pk = meta?.pk || 'cli_id';
       const sqlDelete = `DELETE FROM clientes WHERE \`${pk}\` = ?`;
+
+      const sqlInsert = `INSERT INTO \`Papelera-Clientes\` (${campos}) VALUES (${placeholders})`;
+      try {
+        debug('📝 [PAPELERA] Insertando cliente en papelera:', clienteId, eliminadoPor);
+        await this.query(sqlInsert, valores);
+      } catch (errPapelera) {
+        const isNoTable = errPapelera?.code === 'ER_NO_SUCH_TABLE' || /doesn't exist/i.test(String(errPapelera?.message || ''));
+        if (isNoTable) {
+          debug('⚠️ Tabla Papelera-Clientes no existe, eliminando directamente. Ejecuta scripts/create-papelera-clientes.sql para habilitar backup.');
+        } else {
+          throw errPapelera;
+        }
+      }
+
       await this.query(sqlDelete, [clienteId]);
 
-      debug('✅ Cliente', clienteId, 'movido a la papelera por usuario', eliminadoPor);
+      debug('✅ Cliente', clienteId, 'eliminado por usuario', eliminadoPor);
       return { success: true, message: 'Cliente movido a la papelera correctamente' };
     } catch (error) {
       console.error('❌ Error moviendo cliente a la papelera:', error.message);
