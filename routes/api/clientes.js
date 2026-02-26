@@ -356,11 +356,9 @@ router.get(
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
 
     if (sessionUser && !isAdmin) {
-      const c = await db.getClienteById(id);
-      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
-      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
-      const selfId = toInt(sessionUser.id, 0) ?? 0;
-      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      if (!(await db.canComercialEditCliente(id, sessionUser.id))) {
+        return res.status(403).json({ ok: false, error: 'No tiene permiso para ver las relaciones de este contacto.' });
+      }
     }
 
     const { comoOrigen, comoRelacionado } = await db.getRelacionesByCliente(id);
@@ -384,11 +382,9 @@ router.post(
     if (!cliRelacionadoId) return res.status(400).json({ ok: false, error: 'Falta cliRelacionadoId' });
 
     if (sessionUser && !isAdmin) {
-      const c = await db.getClienteById(id);
-      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
-      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
-      const selfId = toInt(sessionUser.id, 0) ?? 0;
-      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      if (!(await db.canComercialEditCliente(id, sessionUser.id))) {
+        return res.status(403).json({ ok: false, error: 'No tiene permiso para añadir relaciones a este contacto.' });
+      }
     }
 
     const descripcion = req.body?.descripcion ?? null;
@@ -412,11 +408,9 @@ router.post(
     if (items.length === 0) return res.status(400).json({ ok: false, error: 'Falta array items' });
 
     if (sessionUser && !isAdmin) {
-      const c = await db.getClienteById(id);
-      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
-      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
-      const selfId = toInt(sessionUser.id, 0) ?? 0;
-      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      if (!(await db.canComercialEditCliente(id, sessionUser.id))) {
+        return res.status(403).json({ ok: false, error: 'No tiene permiso para añadir relaciones a este contacto.' });
+      }
     }
 
     try {
@@ -448,11 +442,11 @@ router.delete(
     if (!id || !relacionadoId) return res.status(400).json({ ok: false, error: 'ID no válido' });
 
     if (sessionUser && !isAdmin) {
-      const c = await db.getClienteById(id);
-      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
-      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
-      const selfId = toInt(sessionUser.id, 0) ?? 0;
-      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const canEditOrigen = await db.canComercialEditCliente(id, sessionUser.id);
+      const canEditRelacionado = await db.canComercialEditCliente(relacionadoId, sessionUser.id);
+      if (!canEditOrigen && !canEditRelacionado) {
+        return res.status(403).json({ ok: false, error: 'No tiene permiso para eliminar esta relación.' });
+      }
     }
 
     await db.deleteRelacion(id, relacionadoId);
