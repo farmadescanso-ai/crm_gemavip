@@ -415,6 +415,14 @@ main.container{
   grid-template-columns: repeat(2, 1fr);
   gap: 10px 16px;
 }
+.gv-article-block--ident{
+  min-width: 320px;
+}
+.gv-article-field--ean13 .gv-article-field__value{
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 14ch;
+}
 .gv-article-block--prices .gv-article-block__grid{
   grid-template-columns: repeat(2, 1fr);
 }
