@@ -678,6 +678,50 @@ main.container{
   opacity: .9;
 }
 
+/* ===========================
+   Tabla Artículos (estilo Gemavip)
+   Nombre ampliado; tabla al 100%
+   =========================== */
+.gv-articulos-table-wrap{
+  width: 100%;
+  min-width: 100%;
+}
+.gv-articulos-table{
+  width: 100%;
+  min-width: 100%;
+  table-layout: fixed;
+}
+.gv-articulos-table .gv-articulos-col-cn{ width: 8%; }
+.gv-articulos-table .gv-articulos-col-nombre{ width: 46%; }
+.gv-articulos-table .gv-articulos-col-unid{ width: 8%; }
+.gv-articulos-table .gv-articulos-col-pvl{ width: 10%; }
+.gv-articulos-table .gv-articulos-col-iva{ width: 8%; }
+.gv-articulos-table .gv-articulos-col-activo{ width: 8%; }
+.gv-articulos-table .gv-articulos-col-acciones{ width: 12%; }
+.gv-articulos-table .gv-articulos-td-nombre{
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+}
+.gv-articulos-table th,
+.gv-articulos-table td{
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(229,229,229,.9);
+}
+.gv-articulos-table th{
+  background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
+  color: var(--gv-ink);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+.gv-articulos-table tbody tr:hover td{
+  background: rgba(0,139,210,.04);
+}
+
 .table-wrap{ overflow:auto; border-radius: 14px; border:1px solid var(--gv-border); }
 table{
   width: 100%;

@@ -40,17 +40,16 @@
     </div>
   </div>
   <div class="card-bd">
-    <div class="table-wrap">
-      <table style="width:100%; table-layout:fixed;">
+    <div class="table-wrap gv-articulos-table-wrap">
+      <table class="gv-articulos-table">
         <colgroup>
-          <col style="width:10%">
-          <col style="width:28%">
-          <col style="width:8%">
-          <col style="width:10%">
-          <col style="width:8%">
-          <col style="width:10%">
-          <col style="width:8%">
-          <col style="width:18%">
+          <col class="gv-articulos-col-cn">
+          <col class="gv-articulos-col-nombre">
+          <col class="gv-articulos-col-unid">
+          <col class="gv-articulos-col-pvl">
+          <col class="gv-articulos-col-iva">
+          <col class="gv-articulos-col-activo">
+          <col class="gv-articulos-col-acciones">
         </colgroup>
         <thead>
           <tr>
@@ -59,7 +58,6 @@
             <th>Unid. Caja</th>
             <th>PVL</th>
             <th>IVA</th>
-            <th>Unid. Palet</th>
             <th>Activo</th>
             <th>Acciones</th>
           </tr>
@@ -68,11 +66,10 @@
           <% (items || []).forEach((a) => { const aid = a.Id ?? a.id ?? a.art_id; %>
             <tr>
               <td><%= a.SKU ?? a.art_sku ?? '' %></td>
-              <td><%= a.Nombre ?? a.art_nombre ?? '' %></td>
+              <td class="gv-articulos-td-nombre"><%= a.Nombre ?? a.art_nombre ?? '' %></td>
               <td><%= a.Unidades_Caja ?? a.art_unidades_caja ?? '' %></td>
               <td><%= a.PVL ?? a.art_pvl ?? '' %></td>
               <td><%= a.IVA ?? a.art_iva ?? '' %></td>
-              <td><%= a.Cajas_Palet ?? a.art_cajas_palet ?? '' %></td>
               <td><%= (a.Activo ?? a.art_activo ?? 1) ? 'Sí' : 'No' %></td>
               <td>
                 <div class="gv-actions">
@@ -95,7 +92,7 @@
           <% }) %>
           <% if (!items || items.length === 0) { %>
             <tr>
-              <td colspan="8" style="color: var(--gv-muted); font-weight:700;">No hay artículos.</td>
+              <td colspan="7" style="color: var(--gv-muted); font-weight:700;">No hay artículos.</td>
             </tr>
           <% } %>
         </tbody>
