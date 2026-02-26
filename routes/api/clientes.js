@@ -419,8 +419,19 @@ router.post(
       if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
     }
 
-    const result = await db.createRelacionesBatch(id, items);
-    res.status(201).json({ ok: true, result });
+    try {
+      const result = await db.createRelacionesBatch(id, items);
+      res.status(201).json({ ok: true, result });
+    } catch (e) {
+      const isNoTable = e?.code === 'ER_NO_SUCH_TABLE' || /doesn't exist/i.test(String(e?.message || ''));
+      if (isNoTable) {
+        return res.status(503).json({
+          ok: false,
+          error: 'La tabla clientes_relacionados no existe. Ejecuta el script scripts/create-clientes-relacionados.sql en tu base de datos.'
+        });
+      }
+      throw e;
+    }
   })
 );
 

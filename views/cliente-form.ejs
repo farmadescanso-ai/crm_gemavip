@@ -515,10 +515,10 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ items: items })
       })
-        .then(function(r) { return r.json(); })
+        .then(function(r) { return r.json().catch(function() { return { ok: false, error: 'Respuesta no válida' }; }); })
         .then(function(json) {
           if (json && json.ok) window.location.reload();
-          else alert('Error al guardar.');
+          else alert((json && json.error) ? json.error : 'Error al guardar.');
         })
         .catch(function() { alert('Error de conexión.'); });
     });

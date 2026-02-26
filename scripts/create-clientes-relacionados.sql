@@ -43,13 +43,14 @@ UPDATE `clientes` SET `cli_Id_cliente_relacionado` = NULL
 WHERE `cli_Id_cliente_relacionado` = 0;
 
 -- 2.3 Índice para consultas por cliente relacionado
--- (Si falla con "Duplicate key name", el índice ya existe; comentar la línea)
-CREATE INDEX `idx_clientes_cli_relacionado` ON `clientes` (`cli_Id_cliente_relacionado`);
+-- Comentado si el índice ya existe (#1061). Descomenta para BD nueva.
+-- CREATE INDEX `idx_clientes_cli_relacionado` ON `clientes` (`cli_Id_cliente_relacionado`);
 
--- 2.4 FK self-reference en clientes (comentar si ya existe)
-ALTER TABLE `clientes` ADD CONSTRAINT `fk_cli_relacionado`
-  FOREIGN KEY (`cli_Id_cliente_relacionado`) REFERENCES `clientes` (`cli_id`)
-  ON DELETE SET NULL ON UPDATE CASCADE;
+-- 2.4 FK self-reference en clientes
+-- Comentado si la FK ya existe (#1826). Descomenta para BD nueva.
+-- ALTER TABLE `clientes` ADD CONSTRAINT `fk_cli_relacionado`
+--   FOREIGN KEY (`cli_Id_cliente_relacionado`) REFERENCES `clientes` (`cli_id`)
+--   ON DELETE SET NULL ON UPDATE CASCADE;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
