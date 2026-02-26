@@ -1701,12 +1701,68 @@ table.calendar td.is-empty{
 }
 .gv-tab:hover{ background: rgba(0,139,210,.06); }
 .gv-tab.is-active{
-  background: #fff;
+  background: rgba(0,139,210,.06);
   border-color: rgba(0,139,210,.25);
   box-shadow: 0 8px 16px rgba(12,20,58,.06);
 }
 .gv-tabpanel{ display:none; }
 .gv-tabpanel.is-active{ display:block; }
+
+/* Pestaña Identificación: campos uniformes y alineados (estilo Gemavip) */
+#tab_ident .gv-form-grid{
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+#tab_ident .gv-form-grid label{
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+#tab_ident .gv-form-grid input,
+#tab_ident .gv-form-grid select,
+#tab_ident .gv-form-grid textarea{
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--gv-border);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gv-ink);
+  box-sizing: border-box;
+}
+#tab_ident .gv-form-grid input:focus,
+#tab_ident .gv-form-grid select:focus,
+#tab_ident .gv-form-grid textarea:focus{
+  outline: none;
+  border-color: rgba(0,139,210,.55);
+  box-shadow: 0 0 0 4px rgba(0,139,210,.10);
+}
+#tab_ident .gv-form-grid textarea{
+  min-height: 88px;
+  resize: vertical;
+}
+#tab_ident .gv-form-grid .gv-readonly{
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+#tab_ident .gv-form-grid input[type="checkbox"]{
+  min-height: auto;
+  width: auto;
+}
+#tab_ident .gv-form-grid label > span:first-child{
+  font-weight: 800;
+  color: var(--gv-ink);
+  font-size: 13px;
+}
+@media (max-width: 720px){
+  #tab_ident .gv-form-grid{
+    grid-template-columns: 1fr;
+  }
+}
 
 /* Pestaña Contactos relacionados */
 .gv-relaciones-tab{
