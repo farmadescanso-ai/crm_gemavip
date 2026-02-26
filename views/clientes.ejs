@@ -93,8 +93,7 @@
                         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                       </svg>
                     </a>
-                  <% } %>
-                  <% if (canEditRow) { %>
+                  <% } else if (canEditRow) { %>
                     <button type="button" class="btn secondary icon gv-add-relacion-btn" data-cid="<%= cid %>" data-nombre="<%= (c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '').replace(/"/g, '&quot;') %>" title="Añadir relación" aria-label="Añadir relación con este contacto">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
