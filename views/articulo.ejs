@@ -13,7 +13,6 @@
   const artAltoCaja = item.art_alto_caja ?? item.Alto_Caja ?? '';
   const artAnchoCaja = item.art_ancho_caja ?? item.Ancho_Caja ?? '';
   const artPesoKgCaja = item.art_peso_kg_Caja ?? item.PesoKg_Caja ?? '';
-  const artCajasPalet = item.art_cajas_palet ?? item.Cajas_Palet ?? '';
   const artPvl = item.art_pvl ?? item.PVL ?? '';
   const artIva = item.art_iva ?? item.IVA ?? '';
   const artEan13 = item.art_ean13 ?? item.EAN13 ?? '';
@@ -107,10 +106,6 @@
               <div class="gv-article-field">
                 <span class="gv-article-field__label">Peso (kg)</span>
                 <span class="gv-article-field__value"><%= artPesoKgCaja !== '' ? artPesoKgCaja : '—' %></span>
-              </div>
-              <div class="gv-article-field">
-                <span class="gv-article-field__label">Cajas por palet</span>
-                <span class="gv-article-field__value"><%= artCajasPalet !== '' ? artCajasPalet : '—' %></span>
               </div>
             </div>
           </div>
