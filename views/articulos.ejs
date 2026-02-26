@@ -41,12 +41,21 @@
   </div>
   <div class="card-bd">
     <div class="table-wrap">
-      <table>
+      <table style="width:100%; table-layout:fixed;">
+        <colgroup>
+          <col style="width:10%">
+          <col style="width:28%">
+          <col style="width:8%">
+          <col style="width:10%">
+          <col style="width:8%">
+          <col style="width:10%">
+          <col style="width:8%">
+          <col style="width:18%">
+        </colgroup>
         <thead>
           <tr>
-            <th>SKU</th>
+            <th>C.N.</th>
             <th>Nombre</th>
-            <th>Marca</th>
             <th>Unid. Caja</th>
             <th>PVL</th>
             <th>IVA</th>
@@ -60,7 +69,6 @@
             <tr>
               <td><%= a.SKU ?? a.art_sku ?? '' %></td>
               <td><%= a.Nombre ?? a.art_nombre ?? '' %></td>
-              <td><%= a.MarcaNombre ?? a.Marca ?? a.Id_Marca ?? a.art_mar_id ?? '' %></td>
               <td><%= a.Unidades_Caja ?? a.art_unidades_caja ?? '' %></td>
               <td><%= a.PVL ?? a.art_pvl ?? '' %></td>
               <td><%= a.IVA ?? a.art_iva ?? '' %></td>
@@ -87,7 +95,7 @@
           <% }) %>
           <% if (!items || items.length === 0) { %>
             <tr>
-              <td colspan="9" style="color: var(--gv-muted); font-weight:700;">No hay artículos.</td>
+              <td colspan="8" style="color: var(--gv-muted); font-weight:700;">No hay artículos.</td>
             </tr>
           <% } %>
         </tbody>
