@@ -208,17 +208,17 @@
 .gv-badge--empresa { background: rgba(0,139,210,.12); color: var(--gv-primary); }
 .gv-badge--persona { background: rgba(143,174,27,.15); color: var(--gv-green); }
 .gv-badge--otros { background: rgba(91,102,122,.15); color: var(--gv-muted); }
-/* Tabla contactos: margen 2px cada lado; columnas Teléfono, Email, Contacto */
+/* Tabla contactos: columnas ajustadas, iconos compactos */
 .gv-contactos .gv-contactos-table-wrap { margin: 0 2px; }
-.gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 10px 0; font-size: 0.8125rem; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 10%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 17%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 9%; }
+.gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 6px 0; font-size: 0.8125rem; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 9%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 23%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 8%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-relaciones { width: 4%; text-align: center; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-telefono { width: 11%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-telefono { width: 10%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-email { width: 14%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-contacto { width: 12%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 11%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 10%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-estado { width: 8%; }
 .gv-contactos .gv-contactos-table th.gv-contactos-col-estado,
 .gv-contactos .gv-contactos-table td.gv-contactos-col-estado { white-space: nowrap; }
@@ -267,8 +267,22 @@
   background: rgba(0,139,210,.03);
 }
 .gv-contactos .gv-contactos-table th:first-child,
-.gv-contactos .gv-contactos-table td:first-child { padding-left: 0; }
-.gv-contactos .gv-contactos-table td:first-child .gv-actions { margin-left: -5px; }
+.gv-contactos .gv-contactos-table td:first-child { padding-left: 0; padding-right: 4px; overflow: hidden; }
+.gv-contactos .gv-contactos-table td:first-child .gv-actions {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+.gv-contactos .gv-contactos-table td:first-child .gv-actions .btn.icon {
+  padding: 4px 6px;
+  min-width: 28px;
+}
+.gv-contactos .gv-contactos-table td:first-child .gv-actions .btn.icon svg {
+  width: 14px;
+  height: 14px;
+}
+.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { white-space: normal; overflow-wrap: break-word; }
 .gv-contactos .gv-contactos-table td { white-space: normal; }
 </style>
 
