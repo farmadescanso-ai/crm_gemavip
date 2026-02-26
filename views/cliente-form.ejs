@@ -234,7 +234,7 @@
                     <option value="">—</option>
                     <% (tiposClientes || []).forEach((r) => { %>
                       <% const rid = Number(r.tipc_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const rlabel = r.tipc_tipo ?? r.Tipo ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? ('Tipo cliente ' + rid); %>
+                      <% const rlabel = r.tipc_tipo ?? r.Tipo ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? ('Especialidad ' + rid); %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
