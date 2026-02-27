@@ -26,6 +26,7 @@ router.get('/', requireLogin, async (req, res, next) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = 10;
     const offset = (page - 1) * limit;
+    const searchQuery = String(req.query.q || '').trim();
 
     const marcas = await loadMarcasForSelect(db);
     let items = [];
@@ -33,8 +34,8 @@ router.get('/', requireLogin, async (req, res, next) => {
     let loadError = null;
     try {
       [items, total] = await Promise.all([
-        db.getArticulos({ marcaId: selectedMarcaId, limit, offset }),
-        db.countArticulos({ marcaId: selectedMarcaId })
+        db.getArticulos({ marcaId: selectedMarcaId, search: searchQuery || null, limit, offset }),
+        db.countArticulos({ marcaId: selectedMarcaId, search: searchQuery || null })
       ]);
     } catch (e) {
       console.error('❌ [articulos] Error cargando artículos:', e?.message || e);
@@ -49,6 +50,7 @@ router.get('/', requireLogin, async (req, res, next) => {
       admin,
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
+      searchQuery: searchQuery || '',
       filtroMarcaFijo: FILTRO_MARCA_FIJO,
       page,
       totalPages,

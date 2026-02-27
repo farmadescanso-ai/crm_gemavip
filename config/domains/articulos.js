@@ -11,8 +11,13 @@ module.exports = {
       const marcaIdRaw = options && typeof options === 'object' ? options.marcaId : null;
       const marcaId = Number(marcaIdRaw);
       const hasMarcaId = Number.isFinite(marcaId) && marcaId > 0;
+      const searchRaw = options && typeof options === 'object' ? options.search : null;
+      const search = typeof searchRaw === 'string' && searchRaw.trim() ? searchRaw.trim() : null;
       const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, Math.min(500, Number(options.limit))) : null;
       const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, Number(options.offset)) : 0;
+
+      const escapeLike = (s) => String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const searchPattern = search ? `%${escapeLike(search)}%` : null;
 
       let rows = [];
       try {
@@ -20,6 +25,9 @@ module.exports = {
         const aCols = await this._getColumns(tArt).catch(() => []);
         const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
         const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
+        const aSku = this._pickCIFromColumns(aCols, ['art_sku', 'SKU', 'sku']) || 'art_sku';
+        const aNombre = this._pickCIFromColumns(aCols, ['art_nombre', 'Nombre', 'nombre']) || 'art_nombre';
+        const aCodigoInterno = this._pickCIFromColumns(aCols, ['art_codigo_interno', 'Codigo_Interno', 'codigo_interno']);
 
         const tMarcas = await this._resolveTableNameCaseInsensitive('marcas').catch(() => null);
         if (!tMarcas) throw new Error('Sin tabla marcas');
@@ -35,26 +43,60 @@ module.exports = {
           ? `m.\`${mNombre}\` AS MarcaNombre`
           : `CAST(m.\`${mPk}\` AS CHAR) AS MarcaNombre`;
 
+        const whereParts = [];
+        const params = [];
+        if (hasMarcaId) {
+          whereParts.push(`a.\`${aMarcaId}\` = ?`);
+          params.push(marcaId);
+        }
+        if (searchPattern && search) {
+          const likeCond = aCodigoInterno
+            ? `(a.\`${aSku}\` LIKE ? OR a.\`${aNombre}\` LIKE ? OR CAST(a.\`${aCodigoInterno}\` AS CHAR) LIKE ?)`
+            : `(a.\`${aSku}\` LIKE ? OR a.\`${aNombre}\` LIKE ?)`;
+          whereParts.push(likeCond);
+          params.push(searchPattern, searchPattern, searchPattern);
+          if (!aCodigoInterno) params.pop();
+        }
+        const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
         const limitClause = limit ? ` LIMIT ${limit} OFFSET ${offset}` : '';
         const sql = `
           SELECT a.*, ${selectMarcaNombre}
           FROM \`${tArt}\` a
           LEFT JOIN \`${tMarcas}\` m ON m.\`${mPk}\` = a.\`${aMarcaId}\`
-          ${hasMarcaId ? `WHERE a.\`${aMarcaId}\` = ?` : ''}
+          ${whereClause}
           ORDER BY a.\`${aPk}\` ASC
           ${limitClause}
         `;
-        rows = hasMarcaId ? await this.query(sql, [marcaId]) : await this.query(sql);
+        rows = await this.query(sql, params);
       } catch (innerErr) {
         const tArt = await this._resolveTableNameCaseInsensitive('articulos');
         const aCols = await this._getColumns(tArt).catch(() => []);
         const aPk = this._pickCIFromColumns(aCols, ['art_id', 'id', 'Id']) || 'art_id';
         const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
+        const aSku = this._pickCIFromColumns(aCols, ['art_sku', 'SKU', 'sku']) || 'art_sku';
+        const aNombre = this._pickCIFromColumns(aCols, ['art_nombre', 'Nombre', 'nombre']) || 'art_nombre';
+        const aCodigoInterno = this._pickCIFromColumns(aCols, ['art_codigo_interno', 'Codigo_Interno', 'codigo_interno']);
+
+        const whereParts = [];
+        const params = [];
+        if (hasMarcaId) {
+          whereParts.push(`\`${aMarcaId}\` = ?`);
+          params.push(marcaId);
+        }
+        if (searchPattern && search) {
+          const likeCond = aCodigoInterno
+            ? `(\`${aSku}\` LIKE ? OR \`${aNombre}\` LIKE ? OR CAST(\`${aCodigoInterno}\` AS CHAR) LIKE ?)`
+            : `(\`${aSku}\` LIKE ? OR \`${aNombre}\` LIKE ?)`;
+          whereParts.push(likeCond);
+          params.push(searchPattern, searchPattern, searchPattern);
+          if (!aCodigoInterno) params.pop();
+        }
+        const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
         const limitClause = limit ? ` LIMIT ${limit} OFFSET ${offset}` : '';
-        const sql = hasMarcaId
-          ? `SELECT * FROM \`${tArt}\` WHERE \`${aMarcaId}\` = ? ORDER BY \`${aPk}\` ASC${limitClause}`
-          : `SELECT * FROM \`${tArt}\` ORDER BY \`${aPk}\` ASC${limitClause}`;
-        rows = hasMarcaId ? await this.query(sql, [marcaId]) : await this.query(sql);
+        const sql = `SELECT * FROM \`${tArt}\` ${whereClause} ORDER BY \`${aPk}\` ASC${limitClause}`;
+        rows = await this.query(sql, params);
       }
       console.log(`✅ Obtenidos ${rows.length} artículos`);
       return rows;
@@ -69,15 +111,36 @@ module.exports = {
       const marcaIdRaw = options && typeof options === 'object' ? options.marcaId : null;
       const marcaId = Number(marcaIdRaw);
       const hasMarcaId = Number.isFinite(marcaId) && marcaId > 0;
+      const searchRaw = options && typeof options === 'object' ? options.search : null;
+      const search = typeof searchRaw === 'string' && searchRaw.trim() ? searchRaw.trim() : null;
+
+      const escapeLike = (s) => String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const searchPattern = search ? `%${escapeLike(search)}%` : null;
 
       const tArt = await this._resolveTableNameCaseInsensitive('articulos');
       const aCols = await this._getColumns(tArt).catch(() => []);
       const aMarcaId = this._pickCIFromColumns(aCols, ['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']) || 'art_mar_id';
+      const aSku = this._pickCIFromColumns(aCols, ['art_sku', 'SKU', 'sku']) || 'art_sku';
+      const aNombre = this._pickCIFromColumns(aCols, ['art_nombre', 'Nombre', 'nombre']) || 'art_nombre';
+      const aCodigoInterno = this._pickCIFromColumns(aCols, ['art_codigo_interno', 'Codigo_Interno', 'codigo_interno']);
 
-      const sql = hasMarcaId
-        ? `SELECT COUNT(*) AS total FROM \`${tArt}\` WHERE \`${aMarcaId}\` = ?`
-        : `SELECT COUNT(*) AS total FROM \`${tArt}\``;
-      const params = hasMarcaId ? [marcaId] : [];
+      const whereParts = [];
+      const params = [];
+      if (hasMarcaId) {
+        whereParts.push(`\`${aMarcaId}\` = ?`);
+        params.push(marcaId);
+      }
+      if (searchPattern && search) {
+        const likeCond = aCodigoInterno
+          ? `(\`${aSku}\` LIKE ? OR \`${aNombre}\` LIKE ? OR CAST(\`${aCodigoInterno}\` AS CHAR) LIKE ?)`
+          : `(\`${aSku}\` LIKE ? OR \`${aNombre}\` LIKE ?)`;
+        whereParts.push(likeCond);
+        params.push(searchPattern, searchPattern, searchPattern);
+        if (!aCodigoInterno) params.pop();
+      }
+      const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+      const sql = `SELECT COUNT(*) AS total FROM \`${tArt}\` ${whereClause}`;
       const rows = await this.query(sql, params);
       return Number(rows?.[0]?.total ?? 0);
     } catch (error) {
