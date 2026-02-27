@@ -3,6 +3,7 @@
   const artId = item.art_id ?? item.Id ?? item.id;
   const artNombre = item.art_nombre ?? item.Nombre ?? '';
   const artSku = item.art_sku ?? item.SKU ?? '';
+  const artCodigoInterno = item.art_codigo_interno ?? item.Codigo_Interno ?? '';
   const artPresentacion = item.art_presentacion ?? item.Presentacion ?? '';
   const artUnidadesCaja = item.art_unidades_caja ?? item.Unidades_Caja ?? '';
   const artLargoUnidad = item.art_largo_undidad ?? item.Largo_Unidad ?? '';
@@ -47,6 +48,10 @@
           <div class="gv-article-block gv-article-block--ident">
             <h3 class="gv-article-block__title">Identificación</h3>
             <div class="gv-article-block__grid">
+              <div class="gv-article-field">
+                <span class="gv-article-field__label">Código Interno</span>
+                <span class="gv-article-field__value"><%= (artCodigoInterno !== '' && artCodigoInterno != null) ? artCodigoInterno : '—' %></span>
+              </div>
               <div class="gv-article-field">
                 <span class="gv-article-field__label">Presentación</span>
                 <span class="gv-article-field__value"><%= artPresentacion || '—' %></span>
