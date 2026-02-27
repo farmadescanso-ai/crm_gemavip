@@ -12,6 +12,12 @@
     <% } %>
   </div>
   <div class="card-bd">
+    <% if (typeof emailStatus !== 'undefined' && emailStatus && !emailStatus.emailReady) { %>
+      <div class="gv-alert warn" style="margin: 0 0 12px 0;" role="alert">
+        <strong>⚠️ Recuperación de contraseña no enviará emails</strong>
+        <p style="margin: 8px 0 0 0;">Configura SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) más abajo o en las variables de entorno de Vercel. Sin esto, los usuarios no recibirán el enlace para restablecer la contraseña.</p>
+      </div>
+    <% } %>
     <% if (error) { %>
       <div id="gv-sysvar-notice" class="gv-alert error" style="margin: 0 0 12px 0;" role="alert" aria-live="assertive">
         <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">

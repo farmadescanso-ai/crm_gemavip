@@ -379,6 +379,23 @@ app.get('/favicon.ico', (req, res) => {
   res.redirect(302, '/assets/images/gemavip-logo.svg');
 });
 
+// Diagnóstico de email (solo admin): comprobar si SMTP/Graph están configurados para recuperación de contraseña
+app.get('/api/email-status', requireAdmin, async (req, res) => {
+  try {
+    const { getSmtpStatus, getGraphStatus } = require('../lib/mailer');
+    const [smtp, graph] = await Promise.all([getSmtpStatus(), getGraphStatus()]);
+    return res.json({
+      smtpConfigured: smtp.configured,
+      graphConfigured: graph.configured,
+      emailReady: smtp.configured || graph.configured,
+      smtp: { hasHost: smtp.hasHost, hasUser: smtp.hasUser, hasPass: smtp.hasPass, port: smtp.port },
+      graph: { hasTenant: graph.hasTenant, hasClientId: graph.hasClientId, hasSecret: graph.hasSecret, hasSender: graph.hasSender }
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e?.message });
+  }
+});
+
 // Service Worker (Web Push): debe estar en raíz para scope /
 app.get('/sw.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');

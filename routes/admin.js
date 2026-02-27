@@ -18,6 +18,7 @@ const {
   SYSVAR_SMTP_PASS,
   SYSVAR_MAIL_FROM
 } = require('../lib/admin-helpers');
+const { getSmtpStatus, getGraphStatus } = require('../lib/mailer');
 
 const router = express.Router();
 
@@ -295,17 +296,21 @@ router.get('/configuracion-email', requireAdmin, async (req, res, next) => {
       { clave: SYSVAR_MAIL_FROM, descripcion: 'From visible. Si vacío, usa SMTP_USER.' }
     ];
     const flag = String(req.query.saved || '').trim().toLowerCase();
+    const [smtpStatus, graphStatus] = await Promise.all([getSmtpStatus().catch(() => ({ configured: false })), getGraphStatus().catch(() => ({ configured: false }))]);
+    const emailReady = smtpStatus.configured || graphStatus.configured;
     return res.render('variables-sistema', {
       title: 'Configuración Email',
       subtitle: 'Destinatarios y ajustes funcionales (no incluye credenciales SMTP).',
+      emailStatus: { emailReady, smtpConfigured: smtpStatus.configured, graphConfigured: graphStatus.configured },
       sections: [
         { title: 'Envío de pedidos', description: 'Destino por defecto del botón ENVIAR.', items: buildSysVarMergedList(itemsRaw, known.slice(0, 1)) },
         { title: 'SMTP', description: 'Credenciales del servidor de correo (se leen desde BD o .env).', items: buildSysVarMergedList(itemsRaw, known.slice(1)) }
       ],
       notes: [
         'El envío por email requiere SMTP configurado (SMTP_HOST/SMTP_USER/SMTP_PASS).',
-        'Si PEDIDOS_MAIL_TO está vacío, se usa p.lara@gemavip.com.'
-      ],
+        'Si PEDIDOS_MAIL_TO está vacío, se usa p.lara@gemavip.com.',
+        !emailReady ? '⚠️ Recuperación de contraseña: no se enviará ningún email hasta que configures SMTP.' : null
+      ].filter(Boolean),
       updateAction: '/admin/variables-sistema/update',
       returnTo: '/admin/configuracion-email',
       error: flag === '0' ? 'No se pudo guardar la variable.' : null,

@@ -111,7 +111,10 @@ router.post('/login/olvidar-contrasena', async (req, res, next) => {
       const comercialId = _n(_n(comercial.com_id, comercial.id), comercial.Id);
       await db.createPasswordResetToken(comercialId, email, token, 1);
       const resetLink = `${APP_BASE_URL.replace(/\/$/, '')}/login/restablecer-contrasena?token=${encodeURIComponent(token)}`;
-      await sendPasswordResetEmail(email, resetLink, _n(comercial.com_nombre, comercial.Nombre || ''));
+      const sendResult = await sendPasswordResetEmail(email, resetLink, _n(comercial.com_nombre, comercial.Nombre || ''));
+      if (!sendResult.sent) {
+        console.warn('[AUTH] Recuperación: email NO enviado a', email, '| Motivo:', sendResult.error || 'SMTP/Graph no configurado. Configura SMTP_HOST, SMTP_USER, SMTP_PASS en Admin → Configuración Email o en variables de entorno.');
+      }
     }
     res.render('login-olvidar-contrasena', {
       title: 'Recuperar contraseña',
