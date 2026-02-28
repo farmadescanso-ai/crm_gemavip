@@ -77,8 +77,8 @@
         <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
       </form>
     <% } %>
-    <% if (typeof isTransfer !== 'undefined' && isTransfer) { %>
-    <span class="btn secondary" style="opacity:0.6; cursor:not-allowed;" title="Excel deshabilitado para pedidos Transfer">Excel</span>
+    <% if (typeof isTransfer !== 'undefined' && isTransfer && !canShowHefame) { %>
+    <span class="btn secondary" style="opacity:0.6; cursor:not-allowed;" title="Excel deshabilitado para pedidos Transfer (no Hefame)">Excel</span>
     <% } else { %>
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>.xlsx">Excel</a>
     <% } %>
