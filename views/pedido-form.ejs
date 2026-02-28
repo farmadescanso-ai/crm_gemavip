@@ -185,8 +185,8 @@
           <% } %>
         </label>
         <div id="gv-num-asociado-hefame-wrap" class="gv-field gv-num-asociado-hefame" style="display: none;">
-          <span class="gv-field__label">Nº asociado (Hefame)</span>
-          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" readonly placeholder="Seleccione un cliente con asociación Hefame" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? item.ped_num_asoc_hefame ?? '').toString().trim() %>" />
+          <span class="gv-field__label">Nº asociado (Mayorista)</span>
+          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" readonly placeholder="Seleccione un cliente con asociación a cooperativa" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? item.ped_num_asoc_hefame ?? item.numero_cooperativa ?? '').toString().trim() %>" />
         </div>
       </div>
       </div>
@@ -518,9 +518,15 @@
       var cid = parseInt(String(clienteId || '').trim(), 10) || 0;
       if (!cid) {
         inputNumAsociadoHefame.value = '';
-        inputNumAsociadoHefame.placeholder = 'Seleccione un cliente con asociación Hefame';
+        inputNumAsociadoHefame.placeholder = 'Seleccione un cliente con asociación a cooperativa';
         return;
       }
+      var tipoText = '';
+      if (selTipoPedido && selTipoPedido.tagName === 'SELECT' && selTipoPedido.selectedIndex >= 0) {
+        var opt = selTipoPedido.options[selTipoPedido.selectedIndex];
+        tipoText = opt ? String(opt.textContent || opt.innerText || '').trim() : '';
+      }
+      var coopPart = tipoText.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
       inputNumAsociadoHefame.placeholder = 'Cargando…';
       inputNumAsociadoHefame.value = '';
       try {
@@ -529,13 +535,16 @@
         var json = await r.json().catch(function(){ return null; });
         if (!json || json.ok !== true) return;
         var items = Array.isArray(json.items) ? json.items : [];
-        var hefame = items.find(function(c){ return /hefame/i.test(String(c.Nombre || c.nombre || '')); });
-        if (hefame && (hefame.NumAsociado != null || hefame.numAsociado != null)) {
-          inputNumAsociadoHefame.value = String(hefame.NumAsociado ?? hefame.numAsociado ?? '');
+        var coop = items.find(function(c){
+          var nom = String(c.Nombre || c.nombre || '').toUpperCase();
+          return nom === coopPart.toUpperCase() || (coopPart.toUpperCase() === 'HEFAME' && /hefame/i.test(nom));
+        }); if (!coop) coop = items[0];
+        if (coop && (coop.NumAsociado != null || coop.numAsociado != null)) {
+          inputNumAsociadoHefame.value = String(coop.NumAsociado ?? coop.numAsociado ?? '');
           inputNumAsociadoHefame.placeholder = '';
         } else {
           inputNumAsociadoHefame.value = '';
-          inputNumAsociadoHefame.placeholder = 'Sin número de asociado Hefame para este cliente';
+          inputNumAsociadoHefame.placeholder = 'Sin número de asociado para ' + (coopPart || 'esta cooperativa');
         }
       } catch(_e) {
         inputNumAsociadoHefame.placeholder = 'Error al cargar';
@@ -544,13 +553,13 @@
     }
     function toggleNumAsociadoHefameVisibility(){
       if (!wrapNumAsociadoHefame) return;
-      if (isTipoTransferHefame()) {
+      if (isTipoTransfer()) {
         wrapNumAsociadoHefame.style.display = '';
         var cid = hidCliente ? String(hidCliente.value || '').trim() : '';
         loadNumAsociadoHefame(cid);
       } else {
         wrapNumAsociadoHefame.style.display = 'none';
-        if (inputNumAsociadoHefame) { inputNumAsociadoHefame.value = ''; inputNumAsociadoHefame.placeholder = 'Seleccione un cliente con asociación Hefame'; }
+        if (inputNumAsociadoHefame) { inputNumAsociadoHefame.value = ''; inputNumAsociadoHefame.placeholder = 'Seleccione un cliente con asociación a cooperativa'; }
       }
     }
 

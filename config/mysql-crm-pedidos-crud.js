@@ -30,6 +30,8 @@ module.exports = {
         EstadoPedido: 'ped_estado_txt', TotalPedido: 'ped_total', BaseImponible: 'ped_base',
         TotalIva: 'ped_iva', TotalDescuento: 'ped_descuento', Dto: 'ped_dto',
         NumPedidoCliente: 'ped_num_pedido_cliente', NumAsociadoHefame: 'ped_num_asoc_hefame',
+        cooperativa_nombre: 'cooperativa_nombre', numero_cooperativa: 'numero_cooperativa',
+        CooperativaNombre: 'cooperativa_nombre', NumeroCooperativa: 'numero_cooperativa',
         FechaEntrega: 'ped_fecha_entrega', Observaciones: 'ped_observaciones',
         EsEspecial: 'ped_es_especial', EspecialEstado: 'ped_especial_estado',
         EspecialFechaSolicitud: 'ped_especial_fecha_solicitud'

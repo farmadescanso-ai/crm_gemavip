@@ -624,6 +624,17 @@ router.post('/new', requireLogin, async (req, res, next) => {
     }
 
     const finalPayload = ensureTransferTarifaYFormaPago(pedidoPayload, body, tarifas, formasPago, tiposPedido);
+    if (await isTransferPedido(db, finalPayload).catch(() => false)) {
+      const mayoristaInfo = await resolveMayoristaInfo(db, finalPayload);
+      if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) {
+        const cod = mayoristaInfo.codigoAsociado || String(body.NumAsociadoHefame || '').trim() || null;
+        if (mayoristaInfo.nombre) finalPayload.cooperativa_nombre = mayoristaInfo.nombre;
+        if (cod) {
+          finalPayload.NumAsociadoHefame = cod;
+          finalPayload.numero_cooperativa = cod;
+        }
+      }
+    }
     const created = await db.createPedido(finalPayload);
     const pedidoId = _n(_n(created && created.insertId, created && created.Id), created && created.id);
     const result = await db.updatePedidoWithLineas(pedidoId, {}, lineas);
@@ -1390,6 +1401,17 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
     }
 
     const finalPayload = ensureTransferTarifaYFormaPago(pedidoPayload, body, tarifas, formasPago, tiposPedido);
+    if (await isTransferPedido(db, { ...existing, ...finalPayload }).catch(() => false)) {
+      const mayoristaInfo = await resolveMayoristaInfo(db, { ...existing, ...finalPayload });
+      if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) {
+        const cod = mayoristaInfo.codigoAsociado || String(body.NumAsociadoHefame || '').trim() || null;
+        if (mayoristaInfo.nombre) finalPayload.cooperativa_nombre = mayoristaInfo.nombre;
+        if (cod) {
+          finalPayload.NumAsociadoHefame = cod;
+          finalPayload.numero_cooperativa = cod;
+        }
+      }
+    }
     await db.updatePedidoWithLineas(id, finalPayload, lineas);
     if (esEspecial && !admin) {
       await db.ensureNotificacionPedidoEspecial(id, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
