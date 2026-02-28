@@ -41,8 +41,10 @@ function ensureTransferTarifaYFormaPago(payload, body, tarifas, formasPago, tipo
   const tipo = (tiposPedido || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipo);
   const tipoNombre = String(_n(tipo && (tipo.tipp_tipo || tipo.Nombre || tipo.Tipo || tipo.nombre), '')).trim();
   if (!/transfer/i.test(tipoNombre)) return payload;
-  const tarTransfer = (tarifas || []).find((t) => /transfer/i.test(String(_n(t.tarcli_nombre, _n(t.NombreTarifa, _n(t.Nombre, t.nombre)))));
-  const fpTransfer = (formasPago || []).find((fp) => /transfer/i.test(String(_n(fp.formp_nombre, _n(fp.Nombre, _n(fp.FormaPago, fp.nombre)))));
+  const getTarifaNombre = (t) => String(_n(t.tarcli_nombre, _n(t.NombreTarifa, _n(t.Nombre, t.nombre))));
+  const getFormaPagoNombre = (fp) => String(_n(fp.formp_nombre, _n(fp.Nombre, _n(fp.FormaPago, fp.nombre))));
+  const tarTransfer = (tarifas || []).find((t) => /transfer/i.test(getTarifaNombre(t)));
+  const fpTransfer = (formasPago || []).find((fp) => /transfer/i.test(getFormaPagoNombre(fp)));
   const out = { ...payload };
   if (tarTransfer) out.Id_Tarifa = Number(_n(tarTransfer.tarcli_id, _n(tarTransfer.Id, tarTransfer.id))) || 0;
   if (fpTransfer) out.Id_FormaPago = Number(_n(fpTransfer.formp_id, _n(fpTransfer.id, fpTransfer.Id))) || 0;
