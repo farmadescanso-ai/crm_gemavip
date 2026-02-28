@@ -125,6 +125,7 @@
         <% const dbVal = String(v.valor ?? '').trim(); %>
         <% const effectiveVal = String(v.effectiveValue ?? '').trim(); %>
         <% const source = dbVal ? 'BD' : (effectiveVal ? '.env' : '—'); %>
+        <% const readOnly = typeof tableUnavailable !== 'undefined' && tableUnavailable; %>
 
         <section class="card" style="margin:0;">
           <div class="card-hd" style="padding-bottom: 10px;">
@@ -158,6 +159,7 @@
                 <div id="<%= idBase %>_help" style="color: var(--gv-muted); font-weight:700; margin-bottom:8px; line-height:1.35;">
                   Deja el campo vacío para “borrar” el valor en BD y usar el fallback de <code>.env</code> si existe.
                 </div>
+                <% if (!readOnly) { %>
                 <form method="post" action="<%= actionUrl %>" style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;">
                   <input type="hidden" name="clave" value="<%= key %>" />
                   <input type="hidden" name="returnTo" value="<%= returnToUrl %>" />
@@ -207,6 +209,9 @@
                   <% } %>
                   <button class="btn secondary" type="submit">Guardar</button>
                 </form>
+                <% } else { %>
+                <div style="color: var(--gv-muted); font-weight:700;">Editar en Vercel → Settings → Environment Variables</div>
+                <% } %>
               </div>
 
               <div>

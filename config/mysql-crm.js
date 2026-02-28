@@ -130,7 +130,7 @@ class MySQLCRM {
     }
     const cols = await this._getColumns(table).catch(() => []);
     const pick = (cands) => this._pickCIFromColumns(cols, cands);
-    const pk = pick(['id', 'Id']) || 'id';
+    const pk = pick(['varsis_id', 'id', 'Id']) || 'id';
     const colClave = pick(['clave', 'Clave', 'key', 'Key']) || 'clave';
     const colValor = pick(['valor', 'Valor', 'value', 'Value']) || 'valor';
     const colDescripcion = pick(['descripcion', 'Descripción', 'Descripcion', 'description', 'Description']) || 'descripcion';

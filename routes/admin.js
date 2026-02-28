@@ -274,18 +274,9 @@ router.get('/webhooks', requireAdmin, async (req, res, next) => {
 
 router.get('/configuracion-email', requireAdmin, async (req, res, next) => {
   try {
-    const itemsRaw = await loadVariablesSistemaRaw();
-    if (itemsRaw === null) {
-      return res.render('variables-sistema', {
-        title: 'Configuración Email',
-        subtitle: 'Parámetros para el envío directo por correo.',
-        sections: [],
-        error:
-          'No se pudo leer/crear la tabla variables_sistema. Si tu entorno no permite CREATE TABLE, crea la tabla manualmente (ver scripts/crear-tabla-variables-sistema.sql) o usa .env como fallback.',
-        success: null,
-        returnTo: '/admin/configuracion-email'
-      });
-    }
+    let itemsRaw = await loadVariablesSistemaRaw();
+    const tableUnavailable = itemsRaw === null;
+    if (tableUnavailable) itemsRaw = [];
     const known = [
       { clave: SYSVAR_PEDIDOS_MAIL_TO, descripcion: 'Destinatario del email al pulsar ENVIAR en /pedidos.' },
       { clave: SYSVAR_SMTP_HOST, descripcion: 'Servidor SMTP (host). Ej: smtp.office365.com' },
@@ -301,6 +292,7 @@ router.get('/configuracion-email', requireAdmin, async (req, res, next) => {
     return res.render('variables-sistema', {
       title: 'Configuración Email',
       subtitle: 'Destinatarios y ajustes funcionales (no incluye credenciales SMTP).',
+      tableUnavailable,
       emailStatus: { emailReady, smtpConfigured: smtpStatus.configured, graphConfigured: graphStatus.configured },
       sections: [
         { title: 'Envío de pedidos', description: 'Destino por defecto del botón ENVIAR.', items: buildSysVarMergedList(itemsRaw, known.slice(0, 1)) },
@@ -308,11 +300,13 @@ router.get('/configuracion-email', requireAdmin, async (req, res, next) => {
       ],
       notes: [
         'El envío por email requiere SMTP configurado (SMTP_HOST/SMTP_USER/SMTP_PASS).',
-        'Si usas variables de Vercel: los valores guardados aquí (BD) tienen prioridad. Deja vacíos SMTP_HOST/USER/PASS para usar las de Vercel.',
+        tableUnavailable
+          ? 'La tabla variables_sistema no está disponible. Se muestran los valores de variables de entorno (Vercel). Para guardar aquí, ejecuta scripts/crear-tabla-variables-sistema.sql en tu BD.'
+          : 'Si usas variables de Vercel: los valores guardados aquí (BD) tienen prioridad. Deja vacíos SMTP_HOST/USER/PASS para usar las de Vercel.',
         'Si PEDIDOS_MAIL_TO está vacío, se usa p.lara@gemavip.com.',
         !emailReady ? '⚠️ Recuperación de contraseña: no se enviará ningún email hasta que configures SMTP.' : null
       ].filter(Boolean),
-      updateAction: '/admin/variables-sistema/update',
+      updateAction: tableUnavailable ? null : '/admin/variables-sistema/update',
       returnTo: '/admin/configuracion-email',
       error: flag === '0' ? 'No se pudo guardar la variable.' : null,
       success: flag === '1' ? 'Variable actualizada.' : null
