@@ -185,8 +185,8 @@
           <% } %>
         </label>
         <div id="gv-num-asociado-hefame-wrap" class="gv-field gv-num-asociado-hefame" style="display: none;">
-          <span class="gv-field__label">Nº asociado (Mayorista)</span>
-          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" readonly placeholder="Seleccione un cliente con asociación a cooperativa" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? item.ped_num_asoc_hefame ?? item.numero_cooperativa ?? '').toString().trim() %>" />
+          <span class="gv-field__label">Nº asociado (Hefame)</span>
+          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" placeholder="Seleccione un cliente con asociación a cooperativa Hefame o indíquelo manualmente" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? item.ped_num_asoc_hefame ?? item.numero_cooperativa ?? '').toString().trim() %>" />
         </div>
       </div>
       </div>
@@ -553,7 +553,7 @@
     }
     function toggleNumAsociadoHefameVisibility(){
       if (!wrapNumAsociadoHefame) return;
-      if (isTipoTransfer()) {
+      if (isTipoTransferHefame()) {
         wrapNumAsociadoHefame.style.display = '';
         var cid = hidCliente ? String(hidCliente.value || '').trim() : '';
         loadNumAsociadoHefame(cid);
