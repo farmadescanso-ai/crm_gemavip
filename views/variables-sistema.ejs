@@ -18,6 +18,45 @@
         <p style="margin: 8px 0 0 0;">Configura SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) más abajo o en las variables de entorno de Vercel. Sin esto, los usuarios no recibirán el enlace para restablecer la contraseña.</p>
       </div>
     <% } %>
+    <% if (typeof emailStatus !== 'undefined' && returnTo === '/admin/configuracion-email') { %>
+      <div class="gv-alert info" style="margin: 0 0 12px 0;">
+        <strong>Probar envío de email</strong>
+        <p style="margin: 8px 0 0 0;">Envía un email de prueba para comprobar que SMTP funciona. Si falla, verás el error exacto.</p>
+        <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button type="button" id="gv-email-test-btn" class="btn secondary" data-email="<%= (typeof user !== 'undefined' && user && user.email) ? String(user.email).replace(/"/g, '&quot;') : '' %>">Enviar email de prueba</button>
+          <span id="gv-email-test-result" style="font-weight: 700;"></span>
+        </div>
+      </div>
+      <script>
+        (() => {
+          const btn = document.getElementById('gv-email-test-btn');
+          const result = document.getElementById('gv-email-test-result');
+          if (!btn || !result) return;
+          btn.addEventListener('click', async () => {
+            const to = btn.dataset.email || prompt('Introduce el email de destino:');
+            if (!to || !to.trim()) return;
+            btn.disabled = true;
+            result.textContent = 'Enviando...';
+            result.style.color = '';
+            try {
+              const r = await fetch('/api/email-test?to=' + encodeURIComponent(to.trim()));
+              const data = await r.json();
+              if (data.sent) {
+                result.textContent = '✓ Email enviado correctamente';
+                result.style.color = 'var(--gv-success, green)';
+              } else {
+                result.innerHTML = '✗ ' + (data.error || 'Error') + (data.errorCode ? ' (código: ' + data.errorCode + ')' : '') + (data.config?.source ? ' | Origen: ' + JSON.stringify(data.config.source) : '');
+                result.style.color = 'var(--gv-error, #b91c1c)';
+              }
+            } catch (e) {
+              result.textContent = '✗ Error: ' + e.message;
+              result.style.color = 'var(--gv-error, #b91c1c)';
+            }
+            btn.disabled = false;
+          });
+        })();
+      </script>
+    <% } %>
     <% if (error) { %>
       <div id="gv-sysvar-notice" class="gv-alert error" style="margin: 0 0 12px 0;" role="alert" aria-live="assertive">
         <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">

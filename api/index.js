@@ -396,6 +396,22 @@ app.get('/api/email-status', requireAdmin, async (req, res) => {
   }
 });
 
+// Prueba de envío de email (solo admin): envía un email de prueba y devuelve el error exacto si falla
+// GET /api/email-test?to=tu@email.com
+app.get('/api/email-test', requireAdmin, async (req, res) => {
+  try {
+    const to = String(req.query?.to || req.session?.user?.email || '').trim();
+    if (!to) {
+      return res.status(400).json({ error: 'Indica ?to=tu@email.com o inicia sesión con un email' });
+    }
+    const { sendTestEmail } = require('../lib/mailer');
+    const result = await sendTestEmail(to);
+    return res.json(result);
+  } catch (e) {
+    return res.status(500).json({ error: e?.message });
+  }
+});
+
 // Service Worker (Web Push): debe estar en raíz para scope /
 app.get('/sw.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
