@@ -35,6 +35,20 @@ const router = express.Router();
 const loadPedidoAndCheckOwner = createLoadPedidoAndCheckOwner('id');
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+function ensureTransferTarifaYFormaPago(payload, body, tarifas, formasPago, tiposPedido) {
+  const idTipo = Number(body.Id_TipoPedido) || 0;
+  if (!idTipo) return payload;
+  const tipo = (tiposPedido || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipo);
+  const tipoNombre = String(_n(tipo && (tipo.tipp_tipo || tipo.Nombre || tipo.Tipo || tipo.nombre), '')).trim();
+  if (!/transfer/i.test(tipoNombre)) return payload;
+  const tarTransfer = (tarifas || []).find((t) => /transfer/i.test(String(_n(t.tarcli_nombre, _n(t.NombreTarifa, _n(t.Nombre, t.nombre)))));
+  const fpTransfer = (formasPago || []).find((fp) => /transfer/i.test(String(_n(fp.formp_nombre, _n(fp.Nombre, _n(fp.FormaPago, fp.nombre)))));
+  const out = { ...payload };
+  if (tarTransfer) out.Id_Tarifa = Number(_n(tarTransfer.tarcli_id, _n(tarTransfer.Id, tarTransfer.id))) || 0;
+  if (fpTransfer) out.Id_FormaPago = Number(_n(fpTransfer.formp_id, _n(fpTransfer.id, fpTransfer.Id))) || 0;
+  return out;
+}
+
 router.get('/', requireLogin, async (req, res, next) => {
   try {
     
@@ -606,11 +620,12 @@ router.post('/new', requireLogin, async (req, res, next) => {
       });
     }
 
-    const created = await db.createPedido(pedidoPayload);
+    const finalPayload = ensureTransferTarifaYFormaPago(pedidoPayload, body, tarifas, formasPago, tiposPedido);
+    const created = await db.createPedido(finalPayload);
     const pedidoId = _n(_n(created && created.insertId, created && created.Id), created && created.id);
     const result = await db.updatePedidoWithLineas(pedidoId, {}, lineas);
     if (esEspecial && !admin) {
-      await db.ensureNotificacionPedidoEspecial(pedidoId, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
+      await db.ensureNotificacionPedidoEspecial(pedidoId, finalPayload.Id_Cliente, finalPayload.Id_Cial).catch(() => null);
     }
     return res.redirect(`/pedidos/${pedidoId}`);
   } catch (e) {
@@ -799,6 +814,26 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
     let lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
 
+    let mayoristaInfo = null;
+    const idCliente = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
+    const idFormaPago = Number(item?.Id_FormaPago ?? item?.ped_formp_id ?? 0) || 0;
+    const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.ped_tipp_id ?? 0) || 0;
+    const canShowHefame = await canShowHefameForPedido(db, item);
+    if (canShowHefame && idCliente > 0) {
+      const tipos = await db.getTiposPedido().catch(() => []);
+      const tipoPedido = (tipos || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipoPedido);
+      const tipoNombre = String(_n(tipoPedido && (tipoPedido.tipp_tipo || tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre), '')).trim();
+      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
+      const codigoPedido = String(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame)).trim();
+      let codigoAsociado = codigoPedido;
+      if (!codigoAsociado) {
+        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
+        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
+        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado), '').trim() : '';
+      }
+      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
+    }
+
     const idTarifa = _n(item?.Id_Tarifa, item?.id_tarifa);
     const artIdsNeedingPvl = (lineas || [])
       .map((l) => Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0))
@@ -819,22 +854,34 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
       });
     }
 
-    let direccionEnvio = item?.Id_DireccionEnvio
-      ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
-      : null;
-    if (!direccionEnvio && cliente?.Id) {
-      const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
-      if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
+    let buf; let filename;
+    if (canShowHefame) {
+      const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
+      if (!built.ok) {
+        return res.status(built.status || 500).send(built.error || 'No se pudo generar el Excel Hefame.');
+      }
+      buf = built.buf;
+      filename = built.filename;
+    } else {
+      let direccionEnvio = item?.Id_DireccionEnvio
+        ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
+        : null;
+      if (!direccionEnvio && cliente?.Id) {
+        const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
+        if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
+      }
+      const built = await buildStandardPedidoXlsxBuffer({
+        item,
+        id,
+        lineas,
+        cliente,
+        direccionEnvio,
+        fmtDateES: res.locals.fmtDateES,
+        mayoristaInfo
+      });
+      buf = built.buf;
+      filename = built.filename;
     }
-
-    const { buf, filename } = await buildStandardPedidoXlsxBuffer({
-      item,
-      id,
-      lineas,
-      cliente,
-      direccionEnvio,
-      fmtDateES: res.locals.fmtDateES
-    });
 
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -866,7 +913,26 @@ router.get('/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, asyn
     const id = Number(req.params.id);
     const lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
-    const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente });
+
+    let mayoristaInfo = null;
+    const idCliente = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
+    if (idCliente > 0) {
+      const tipos = await db.getTiposPedido().catch(() => []);
+      const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.ped_tipp_id ?? 0) || 0;
+      const tipoPedido = (tipos || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipoPedido);
+      const tipoNombre = String(_n(tipoPedido && (tipoPedido.tipp_tipo || tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre), '')).trim();
+      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
+      const codigoPedido = String(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame)).trim();
+      let codigoAsociado = codigoPedido;
+      if (!codigoAsociado) {
+        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
+        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
+        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado)).trim() : '';
+      }
+      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
+    }
+
+    const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
     if (!built.ok) return res.status(built.status || 500).send(built.error || 'No se pudo generar el Excel Hefame.');
 
     res.setHeader('Content-Type', XLSX_MIME);
@@ -919,10 +985,29 @@ router.post('/:id(\\d+)/enviar-n8n', requireLogin, requireAdmin, loadPedidoAndCh
     }
 
     const isTransfer = await isTransferPedido(db, item).catch(() => false);
+    let mayoristaInfo = null;
+    const canShowHefame = await canShowHefameForPedido(db, item);
+    if (canShowHefame && (item?.Id_Cliente ?? item?.ped_cli_id)) {
+      const idCliente = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
+      const tipos = await db.getTiposPedido().catch(() => []);
+      const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.ped_tipp_id ?? 0) || 0;
+      const tipoPedido = (tipos || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipoPedido);
+      const tipoNombre = String(_n(tipoPedido && (tipoPedido.tipp_tipo || tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre), '')).trim();
+      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
+      const codigoPedido = String(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame)).trim();
+      let codigoAsociado = codigoPedido;
+      if (!codigoAsociado && idCliente > 0) {
+        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
+        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
+        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado)).trim() : '';
+      }
+      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
+    }
+
     let excel;
     let excelTipo = 'estandar';
     if (isTransfer) {
-      const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente });
+      const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
       if (!built.ok) {
         return res.redirect(
           `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent(built.error || 'No se pudo generar el Excel (Transfer).')}`
@@ -937,7 +1022,8 @@ router.post('/:id(\\d+)/enviar-n8n', requireLogin, requireAdmin, loadPedidoAndCh
         lineas,
         cliente,
         direccionEnvio,
-        fmtDateES: res.locals.fmtDateES
+        fmtDateES: res.locals.fmtDateES,
+        mayoristaInfo
       });
       excel = { buf: built.buf, filename: built.filename };
       excelTipo = 'directo';
@@ -1315,7 +1401,8 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
       });
     }
 
-    await db.updatePedidoWithLineas(id, pedidoPayload, lineas);
+    const finalPayload = ensureTransferTarifaYFormaPago(pedidoPayload, body, tarifas, formasPago, tiposPedido);
+    await db.updatePedidoWithLineas(id, finalPayload, lineas);
     if (esEspecial && !admin) {
       await db.ensureNotificacionPedidoEspecial(id, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
     }
