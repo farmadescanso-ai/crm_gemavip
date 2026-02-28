@@ -781,10 +781,28 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
   try {
     const item = res.locals.pedido;
     const id = Number(req.params.id);
-    const [lineas, cliente] = await Promise.all([
-      db.getArticulosByPedido(id).catch(() => []),
-      item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : Promise.resolve(null)
-    ]);
+    let lineas = await db.getArticulosByPedido(id).catch(() => []);
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+
+    const idTarifa = _n(item?.Id_Tarifa, item?.id_tarifa);
+    const artIdsNeedingPvl = (lineas || [])
+      .map((l) => Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const needsEnrichment = (lineas || []).some((l) => {
+      const pvl = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
+      return !Number.isFinite(pvl) || pvl <= 0;
+    });
+    if (needsEnrichment && artIdsNeedingPvl.length > 0) {
+      const precios = await db.getPreciosArticulosParaTarifa(idTarifa ?? 0, artIdsNeedingPvl).catch(() => ({}));
+      lineas = (lineas || []).map((l) => {
+        const artId = Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0);
+        const pvlStored = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
+        if ((!Number.isFinite(pvlStored) || pvlStored <= 0) && artId > 0 && precios[artId] != null) {
+          return { ...l, Linea_PVP: precios[artId], pedart_pvp: precios[artId] };
+        }
+        return l;
+      });
+    }
 
     let direccionEnvio = item?.Id_DireccionEnvio
       ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
@@ -849,10 +867,28 @@ router.post('/:id(\\d+)/enviar-n8n', requireLogin, requireAdmin, loadPedidoAndCh
     const item = res.locals.pedido;
     const id = Number(req.params.id);
 
-    const [lineas, cliente] = await Promise.all([
-      db.getArticulosByPedido(id).catch(() => []),
-      item?.Id_Cliente ? db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : Promise.resolve(null)
-    ]);
+    let lineas = await db.getArticulosByPedido(id).catch(() => []);
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+
+    const idTarifa = _n(item?.Id_Tarifa, item?.id_tarifa);
+    const artIdsNeedingPvl = (lineas || [])
+      .map((l) => Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const needsEnrichment = (lineas || []).some((l) => {
+      const pvl = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
+      return !Number.isFinite(pvl) || pvl <= 0;
+    });
+    if (needsEnrichment && artIdsNeedingPvl.length > 0) {
+      const precios = await db.getPreciosArticulosParaTarifa(idTarifa ?? 0, artIdsNeedingPvl).catch(() => ({}));
+      lineas = (lineas || []).map((l) => {
+        const artId = Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0);
+        const pvlStored = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
+        if ((!Number.isFinite(pvlStored) || pvlStored <= 0) && artId > 0 && precios[artId] != null) {
+          return { ...l, Linea_PVP: precios[artId], pedart_pvp: precios[artId] };
+        }
+        return l;
+      });
+    }
 
     let direccionEnvio = null;
     try {

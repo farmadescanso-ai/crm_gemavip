@@ -286,13 +286,17 @@ module.exports = {
         : '';
 
       const pickPaCol = (cands) => this._pickCIFromColumns(paCols, cands);
+      const colCantidad = pickPaCol(['pedart_cantidad', 'Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds']);
       const colPvp = pickPaCol(['pedart_pvp', 'PVP', 'pvp', 'PVPUnit', 'Precio', 'precio', 'PrecioUnitario', 'precio_unitario']);
       const colDto = pickPaCol(['pedart_dto', 'DtoLinea', 'dto_linea', 'dtoLinea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento']);
       const colIva = pickPaCol(['pedart_iva', 'IVA', 'iva', 'PorcIVA', 'porc_iva', 'PorcentajeIVA', 'porcentaje_iva', 'TipoIVA', 'tipo_iva']);
+      const colSubtotal = pickPaCol(['pedart_subtotal', 'Base', 'BaseImponible', 'Subtotal', 'Importe', 'importe']);
       const extraSelect = [
+        colCantidad ? `pa.\`${colCantidad}\` AS Linea_Cantidad` : null,
         colPvp ? `pa.\`${colPvp}\` AS Linea_PVP` : null,
         colDto ? `pa.\`${colDto}\` AS Linea_Dto` : null,
-        colIva ? `pa.\`${colIva}\` AS Linea_IVA` : null
+        colIva ? `pa.\`${colIva}\` AS Linea_IVA` : null,
+        colSubtotal ? `pa.\`${colSubtotal}\` AS Linea_Subtotal` : null
       ].filter(Boolean).join(', ');
 
       const sql = `
