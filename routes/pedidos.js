@@ -717,7 +717,8 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
       ? (tarifas || []).find((t) => Number(_n(_n(_n(t && t.Id, t && t.id), t && t.tarcli_id), 0)) === idTarifa) || null
       : null;
 
-    const mayoristaInfo = canShowHefame ? await resolveMayoristaInfo(db, item) : null;
+    const isTransfer = await isTransferPedido(db, item).catch(() => false);
+    const mayoristaInfo = (canShowHefame || isTransfer) ? await resolveMayoristaInfo(db, item) : null;
 
     const idDirEnvio = Number(item?.Id_DireccionEnvio ?? item?.ped_direnv_id ?? 0) || 0;
     let direccionEnvio = idDirEnvio
