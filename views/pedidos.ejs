@@ -195,14 +195,14 @@
                 <th>Acciones</th>
                 <th>Estado</th>
                 <th>Fecha</th>
-                <th>PEDIDO</th>
                 <th>Cliente</th>
-                <th>Provincia</th>
-                <th>Comercial</th>
                 <th>Tipo cliente</th>
-                <th>PEDIDO CLIENTE</th>
-                <th>Nº Hefame</th>
                 <th>Total</th>
+                <th>PEDIDO</th>
+                <th>Nº Asociado</th>
+                <th>PEDIDO CLIENTE</th>
+                <th>Comercial</th>
+                <th>Provincia</th>
               </tr>
             </thead>
             <tbody>
@@ -281,14 +281,14 @@
                     <% } %>
                   </td>
                   <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
-                  <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
                   <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                  <td><%= p.ProvinciaNombre ?? '—' %></td>
-                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—') %></td>
                   <td><%= p.TipoClienteNombre ?? '—' %></td>
-                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '' %></td>
-                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? p.ped_num_asoc_hefame ?? '—' %></td>
                   <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
+                  <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
+                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? p.ped_num_asoc_hefame ?? '—' %></td>
+                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '' %></td>
+                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—') %></td>
+                  <td><%= p.ProvinciaNombre ?? '—' %></td>
                 </tr>
               <% }) %>
             </tbody>
