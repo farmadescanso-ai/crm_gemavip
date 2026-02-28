@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pedido Transfer #<%= numPedido || pedidoId %> · CRM Gemavip</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #222; }
+    .gv-transfer-print { max-width: 800px; margin: 0 auto; }
+    .gv-transfer-print h1 { font-size: 16px; margin: 0 0 16px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
+    .gv-transfer-print table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .gv-transfer-print th, .gv-transfer-print td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+    .gv-transfer-print th { background: #f0f0f0; font-weight: 700; }
+    .gv-transfer-print .gv-cabecera { margin-bottom: 20px; }
+    .gv-transfer-print .gv-cabecera-row { margin: 4px 0; }
+    .gv-transfer-print .gv-cabecera-label { font-weight: 700; display: inline-block; min-width: 140px; }
+    .gv-transfer-print .gv-no-print { display: none !important; }
+    @media print {
+      body { margin: 0; }
+      .gv-no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="gv-no-print" style="margin-bottom: 16px;">
+    <button type="button" onclick="window.print()" style="padding: 8px 16px; cursor: pointer; font-weight: 700;">Imprimir</button>
+    <a href="/pedidos/<%= pedidoId %>" style="margin-left: 12px;">Volver al pedido</a>
+  </div>
+
+  <div class="gv-transfer-print">
+    <h1>PEDIDO TRANSFER HEFAME · #<%= numPedido || pedidoId %></h1>
+
+    <div class="gv-cabecera">
+      <% if (mayoristaInfo && mayoristaInfo.nombre) { %>
+        <div class="gv-cabecera-row"><span class="gv-cabecera-label">Cooperativa:</span> <%= mayoristaInfo.nombre %></div>
+      <% } %>
+      <div class="gv-cabecera-row"><span class="gv-cabecera-label">Nº Pedido:</span> <%= numPedido || '—' %></div>
+      <div class="gv-cabecera-row"><span class="gv-cabecera-label">Cliente:</span> <%= clienteNombre || '—' %></div>
+      <div class="gv-cabecera-row"><span class="gv-cabecera-label">Nº asociado:</span> <%= codigoAsociado || '—' %></div>
+      <div class="gv-cabecera-row"><span class="gv-cabecera-label">Teléfono:</span> <%= telefono || '—' %></div>
+      <div class="gv-cabecera-row"><span class="gv-cabecera-label">CP / Población:</span> <%= poblacionConCP || '—' %></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Cantidad</th>
+          <th>CN (SKU)</th>
+          <th>Descripción</th>
+          <th>Dto (%)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% (lineas || []).forEach((l) => { %>
+          <% const cantidad = Math.max(0, Number(l.Linea_Cantidad ?? l.pedart_cantidad ?? l.Cantidad ?? l.Unidades ?? 0)); %>
+          <% const cn = String(l.art_sku ?? l.art_codigo_interno ?? l.SKU ?? l.Codigo ?? l.Id_Articulo ?? '').trim(); %>
+          <% const descripcion = String(l.art_nombre ?? l.art_descripcion ?? l.Nombre ?? l.Descripcion ?? l.Articulo ?? l.pedart_articulo_txt ?? '').trim(); %>
+          <% const dtoPct = Math.max(0, Math.min(100, Number(l.Linea_Dto ?? l.pedart_dto ?? l.DtoLinea ?? l.Dto ?? l.Descuento ?? 0))); %>
+          <tr>
+            <td><%= cantidad %></td>
+            <td><%= cn || '—' %></td>
+            <td><%= descripcion || '—' %></td>
+            <td><%= dtoPct ? dtoPct + '%' : '—' %></td>
+          </tr>
+        <% }) %>
+        <% if (!lineas || lineas.length === 0) { %>
+          <tr><td colspan="4" style="text-align:center; color:#666;">Sin líneas</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    if (window.location.search.includes('print=1')) {
+      window.onload = function() { window.print(); };
+    }
+  </script>
+</body>
+</html>

@@ -77,7 +77,11 @@
         <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
       </form>
     <% } %>
+    <% if (typeof isTransfer !== 'undefined' && isTransfer) { %>
+    <span class="btn secondary" style="opacity:0.6; cursor:not-allowed;" title="Excel deshabilitado para pedidos Transfer">Excel</span>
+    <% } else { %>
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>.xlsx">Excel</a>
+    <% } %>
     <% if (canShowHefame) { %>
     <span class="gv-hefame-wrap">
       <a class="btn secondary" href="/pedidos/<%= pedidoId %>/hefame.xlsx">HEFAME</a>
@@ -88,8 +92,7 @@
     <% } %>
     <% if (typeof isTransfer !== 'undefined' && isTransfer) { %>
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>/transfer.xlsx">Transfer</a>
-    <% } else { %>
-    <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
+    <a class="btn secondary" href="/pedidos/<%= pedidoId %>/transfer-imprimir" target="_blank" rel="noopener">Imprimir Transfer</a>
     <% } %>
   </div>
 

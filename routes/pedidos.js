@@ -908,6 +908,49 @@ router.get('/:id(\\d+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner
   res.send(renderHefameInfoPage(true, 'El envío por email está temporalmente deshabilitado.\n\nPuede descargar la plantilla Excel con los datos del pedido para Hefame usando el enlace siguiente.', id));
 });
 
+router.get('/:id(\\d+)/transfer-imprimir', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+  try {
+    const item = res.locals.pedido;
+    if (!(await isTransferPedido(db, item))) {
+      res.status(403).send('Imprimir Transfer solo disponible para pedidos con forma de pago Transfer.');
+      return;
+    }
+    const id = Number(req.params.id);
+    const lineas = await db.getArticulosByPedido(id).catch(() => []);
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const mayoristaInfo = await resolveMayoristaInfo(db, item);
+
+    const pick = (obj, keys) => {
+      if (!obj || typeof obj !== 'object') return '';
+      for (const k of keys) {
+        const v = obj[k];
+        if (v != null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+    const numPedido = item?.NumPedido ?? item?.ped_numero ?? item?.Numero_Pedido ?? '';
+    const clienteNombre = pick(cliente, ['Nombre_Razon_Social', 'cli_nombre_razon_social', 'Nombre', 'nombre']) || item?.Id_Cliente || '';
+    const codigoAsociado = mayoristaInfo?.codigoAsociado || String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim() || '';
+    const telefono = pick(cliente, ['cli_telefono', 'cli_movil', 'Telefono', 'Movil', 'Teléfono']) || '';
+    const cp = String(pick(cliente, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || '').trim();
+    const poblacion = String(pick(cliente, ['cli_poblacion', 'Poblacion', 'poblacion']) || '').trim();
+    const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
+
+    res.render('pedido-transfer-print', {
+      pedidoId: id,
+      numPedido,
+      clienteNombre,
+      codigoAsociado,
+      telefono,
+      poblacionConCP,
+      mayoristaInfo,
+      lineas
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:id(\\d+)/transfer.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
