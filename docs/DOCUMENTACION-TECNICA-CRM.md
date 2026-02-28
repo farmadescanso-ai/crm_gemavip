@@ -566,7 +566,8 @@ KEY `idx_tiposcargorol_activo_nombre` (`Activo`, `Nombre`);
 | `/api/comerciales` | GET, GET/POST/PUT/DELETE `/:id` |
 | `/api/notificaciones` | GET, GET/POST `/:id/aprobar`, POST `/:id/rechazar` |
 | `/api/db` | GET `/health`, POST `/query` (admin), POST `/ensure-indexes` (admin) |
-| `/api/docs/` | Swagger UI (solo admin) |
+| `/api/docs/` | Swagger UI (documentación interactiva, público) |
+| `/api/openapi.json` | Especificación OpenAPI 3.0 (público) |
 
 ---
 

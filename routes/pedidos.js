@@ -832,10 +832,28 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
     if (canShowHefame) {
       const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
       if (!built.ok) {
-        return res.status(built.status || 500).send(built.error || 'No se pudo generar el Excel Hefame.');
+        let direccionEnvio = item?.Id_DireccionEnvio
+          ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
+          : null;
+        if (!direccionEnvio && cliente?.Id) {
+          const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
+          if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
+        }
+        const std = await buildStandardPedidoXlsxBuffer({
+          item,
+          id,
+          lineas,
+          cliente,
+          direccionEnvio,
+          fmtDateES: res.locals.fmtDateES,
+          mayoristaInfo
+        });
+        buf = std.buf;
+        filename = std.filename;
+      } else {
+        buf = built.buf;
+        filename = built.filename;
       }
-      buf = built.buf;
-      filename = built.filename;
     } else {
       let direccionEnvio = item?.Id_DireccionEnvio
         ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
@@ -890,7 +908,9 @@ router.get('/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, asyn
     const mayoristaInfo = await resolveMayoristaInfo(db, item);
 
     const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
-    if (!built.ok) return res.status(built.status || 500).send(built.error || 'No se pudo generar el Excel Hefame.');
+    if (!built.ok) {
+      return res.redirect(`/pedidos/${id}.xlsx`);
+    }
 
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader('Content-Disposition', `attachment; filename="${built.filename}"`);

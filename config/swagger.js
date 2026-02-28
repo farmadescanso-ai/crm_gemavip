@@ -32,6 +32,14 @@ const options = {
         description: 'Producción (Vercel)'
       }
     ],
+    tags: [
+      { name: 'Clientes', description: 'CRUD de clientes, cooperativas, direcciones' },
+      { name: 'Pedidos', description: 'Pedidos, líneas, precios' },
+      { name: 'Visitas', description: 'Registro y consulta de visitas' },
+      { name: 'Comerciales', description: 'Gestión de comerciales' },
+      { name: 'Notificaciones', description: 'Solicitudes y avisos' },
+      { name: 'DB', description: 'Health y utilidades de base de datos' }
+    ],
     components: {
       securitySchemes: {
         ApiKeyAuth: {

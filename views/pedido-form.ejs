@@ -155,13 +155,13 @@
         <label class="gv-field">
           <span class="gv-field__label">Forma de pago</span>
           <% if ((formasPago || []).length) { %>
-            <select name="Id_FormaPago" class="gv-input">
+            <select name="Id_FormaPago" id="Id_FormaPago" class="gv-input">
               <% const curFP = Number(item.Id_FormaPago ?? item.ped_formp_id ?? 0) || 0; %>
-              <option value="0" <%= curFP === 0 ? 'selected' : '' %>>Sin especificar</option>
+              <option value="0" data-label="" <%= curFP === 0 ? 'selected' : '' %>>Sin especificar</option>
               <% (formasPago || []).forEach((fp) => { %>
                 <% const fid = Number(fp.formp_id ?? fp.id ?? fp.Id ?? 0) || 0; %>
                 <% const fpLabel = fp.formp_nombre ?? fp.Nombre ?? fp.FormaPago ?? fp.nombre ?? ''; %>
-                <option value="<%= fid %>" <%= fid === curFP ? 'selected' : '' %>><%= fpLabel %></option>
+                <option value="<%= fid %>" data-label="<%= fpLabel %>" <%= fid === curFP ? 'selected' : '' %>><%= fpLabel %></option>
               <% }) %>
             </select>
           <% } else { %>
@@ -310,6 +310,7 @@
     var hidCliente = document.getElementById('Id_Cliente');
     var autosaveEl = document.getElementById('pedidoAutosave');
     var selTipoPedido = document.getElementById('Id_TipoPedido');
+    var selFormaPago = document.querySelector('select[name="Id_FormaPago"]') || document.getElementById('Id_FormaPago');
     var wrapNumAsociadoHefame = document.getElementById('gv-num-asociado-hefame-wrap');
     var inputNumAsociadoHefame = document.getElementById('numAsociadoHefame');
     var selEstadoPedido = document.getElementById('Id_EstadoPedido');
@@ -471,6 +472,15 @@
 
     // Importante: NO auto-guardar cabecera en modo edición para que "Cancelar" no modifique datos.
 
+    function isTipoTransfer(){
+      if (!selTipoPedido) return false;
+      if (selTipoPedido.tagName === 'SELECT') {
+        var opt = selTipoPedido.options && selTipoPedido.selectedIndex >= 0 ? selTipoPedido.options[selTipoPedido.selectedIndex] : null;
+        var text = opt ? String(opt.textContent || opt.innerText || '').trim() : '';
+        return /transfer/i.test(text);
+      }
+      return false;
+    }
     function isTipoTransferHefame(){
       if (!selTipoPedido) return false;
       if (selTipoPedido.tagName === 'SELECT') {
@@ -479,6 +489,29 @@
         return /hefame/i.test(text);
       }
       return false;
+    }
+    function findOptionByLabel(selectEl, labelContains){
+      if (!selectEl || selectEl.tagName !== 'SELECT' || !labelContains) return null;
+      var search = String(labelContains).trim().toLowerCase();
+      if (!search) return null;
+      var opts = Array.prototype.slice.call(selectEl.options || []);
+      return opts.find(function(o){
+        var label = String(o.getAttribute('data-label') || o.textContent || '').trim().toLowerCase();
+        return label && label.indexOf(search) !== -1;
+      });
+    }
+    function applyTransferTarifaYFormaPago(){
+      if (!isTipoTransfer()) return;
+      var tarTransfer = selTarifa ? findOptionByLabel(selTarifa, 'Transfer') : null;
+      if (tarTransfer && tarTransfer.value) {
+        selTarifa.value = tarTransfer.value;
+        markManual(selTarifa);
+        scheduleRefreshPrecios();
+      }
+      var fpTransfer = selFormaPago && selFormaPago.tagName === 'SELECT' ? findOptionByLabel(selFormaPago, 'Transfer') : null;
+      if (fpTransfer && fpTransfer.value) {
+        selFormaPago.value = fpTransfer.value;
+      }
     }
     async function loadNumAsociadoHefame(clienteId){
       if (!inputNumAsociadoHefame) return;
@@ -496,7 +529,7 @@
         var json = await r.json().catch(function(){ return null; });
         if (!json || json.ok !== true) return;
         var items = Array.isArray(json.items) ? json.items : [];
-        var hefame = items.find(function(c){ return String(c.Nombre || c.nombre || '').toUpperCase() === 'HEFAME'; });
+        var hefame = items.find(function(c){ return /hefame/i.test(String(c.Nombre || c.nombre || '')); });
         if (hefame && (hefame.NumAsociado != null || hefame.numAsociado != null)) {
           inputNumAsociadoHefame.value = String(hefame.NumAsociado ?? hefame.numAsociado ?? '');
           inputNumAsociadoHefame.placeholder = '';
@@ -924,7 +957,10 @@
       recalcTotals();
     });
 
-    if (selTipoPedido) selTipoPedido.addEventListener('change', function(){ toggleNumAsociadoHefameVisibility(); });
+    if (selTipoPedido) selTipoPedido.addEventListener('change', function(){
+      toggleNumAsociadoHefameVisibility();
+      applyTransferTarifaYFormaPago();
+    });
 
     // Si venimos con un cliente ya guardado (editar), cargar defaults
     if (hidCliente) {
@@ -938,6 +974,7 @@
       }
     }
     toggleNumAsociadoHefameVisibility();
+    applyTransferTarifaYFormaPago();
 
     // Admin: permitir cambiar comercial manualmente
     if (selCialDisplay && isAdmin) {

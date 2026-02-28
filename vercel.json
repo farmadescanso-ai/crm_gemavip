@@ -7,7 +7,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "config/**",
+      "includeFiles": ["config/**", "templates/**"],
       "maxDuration": 60,
       "memory": 1024
     }

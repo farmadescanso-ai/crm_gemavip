@@ -17,6 +17,8 @@ Coloca el fichero en esta carpeta con el nombre exacto:
 PLANTILLA TRANSFER DIRECTO CRM.xlsx
 ```
 
+**Si la plantilla no existe:** el botón Excel (y HEFAME) usará el Excel estándar con cooperativa y nº asociado en la sección de datos del pedido.
+
 ### Mapeo de celdas (pestaña Cabecera / primera hoja)
 
 | Celda | Contenido |
