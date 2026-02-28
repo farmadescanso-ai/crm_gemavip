@@ -24,6 +24,7 @@ const {
   parseLineasFromBody,
   canShowHefameForPedido,
   isTransferPedido,
+  resolveMayoristaInfo,
   renderHefameInfoPage,
   buildStandardPedidoXlsxBuffer,
   buildHefameXlsxBuffer,
@@ -716,19 +717,7 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
       ? (tarifas || []).find((t) => Number(_n(_n(_n(t && t.Id, t && t.id), t && t.tarcli_id), 0)) === idTarifa) || null
       : null;
 
-    let mayoristaInfo = null;
-    if (canShowHefame && idCliente > 0) {
-      const tipoNombre = String(_n(tipoPedido && (tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre || tipoPedido.tipp_tipo), '')).trim();
-      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
-      const codigoPedido = String(_n(item && (item.NumAsociadoHefame || item.num_asociado_hefame || item.ped_num_asoc_hefame), '')).trim();
-      let codigoAsociado = codigoPedido;
-      if (!codigoAsociado) {
-        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
-        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
-        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado), '').trim() : '';
-      }
-      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
-    }
+    const mayoristaInfo = canShowHefame ? await resolveMayoristaInfo(db, item) : null;
 
     const idDirEnvio = Number(item?.Id_DireccionEnvio ?? item?.ped_direnv_id ?? 0) || 0;
     let direccionEnvio = idDirEnvio
@@ -816,25 +805,8 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
     let lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
 
-    let mayoristaInfo = null;
-    const idCliente = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
-    const idFormaPago = Number(item?.Id_FormaPago ?? item?.ped_formp_id ?? 0) || 0;
-    const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.ped_tipp_id ?? 0) || 0;
     const canShowHefame = await canShowHefameForPedido(db, item);
-    if (canShowHefame && idCliente > 0) {
-      const tipos = await db.getTiposPedido().catch(() => []);
-      const tipoPedido = (tipos || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipoPedido);
-      const tipoNombre = String(_n(tipoPedido && (tipoPedido.tipp_tipo || tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre), '')).trim();
-      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
-      const codigoPedido = String(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame)).trim();
-      let codigoAsociado = codigoPedido;
-      if (!codigoAsociado) {
-        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
-        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
-        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado), '').trim() : '';
-      }
-      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
-    }
+    const mayoristaInfo = canShowHefame ? await resolveMayoristaInfo(db, item) : null;
 
     const idTarifa = _n(item?.Id_Tarifa, item?.id_tarifa);
     const artIdsNeedingPvl = (lineas || [])
@@ -915,24 +887,7 @@ router.get('/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, asyn
     const id = Number(req.params.id);
     const lineas = await db.getArticulosByPedido(id).catch(() => []);
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
-
-    let mayoristaInfo = null;
-    const idCliente = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
-    if (idCliente > 0) {
-      const tipos = await db.getTiposPedido().catch(() => []);
-      const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.ped_tipp_id ?? 0) || 0;
-      const tipoPedido = (tipos || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipoPedido);
-      const tipoNombre = String(_n(tipoPedido && (tipoPedido.tipp_tipo || tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre), '')).trim();
-      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
-      const codigoPedido = String(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame)).trim();
-      let codigoAsociado = codigoPedido;
-      if (!codigoAsociado) {
-        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
-        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
-        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado)).trim() : '';
-      }
-      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
-    }
+    const mayoristaInfo = await resolveMayoristaInfo(db, item);
 
     const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
     if (!built.ok) return res.status(built.status || 500).send(built.error || 'No se pudo generar el Excel Hefame.');
@@ -987,24 +942,8 @@ router.post('/:id(\\d+)/enviar-n8n', requireLogin, requireAdmin, loadPedidoAndCh
     }
 
     const isTransfer = await isTransferPedido(db, item).catch(() => false);
-    let mayoristaInfo = null;
     const canShowHefame = await canShowHefameForPedido(db, item);
-    if (canShowHefame && (item?.Id_Cliente ?? item?.ped_cli_id)) {
-      const idCliente = Number(item?.Id_Cliente ?? item?.ped_cli_id ?? 0) || 0;
-      const tipos = await db.getTiposPedido().catch(() => []);
-      const idTipoPedido = Number(item?.Id_TipoPedido ?? item?.ped_tipp_id ?? 0) || 0;
-      const tipoPedido = (tipos || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipoPedido);
-      const tipoNombre = String(_n(tipoPedido && (tipoPedido.tipp_tipo || tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre), '')).trim();
-      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
-      const codigoPedido = String(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame)).trim();
-      let codigoAsociado = codigoPedido;
-      if (!codigoAsociado && idCliente > 0) {
-        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
-        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
-        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado)).trim() : '';
-      }
-      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
-    }
+    const mayoristaInfo = canShowHefame ? await resolveMayoristaInfo(db, item) : null;
 
     let excel;
     let excelTipo = 'estandar';

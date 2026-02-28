@@ -339,7 +339,7 @@ module.exports = {
   async getCooperativasByClienteId(clienteId) {
     try {
       let sql = `
-        SELECT c.Nombre, cc.NumAsociado 
+        SELECT cc.Id_Cooperativa, c.Nombre, cc.NumAsociado 
         FROM \`Clientes_Cooperativas\` cc
         INNER JOIN cooperativas c ON cc.Id_Cooperativa = c.id
         WHERE cc.Id_Cliente = ?
@@ -350,7 +350,7 @@ module.exports = {
         return rows;
       } catch (error1) {
         sql = `
-          SELECT c.Nombre, cc.NumAsociado 
+          SELECT cc.Id_Cooperativa, c.Nombre, cc.NumAsociado 
           FROM clientes_cooperativas cc
           INNER JOIN cooperativas c ON cc.Id_Cooperativa = c.id
           WHERE cc.Id_Cliente = ?
@@ -362,6 +362,27 @@ module.exports = {
     } catch (error) {
       console.error('❌ Error obteniendo cooperativas del cliente:', error.message);
       return [];
+    }
+  },
+
+  /** Obtiene NumAsociado de clientes_cooperativas por Id_Cliente e Id_Cooperativa */
+  async getNumAsociadoByClienteAndCooperativaId(clienteId, cooperativaId) {
+    if (!clienteId || !cooperativaId) return null;
+    try {
+      let sql = 'SELECT NumAsociado FROM `Clientes_Cooperativas` WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1';
+      try {
+        const rows = await this.query(sql, [clienteId, cooperativaId]);
+        const val = rows?.[0]?.NumAsociado ?? rows?.[0]?.numAsociado;
+        return val != null && String(val).trim() !== '' ? String(val).trim() : null;
+      } catch (e1) {
+        sql = 'SELECT NumAsociado FROM clientes_cooperativas WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1';
+        const rows = await this.query(sql, [clienteId, cooperativaId]);
+        const val = rows?.[0]?.NumAsociado ?? rows?.[0]?.numAsociado;
+        return val != null && String(val).trim() !== '' ? String(val).trim() : null;
+      }
+    } catch (error) {
+      console.error('❌ Error obteniendo NumAsociado por cliente y cooperativa:', error.message);
+      return null;
     }
   },
 
