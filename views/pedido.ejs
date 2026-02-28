@@ -86,7 +86,11 @@
       </button>
     </span>
     <% } %>
+    <% if (typeof isTransfer !== 'undefined' && isTransfer) { %>
+    <a class="btn secondary" href="/pedidos/<%= pedidoId %>/transfer.xlsx">Transfer</a>
+    <% } else { %>
     <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
+    <% } %>
   </div>
 
   <% if (canShowHefame) { %>

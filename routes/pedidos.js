@@ -781,6 +781,7 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
       admin,
       canEdit,
       canShowHefame,
+      isTransfer,
       mayoristaInfo,
       formaPago,
       tipoPedido,
@@ -894,6 +895,31 @@ router.get('/:id(\\d+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner
   const id = Number(req.params.id);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(renderHefameInfoPage(true, 'El envío por email está temporalmente deshabilitado.\n\nPuede descargar la plantilla Excel con los datos del pedido para Hefame usando el enlace siguiente.', id));
+});
+
+router.get('/:id(\\d+)/transfer.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+  try {
+    const item = res.locals.pedido;
+    if (!(await isTransferPedido(db, item))) {
+      res.status(403).send('Transfer solo disponible para pedidos con forma de pago Transfer.');
+      return;
+    }
+    const id = Number(req.params.id);
+    const lineas = await db.getArticulosByPedido(id).catch(() => []);
+    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
+    const mayoristaInfo = await resolveMayoristaInfo(db, item);
+
+    const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
+    if (!built.ok) {
+      return res.redirect(`/pedidos/${id}.xlsx`);
+    }
+
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader('Content-Disposition', `attachment; filename="${built.filename}"`);
+    return res.end(built.buf);
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
