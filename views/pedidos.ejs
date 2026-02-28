@@ -192,6 +192,7 @@
           <table>
             <thead>
               <tr>
+                <th>Acciones</th>
                 <th>Estado</th>
                 <th>Fecha</th>
                 <th>PEDIDO</th>
@@ -202,7 +203,6 @@
                 <th>PEDIDO CLIENTE</th>
                 <th>Nº Hefame</th>
                 <th>Total</th>
-                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -215,41 +215,6 @@
                 <% const noticePid = (typeof n8nNotice !== 'undefined' && n8nNotice && n8nNotice.pid != null) ? String(n8nNotice.pid) : null; %>
                 <% const isNoticeRow = noticePid && String(pid) === noticePid; %>
                 <tr>
-                  <td>
-                    <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? p.ped_estado_txt ?? '').trim(); %>
-                    <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
-                    <% const st = estadoLabel.toLowerCase(); %>
-                    <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
-                    <% const estadoId = Number(p.Id_EstadoPedido ?? p.id_estado_pedido ?? p.ped_estped_id ?? 0) || 0; %>
-                    <% if (admin) { %>
-                      <button
-                        type="button"
-                        id="gvEstadoBadge_<%= pid %>"
-                        class="badge <%= estadoLabel ? cls : 'info' %> gv-pedido-estado-badge"
-                        data-pid="<%= pid %>"
-                        data-num="<%= (p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid) %>"
-                        data-estado-id="<%= estadoId %>"
-                        data-estado-label="<%= estadoLabel %>"
-                        title="Hacer clic para modificar el estado del pedido"
-                        style="appearance:none; border:0; cursor:pointer;"
-                      ><%= estadoLabel || '—' %></button>
-                    <% } else { %>
-                      <% if (estadoLabel) { %>
-                        <span class="badge <%= cls %>"><%= estadoLabel %></span>
-                      <% } else { %>
-                        —
-                      <% } %>
-                    <% } %>
-                  </td>
-                  <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
-                  <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
-                  <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                  <td><%= p.ProvinciaNombre ?? '—' %></td>
-                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—') %></td>
-                  <td><%= p.TipoClienteNombre ?? '—' %></td>
-                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '' %></td>
-                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? p.ped_num_asoc_hefame ?? '—' %></td>
-                  <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
                   <td>
                     <div class="gv-actions">
                       <a class="btn secondary icon" href="/pedidos/<%= pid %>" title="Ver" aria-label="Ver pedido <%= pid %>">
@@ -289,6 +254,41 @@
                       <% } %>
                     </div>
                   </td>
+                  <td>
+                    <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? p.ped_estado_txt ?? '').trim(); %>
+                    <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
+                    <% const st = estadoLabel.toLowerCase(); %>
+                    <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
+                    <% const estadoId = Number(p.Id_EstadoPedido ?? p.id_estado_pedido ?? p.ped_estped_id ?? 0) || 0; %>
+                    <% if (admin) { %>
+                      <button
+                        type="button"
+                        id="gvEstadoBadge_<%= pid %>"
+                        class="badge <%= estadoLabel ? cls : 'info' %> gv-pedido-estado-badge"
+                        data-pid="<%= pid %>"
+                        data-num="<%= (p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid) %>"
+                        data-estado-id="<%= estadoId %>"
+                        data-estado-label="<%= estadoLabel %>"
+                        title="Hacer clic para modificar el estado del pedido"
+                        style="appearance:none; border:0; cursor:pointer;"
+                      ><%= estadoLabel || '—' %></button>
+                    <% } else { %>
+                      <% if (estadoLabel) { %>
+                        <span class="badge <%= cls %>"><%= estadoLabel %></span>
+                      <% } else { %>
+                        —
+                      <% } %>
+                    <% } %>
+                  </td>
+                  <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
+                  <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
+                  <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                  <td><%= p.ProvinciaNombre ?? '—' %></td>
+                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—') %></td>
+                  <td><%= p.TipoClienteNombre ?? '—' %></td>
+                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '' %></td>
+                  <td><%= p.NumAsociadoHefame ?? p.num_asociado_hefame ?? p.ped_num_asoc_hefame ?? '—' %></td>
+                  <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
                 </tr>
               <% }) %>
             </tbody>
