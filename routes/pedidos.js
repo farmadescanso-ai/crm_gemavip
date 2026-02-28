@@ -701,9 +701,9 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
 
     let mayoristaInfo = null;
     if (canShowHefame && idCliente > 0) {
-      const tipoNombre = String(_n(_n(_n(tipoPedido?.Nombre, tipoPedido?.Tipo), tipoPedido?.nombre), tipoPedido?.tipp_tipo), '')).trim();
+      const tipoNombre = String(_n(tipoPedido && (tipoPedido.Nombre || tipoPedido.Tipo || tipoPedido.nombre || tipoPedido.tipp_tipo), '')).trim();
       const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
-      const codigoPedido = String(_n(_n(item?.NumAsociadoHefame, item?.num_asociado_hefame), item?.ped_num_asoc_hefame), '')).trim();
+      const codigoPedido = String(_n(item && (item.NumAsociadoHefame || item.num_asociado_hefame || item.ped_num_asoc_hefame), '')).trim();
       let codigoAsociado = codigoPedido;
       if (!codigoAsociado) {
         const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
