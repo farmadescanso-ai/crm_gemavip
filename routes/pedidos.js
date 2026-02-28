@@ -699,6 +699,20 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
       ? (tarifas || []).find((t) => Number(_n(_n(_n(t && t.Id, t && t.id), t && t.tarcli_id), 0)) === idTarifa) || null
       : null;
 
+    let mayoristaInfo = null;
+    if (canShowHefame && idCliente > 0) {
+      const tipoNombre = String(_n(_n(_n(tipoPedido?.Nombre, tipoPedido?.Tipo), tipoPedido?.nombre), tipoPedido?.tipp_tipo), '')).trim();
+      const mayoristaNombre = tipoNombre.replace(/^Transfer\s+/i, '').trim() || 'HEFAME';
+      const codigoPedido = String(_n(_n(item?.NumAsociadoHefame, item?.num_asociado_hefame), item?.ped_num_asoc_hefame), '')).trim();
+      let codigoAsociado = codigoPedido;
+      if (!codigoAsociado) {
+        const cooperativas = await (db.getCooperativasByClienteId && db.getCooperativasByClienteId(idCliente).catch(() => [])) || [];
+        const match = (cooperativas || []).find((c) => String(c.Nombre || c.nombre || '').toUpperCase() === mayoristaNombre.toUpperCase());
+        codigoAsociado = match ? String(_n(match.NumAsociado, match.numAsociado), '').trim() : '';
+      }
+      mayoristaInfo = { nombre: mayoristaNombre, codigoAsociado: codigoAsociado || null };
+    }
+
     const idDirEnvio = Number(item?.Id_DireccionEnvio ?? item?.ped_direnv_id ?? 0) || 0;
     let direccionEnvio = idDirEnvio
       ? await db.getDireccionEnvioById(idDirEnvio).catch(() => null)
@@ -760,6 +774,7 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
       admin,
       canEdit,
       canShowHefame,
+      mayoristaInfo,
       formaPago,
       tipoPedido,
       tarifa,
