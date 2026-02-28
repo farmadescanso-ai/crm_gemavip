@@ -29,6 +29,39 @@ En **Vercel** → tu proyecto → **Settings** → **Environment Variables**, as
 - **Tras cambiar variables:** haz un **redeploy** (Deployments → ⋮ en el último deploy → Redeploy) para que el servidor use los nuevos valores.
 - **Gmail:** si usas Gmail, `SMTP_PASS` debe ser una **Contraseña de aplicación** (Google Account → Seguridad → Verificación en 2 pasos → Contraseñas de aplicaciones), no tu contraseña de Gmail.
 
+### Microsoft 365: "SmtpClientAuthentication is disabled for the Tenant"
+
+Si ves el error `535 5.7.139 SmtpClientAuthentication is disabled for the Tenant`, Microsoft ha desactivado SMTP AUTH en tu organización. Tienes **dos opciones**:
+
+#### Opción A: Activar SMTP AUTH para tu buzón (más rápido)
+
+1. Entra en [admin.microsoft.com](https://admin.microsoft.com) → **Usuarios** → **Usuarios activos**.
+2. Selecciona el usuario (ej. `comercial@gemavip.com`).
+3. Pestaña **Correo** → **Administrar aplicaciones de correo**.
+4. Activa **SMTP autenticado** (Authenticated SMTP).
+5. Guarda los cambios.
+
+#### Opción B: Usar Microsoft Graph (recomendado si no puedes activar SMTP)
+
+Configura estas variables en Vercel (en lugar de SMTP_USER/SMTP_PASS):
+
+| Variable | Descripción |
+|----------|-------------|
+| `GRAPH_TENANT_ID` | GUID del tenant de Azure AD (Portal Azure → Azure Active Directory → Información general) |
+| `GRAPH_CLIENT_ID` | ID de la aplicación registrada en Azure AD |
+| `GRAPH_CLIENT_SECRET` | Secret de la aplicación |
+| `GRAPH_SENDER_UPN` | Email desde el que enviar (ej. `comercial@gemavip.com`) |
+
+**Pasos para Graph:**
+
+1. [Portal Azure](https://portal.azure.com) → **Azure Active Directory** → **Registros de aplicaciones** → **Nueva inscripción**.
+2. Nombre: "CRM Gemavip Email". Crear.
+3. **Certificados y secretos** → Nuevo secreto de cliente → copia el valor → `GRAPH_CLIENT_SECRET`.
+4. **Información general** → copia "Id. de aplicación" → `GRAPH_CLIENT_ID` y "Id. de directorio" → `GRAPH_TENANT_ID`.
+5. **Permisos de API** → Agregar permiso → **Microsoft Graph** → **Permisos de aplicación** → añade `Mail.Send`.
+6. **Conceder consentimiento de administrador** (botón en la parte superior).
+7. En Vercel, añade las 4 variables y haz redeploy.
+
 ### Cómo comprobar si están bien configuradas
 
 1. En Vercel, **Deployments** → abre el último deployment → pestaña **Functions** → selecciona la función que sirve `/api` o la ruta de tu app y revisa **Logs**.
