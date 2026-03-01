@@ -68,7 +68,7 @@
 
         <label style="display:grid; gap:6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Móvil</span>
-          <input class="gv-client-picker__q" name="Movil" value="<%= pickVal('Movil') %>" maxlength="20" />
+          <input class="gv-client-picker__q" name="Movil" type="tel" value="<%= typeof fmtTelefono === 'function' ? fmtTelefono(pickVal('Movil')) : pickVal('Movil') %>" maxlength="25" placeholder="+34 630 87 47 81" />
         </label>
 
         <label style="display:grid; gap:6px;">

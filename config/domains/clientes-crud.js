@@ -6,10 +6,23 @@
 'use strict';
 
 const { debug } = require('../../lib/logger');
+const { normalizeTelefonoForDB } = require('../../lib/telefono-utils');
+
+function normalizePayloadTelefonos(payload) {
+  const telCols = ['cli_telefono', 'cli_movil', 'Telefono', 'Movil'];
+  for (const col of telCols) {
+    if (payload[col] != null && String(payload[col]).trim()) {
+      const norm = normalizeTelefonoForDB(payload[col]);
+      payload[col] = norm;
+    }
+  }
+}
 
 module.exports = {
   async updateCliente(id, payload) {
     try {
+      normalizePayloadTelefonos(payload);
+
       if (payload.Tarifa !== undefined) {
         const raw = payload.Tarifa;
         if (raw === null || raw === undefined || (typeof raw === 'string' && raw.trim() === '')) {
@@ -271,6 +284,8 @@ module.exports = {
 
   async createCliente(payload) {
     try {
+      normalizePayloadTelefonos(payload);
+
       if (payload.Tarifa === undefined || payload.Tarifa === null || (typeof payload.Tarifa === 'string' && payload.Tarifa.trim() === '')) {
         payload.Tarifa = 0;
       } else {

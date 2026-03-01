@@ -99,7 +99,7 @@
                       <tr class="gv-relacion-row" data-origen="<%= origenId %>" data-relacionado="<%= relacionadoId %>">
                         <td class="gv-contactos-col-nombre"><%= nom %></td>
                         <td><% const tipoClase = (String(tipo).toLowerCase() === 'empresa') ? 'empresa' : (String(tipo).toLowerCase() === 'persona') ? 'persona' : 'otros'; %><span class="gv-badge gv-badge--<%= tipoClase %>"><%= tipo %></span></td>
-                        <td class="gv-contactos-col-telefono"><% if (tel) { %><a href="tel:<%= tel %>" class="gv-contactos-link"><%= tel %></a><% } else { %>—<% } %></td>
+                        <td class="gv-contactos-col-telefono"><%- include('partials/telefono-display', { telefono: tel }) %></td>
                         <td class="gv-contactos-col-email"><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
                         <td class="gv-contactos-col-contacto"><%= contacto %></td>
                         <td><%= provincia %></td>
@@ -300,12 +300,14 @@
                 <% } else { %>
                   <% const type = spec.type || 'text'; %>
                   <% const isNombreField = (label && String(label).indexOf('Nombre / Razón social') !== -1); %>
+                  <% const isTelField = (spec.type === 'tel' || /telefono|movil/i.test(String(name))); %>
+                  <% const displayVal = (type === 'number') ? numVal(name) : (isTelField && typeof fmtTelefono === 'function') ? fmtTelefono(pickVal(name)) : pickVal(name); %>
                   <input
                     id="<%= inputId %>"
                     name="<%= name %>"
                     type="<%= type %>"
                     <%= required ? 'required' : '' %>
-                    value="<%= (type === 'number') ? numVal(name) : pickVal(name) %>"
+                    value="<%= displayVal %>"
                     aria-invalid="<%= isMissing ? 'true' : 'false' %>"
                     <%= type === 'number' ? 'step="0.01"' : '' %>
                     <%= isNombreField ? 'data-gv-nombre-field="1"' : '' %>

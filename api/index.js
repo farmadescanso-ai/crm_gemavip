@@ -371,6 +371,12 @@ app.use(async (req, res, next) => {
     return `${res.locals.fmtNumES(x, 2)}€`;
   };
 
+  // Teléfonos: formato vista "+34 630 87 47 81" y normalización para BD
+  const { formatTelefonoForDisplay, normalizeTelefonoForDB, getTelefonoForHref } = require('../lib/telefono-utils');
+  res.locals.fmtTelefono = formatTelefonoForDisplay;
+  res.locals.normalizeTelefono = normalizeTelefonoForDB;
+  res.locals.getTelefonoForHref = getTelefonoForHref;
+
   next();
 });
 

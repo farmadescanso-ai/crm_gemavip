@@ -126,7 +126,7 @@
               <td class="gv-contactos-col-nombre"><%= c.Nombre ?? '' %></td>
               <td><%= email %></td>
               <td><%= c.DNI ?? '' %></td>
-              <td><%= c.Movil ?? '' %></td>
+              <td><%- include('partials/telefono-display', { telefono: c.Movil ?? '' }) %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
               <td><%= rolesTxt || '—' %></td>
             </tr>

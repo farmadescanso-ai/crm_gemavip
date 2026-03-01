@@ -14,12 +14,14 @@ module.exports = {
       const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
       const colNombre = this._pickCIFromColumns(cols, ['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
       const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'Email';
+      const colMovil = this._pickCIFromColumns(cols, ['com_movil', 'Movil', 'movil']) || 'Movil';
       const normalized = (rows || []).map(r => ({
         ...r,
         id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
         Id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
         Nombre: r?.[colNombre] ?? r?.Nombre ?? r?.nombre ?? '',
-        Email: r?.[colEmail] ?? r?.Email ?? r?.email ?? ''
+        Email: r?.[colEmail] ?? r?.Email ?? r?.email ?? '',
+        Movil: r?.[colMovil] ?? r?.Movil ?? r?.com_movil ?? ''
       }));
       console.log(`✅ Obtenidos ${normalized.length} comerciales`);
       return normalized;
@@ -45,11 +47,17 @@ module.exports = {
 
   async getComercialById(id) {
     try {
-      const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales'));
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const cols = await this._getColumns(t);
       const pk = this._pickCIFromColumns(cols, ['com_id', 'Id', 'id']) || 'com_id';
-      const sql = `SELECT * FROM comerciales WHERE \`${pk}\` = ? LIMIT 1`;
+      const colMovil = this._pickCIFromColumns(cols, ['com_movil', 'Movil', 'movil']) || 'Movil';
+      const sql = `SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [id]);
-      return rows.length > 0 ? rows[0] : null;
+      const row = rows.length > 0 ? rows[0] : null;
+      if (row && colMovil) {
+        row.Movil = row[colMovil] ?? row.Movil ?? row.com_movil ?? '';
+      }
+      return row;
     } catch (error) {
       console.error('❌ Error obteniendo comercial por ID:', error.message);
       return null;
@@ -70,10 +78,14 @@ module.exports = {
     const name = (process.env.COMERCIAL_POOL_NAME || 'Paco Lara').trim();
     if (!name) return null;
     try {
-      const sql = 'SELECT id, Id FROM comerciales WHERE TRIM(Nombre) = ? OR TRIM(nombre) = ? LIMIT 1';
-      const rows = await this.query(sql, [name, name]);
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'com_id';
+      const colNombre = this._pickCIFromColumns(cols, ['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
+      const sql = `SELECT \`${pk}\` AS id FROM \`${t}\` WHERE TRIM(\`${colNombre}\`) = ? LIMIT 1`;
+      const rows = await this.query(sql, [name]);
       const row = rows?.[0];
-      return row ? (row.id ?? row.Id ?? null) : null;
+      return row ? (row.id ?? row[pk] ?? null) : null;
     } catch (_) {
       return null;
     }
@@ -151,14 +163,33 @@ module.exports = {
         ? String(plataformaPreferidaRaw).trim()
         : 'meet';
 
-      const sql = `INSERT INTO comerciales (Nombre, Email, DNI, Password, Roll, Movil, Direccion, CodigoPostal, Poblacion, Id_Provincia, Id_CodigoPostal, fijo_mensual, plataforma_reunion_preferida) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales')).catch(() => []);
+      const pick = (cands) => this._pickCIFromColumns(cols, cands);
+      const colNombre = pick(['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
+      const colEmail = pick(['com_email', 'Email', 'email']) || 'Email';
+      const colDni = pick(['com_dni', 'DNI', 'dni']) || 'DNI';
+      const colPassword = pick(['com_password', 'Password', 'password']) || 'Password';
+      const colRoll = pick(['com_roll', 'Roll', 'roll']) || 'Roll';
+      const colMovil = pick(['com_movil', 'Movil', 'movil']) || 'Movil';
+      const colDireccion = pick(['com_direccion', 'Direccion', 'direccion']) || 'Direccion';
+      const colCodigoPostal = pick(['com_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'CodigoPostal';
+      const colPoblacion = pick(['com_poblacion', 'Poblacion', 'poblacion']) || 'Poblacion';
+      const colIdProvincia = pick(['com_prov_id', 'Id_Provincia', 'id_Provincia']) || 'Id_Provincia';
+      const colIdCodigoPostal = pick(['com_codp_id', 'Id_CodigoPostal', 'id_CodigoPostal']) || 'Id_CodigoPostal';
+
+      const insertCols = [colNombre, colEmail, colDni, colPassword, colRoll, colMovil, colDireccion, colCodigoPostal, colPoblacion, colIdProvincia, colIdCodigoPostal];
+      const fijoMensualCol = pick(['fijo_mensual', 'FijoMensual']);
+      if (fijoMensualCol) insertCols.push(fijoMensualCol);
+      const plataformaCol = pick(['plataforma_reunion_preferida', 'PlataformaReunionPreferida']);
+      if (plataformaCol) insertCols.push(plataformaCol);
+
       const fijoMensualRaw = payload.fijo_mensual ?? payload.fijoMensual ?? payload.FijoMensual;
       let fijoMensual = 0;
       if (fijoMensualRaw !== undefined && fijoMensualRaw !== null && String(fijoMensualRaw).trim() !== '') {
         const n = Number(String(fijoMensualRaw).replace(',', '.'));
         fijoMensual = Number.isFinite(n) ? n : 0;
       }
+
       const params = [
         payload.Nombre || payload.nombre || '',
         payload.Email || payload.email || '',
@@ -170,10 +201,13 @@ module.exports = {
         codigoPostalTexto || null,
         payload.Poblacion || payload.poblacion || null,
         payload.Id_Provincia || payload.id_Provincia || null,
-        idCodigoPostal,
-        fijoMensual,
-        plataformaPreferida
+        idCodigoPostal
       ];
+      if (fijoMensualCol) params.push(fijoMensual);
+      if (plataformaCol) params.push(plataformaPreferida);
+
+      const placeholders = params.map(() => '?').join(', ');
+      const sql = `INSERT INTO comerciales (\`${insertCols.join('`, `')}\`) VALUES (${placeholders})`;
       const [result] = await this.pool.execute(sql, params);
       return { insertId: result.insertId, ...result };
     } catch (error) {
@@ -184,6 +218,23 @@ module.exports = {
 
   async updateComercial(id, payload) {
     try {
+      const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales')).catch(() => []);
+      const pick = (cands) => this._pickCIFromColumns(cols, cands);
+      const colMap = {
+        Nombre: pick(['com_nombre', 'Nombre', 'nombre']),
+        Email: pick(['com_email', 'Email', 'email']),
+        DNI: pick(['com_dni', 'DNI', 'dni']),
+        Password: pick(['com_password', 'Password', 'password']),
+        Roll: pick(['com_roll', 'Roll', 'roll']),
+        Movil: pick(['com_movil', 'Movil', 'movil']),
+        Direccion: pick(['com_direccion', 'Direccion', 'direccion']),
+        CodigoPostal: pick(['com_codigo_postal', 'CodigoPostal', 'codigo_postal']),
+        Poblacion: pick(['com_poblacion', 'Poblacion', 'poblacion']),
+        Id_Provincia: pick(['com_prov_id', 'Id_Provincia', 'id_Provincia']),
+        Id_CodigoPostal: pick(['com_codp_id', 'Id_CodigoPostal', 'id_CodigoPostal'])
+      };
+      const pk = pick(['com_id', 'id', 'Id']) || 'id';
+
       const updates = [];
       const params = [];
 
@@ -246,49 +297,49 @@ module.exports = {
         }
       }
 
-      if (payload.Nombre !== undefined) {
-        updates.push('Nombre = ?');
+      if (payload.Nombre !== undefined && colMap.Nombre) {
+        updates.push(`\`${colMap.Nombre}\` = ?`);
         params.push(payload.Nombre);
       }
-      if (payload.Email !== undefined) {
-        updates.push('Email = ?');
+      if (payload.Email !== undefined && colMap.Email) {
+        updates.push(`\`${colMap.Email}\` = ?`);
         params.push(payload.Email);
       }
-      if (payload.DNI !== undefined) {
-        updates.push('DNI = ?');
+      if (payload.DNI !== undefined && colMap.DNI) {
+        updates.push(`\`${colMap.DNI}\` = ?`);
         params.push(payload.DNI);
       }
-      if (payload.Password !== undefined) {
-        updates.push('Password = ?');
+      if (payload.Password !== undefined && colMap.Password) {
+        updates.push(`\`${colMap.Password}\` = ?`);
         params.push(payload.Password);
       }
-      if (payload.Roll !== undefined) {
+      if (payload.Roll !== undefined && colMap.Roll) {
         const rollValue = Array.isArray(payload.Roll) ? JSON.stringify(payload.Roll) : payload.Roll;
-        updates.push('Roll = ?');
+        updates.push(`\`${colMap.Roll}\` = ?`);
         params.push(rollValue);
       }
-      if (payload.Movil !== undefined) {
-        updates.push('Movil = ?');
+      if (payload.Movil !== undefined && colMap.Movil) {
+        updates.push(`\`${colMap.Movil}\` = ?`);
         params.push(payload.Movil);
       }
-      if (payload.Direccion !== undefined) {
-        updates.push('Direccion = ?');
+      if (payload.Direccion !== undefined && colMap.Direccion) {
+        updates.push(`\`${colMap.Direccion}\` = ?`);
         params.push(payload.Direccion);
       }
-      if (payload.CodigoPostal !== undefined) {
-        updates.push('CodigoPostal = ?');
+      if (payload.CodigoPostal !== undefined && colMap.CodigoPostal) {
+        updates.push(`\`${colMap.CodigoPostal}\` = ?`);
         params.push(payload.CodigoPostal);
       }
-      if (payload.Id_CodigoPostal !== undefined) {
-        updates.push('Id_CodigoPostal = ?');
+      if (payload.Id_CodigoPostal !== undefined && colMap.Id_CodigoPostal) {
+        updates.push(`\`${colMap.Id_CodigoPostal}\` = ?`);
         params.push(payload.Id_CodigoPostal || null);
       }
-      if (payload.Poblacion !== undefined) {
-        updates.push('Poblacion = ?');
+      if (payload.Poblacion !== undefined && colMap.Poblacion) {
+        updates.push(`\`${colMap.Poblacion}\` = ?`);
         params.push(payload.Poblacion);
       }
-      if (payload.Id_Provincia !== undefined) {
-        updates.push('Id_Provincia = ?');
+      if (payload.Id_Provincia !== undefined && colMap.Id_Provincia) {
+        updates.push(`\`${colMap.Id_Provincia}\` = ?`);
         params.push(payload.Id_Provincia || null);
       }
       if (payload.fijo_mensual !== undefined) {
@@ -311,8 +362,9 @@ module.exports = {
       if (updates.length === 0) {
         throw new Error('No hay campos para actualizar');
       }
-      params.push(id, id);
-      const sql = `UPDATE comerciales SET ${updates.join(', ')} WHERE id = ? OR Id = ?`;
+      params.push(id);
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const sql = `UPDATE \`${t}\` SET ${updates.join(', ')} WHERE \`${pk}\` = ?`;
 
       if (!this.connected && !this.pool) {
         await this.connect();
@@ -330,8 +382,11 @@ module.exports = {
       if (!this.connected && !this.pool) {
         await this.connect();
       }
-      const sql = 'DELETE FROM comerciales WHERE id = ? OR Id = ?';
-      const [result] = await this.pool.execute(sql, [id, id]);
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'com_id';
+      const sql = `DELETE FROM \`${t}\` WHERE \`${pk}\` = ?`;
+      const [result] = await this.pool.execute(sql, [id]);
       return { affectedRows: result.affectedRows || 0 };
     } catch (error) {
       console.error('❌ Error eliminando comercial:', error.message);

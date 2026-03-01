@@ -2161,3 +2161,33 @@ table.calendar td.is-empty{
   font-size: 12px;
 }
 
+/* Teléfono con botones llamar/WhatsApp */
+.gv-telefono-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gv-telefono-display.gv-telefono-empty { display: inline; }
+.gv-telefono-text { font-weight: 700; color: var(--gv-ink); }
+.gv-telefono-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  text-decoration: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.gv-telefono-btn:hover { opacity: 0.9; transform: scale(1.05); }
+.gv-telefono-btn--call {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+}
+.gv-telefono-btn--wa {
+  background: linear-gradient(135deg, #25d366, #128c7e);
+}
+

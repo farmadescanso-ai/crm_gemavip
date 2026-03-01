@@ -14,6 +14,17 @@ const {
   buildClienteFormModel,
   coerceClienteValue
 } = require('../lib/cliente-helpers');
+const { normalizeTelefonoForDB } = require('../lib/telefono-utils');
+
+function normalizePayloadTelefonos(payload) {
+  const telCols = ['cli_telefono', 'cli_movil', 'Telefono', 'Movil', 'telefono', 'movil'];
+  for (const col of telCols) {
+    if (payload[col] != null && String(payload[col]).trim()) {
+      const norm = normalizeTelefonoForDB(payload[col]);
+      payload[col] = norm;
+    }
+  }
+}
 
 let sendPushToAdmins = () => Promise.resolve();
 try {
@@ -142,6 +153,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
     if (payload.OK_KO === null || payload.OK_KO === undefined) payload.OK_KO = 1;
     if (payload.Tarifa === null || payload.Tarifa === undefined) payload.Tarifa = 0;
     applySpainDefaultsIfEmpty(payload, { meta, paises, idiomas, monedas });
+    normalizePayloadTelefonos(payload);
 
     const dup = await db.findPosiblesDuplicadosClientes(
       {
@@ -377,6 +389,8 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       if (!canChangeComercial && meta?.colComercial && String(real).toLowerCase() === String(meta.colComercial).toLowerCase()) continue;
       payload[real] = coerceClienteValue(real, v);
     }
+
+    normalizePayloadTelefonos(payload);
 
     const missingFields = [];
     if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) missingFields.push('Nombre_Razon_Social');

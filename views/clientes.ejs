@@ -143,7 +143,7 @@
               <td class="gv-contactos-col-nombre"><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
               <td><% const tipoClase = ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa') ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona') ? 'persona' : 'otros'; %><span class="gv-badge gv-badge--<%= tipoClase %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
               <td class="gv-contactos-col-relaciones"><% if (relCount > 0) { %><a href="/clientes/<%= cid %>/edit#tab_relaciones" class="gv-relaciones-badge" title="<%= relCount %> contacto(s) relacionado(s)"><%= relCount %></a><% } else { %>—<% } %></td>
-              <td class="gv-contactos-col-telefono"><% const tel = String(c.Telefono ?? c.cli_telefono ?? c.Movil ?? c.cli_movil ?? '').trim(); %><% if (tel) { %><a href="tel:<%= tel %>" class="gv-contactos-link"><%= tel %></a><% } else { %>—<% } %></td>
+              <td class="gv-contactos-col-telefono"><% const tel = String(c.Telefono ?? c.cli_telefono ?? c.Movil ?? c.cli_movil ?? '').trim(); %><%- include('partials/telefono-display', { telefono: tel }) %></td>
               <td class="gv-contactos-col-email"><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
               <td class="gv-contactos-col-contacto"><%= (c.NomContacto || c.cli_nom_contacto || c.Nombre_Contacto) || '—' %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>

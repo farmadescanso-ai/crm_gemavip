@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../config/mysql-crm');
 const { requireAdmin } = require('../lib/app-helpers');
 const { _n } = require('../lib/app-helpers');
+const { normalizeTelefonoForDB } = require('../lib/telefono-utils');
 const {
   loadComercialesTableMeta,
   sanitizeComercialForView,
@@ -86,7 +87,7 @@ router.post('/new', requireAdmin, async (req, res, next) => {
     const Email = String(_n(body.Email, '')).trim();
     const Password = String(_n(body.Password, '')).trim();
     const DNI = String(_n(body.DNI, '')).trim() || null;
-    const Movil = String(_n(body.Movil, '')).trim() || null;
+    const Movil = normalizeTelefonoForDB(String(_n(body.Movil, '')).trim() || null) || null;
     const Direccion = String(_n(body.Direccion, '')).trim() || null;
     const CodigoPostal = normalizeCp(body.CodigoPostal);
     const Poblacion = String(_n(body.Poblacion, '')).trim() || null;
@@ -223,7 +224,7 @@ router.post('/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
     const Email = String(_n(body.Email, '')).trim();
     const newPassword = String(_n(body.Password, '')).trim();
     const DNI = String(_n(body.DNI, '')).trim() || null;
-    const Movil = String(_n(body.Movil, '')).trim() || null;
+    const Movil = normalizeTelefonoForDB(String(_n(body.Movil, '')).trim() || null) || null;
     const Direccion = String(_n(body.Direccion, '')).trim() || null;
     const CodigoPostal = normalizeCp(body.CodigoPostal);
     const Poblacion = String(_n(body.Poblacion, '')).trim() || null;

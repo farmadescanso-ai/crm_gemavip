@@ -169,7 +169,7 @@
             <% if (clienteCif) { %><small><%= clienteCif %></small><% } %>
             <% if (clienteDir) { %><small><%= clienteDir %></small><% } %>
             <% if (clienteCp || clientePob) { %><small><%= [clienteCp, clientePob].filter(Boolean).join(' ') %></small><% } %>
-            <% if (clienteEmail || clienteTel) { %><small><%= [clienteEmail, clienteTel].filter(Boolean).join(' · ') %></small><% } %>
+            <% if (clienteEmail || clienteTel) { %><small><% if (clienteEmail) { %><a href="mailto:<%= clienteEmail %>" class="gv-contactos-link"><%= clienteEmail %></a><% } %><% if (clienteEmail && clienteTel) { %> · <% } %><% if (clienteTel) { %><%- include('partials/telefono-display', { telefono: clienteTel }) %><% } %></small><% } %>
           </div>
         </div>
 
@@ -230,7 +230,7 @@
               <% if (dir.Direccion2) { %><small><%= dir.Direccion2 %></small><% } %>
               <% if (dir.CodigoPostal || dir.Poblacion) { %><small><%= [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' ') %></small><% } %>
               <% if (dir.Pais) { %><small><%= dir.Pais %></small><% } %>
-              <% if (dir.Email || dir.Telefono || dir.Movil) { %><small><%= [dir.Email, dir.Telefono, dir.Movil].filter(Boolean).join(' · ') %></small><% } %>
+              <% if (dir.Email || dir.Telefono || dir.Movil) { %><small><% if (dir.Email) { %><a href="mailto:<%= dir.Email %>" class="gv-contactos-link"><%= dir.Email %></a><% } %><% const dirTel = dir.Telefono || dir.Movil || dir.direnv_telefono || dir.direnv_movil || ''; %><% if (dir.Email && dirTel) { %> · <% } %><% if (dirTel) { %><%- include('partials/telefono-display', { telefono: dirTel }) %><% } %></small><% } %>
               <% if (dir.Observaciones) { %><small><%= dir.Observaciones %></small><% } %>
             <% } else { %>
               <div><%= clienteNombre || '—' %></div>
