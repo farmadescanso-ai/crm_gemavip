@@ -15,7 +15,7 @@ const {
   createLoadPedidoAndCheckOwner
 } = require('../lib/auth');
 const { parsePagination } = require('../lib/pagination');
-const { sendPedidoEmail, APP_BASE_URL } = require('../lib/mailer');
+const { sendPedidoEmail, sendTransferExcelEmail, getSmtpStatus, getGraphStatus, APP_BASE_URL } = require('../lib/mailer');
 const { escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { loadMarcasForSelect } = require('../lib/articulo-helpers');
 const { SYSVAR_PEDIDOS_MAIL_TO } = require('../lib/admin-helpers');
@@ -966,6 +966,17 @@ router.get('/:id(\\d+)/transfer.xlsx', requireLogin, loadPedidoAndCheckOwner, as
     const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
     if (!built.ok) {
       return res.redirect(`/pedidos/${id}.xlsx`);
+    }
+
+    const [smtpStatus, graphStatus] = await Promise.all([getSmtpStatus(), getGraphStatus()]);
+    if (smtpStatus?.configured || graphStatus?.configured) {
+      sendTransferExcelEmail({
+        item,
+        cliente,
+        mayoristaInfo,
+        excelBuf: built.buf,
+        excelFilename: built.filename
+      }).catch((err) => console.error('[PEDIDOS] Error enviando email Transfer:', err?.message));
     }
 
     res.setHeader('Content-Type', XLSX_MIME);
