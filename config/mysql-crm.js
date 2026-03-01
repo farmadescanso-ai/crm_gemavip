@@ -838,7 +838,6 @@ class MySQLCRM {
   // COOPERATIVAS
   async getCooperativas() {
     try {
-      // En algunos entornos (MariaDB/Linux) la PK puede ser `id` en lugar de `Id`.
       try {
         const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas ORDER BY Id ASC');
         return rows;

@@ -336,50 +336,50 @@ module.exports = {
     }
   },
 
+  /** Cooperativas del cliente con NumAsociado. Join: clientes_cooperativas.Id_Cooperativa = cooperativas.id (o coop_id) */
   async getCooperativasByClienteId(clienteId) {
     try {
-      let sql = `
-        SELECT cc.Id_Cooperativa, c.Nombre, cc.NumAsociado 
-        FROM \`Clientes_Cooperativas\` cc
-        INNER JOIN cooperativas c ON cc.Id_Cooperativa = c.id
-        WHERE cc.Id_Cliente = ?
-        ORDER BY c.Nombre ASC
-      `;
-      try {
-        const rows = await this.query(sql, [clienteId]);
-        return rows;
-      } catch (error1) {
-        sql = `
-          SELECT cc.Id_Cooperativa, c.Nombre, cc.NumAsociado 
-          FROM clientes_cooperativas cc
-          INNER JOIN cooperativas c ON cc.Id_Cooperativa = c.id
-          WHERE cc.Id_Cliente = ?
-          ORDER BY c.Nombre ASC
-        `;
-        const rows = await this.query(sql, [clienteId]);
-        return rows;
+      const joins = [
+        'cc.Id_Cooperativa = c.id',
+        'cc.Id_Cooperativa = c.coop_id'
+      ];
+      for (const tRel of ['Clientes_Cooperativas', 'clientes_cooperativas']) {
+        for (const joinOn of joins) {
+          try {
+            const sql = `
+              SELECT cc.Id_Cooperativa, c.Nombre, cc.NumAsociado 
+              FROM \`${tRel}\` cc
+              INNER JOIN cooperativas c ON ${joinOn}
+              WHERE cc.Id_Cliente = ?
+              ORDER BY c.Nombre ASC
+            `;
+            const rows = await this.query(sql, [clienteId]);
+            if (rows && rows.length >= 0) return rows;
+          } catch (_) {}
+        }
       }
+      return [];
     } catch (error) {
       console.error('❌ Error obteniendo cooperativas del cliente:', error.message);
       return [];
     }
   },
 
-  /** Obtiene NumAsociado de clientes_cooperativas por Id_Cliente e Id_Cooperativa */
+  /** Obtiene NumAsociado de clientes_cooperativas por Id_Cliente e Id_Cooperativa.
+   * Tablas: cooperativas (id/coop_id, Nombre), clientes_cooperativas (Id_Cliente, Id_Cooperativa, NumAsociado) */
   async getNumAsociadoByClienteAndCooperativaId(clienteId, cooperativaId) {
     if (!clienteId || !cooperativaId) return null;
     try {
-      let sql = 'SELECT NumAsociado FROM `Clientes_Cooperativas` WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1';
-      try {
-        const rows = await this.query(sql, [clienteId, cooperativaId]);
-        const val = rows?.[0]?.NumAsociado ?? rows?.[0]?.numAsociado;
-        return val != null && String(val).trim() !== '' ? String(val).trim() : null;
-      } catch (e1) {
-        sql = 'SELECT NumAsociado FROM clientes_cooperativas WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1';
-        const rows = await this.query(sql, [clienteId, cooperativaId]);
-        const val = rows?.[0]?.NumAsociado ?? rows?.[0]?.numAsociado;
-        return val != null && String(val).trim() !== '' ? String(val).trim() : null;
+      for (const tRel of ['Clientes_Cooperativas', 'clientes_cooperativas']) {
+        try {
+          const sql = `SELECT NumAsociado, numAsociado FROM \`${tRel}\` WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1`;
+          const rows = await this.query(sql, [clienteId, cooperativaId]);
+          const r = rows?.[0];
+          const val = r?.NumAsociado ?? r?.numAsociado;
+          if (val != null && String(val).trim() !== '') return String(val).trim();
+        } catch (_) {}
       }
+      return null;
     } catch (error) {
       console.error('❌ Error obteniendo NumAsociado por cliente y cooperativa:', error.message);
       return null;
