@@ -1911,6 +1911,8 @@ table.calendar td.is-empty{
 /* Tabla Contactos relacionados – mismo estilo que vista Contactos */
 .gv-relaciones-table-wrap { margin: 16px 0 0; width: 100%; }
 .gv-relaciones-table-wrap .gv-relaciones-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 6px 0; font-size: 0.8125rem; }
+.gv-contactos-link { color: var(--gv-primary); text-decoration: none; }
+.gv-contactos-link:hover { color: var(--gv-primary-hover); text-decoration: underline; }
 .gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-nombre { width: 20%; }
 .gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-tipo { width: 10%; }
 .gv-relaciones-table-wrap .gv-relaciones-table col.gv-contactos-col-telefono { width: 12%; }

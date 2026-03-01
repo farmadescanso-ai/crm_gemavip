@@ -124,7 +124,7 @@
               </td>
               <td><%= id %></td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre ?? '' %></td>
-              <td><%= email %></td>
+              <td><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
               <td><%= c.DNI ?? '' %></td>
               <td><%- include('partials/telefono-display', { telefono: c.Movil ?? '' }) %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
