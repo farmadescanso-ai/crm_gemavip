@@ -1,9 +1,4 @@
-<%#
-  Partial: Muestra teléfono formateado con enlaces para llamar y WhatsApp.
-  Uso: <%- include('partials/telefono-display', { telefono: valor }) %>
-  telefono: valor crudo de BD (ej: +34630874781)
-  opts: { class: 'clase-css', showLabel: true }
--%>
+<% /* Partial: teléfono formateado con botones llamar/WhatsApp. Uso: include con telefono y opts */ %>
 <% const tel = typeof telefono !== 'undefined' ? telefono : ''; %>
 <% const opts = typeof opts === 'object' && opts ? opts : {}; %>
 <% const displayText = typeof fmtTelefono === 'function' ? fmtTelefono(tel) : (tel || ''); %>
