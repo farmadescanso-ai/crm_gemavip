@@ -36,7 +36,7 @@ const router = express.Router();
 
 router.get('/', requireLogin, async (req, res, next) => {
   try {
-    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
+    const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
     const q = typeof _n(req.query.q, req.query.search) === 'string' ? String(_n(req.query.q, req.query.search)).trim() : '';
     const tipoContacto = typeof req.query.tipo === 'string' ? String(req.query.tipo).trim() : '';
     const order = String(req.query.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
@@ -55,7 +55,15 @@ router.get('/', requireLogin, async (req, res, next) => {
       db.getComerciales().catch(() => [])
     ]);
     const poolId = admin ? null : await db.getComercialIdPool();
-    res.render('clientes', { items: items || [], comerciales: comerciales || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page, limit, total: total || 0 }, poolId: poolId || null });
+    const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
+    const pageClamped = Math.min(page, totalPages);
+    if (page > totalPages && totalPages > 0) {
+      const redirectQs = new URLSearchParams({ page: String(totalPages), limit: String(limit), order });
+      if (q) redirectQs.set('q', q);
+      if (tipoContacto) redirectQs.set('tipo', tipoContacto);
+      return res.redirect('/clientes?' + redirectQs.toString());
+    }
+    res.render('clientes', { items: items || [], comerciales: comerciales || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page: pageClamped, limit, total: total || 0, totalPages }, poolId: poolId || null });
   } catch (e) {
     next(e);
   }
