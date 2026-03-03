@@ -98,36 +98,50 @@ module.exports = {
         return [];
       }
 
+      const colsCp = await this._getColumns(codigosPostalesTable).catch(() => []);
+      const pickCp = (cands) => this._pickCIFromColumns(colsCp, cands);
+      const cpIdProv = pickCp(['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
+      const cpCodigo = pickCp(['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
+      const cpLocalidad = pickCp(['codpos_Localidad', 'Localidad', 'localidad']) || 'codpos_Localidad';
+      const cpProvincia = pickCp(['codpos_Provincia', 'Provincia', 'provincia']) || 'codpos_Provincia';
+      const cpActivo = pickCp(['codpos_Activo', 'Activo', 'activo']) || 'codpos_Activo';
+
+      const tProv = await this._resolveTableNameCaseInsensitive('provincias').catch(() => 'provincias');
+      const colsProv = await this._getColumns(tProv).catch(() => []);
+      const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'prov_id';
+      const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
+      const provCodigo = this._pickCIFromColumns(colsProv, ['prov_codigo', 'Codigo', 'codigo']) || 'prov_codigo';
+
       let sql = `
-        SELECT cp.*, p.Nombre AS NombreProvincia, p.Codigo AS CodigoProvincia
-        FROM ${codigosPostalesTable} cp
-        LEFT JOIN provincias p ON (cp.Id_Provincia = p.id OR cp.Id_Provincia = p.Id)
+        SELECT cp.*, p.\`${provNombre}\` AS NombreProvincia, p.\`${provCodigo}\` AS CodigoProvincia
+        FROM \`${codigosPostalesTable}\` cp
+        LEFT JOIN \`${tProv}\` p ON (cp.\`${cpIdProv}\` = p.\`${provPk}\`)
         WHERE 1=1
       `;
       const params = [];
 
       if (filtros.codigoPostal) {
-        sql += ' AND cp.CodigoPostal LIKE ?';
+        sql += ` AND cp.\`${cpCodigo}\` LIKE ?`;
         params.push(`%${filtros.codigoPostal}%`);
       }
       if (filtros.localidad) {
-        sql += ' AND cp.Localidad LIKE ?';
+        sql += ` AND cp.\`${cpLocalidad}\` LIKE ?`;
         params.push(`%${filtros.localidad}%`);
       }
       if (filtros.provincia) {
-        sql += ' AND cp.Provincia LIKE ?';
+        sql += ` AND cp.\`${cpProvincia}\` LIKE ?`;
         params.push(`%${filtros.provincia}%`);
       }
       if (filtros.idProvincia) {
-        sql += ' AND cp.Id_Provincia = ?';
+        sql += ` AND cp.\`${cpIdProv}\` = ?`;
         params.push(filtros.idProvincia);
       }
       if (filtros.activo !== undefined) {
-        sql += ' AND cp.Activo = ?';
+        sql += ` AND cp.\`${cpActivo}\` = ?`;
         params.push(filtros.activo ? 1 : 0);
       }
 
-      sql += ' ORDER BY cp.Provincia, cp.Localidad, cp.CodigoPostal';
+      sql += ` ORDER BY cp.\`${cpProvincia}\`, cp.\`${cpLocalidad}\`, cp.\`${cpCodigo}\``;
 
       if (filtros.limit) {
         sql += ' LIMIT ?';
@@ -150,11 +164,19 @@ module.exports = {
     try {
       const codigosPostalesTable = await this._getCodigosPostalesTableName();
       if (!codigosPostalesTable) return null;
+      const colsCp = await this._getColumns(codigosPostalesTable).catch(() => []);
+      const cpPk = this._pickCIFromColumns(colsCp, ['codpos_id', 'id', 'Id']) || 'codpos_id';
+      const cpIdProv = this._pickCIFromColumns(colsCp, ['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
+      const tProv = await this._resolveTableNameCaseInsensitive('provincias').catch(() => 'provincias');
+      const colsProv = await this._getColumns(tProv).catch(() => []);
+      const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'prov_id';
+      const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
+      const provCodigo = this._pickCIFromColumns(colsProv, ['prov_codigo', 'Codigo', 'codigo']) || 'prov_codigo';
       const sql = `
-        SELECT cp.*, p.Nombre AS NombreProvincia, p.Codigo AS CodigoProvincia
-        FROM ${codigosPostalesTable} cp
-        LEFT JOIN provincias p ON (cp.Id_Provincia = p.id OR cp.Id_Provincia = p.Id)
-        WHERE cp.id = ?
+        SELECT cp.*, p.\`${provNombre}\` AS NombreProvincia, p.\`${provCodigo}\` AS CodigoProvincia
+        FROM \`${codigosPostalesTable}\` cp
+        LEFT JOIN \`${tProv}\` p ON (cp.\`${cpIdProv}\` = p.\`${provPk}\`)
+        WHERE cp.\`${cpPk}\` = ?
       `;
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
@@ -178,9 +200,20 @@ module.exports = {
         throw new Error('La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
       }
 
+      const colsCp = await this._getColumns(codigosPostalesTable).catch(() => []);
+      const pickCp = (cands) => this._pickCIFromColumns(colsCp, cands);
+      const colCodigo = pickCp(['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
+      const colLocalidad = pickCp(['codpos_Localidad', 'Localidad', 'localidad']) || 'codpos_Localidad';
+      const colProvincia = pickCp(['codpos_Provincia', 'Provincia', 'provincia']) || 'codpos_Provincia';
+      const colIdProv = pickCp(['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
+      const colComunidad = pickCp(['codpos_ComunidadAutonoma', 'ComunidadAutonoma', 'comunidad_autonoma']) || 'codpos_ComunidadAutonoma';
+      const colLatitud = pickCp(['codpos_Latitud', 'Latitud', 'latitud']) || 'codpos_Latitud';
+      const colLongitud = pickCp(['codpos_Longitud', 'Longitud', 'longitud']) || 'codpos_Longitud';
+      const colActivo = pickCp(['codpos_Activo', 'Activo', 'activo']) || 'codpos_Activo';
+
       const sql = `
-        INSERT INTO ${codigosPostalesTable}
-        (CodigoPostal, Localidad, Provincia, Id_Provincia, ComunidadAutonoma, Latitud, Longitud, Activo)
+        INSERT INTO \`${codigosPostalesTable}\`
+        (\`${colCodigo}\`, \`${colLocalidad}\`, \`${colProvincia}\`, \`${colIdProv}\`, \`${colComunidad}\`, \`${colLatitud}\`, \`${colLongitud}\`, \`${colActivo}\`)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       const params = [
@@ -212,39 +245,51 @@ module.exports = {
       if (!codigosPostalesTable) {
         throw new Error('La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
       }
+      const colsCp = await this._getColumns(codigosPostalesTable).catch(() => []);
+      const pickCp = (cands) => this._pickCIFromColumns(colsCp, cands);
+      const cpPk = pickCp(['codpos_id', 'id', 'Id']) || 'codpos_id';
+      const colCodigo = pickCp(['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']);
+      const colLocalidad = pickCp(['codpos_Localidad', 'Localidad', 'localidad']);
+      const colProvincia = pickCp(['codpos_Provincia', 'Provincia', 'provincia']);
+      const colIdProv = pickCp(['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']);
+      const colComunidad = pickCp(['codpos_ComunidadAutonoma', 'ComunidadAutonoma', 'comunidad_autonoma']);
+      const colLatitud = pickCp(['codpos_Latitud', 'Latitud', 'latitud']);
+      const colLongitud = pickCp(['codpos_Longitud', 'Longitud', 'longitud']);
+      const colActivo = pickCp(['codpos_Activo', 'Activo', 'activo']);
+
       const campos = [];
       const params = [];
 
-      if (data.CodigoPostal !== undefined) {
-        campos.push('CodigoPostal = ?');
+      if (data.CodigoPostal !== undefined && colCodigo) {
+        campos.push(`\`${colCodigo}\` = ?`);
         params.push(data.CodigoPostal);
       }
-      if (data.Localidad !== undefined) {
-        campos.push('Localidad = ?');
+      if (data.Localidad !== undefined && colLocalidad) {
+        campos.push(`\`${colLocalidad}\` = ?`);
         params.push(data.Localidad);
       }
-      if (data.Provincia !== undefined) {
-        campos.push('Provincia = ?');
+      if (data.Provincia !== undefined && colProvincia) {
+        campos.push(`\`${colProvincia}\` = ?`);
         params.push(data.Provincia);
       }
-      if (data.Id_Provincia !== undefined) {
-        campos.push('Id_Provincia = ?');
+      if (data.Id_Provincia !== undefined && colIdProv) {
+        campos.push(`\`${colIdProv}\` = ?`);
         params.push(data.Id_Provincia);
       }
-      if (data.ComunidadAutonoma !== undefined) {
-        campos.push('ComunidadAutonoma = ?');
+      if (data.ComunidadAutonoma !== undefined && colComunidad) {
+        campos.push(`\`${colComunidad}\` = ?`);
         params.push(data.ComunidadAutonoma);
       }
-      if (data.Latitud !== undefined) {
-        campos.push('Latitud = ?');
+      if (data.Latitud !== undefined && colLatitud) {
+        campos.push(`\`${colLatitud}\` = ?`);
         params.push(data.Latitud);
       }
-      if (data.Longitud !== undefined) {
-        campos.push('Longitud = ?');
+      if (data.Longitud !== undefined && colLongitud) {
+        campos.push(`\`${colLongitud}\` = ?`);
         params.push(data.Longitud);
       }
-      if (data.Activo !== undefined) {
-        campos.push('Activo = ?');
+      if (data.Activo !== undefined && colActivo) {
+        campos.push(`\`${colActivo}\` = ?`);
         params.push(data.Activo ? 1 : 0);
       }
 
@@ -253,7 +298,7 @@ module.exports = {
       }
 
       params.push(id);
-      const sql = `UPDATE ${codigosPostalesTable} SET ${campos.join(', ')} WHERE id = ?`;
+      const sql = `UPDATE \`${codigosPostalesTable}\` SET ${campos.join(', ')} WHERE \`${cpPk}\` = ?`;
       const result = await this.query(sql, params);
 
       return {
@@ -273,7 +318,9 @@ module.exports = {
       if (!codigosPostalesTable) {
         throw new Error('La tabla de códigos postales no existe (Codigos_Postales/codigos_postales).');
       }
-      const sql = `DELETE FROM ${codigosPostalesTable} WHERE id = ?`;
+      const colsCp = await this._getColumns(codigosPostalesTable).catch(() => []);
+      const cpPk = this._pickCIFromColumns(colsCp, ['codpos_id', 'id', 'Id']) || 'codpos_id';
+      const sql = `DELETE FROM \`${codigosPostalesTable}\` WHERE \`${cpPk}\` = ?`;
       const result = await this.query(sql, [id]);
       return {
         success: true,

@@ -47,7 +47,9 @@ module.exports = {
     try {
       const table = await this._getFormasPagoTableName();
       if (!table) return null;
-      const sql = `SELECT * FROM ${table} WHERE FormaPago = ? OR FormaPago LIKE ? LIMIT 1`;
+      const cols = await this._getColumns(table).catch(() => []);
+      const colNombre = this._pickCIFromColumns(cols, ['formp_nombre', 'FormaPago', 'Nombre', 'nombre']) || 'formp_nombre';
+      const sql = `SELECT * FROM \`${table}\` WHERE \`${colNombre}\` = ? OR \`${colNombre}\` LIKE ? LIMIT 1`;
       const nombreExacto = nombre.trim();
       const nombreLike = `%${nombreExacto}%`;
       const rows = await this.query(sql, [nombreExacto, nombreLike]);
@@ -218,8 +220,10 @@ module.exports = {
       const t = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
       if (!t) return [];
       const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['prov_id', 'id', 'Id']) || 'id';
       const colNombre = this._pickCIFromColumns(cols, ['prov_nombre', 'Nombre_provincia', 'Nombre', 'nombre', 'Provincia']) || 'Nombre';
-      const colCodigoPais = this._pickCIFromColumns(cols, ['prov_codpais', 'CodigoPais', 'codigo_pais']);
+      const colPais = this._pickCIFromColumns(cols, ['prov_pais', 'Pais', 'pais']) || 'Pais';
+      const colCodigoPais = this._pickCIFromColumns(cols, ['prov_codigo_pais', 'prov_codpais', 'CodigoPais', 'codigo_pais']);
       let sql = `SELECT * FROM \`${t}\``;
       const params = [];
       if (filtroPais && colCodigoPais) {
@@ -230,13 +234,25 @@ module.exports = {
       const rows = await this.query(sql, params);
       try {
         const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
-        return (rows || []).map(r => ({
-          ...r,
-          Nombre: normalizeTitleCaseES(r.Nombre || ''),
-          Pais: normalizeTitleCaseES(r.Pais || '')
-        }));
+        return (rows || []).map(r => {
+          const idVal = r[pk] ?? r.id ?? r.Id ?? r.prov_id ?? null;
+          const nombreVal = r[colNombre] ?? r.Nombre ?? r.prov_nombre ?? r.nombre ?? '';
+          const paisVal = r[colPais] ?? r.Pais ?? r.prov_pais ?? r.pais ?? '';
+          return {
+            ...r,
+            id: idVal,
+            Id: idVal,
+            Nombre: normalizeTitleCaseES(String(nombreVal)),
+            nombre: normalizeTitleCaseES(String(nombreVal)),
+            Pais: normalizeTitleCaseES(String(paisVal))
+          };
+        });
       } catch (_) {
-        return rows;
+        return (rows || []).map(r => {
+          const idVal = r[pk] ?? r.id ?? r.Id ?? r.prov_id ?? null;
+          const nombreVal = r[colNombre] ?? r.Nombre ?? r.prov_nombre ?? r.nombre ?? '';
+          return { ...r, id: idVal, Id: idVal, Nombre: String(nombreVal), nombre: String(nombreVal) };
+        });
       }
     } catch (error) {
       console.error('❌ Error obteniendo provincias:', error.message);
@@ -246,7 +262,10 @@ module.exports = {
 
   async getProvinciaById(id) {
     try {
-      const sql = 'SELECT * FROM provincias WHERE id = ? LIMIT 1';
+      const t = await this._resolveTableNameCaseInsensitive('provincias').catch(() => 'provincias');
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['prov_id', 'id', 'Id']) || 'prov_id';
+      const sql = `SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -257,7 +276,10 @@ module.exports = {
 
   async getProvinciaByCodigo(codigo) {
     try {
-      const sql = 'SELECT * FROM provincias WHERE Codigo = ? LIMIT 1';
+      const t = await this._resolveTableNameCaseInsensitive('provincias').catch(() => 'provincias');
+      const cols = await this._getColumns(t).catch(() => []);
+      const colCodigo = this._pickCIFromColumns(cols, ['prov_codigo', 'Codigo', 'codigo']) || 'prov_codigo';
+      const sql = `SELECT * FROM \`${t}\` WHERE \`${colCodigo}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [codigo]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -291,15 +313,20 @@ module.exports = {
 
   async getPaisById(id) {
     try {
-      const sql = 'SELECT * FROM paises WHERE id = ? LIMIT 1';
+      const t = await this._resolveTableNameCaseInsensitive('paises').catch(() => 'paises');
+      const cols = await this._getColumns(t).catch(() => []);
+      const pk = this._pickCIFromColumns(cols, ['pais_id', 'id', 'Id']) || 'pais_id';
+      const sql = `SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [id]);
       const row = rows.length > 0 ? rows[0] : null;
       if (!row) return null;
+      const colNombre = this._pickCIFromColumns(cols, ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre']) || 'pais_nombre';
+      const nombrePais = row[colNombre] ?? row.Nombre_pais ?? row.pais_nombre ?? '';
       try {
         const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
-        return { ...row, Nombre_pais: normalizeTitleCaseES(row.Nombre_pais || '') };
+        return { ...row, Nombre_pais: normalizeTitleCaseES(String(nombrePais)) };
       } catch (_) {
-        return row;
+        return { ...row, Nombre_pais: String(nombrePais) };
       }
     } catch (error) {
       console.error('❌ Error obteniendo país por ID:', error.message);
@@ -309,15 +336,20 @@ module.exports = {
 
   async getPaisByCodigoISO(codigoISO) {
     try {
-      const sql = 'SELECT * FROM paises WHERE Id_pais = ? LIMIT 1';
+      const t = await this._resolveTableNameCaseInsensitive('paises').catch(() => 'paises');
+      const cols = await this._getColumns(t).catch(() => []);
+      const colCodigo = this._pickCIFromColumns(cols, ['pais_codigo', 'Id_pais', 'id_pais', 'codigo']) || 'pais_codigo';
+      const sql = `SELECT * FROM \`${t}\` WHERE \`${colCodigo}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [codigoISO]);
       const row = rows.length > 0 ? rows[0] : null;
       if (!row) return null;
+      const colNombre = this._pickCIFromColumns(cols, ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre']) || 'pais_nombre';
+      const nombrePais = row[colNombre] ?? row.Nombre_pais ?? row.pais_nombre ?? '';
       try {
         const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
-        return { ...row, Nombre_pais: normalizeTitleCaseES(row.Nombre_pais || '') };
+        return { ...row, Nombre_pais: normalizeTitleCaseES(String(nombrePais)) };
       } catch (_) {
-        return row;
+        return { ...row, Nombre_pais: String(nombrePais) };
       }
     } catch (error) {
       console.error('❌ Error obteniendo país por código ISO:', error.message);

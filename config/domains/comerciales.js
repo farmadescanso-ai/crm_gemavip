@@ -9,10 +9,19 @@ module.exports = {
   async getComerciales() {
     try {
       const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const tProv = await this._resolveTableNameCaseInsensitive('provincias').catch(() => 'provincias');
       const cols = await this._getColumns(t).catch(() => []);
+      const colsProv = await this._getColumns(tProv).catch(() => []);
       const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'id';
-      const rows = await this.query(`SELECT * FROM \`${t}\` ORDER BY \`${pk}\` ASC`);
       const colNombre = this._pickCIFromColumns(cols, ['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
+      const colIdProv = this._pickCIFromColumns(cols, ['com_prov_id', 'Id_Provincia', 'id_Provincia']) || 'Id_Provincia';
+      const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'id';
+      const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre', 'Nombre_provincia']) || 'Nombre';
+      const sql = `SELECT c.*, p.\`${provNombre}\` AS ProvinciaNombre
+        FROM \`${t}\` c
+        LEFT JOIN \`${tProv}\` p ON c.\`${colIdProv}\` = p.\`${provPk}\`
+        ORDER BY c.\`${colNombre}\` ASC`;
+      const rows = await this.query(sql);
       const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'Email';
       const colMovil = this._pickCIFromColumns(cols, ['com_movil', 'Movil', 'movil']) || 'Movil';
       const normalized = (rows || []).map(r => ({
@@ -21,7 +30,8 @@ module.exports = {
         Id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
         Nombre: r?.[colNombre] ?? r?.Nombre ?? r?.nombre ?? '',
         Email: r?.[colEmail] ?? r?.Email ?? r?.email ?? '',
-        Movil: r?.[colMovil] ?? r?.Movil ?? r?.com_movil ?? ''
+        Movil: r?.[colMovil] ?? r?.Movil ?? r?.com_movil ?? '',
+        ProvinciaNombre: r?.ProvinciaNombre ?? r?.Provincia ?? ''
       }));
       console.log(`✅ Obtenidos ${normalized.length} comerciales`);
       return normalized;
@@ -50,14 +60,42 @@ module.exports = {
       const t = await this._resolveTableNameCaseInsensitive('comerciales');
       const cols = await this._getColumns(t);
       const pk = this._pickCIFromColumns(cols, ['com_id', 'Id', 'id']) || 'com_id';
+      const colNombre = this._pickCIFromColumns(cols, ['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
+      const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'Email';
+      const colDni = this._pickCIFromColumns(cols, ['com_dni', 'DNI', 'dni']) || 'DNI';
+      const colRoll = this._pickCIFromColumns(cols, ['com_roll', 'Roll', 'roll']) || 'Roll';
       const colMovil = this._pickCIFromColumns(cols, ['com_movil', 'Movil', 'movil']) || 'Movil';
+      const colDireccion = this._pickCIFromColumns(cols, ['com_direccion', 'Direccion', 'direccion']) || 'Direccion';
+      const colCodigoPostal = this._pickCIFromColumns(cols, ['com_codigo_postal', 'CodigoPostal', 'codigoPostal']) || 'CodigoPostal';
+      const colPoblacion = this._pickCIFromColumns(cols, ['com_poblacion', 'Poblacion', 'poblacion']) || 'Poblacion';
+      const colIdProv = this._pickCIFromColumns(cols, ['com_prov_id', 'Id_Provincia', 'id_Provincia']) || 'Id_Provincia';
+      const colFijoMensual = this._pickCIFromColumns(cols, ['com_fijo_mensual', 'fijo_mensual', 'FijoMensual']) || 'com_fijo_mensual';
+      const colPlataforma = this._pickCIFromColumns(cols, ['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida']) || 'com_plataforma_reunion_preferida';
+      const colMeetEmail = this._pickCIFromColumns(cols, ['com_meet_email', 'meet_email']) || 'com_meet_email';
+      const colTeamsEmail = this._pickCIFromColumns(cols, ['com_teams_email', 'teams_email']) || 'com_teams_email';
       const sql = `SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [id]);
       const row = rows.length > 0 ? rows[0] : null;
-      if (row && colMovil) {
-        row.Movil = row[colMovil] ?? row.Movil ?? row.com_movil ?? '';
-      }
-      return row;
+      if (!row) return null;
+      const normalized = {
+        ...row,
+        id: row[pk] ?? row.id ?? row.Id ?? null,
+        Id: row[pk] ?? row.id ?? row.Id ?? null,
+        Nombre: row[colNombre] ?? row.Nombre ?? row.com_nombre ?? '',
+        Email: row[colEmail] ?? row.Email ?? row.com_email ?? '',
+        DNI: row[colDni] ?? row.DNI ?? row.com_dni ?? '',
+        Roll: row[colRoll] ?? row.Roll ?? row.com_roll ?? '',
+        Movil: row[colMovil] ?? row.Movil ?? row.com_movil ?? '',
+        Direccion: row[colDireccion] ?? row.Direccion ?? row.com_direccion ?? '',
+        CodigoPostal: row[colCodigoPostal] ?? row.CodigoPostal ?? row.com_codigo_postal ?? '',
+        Poblacion: row[colPoblacion] ?? row.Poblacion ?? row.com_poblacion ?? '',
+        Id_Provincia: row[colIdProv] ?? row.Id_Provincia ?? row.com_prov_id ?? '',
+        fijo_mensual: row[colFijoMensual] ?? row.fijo_mensual ?? row.FijoMensual ?? '',
+        plataforma_reunion_preferida: row[colPlataforma] ?? row.plataforma_reunion_preferida ?? '',
+        meet_email: row[colMeetEmail] ?? row.meet_email ?? '',
+        teams_email: row[colTeamsEmail] ?? row.teams_email ?? ''
+      };
+      return normalized;
     } catch (error) {
       console.error('❌ Error obteniendo comercial por ID:', error.message);
       return null;
@@ -109,22 +147,32 @@ module.exports = {
         throw new Error('No existe la tabla de códigos postales (Codigos_Postales/codigos_postales) en la BD.');
       }
 
+      const colsCp = await this._getColumns(codigosPostalesTable).catch(() => []);
+      const pickCp = (cands) => this._pickCIFromColumns(colsCp, cands);
+      const cpPk = pickCp(['codpos_id', 'id', 'Id']) || 'codpos_id';
+      const cpColCodigo = pickCp(['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
+
+      const tProv = await this._resolveTableNameCaseInsensitive('provincias').catch(() => 'provincias');
+      const colsProv = await this._getColumns(tProv).catch(() => []);
+      const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'prov_id';
+      const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
+
       const codigoPostalTexto = (payload.CodigoPostal || payload.codigoPostal || '').toString().trim();
       let idCodigoPostal = payload.Id_CodigoPostal || payload.id_CodigoPostal || payload.IdCodigoPostal || null;
       if (!idCodigoPostal && codigoPostalTexto) {
         const cpLimpio = codigoPostalTexto.replace(/[^0-9]/g, '').slice(0, 5);
         if (cpLimpio.length >= 4) {
           try {
-            const rows = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]);
-            if (rows && rows.length > 0 && rows[0].id) {
-              idCodigoPostal = rows[0].id;
+            const rows = await this.query(`SELECT \`${cpPk}\` AS id FROM \`${codigosPostalesTable}\` WHERE \`${cpColCodigo}\` = ? LIMIT 1`, [cpLimpio]);
+            if (rows && rows.length > 0 && (rows[0].id ?? rows[0][cpPk])) {
+              idCodigoPostal = rows[0].id ?? rows[0][cpPk];
             } else {
               let provinciaNombre = payload.Provincia || payload.provincia || null;
               const idProvincia = payload.Id_Provincia || payload.id_Provincia || null;
               if (!provinciaNombre && idProvincia) {
                 try {
-                  const provRows = await this.query('SELECT Nombre FROM provincias WHERE id = ? LIMIT 1', [idProvincia]);
-                  provinciaNombre = provRows?.[0]?.Nombre || null;
+                  const provRows = await this.query(`SELECT \`${provNombre}\` AS Nombre FROM \`${tProv}\` WHERE \`${provPk}\` = ? LIMIT 1`, [idProvincia]);
+                  provinciaNombre = provRows?.[0]?.Nombre ?? provRows?.[0]?.[provNombre] ?? null;
                 } catch (e) {}
               }
               const localidad = payload.Poblacion || payload.poblacion || null;
@@ -143,9 +191,9 @@ module.exports = {
                   idCodigoPostal = creado.insertId;
                 }
               } catch (e) {
-                const retry = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]);
-                if (retry && retry.length > 0 && retry[0].id) {
-                  idCodigoPostal = retry[0].id;
+                const retry = await this.query(`SELECT \`${cpPk}\` AS id FROM \`${codigosPostalesTable}\` WHERE \`${cpColCodigo}\` = ? LIMIT 1`, [cpLimpio]);
+                if (retry && retry.length > 0 && (retry[0].id ?? retry[0][cpPk])) {
+                  idCodigoPostal = retry[0].id ?? retry[0][cpPk];
                 }
               }
             }
@@ -178,9 +226,9 @@ module.exports = {
       const colIdCodigoPostal = pick(['com_codp_id', 'Id_CodigoPostal', 'id_CodigoPostal']) || 'Id_CodigoPostal';
 
       const insertCols = [colNombre, colEmail, colDni, colPassword, colRoll, colMovil, colDireccion, colCodigoPostal, colPoblacion, colIdProvincia, colIdCodigoPostal];
-      const fijoMensualCol = pick(['fijo_mensual', 'FijoMensual']);
+      const fijoMensualCol = pick(['com_fijo_mensual', 'fijo_mensual', 'FijoMensual']);
       if (fijoMensualCol) insertCols.push(fijoMensualCol);
-      const plataformaCol = pick(['plataforma_reunion_preferida', 'PlataformaReunionPreferida']);
+      const plataformaCol = pick(['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida', 'PlataformaReunionPreferida']);
       if (plataformaCol) insertCols.push(plataformaCol);
 
       const fijoMensualRaw = payload.fijo_mensual ?? payload.fijoMensual ?? payload.FijoMensual;
@@ -231,7 +279,11 @@ module.exports = {
         CodigoPostal: pick(['com_codigo_postal', 'CodigoPostal', 'codigo_postal']),
         Poblacion: pick(['com_poblacion', 'Poblacion', 'poblacion']),
         Id_Provincia: pick(['com_prov_id', 'Id_Provincia', 'id_Provincia']),
-        Id_CodigoPostal: pick(['com_codp_id', 'Id_CodigoPostal', 'id_CodigoPostal'])
+        Id_CodigoPostal: pick(['com_codp_id', 'Id_CodigoPostal', 'id_CodigoPostal']),
+        fijo_mensual: pick(['com_fijo_mensual', 'fijo_mensual', 'FijoMensual']),
+        meet_email: pick(['com_meet_email', 'meet_email']),
+        teams_email: pick(['com_teams_email', 'teams_email']),
+        plataforma_reunion_preferida: pick(['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida'])
       };
       const pk = pick(['com_id', 'id', 'Id']) || 'id';
 
@@ -247,17 +299,22 @@ module.exports = {
       );
       const codigosPostalesTable = cpTableRows?.[0]?.name;
 
-      if (payload.CodigoPostal !== undefined && payload.Id_CodigoPostal === undefined) {
+      if (payload.CodigoPostal !== undefined && payload.Id_CodigoPostal === undefined && codigosPostalesTable) {
         const codigoPostalTexto = (payload.CodigoPostal || '').toString().trim();
         const cpLimpio = codigoPostalTexto.replace(/[^0-9]/g, '').slice(0, 5);
         if (cpLimpio) {
           try {
-            if (!codigosPostalesTable) {
-              throw new Error('No existe la tabla de códigos postales (Codigos_Postales/codigos_postales) en la BD.');
-            }
-            const rows = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]);
-            if (rows && rows.length > 0 && rows[0].id) {
-              payload.Id_CodigoPostal = rows[0].id;
+            const colsCp = await this._getColumns(codigosPostalesTable).catch(() => []);
+            const cpPk = this._pickCIFromColumns(colsCp, ['codpos_id', 'id', 'Id']) || 'codpos_id';
+            const cpColCodigo = this._pickCIFromColumns(colsCp, ['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
+            const tProv = await this._resolveTableNameCaseInsensitive('provincias').catch(() => 'provincias');
+            const colsProv = await this._getColumns(tProv).catch(() => []);
+            const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'prov_id';
+            const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
+
+            const rows = await this.query(`SELECT \`${cpPk}\` AS id FROM \`${codigosPostalesTable}\` WHERE \`${cpColCodigo}\` = ? LIMIT 1`, [cpLimpio]);
+            if (rows && rows.length > 0 && (rows[0].id ?? rows[0][cpPk])) {
+              payload.Id_CodigoPostal = rows[0].id ?? rows[0][cpPk];
             } else {
               let idProvincia = payload.Id_Provincia || payload.id_Provincia || null;
               if (!idProvincia && cpLimpio.length >= 2) {
@@ -267,8 +324,8 @@ module.exports = {
               let provinciaNombre = payload.Provincia || payload.provincia || null;
               if (!provinciaNombre && idProvincia) {
                 try {
-                  const provRows = await this.query('SELECT Nombre FROM provincias WHERE id = ? LIMIT 1', [idProvincia]);
-                  provinciaNombre = provRows?.[0]?.Nombre || null;
+                  const provRows = await this.query(`SELECT \`${provNombre}\` AS Nombre FROM \`${tProv}\` WHERE \`${provPk}\` = ? LIMIT 1`, [idProvincia]);
+                  provinciaNombre = provRows?.[0]?.Nombre ?? provRows?.[0]?.[provNombre] ?? null;
                 } catch (e) {}
               }
               const localidad = payload.Poblacion || payload.poblacion || null;
@@ -285,9 +342,9 @@ module.exports = {
                 });
                 if (creado && creado.insertId) payload.Id_CodigoPostal = creado.insertId;
               } catch (e) {
-                const retry = await this.query(`SELECT id FROM ${codigosPostalesTable} WHERE CodigoPostal = ? LIMIT 1`, [cpLimpio]);
-                if (retry && retry.length > 0 && retry[0].id) {
-                  payload.Id_CodigoPostal = retry[0].id;
+                const retry = await this.query(`SELECT \`${cpPk}\` AS id FROM \`${codigosPostalesTable}\` WHERE \`${cpColCodigo}\` = ? LIMIT 1`, [cpLimpio]);
+                if (retry && retry.length > 0 && (retry[0].id ?? retry[0][cpPk])) {
+                  payload.Id_CodigoPostal = retry[0].id ?? retry[0][cpPk];
                 }
               }
             }
@@ -342,20 +399,20 @@ module.exports = {
         updates.push(`\`${colMap.Id_Provincia}\` = ?`);
         params.push(payload.Id_Provincia || null);
       }
-      if (payload.fijo_mensual !== undefined) {
-        updates.push('fijo_mensual = ?');
+      if (payload.fijo_mensual !== undefined && colMap.fijo_mensual) {
+        updates.push(`\`${colMap.fijo_mensual}\` = ?`);
         params.push(payload.fijo_mensual);
       }
-      if (payload.meet_email !== undefined) {
-        updates.push('meet_email = ?');
+      if (payload.meet_email !== undefined && colMap.meet_email) {
+        updates.push(`\`${colMap.meet_email}\` = ?`);
         params.push(payload.meet_email === '' ? '' : payload.meet_email);
       }
-      if (payload.teams_email !== undefined) {
-        updates.push('teams_email = ?');
+      if (payload.teams_email !== undefined && colMap.teams_email) {
+        updates.push(`\`${colMap.teams_email}\` = ?`);
         params.push(payload.teams_email === '' ? '' : payload.teams_email);
       }
-      if (payload.plataforma_reunion_preferida !== undefined) {
-        updates.push('plataforma_reunion_preferida = ?');
+      if (payload.plataforma_reunion_preferida !== undefined && colMap.plataforma_reunion_preferida) {
+        updates.push(`\`${colMap.plataforma_reunion_preferida}\` = ?`);
         params.push(payload.plataforma_reunion_preferida || 'meet');
       }
 

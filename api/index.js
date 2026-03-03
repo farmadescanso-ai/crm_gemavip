@@ -155,7 +155,7 @@ app.get('/api/debug-login', async (req, res) => {
   }
 });
 
-// Provincia por código postal (para auto-rellenar en formulario de clientes)
+// Provincia por código postal (para auto-rellenar en formulario de clientes/comerciales)
 app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
   try {
     const cp = String(req.query?.cp ?? '').trim().replace(/\s+/g, '');
@@ -163,18 +163,26 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
     let provinciaId = null;
     let provinciaNombre = null;
     const codigosTable = await db._getCodigosPostalesTableName?.().catch(() => null);
-    if (codigosTable) {
+    const provTable = await db._resolveTableNameCaseInsensitive?.('provincias').catch(() => 'provincias');
+    const provCols = await db._getColumns?.(provTable).catch(() => []);
+    const provPk = db._pickCIFromColumns?.(provCols, ['prov_id', 'id', 'Id']) || 'prov_id';
+    const provNombre = db._pickCIFromColumns?.(provCols, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
+    if (codigosTable && provPk) {
+      const cpCols = await db._getColumns?.(codigosTable).catch(() => []);
+      const cpIdProv = db._pickCIFromColumns?.(cpCols, ['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
+      const cpCodigo = db._pickCIFromColumns?.(cpCols, ['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
+      const joinCond = `cp.\`${cpIdProv}\` = p.\`${provPk}\``;
       const rows = await db.query(
-        `SELECT cp.Id_Provincia, cp.id_Provincia, p.Nombre AS NombreProvincia
+        `SELECT cp.\`${cpIdProv}\` AS Id_Provincia, p.\`${provPk}\` AS prov_pk, p.\`${provNombre}\` AS NombreProvincia
          FROM \`${codigosTable}\` cp
-         LEFT JOIN provincias p ON (cp.Id_Provincia = p.id OR cp.Id_Provincia = p.Id)
-         WHERE TRIM(cp.CodigoPostal) = ? LIMIT 1`,
+         LEFT JOIN \`${provTable}\` p ON ${joinCond}
+         WHERE TRIM(cp.\`${cpCodigo}\`) = ? LIMIT 1`,
         [cp]
       ).catch(() => []);
       const r = rows?.[0];
       if (r) {
-        provinciaId = r.Id_Provincia ?? r.id_Provincia ?? null;
-        provinciaNombre = r.NombreProvincia ?? r.prov_nombre ?? r.Nombre_provincia ?? r.Nombre ?? null;
+        provinciaId = r.Id_Provincia ?? r.prov_pk ?? null;
+        provinciaNombre = r.NombreProvincia ?? null;
       }
     }
     if (!provinciaId && cp.length >= 2) {
@@ -185,8 +193,8 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
         return cod === prefix;
       });
       if (prov) {
-        provinciaId = prov.prov_id ?? prov.id ?? prov.Id ?? null;
-        provinciaNombre = prov.prov_nombre ?? prov.Nombre_provincia ?? prov.Nombre ?? prov.nombre ?? null;
+        provinciaId = prov.id ?? prov.Id ?? prov.prov_id ?? null;
+        provinciaNombre = prov.Nombre ?? prov.nombre ?? null;
       }
     }
     return res.json({ ok: true, provinciaId, provinciaNombre });

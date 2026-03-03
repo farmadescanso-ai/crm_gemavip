@@ -24,9 +24,9 @@ Cada columna sigue el formato: **`{prefijo_tabla}_{nombre_campo}`**
 | `clientes_contactos` | `clicont_` | M:N cliente-contacto |
 | `clientes_cooperativas` | `clicoop_` | Cooperativas por cliente |
 | `clientes_gruposCompras` | `cligrup_` | Grupos compras |
-| `codigos_postales` | `codp_` | Catálogo CP |
+| `codigos_postales` | `codpos_` | Catálogo CP |
 | `comerciales` | `com_` | **Core** |
-| `comerciales_codigos_postales_marcas` | `comcp_` | Asignación |
+| `comerciales_codigos_postales_marcas` | `comdod_` | Asignación |
 | `comisiones` | `comis_` | Comisiones |
 | `comisiones_detalle` | `comdet_` | Detalle comisiones |
 | `condiciones_especiales` | `condesp_` | Config |
@@ -109,7 +109,27 @@ Cada columna sigue el formato: **`{prefijo_tabla}_{nombre_campo}`**
 | `Email` | `com_email` |
 | `Password` | `com_password` |
 | `Roll` | `com_roll` |
+| `FijoMensual` | `com_fijo_mensual` |
+| `Movil` | `com_movil` |
+| `Direccion` | `com_direccion` |
+| `CodigoPostal` | `com_codigo_postal` |
+| `Poblacion` | `com_poblacion` |
+| `plataforma_reunion_preferida` | `com_plataforma_reunion_preferida` |
+| `meet_email` | `com_meet_email` |
+| `teams_email` | `com_teams_email` |
 | `...` | `com_...` |
+
+### codigos_postales
+
+| Actual | Normalizado |
+|--------|-------------|
+| `id` | `codpos_id` |
+| `CodigoPostal` | `codpos_CodigoPostal` |
+| `Localidad` | `codpos_Localidad` |
+| `Provincia` | `codpos_Provincia` |
+| `Id_Provincia` | `codpos_Id_Provincia` |
+| `ComunidadAutonoma` | `codpos_ComunidadAutonoma` |
+| `Activo` | `codpos_Activo` |
 
 ### pedidos
 

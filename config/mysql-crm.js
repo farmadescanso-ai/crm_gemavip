@@ -59,6 +59,13 @@ class MySQLCRM {
     const key = String(tableName || '').trim();
     if (!key) return [];
 
+    // Mapeo estático: evita SHOW COLUMNS en cada request (crítico en Vercel serverless)
+    const { getColumns: getStaticColumns } = require('./schema-columns');
+    const staticCols = getStaticColumns(key);
+    if (staticCols && Array.isArray(staticCols) && staticCols.length > 0) {
+      return staticCols;
+    }
+
     if (!this._metaCache.columns) this._metaCache.columns = {};
     if (this._metaCache.columns[key]) return this._metaCache.columns[key];
 
