@@ -141,17 +141,7 @@ module.exports = {
     if (!id || !Number.isFinite(Number(id))) return null;
     const numId = Number(id);
     try {
-      // Primero intentar consulta simple (más robusta ante esquemas legacy/normalizados)
       const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-      for (const pkCol of ['cli_id', 'id', 'Id']) {
-        try {
-          const simple = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]);
-          if (simple && simple.length > 0) {
-            const row = simple[0];
-            if (row) return row;
-          }
-        } catch (_) {}
-      }
       const meta = await this._ensureClientesMeta().catch(() => null);
       const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
       const colsLower = new Set(colsClientes.map((c) => String(c).toLowerCase()));

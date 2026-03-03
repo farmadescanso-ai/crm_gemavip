@@ -73,6 +73,17 @@ module.exports = {
       const provinciaId = payload.Id_Provincia !== undefined ? payload.Id_Provincia : (clienteActual?.Id_Provincia || clienteActual?.id_Provincia);
       const paisId = payload.Id_Pais !== undefined ? payload.Id_Pais : (clienteActual?.Id_Pais || clienteActual?.id_Pais);
 
+      // Preservar cli_com_id cuando es NOT NULL y el payload envía vacío o null
+      const metaEarly = await this._ensureClientesMeta().catch(() => null);
+      const colComercial = metaEarly?.colComercial || 'cli_com_id';
+      const payloadComercial = payload[colComercial] ?? payload.cli_com_id ?? payload.Id_Cial;
+      const currentComercial = clienteActual?.[colComercial] ?? clienteActual?.cli_com_id ?? clienteActual?.Id_Cial;
+      if ((payloadComercial === null || payloadComercial === undefined || payloadComercial === '') && (currentComercial != null && currentComercial !== '')) {
+        const val = Number(currentComercial) || currentComercial;
+        payload[colComercial] = val;
+        payload.cli_com_id = val;
+      }
+
       try {
         const meta = await this._ensureClientesMeta();
         const colEstadoCliente = meta?.colEstadoCliente || null;
