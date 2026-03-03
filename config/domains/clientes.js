@@ -157,7 +157,7 @@ module.exports = {
       const colsLower = new Set(colsClientes.map((c) => String(c).toLowerCase()));
       const hasCol = (name) => colsLower.has(String(name).toLowerCase());
 
-      const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
+      const t = meta?.tClientes || tClientes;
       const pk = meta?.pk || 'Id';
       const colComercial = meta?.colComercial || null;
       const colProvincia = meta?.colProvincia || 'Id_Provincia';
@@ -219,7 +219,7 @@ module.exports = {
           ${(colFormaPago && tFormasPago) ? `fp.\`${formpNombre}\` as FormaPagoNombre` : 'NULL as FormaPagoNombre'},
           ${(colPais && tPaises) ? `pais.\`${paisNombre}\` as PaisNombre` : 'NULL as PaisNombre'},
           ${(colClienteRel && colNombreRazon) ? `rel_cli.\`${colNombreRazon}\` as ClienteRelacionadoNombre` : 'NULL as ClienteRelacionadoNombre'}
-        FROM \`${tClientes}\` c
+        FROM \`${t}\` c
         ${tProvincias ? `LEFT JOIN \`${tProvincias}\` p ON c.\`${colProvincia}\` = p.\`${provPk}\`` : ''}
         ${tTiposClientes ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${colTipoCliente}\` = tc.\`${tipcPk}\`` : ''}
         ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
@@ -228,14 +228,13 @@ module.exports = {
         ${(colMoneda && tMonedas) ? `LEFT JOIN \`${tMonedas}\` mon ON c.\`${colMoneda}\` = mon.\`${monPk}\`` : ''}
         ${(colFormaPago && tFormasPago) ? `LEFT JOIN \`${tFormasPago}\` fp ON c.\`${colFormaPago}\` = fp.\`${formpPk}\`` : ''}
         ${(colPais && tPaises) ? `LEFT JOIN \`${tPaises}\` pais ON c.\`${colPais}\` = pais.\`${paisPk}\`` : ''}
-        ${(colClienteRel) ? `LEFT JOIN \`${tClientes}\` rel_cli ON c.\`${colClienteRel}\` = rel_cli.\`${pk}\`` : ''}
+        ${(colClienteRel) ? `LEFT JOIN \`${t}\` rel_cli ON c.\`${colClienteRel}\` = rel_cli.\`${pk}\`` : ''}
         WHERE c.\`${pk}\` = ?
         LIMIT 1
       `;
       const rows = await this.query(sql, [id]);
       if (rows.length > 0) return rows[0];
       // Fallback: si la consulta con JOINs devuelve 0 filas, intentar consulta simple (por si hay desajuste de columnas)
-      const t = meta?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
       for (const pk of ['cli_id', 'id', 'Id']) {
         try {
           const fallback = await this.query(`SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
