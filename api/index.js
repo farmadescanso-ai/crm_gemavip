@@ -69,7 +69,7 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       fontSrc: ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
       connectSrc: ["'self'"],
-      frameSrc: ["'self'"]
+      frameSrc: ["'self'", "https://vercel.live"]
     }
   }
 }));
