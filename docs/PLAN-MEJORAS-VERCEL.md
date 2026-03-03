@@ -65,12 +65,28 @@ Ver `docs/NORMALIZACION-BD-PREFIJOS.md` para los nombres de columnas con prefijo
 ## 3. Búsquedas (LIKE vs FULLTEXT)
 
 ### Estado actual
-- `getClientesOptimizadoPaged` usa `MATCH...AGAINST` (FULLTEXT) cuando existe índice y el término tiene ≥3 caracteres.
-- Fallback a `LIKE` para términos cortos o cuando no hay índice FULLTEXT.
+- **`getClientesOptimizadoPaged`** y **`countClientesOptimizado`** (`config/domains/clientes.js`):
+  - **FULLTEXT** (`MATCH...AGAINST` en BOOLEAN MODE con wildcard `*`): cuando existe índice `ft_clientes_busqueda` o `ft_clientes_busqueda_basica` y el término tiene ≥3 caracteres alfanuméricos.
+  - **Fallback LIKE** (`LIKE '%texto%'`): para términos &lt; 3 chars, solo dígitos, o cuando no hay índice FULLTEXT.
+  - **Solo números**: búsqueda directa por ID o código postal (sin full scan).
+- **Pedidos**: `buildPedidosTermClauses` en `lib/pedido-helpers.js` usa FULLTEXT en clientes + pedidos cuando hay índices.
+
+### Índices necesarios
+| Tabla | Índice | Columnas |
+|-------|--------|----------|
+| `clientes` | `ft_clientes_busqueda` | cli_nombre_razon_social, cli_nombre_cial, cli_dni_cif, cli_email, cli_telefono, cli_movil, cli_poblacion, cli_codigo_postal |
+| `clientes` | `ft_clientes_busqueda_basica` | cli_nombre_razon_social, cli_nombre_cial, cli_dni_cif |
+| `pedidos` | `ft_pedidos_busqueda` | ped_numero, ped_estado_txt |
+
+### Cómo asegurar índices
+1. **Migración manual**: ejecutar `scripts/indices-migracion.sql` en la BD (idempotente).
+2. **Desde la app**: `POST /api/db/ensure-indexes` (admin) o `ENABLE_INDEX_CREATION_ON_STARTUP=1` (solo desarrollo).
 
 ### Recomendaciones
-1. Asegurar índices en despliegue: ejecutar `scripts/indices-migracion.sql` o `ensureClientesIndexes`.
-2. Para términos cortos (< 3 chars), considerar búsqueda por prefijo (`LIKE 'texto%'`) en lugar de `LIKE '%texto%'` cuando sea posible.
+1. **Despliegue**: ejecutar `scripts/indices-migracion.sql` antes de ir a producción para activar FULLTEXT.
+2. **Términos cortos (1–2 chars)**: actualmente usa `LIKE '%texto%'` (full scan). Opcional: añadir `LIKE 'texto%'` en columnas indexadas (ej. `cli_nombre_razon_social`) para aprovechar índices BTREE cuando el usuario busca por inicio de nombre. Cambia ligeramente la semántica (prefijo vs contiene).
+
+Ver `docs/PUNTO-23-LIKE-FULLTEXT.md` para más detalle.
 
 ---
 
@@ -112,7 +128,7 @@ Ver `docs/NORMALIZACION-BD-PREFIJOS.md` para los nombres de columnas con prefijo
 | connectionLimit para Vercel | ✅ 3 por defecto |
 | queueLimit en Vercel | ✅ 5 (falla rápido si saturado) |
 | Caché de catálogos | ✅ Ya existe |
-| Índices FULLTEXT | Verificar en BD |
+| Índices FULLTEXT (clientes, pedidos) | scripts/indices-migracion.sql o ensure-indexes |
 | bcrypt rounds | Opcional: 10 vs 12 |
 
 ---
