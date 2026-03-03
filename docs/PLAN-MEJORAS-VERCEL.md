@@ -10,12 +10,18 @@ Basado en el informe de análisis del codebase (Metadata Discovery Overhead, seg
 En Vercel (serverless), cada cold start pierde la caché en memoria. Por cada búsqueda de cliente o login, el sistema hacía 5–10 consultas previas (`SHOW COLUMNS`, `information_schema`) solo para conocer nombres de tablas y columnas.
 
 ### Solución aplicada
-- **`config/schema-columns.js`**: Mapeo estático de columnas para las tablas más usadas (clientes, comerciales, codigos_postales, provincias, paises, formas_pago, articulos, pedidos, visitas, etc.).
-- **`_getColumns`**: Usa el mapeo estático primero; solo consulta la BD si la tabla no está mapeada.
+- **`config/schema-columns.js`**: Mapeo estático de columnas para 27 tablas.
+- **`config/mysql-crm.js`** (líneas 62–68): `_getColumns` usa el mapeo estático primero; solo consulta la BD si la tabla no está mapeada.
 - **`config/table-names.js`**: Ya existía; evita consultas para resolver nombres de tablas.
+
+### Tablas con mapeo estático
+`agenda`, `agenda_especialidades`, `agenda_roles`, `articulos`, `clientes`, `clientes_contactos`, `codigos_postales`, `comerciales`, `comerciales_codigos_postales_marcas`, `cooperativas`, `direccionesEnvio`, `especialidades`, `estdoClientes`, `formas_pago`, `gruposCompras`, `idiomas`, `marcas`, `notificaciones`, `paises`, `pedidos`, `pedidos_articulos`, `provincias`, `tarifasClientes`, `tarifasClientes_precios`, `tipos_clientes`, `tipos_pedidos`, `visitas`
 
 ### Control
 - `USE_STATIC_SCHEMA=0` desactiva el mapeo estático (fallback al comportamiento anterior).
+
+### Añadir una tabla nueva
+Editar `config/schema-columns.js` y añadir la tabla al objeto `SCHEMA_COLUMNS` con el array de columnas (ver `docs/NORMALIZACION-BD-PREFIJOS.md` para los nombres).
 
 ---
 
@@ -84,3 +90,11 @@ En Vercel (serverless), cada cold start pierde la caché en memoria. Por cada b�
 1. Desplegar en Vercel con `USE_STATIC_SCHEMA` sin definir (por defecto activo).
 2. Medir tiempo de login y búsqueda de clientes antes/después.
 3. Si hay problemas con una tabla no mapeada, añadirla a `config/schema-columns.js`.
+
+## Troubleshooting
+
+| Síntoma | Causa probable | Solución |
+|---------|----------------|----------|
+| Error "Unknown column" en una tabla | La tabla está en schema-columns pero faltan columnas | Actualizar el array en `schema-columns.js` con las columnas reales de la BD |
+| Comportamiento raro tras migración de BD | El mapeo estático tiene columnas antiguas | Revisar `NORMALIZACION-BD-PREFIJOS.md` y actualizar `schema-columns.js` |
+| Quiero volver al modo dinámico | — | Definir `USE_STATIC_SCHEMA=0` en las variables de entorno |
