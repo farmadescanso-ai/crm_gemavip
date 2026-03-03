@@ -147,10 +147,20 @@ El **login** usa `bcrypt.compare()` (mismo coste que hash); cada intento de logi
 
 ## 6. Seguridad (SQL dinámico)
 
-- Se usa `mysql2` con parámetros (`?`).
-- Nombres de tablas/columnas vienen del mapeo estático o de `_getColumns` (no de input de usuario).
-- `_sanitizeIdentifier` existe como capa adicional.
-- Riesgo bajo si los identificadores no dependen de input de usuario.
+### Protecciones actuales
+| Medida | Descripción |
+|--------|-------------|
+| **Parámetros preparados** | `mysql2` con `?` para valores; evita inyección en datos. |
+| **Identificadores estáticos** | Nombres de tablas/columnas desde `table-names.js`, `schema-columns.js` o `_getColumns` (no desde input de usuario). |
+| **`_sanitizeIdentifier`** | Valida nombres: solo `[a-zA-Z0-9_]`, máx. 64 chars. Usado en `_resolveTableNameCaseInsensitive`, `_filterPayloadKeys`, `getTableData`. |
+| **`_filterPayloadKeys`** | Filtra claves de payload con `_sanitizeIdentifier` antes de usarlas en INSERT/UPDATE. |
+| **`_buildInClauseSafe`** | Evita `IN ()` vacío (devuelve `1=0`); valores pasan como parámetros. |
+| **Whitelist en clientes** | `ALLOWED_COLUMNS` para soft-delete (Activa, Fecha_Baja, etc.). |
+
+### Evaluación
+- **Riesgo bajo**: Los identificadores (tablas, columnas) no provienen de input de usuario.
+- **Valores**: Siempre parametrizados con `?`.
+- **Recomendación**: Al añadir CRUD dinámico, usar `_filterPayloadKeys` o whitelist explícita; nunca concatenar input en nombres de tabla/columna.
 
 ---
 
@@ -166,6 +176,7 @@ El **login** usa `bcrypt.compare()` (mismo coste que hash); cada intento de logi
 | Caché de catálogos | ✅ Ya existe |
 | Índices FULLTEXT (clientes, pedidos) | scripts/indices-migracion.sql o ensure-indexes |
 | bcrypt rounds | Opcional: 10 vs 12 |
+| Seguridad SQL (parametrizado, _sanitizeIdentifier) | ✅ Implementado |
 
 ---
 
