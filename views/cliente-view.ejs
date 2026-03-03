@@ -39,7 +39,7 @@
           <% } %>
         </div>
         <div style="color: var(--gv-muted); font-weight:800;">
-          Estado: <%= item?.EstadoClienteNombre ?? item?.OK_KO ?? '—' %>
+          Estado: <%= item?.EstadoClienteNombre ?? (item?.OK_KO === 1 ? 'Activo' : item?.OK_KO === 0 ? 'Inactivo' : '') ?? '—' %>
         </div>
       </div>
     </div>
@@ -84,12 +84,18 @@
           if (s === '0' || s === 'false' || s === 'no') return 'No';
         }
         if (spec.kind === 'select' && spec.options === 'estados_cliente') return item?.EstadoClienteNombre ?? (rawStr || '—');
-        if (spec.kind === 'select' && spec.options === 'comerciales') return item?.ComercialNombre ?? (rawStr || '—');
+        if (spec.kind === 'select' && spec.options === 'comerciales') {
+          const row = (comerciales || []).find((r) => Number(r.com_id ?? r.id ?? r.Id ?? 0) === Number(raw));
+          return item?.ComercialNombre ?? row?.com_nombre ?? row?.Nombre ?? (rawStr || '—');
+        }
         if (spec.kind === 'select' && spec.options === 'tipos_clientes') return item?.TipoClienteNombre ?? (rawStr || '—');
-        if (spec.kind === 'select' && spec.options === 'provincias') return item?.ProvinciaNombre ?? (rawStr || '—');
+        if (spec.kind === 'select' && spec.options === 'provincias') {
+          const row = findById(provincias, raw);
+          return item?.ProvinciaNombre ?? row?.prov_nombre ?? row?.Nombre ?? row?.nombre ?? (rawStr || '—');
+        }
         if (spec.kind === 'select' && spec.options === 'paises') {
           const row = findById(paises, raw);
-          return row?.Nombre_pais ?? item?.Pais ?? (rawStr || '—');
+          return row?.Nombre_pais ?? row?.pais_nombre ?? row?.Nombre ?? row?.nombre ?? item?.PaisNombre ?? item?.Pais ?? (rawStr || '—');
         }
         if (spec.kind === 'select' && spec.options === 'formas_pago') {
           const row = findById(formasPago, raw);
@@ -104,8 +110,12 @@
         if (spec.kind === 'select' && spec.options === 'monedas') {
           const row = findById(monedas, raw);
           const code = String(row?.Codigo ?? row?.codigo ?? '').trim();
-          const lbl = row?.Nombre ?? row?.nombre ?? '';
+          const lbl = row?.Nombre ?? row?.nombre ?? row?.Moneda ?? '';
           return (code && lbl) ? `${code} · ${lbl}` : (lbl || rawStr || '—');
+        }
+        if (spec.kind === 'select' && spec.options === 'tarifas') {
+          const row = (tarifas || []).find((r) => Number(r.tarcli_id ?? r.Id ?? r.id ?? 0) === Number(raw));
+          return row ? String(row.tarcli_nombre ?? row.NombreTarifa ?? row.Nombre ?? row.nombre ?? '').trim() : (rawStr || '—');
         }
         if (spec.kind === 'select' && spec.options === 'tipos_clientes_nombre') return rawStr || '—';
         if (spec.type === 'date') return (typeof fmtDateES === 'function') ? (fmtDateES(raw) || '—') : (rawStr || '—');

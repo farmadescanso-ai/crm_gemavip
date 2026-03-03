@@ -197,6 +197,7 @@
                   <% } else if (spec.kind === 'select' && spec.options === 'tarifas') { %>
                     <% const curTar = Number(_pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
+                      <option value="0" <%= curTar === 0 ? 'selected' : '' %>>0 PVL</option>
                       <% (tarifas || []).forEach((t) => { %>
                         <% const tid = Number(t.tarcli_id ?? t.Id ?? t.id ?? 0) || 0; %>
                         <% const tlabel = t.tarcli_nombre ?? t.NombreTarifa ?? t.Nombre ?? t.nombre ?? ('Tarifa ' + tid); %>
