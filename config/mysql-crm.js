@@ -827,15 +827,20 @@ class MySQLCRM {
   async getClienteRelacionadoPrincipal(cliId) { return domains.clientesRelacionados.getClienteRelacionadoPrincipal.apply(this, arguments); }
   async tieneRelaciones(cliId) { return domains.clientesRelacionados.tieneRelaciones.apply(this, arguments); }
 
-  // COOPERATIVAS
+  // COOPERATIVAS (soporta legacy id/Nombre y normalizado coop_id/coop_nombre)
   async getCooperativas() {
     try {
       try {
         const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas ORDER BY Id ASC');
         return rows;
       } catch (e1) {
-        const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas ORDER BY id ASC');
-        return rows;
+        try {
+          const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas ORDER BY id ASC');
+          return rows;
+        } catch (e2) {
+          const rows = await this.query('SELECT coop_id AS id, coop_nombre AS Nombre, coop_email AS Email, coop_telefono AS Telefono, coop_contacto AS Contacto FROM cooperativas ORDER BY coop_id ASC');
+          return rows;
+        }
       }
     } catch (error) {
       console.error('❌ Error obteniendo cooperativas:', error.message);
@@ -849,8 +854,13 @@ class MySQLCRM {
         const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas WHERE Id = ? LIMIT 1', [id]);
         return rows.length > 0 ? rows[0] : null;
       } catch (e1) {
-        const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas WHERE id = ? LIMIT 1', [id]);
-        return rows.length > 0 ? rows[0] : null;
+        try {
+          const rows = await this.query('SELECT id, Nombre, Email, Telefono, Contacto FROM cooperativas WHERE id = ? LIMIT 1', [id]);
+          return rows.length > 0 ? rows[0] : null;
+        } catch (e2) {
+          const rows = await this.query('SELECT coop_id AS id, coop_nombre AS Nombre, coop_email AS Email, coop_telefono AS Telefono, coop_contacto AS Contacto FROM cooperativas WHERE coop_id = ? LIMIT 1', [id]);
+          return rows.length > 0 ? rows[0] : null;
+        }
       }
     } catch (error) {
       console.error('❌ Error obteniendo cooperativa por ID:', error.message);
