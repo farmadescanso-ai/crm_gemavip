@@ -47,9 +47,9 @@
         <% }) %>
       </div>
 
-      <% const pickVal = (name) => { const v = (item && item[name] !== undefined) ? item[name] : ''; return (v === null || v === undefined) ? '' : String(v); }; %>
-      <% const numVal = (name) => { const v = pickVal(name); return v === '' ? '' : v; }; %>
-      <% const pickDisplayVal = (name) => { const fn = typeof resolveDisplayValue === 'function' ? resolveDisplayValue : null; const val = fn ? fn(name, item) : pickVal(name); return (val && String(val).trim()) ? String(val).trim() : '—'; }; %>
+      <% const _pickVal = (typeof pickVal === 'function' ? pickVal : (name) => { const v = (item && item[name] !== undefined) ? item[name] : ''; return (v === null || v === undefined) ? '' : String(v); }); %>
+      <% const numVal = (name) => { const v = _pickVal(name); return v === '' ? '' : v; }; %>
+      <% const pickDisplayVal = (name) => { const fn = typeof resolveDisplayValue === 'function' ? resolveDisplayValue : null; const val = fn ? fn(name, item) : _pickVal(name); return (val && String(val).trim()) ? String(val).trim() : '—'; }; %>
 
       <% (tabs || []).forEach((t, idx) => { %>
         <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
@@ -146,21 +146,21 @@
                   <% if (spec.kind === 'readonly') { %>
                     <div class="gv-readonly"><%= pickDisplayVal(name) %></div>
                   <% } else if (spec.kind === 'textarea') { %>
-                    <textarea id="<%= inputId %>" name="<%= name %>" rows="4" <%= required ? 'required' : '' %> aria-invalid="<%= isMissing ? 'true' : 'false' %>"><%= pickVal(name) %></textarea>
+                    <textarea id="<%= inputId %>" name="<%= name %>" rows="4" <%= required ? 'required' : '' %> aria-invalid="<%= isMissing ? 'true' : 'false' %>"><%= _pickVal(name) %></textarea>
                   <% } else if (spec.kind === 'checkbox') { %>
                     <input type="hidden" name="<%= name %>" value="0" />
                     <div style="display:flex; align-items:center; gap:10px;">
-                      <input id="<%= inputId %>" type="checkbox" name="<%= name %>" value="1" <%= (pickVal(name) === '1' || pickVal(name).toLowerCase() === 'true') ? 'checked' : '' %> />
+                      <input id="<%= inputId %>" type="checkbox" name="<%= name %>" value="1" <%= (_pickVal(name) === '1' || _pickVal(name).toLowerCase() === 'true') ? 'checked' : '' %> />
                       <span style="color: var(--gv-muted); font-weight:700;">Sí</span>
                     </div>
                   <% } else if (spec.kind === 'select' && spec.options === 'ok_ko') { %>
                     <select id="gv-ok-ko" name="<%= name %>">
-                      <option value="1" <%= pickVal(name) === '1' ? 'selected' : '' %>>Activo</option>
-                      <option value="0" <%= pickVal(name) === '0' ? 'selected' : '' %>>Inactivo</option>
+                      <option value="1" <%= _pickVal(name) === '1' ? 'selected' : '' %>>Activo</option>
+                      <option value="0" <%= _pickVal(name) === '0' ? 'selected' : '' %>>Inactivo</option>
                     </select>
                     <small style="color: var(--gv-muted);">Solo se puede estar activo con DNI/CIF informado.</small>
                   <% } else if (spec.kind === 'select' && spec.options === 'estados_cliente') { %>
-                    <% const curId = Number(pickVal(name) || 0) || 0; %>
+                    <% const curId = Number(_pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (estadosCliente || []).forEach((r) => { %>
@@ -173,12 +173,12 @@
                   <% } else if (spec.kind === 'select' && spec.options === 'tipo_contacto') { %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">— Seleccionar —</option>
-                      <option value="Empresa" <%= pickVal(name) === 'Empresa' ? 'selected' : '' %>>Empresa</option>
-                      <option value="Persona" <%= pickVal(name) === 'Persona' ? 'selected' : '' %>>Persona</option>
-                      <option value="Otros" <%= pickVal(name) === 'Otros' ? 'selected' : '' %>>Otros</option>
+                      <option value="Empresa" <%= _pickVal(name) === 'Empresa' ? 'selected' : '' %>>Empresa</option>
+                      <option value="Persona" <%= _pickVal(name) === 'Persona' ? 'selected' : '' %>>Persona</option>
+                      <option value="Otros" <%= _pickVal(name) === 'Otros' ? 'selected' : '' %>>Otros</option>
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'comerciales') { %>
-                    <% const cur = Number(pickVal(name) || 0) || 0; %>
+                    <% const cur = Number(_pickVal(name) || 0) || 0; %>
                     <% if (canChangeComercial) { %>
                       <select id="<%= inputId %>" name="<%= name %>">
                         <option value="">(sin asignar)</option>
@@ -192,10 +192,10 @@
                     <% } else { %>
                       <% const comercialAsignado = (comerciales || []).find(function(c){ return Number(c.com_id ?? c.id ?? c.Id ?? 0) === cur; }); %>
                       <div class="gv-readonly"><%= comercialAsignado ? (comercialAsignado.com_nombre ?? comercialAsignado.Nombre ?? '') : 'Sin asignar' %></div>
-                      <input type="hidden" name="<%= name %>" value="<%= pickVal(name) %>" />
+                      <input type="hidden" name="<%= name %>" value="<%= _pickVal(name) %>" />
                     <% } %>
                   <% } else if (spec.kind === 'select' && spec.options === 'tarifas') { %>
-                    <% const curTar = Number(pickVal(name) || 0) || 0; %>
+                    <% const curTar = Number(_pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <% (tarifas || []).forEach((t) => { %>
                         <% const tid = Number(t.tarcli_id ?? t.Id ?? t.id ?? 0) || 0; %>
@@ -204,7 +204,7 @@
                       <% }) %>
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'paises') { %>
-                    <% const curId = Number(pickVal(name) || 0) || 0; %>
+                    <% const curId = Number(_pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (paises || []).forEach((p) => { %>
@@ -214,7 +214,7 @@
                       <% }) %>
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'provincias') { %>
-                    <% const curId = Number(pickVal(name) || 0) || 0; %>
+                    <% const curId = Number(_pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (provincias || []).forEach((p) => { %>
@@ -224,7 +224,7 @@
                       <% }) %>
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'formas_pago') { %>
-                    <% const curId = Number(pickVal(name) || 0) || 0; %>
+                    <% const curId = Number(_pickVal(name) || 0) || 0; %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
                       <% (formasPago || []).forEach((r) => { %>
@@ -234,7 +234,7 @@
                       <% }) %>
                     </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'tipos_clientes') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <% const curId = Number(_pickVal(name) || 0) || 0; %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (tiposClientes || []).forEach((r) => { %>
@@ -244,7 +244,7 @@
                     <% }) %>
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'tipos_clientes_nombre') { %>
-                  <% const cur = String(pickVal(name) || '').trim().toLowerCase(); %>
+                  <% const cur = String(_pickVal(name) || '').trim().toLowerCase(); %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (tiposClientes || []).forEach((r) => { %>
@@ -254,7 +254,7 @@
                     <% }) %>
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'idiomas') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <% const curId = Number(_pickVal(name) || 0) || 0; %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (idiomas || []).forEach((r) => { %>
@@ -266,7 +266,7 @@
                     <% }) %>
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'monedas') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <% const curId = Number(_pickVal(name) || 0) || 0; %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (monedas || []).forEach((r) => { %>
@@ -278,7 +278,7 @@
                     <% }) %>
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'cooperativas') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <% const curId = Number(_pickVal(name) || 0) || 0; %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (cooperativas || []).forEach((r) => { %>
@@ -288,7 +288,7 @@
                     <% }) %>
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'grupos_compras') { %>
-                  <% const curId = Number(pickVal(name) || 0) || 0; %>
+                  <% const curId = Number(_pickVal(name) || 0) || 0; %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
                     <% (gruposCompras || []).forEach((r) => { %>
@@ -301,7 +301,7 @@
                   <% const type = spec.type || 'text'; %>
                   <% const isNombreField = (label && String(label).indexOf('Nombre / Razón social') !== -1); %>
                   <% const isTelField = (spec.type === 'tel' || /telefono|movil/i.test(String(name))); %>
-                  <% const displayVal = (type === 'number') ? numVal(name) : (isTelField && typeof fmtTelefono === 'function') ? fmtTelefono(pickVal(name)) : pickVal(name); %>
+                  <% const displayVal = (type === 'number') ? numVal(name) : (isTelField && typeof fmtTelefono === 'function') ? fmtTelefono(_pickVal(name)) : _pickVal(name); %>
                   <input
                     id="<%= inputId %>"
                     name="<%= name %>"
