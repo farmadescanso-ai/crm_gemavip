@@ -4,18 +4,11 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 const { debug } = require('../lib/logger');
+const { getPoolConfig } = require('./db-pool-config');
 
 class ComisionesCRM {
   constructor() {
-    this.config = {
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 3306,
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'crm_gemavip',
-      charset: 'utf8mb4',
-      collation: 'utf8mb4_unicode_ci'
-    };
+    this.config = getPoolConfig();
     this.pool = null;
     this._cache = {
       articulosHasMarcaColumn: null,

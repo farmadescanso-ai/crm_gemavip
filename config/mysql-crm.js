@@ -3,26 +3,11 @@ const mysql = require('mysql2/promise');
 const createDomains = require('./domains');
 const { getCatalogCached } = require('../lib/catalog-cache');
 const { debug } = require('../lib/logger');
+const { getPoolConfig } = require('./db-pool-config');
 
 class MySQLCRM {
   constructor() {
-    this.config = {
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 3306,
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      // En Vercel, si DB_NAME no está configurada, por defecto usamos la BD del CRM
-      database: process.env.DB_NAME || (process.env.VERCEL ? 'crm_gemavip' : 'crm_gemavip'),
-      charset: 'utf8mb4',
-      timezone: 'Europe/Madrid', // evita SET time_zone en cada query
-      waitForConnections: true,
-      // En serverless (Vercel) usar menos conexiones por instancia para evitar "too many connections"
-      connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || (process.env.VERCEL ? 3 : 10),
-      queueLimit: 0,
-      enableKeepAlive: true,
-      keepAliveInitialDelay: 0,
-      connectTimeout: 10000 // 10 segundos para conectar
-    };
+    this.config = getPoolConfig();
 
     debug('🔍 [DB CONFIG] DB_HOST:', this.config.host, 'DB_NAME:', this.config.database);
 

@@ -40,10 +40,25 @@ Ver `docs/NORMALIZACION-BD-PREFIJOS.md` para los nombres de columnas con prefijo
 
 ---
 
-## 2. Conexiones a BD ✅ Ya configurado
+## 2. Conexiones a BD ✅ Configurado y centralizado
 
-- `connectionLimit: 3` cuando `VERCEL=true`.
-- Variable de entorno `DB_CONNECTION_LIMIT` para ajustar.
+### Configuración actual
+- **`config/db-pool-config.js`**: Config centralizada para el pool MySQL (evita duplicación).
+- **Pool compartido**: `api/index.js` crea un único pool usado por sesión, db y comisiones.
+- **`connectionLimit`**: 3 en Vercel, 10 en local. Variable `DB_CONNECTION_LIMIT` para ajustar.
+- **`queueLimit`**: 5 en Vercel (falla rápido si hay saturación); 0 en local (cola ilimitada).
+- **`enableKeepAlive`**: true (evita desconexiones por inactividad).
+- **`connectTimeout`**: 10 segundos.
+
+### Variables de entorno
+| Variable | Descripción | Por defecto |
+|----------|-------------|-------------|
+| `DB_CONNECTION_LIMIT` | Máximo de conexiones por instancia | 3 (Vercel) / 10 (local) |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Conexión MySQL | — |
+
+### Recomendaciones
+- En Vercel: mantener `connectionLimit` bajo (2–5) para evitar "too many connections" en el servidor MySQL.
+- Si hay errores de cola: aumentar `DB_CONNECTION_LIMIT` o revisar consultas lentas.
 
 ---
 
@@ -93,7 +108,9 @@ Ver `docs/NORMALIZACION-BD-PREFIJOS.md` para los nombres de columnas con prefijo
 |--------|--------|
 | Mapeo estático de columnas | ✅ Implementado |
 | Mapeo estático de tablas | ✅ Ya existía |
+| Config centralizada pool (db-pool-config.js) | ✅ Implementado |
 | connectionLimit para Vercel | ✅ 3 por defecto |
+| queueLimit en Vercel | ✅ 5 (falla rápido si saturado) |
 | Caché de catálogos | ✅ Ya existe |
 | Índices FULLTEXT | Verificar en BD |
 | bcrypt rounds | Opcional: 10 vs 12 |
