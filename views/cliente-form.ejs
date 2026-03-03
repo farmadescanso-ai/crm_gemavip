@@ -165,7 +165,7 @@
                       <option value="">—</option>
                       <% (estadosCliente || []).forEach((r) => { %>
                         <% const rid = Number(r.estcli_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                        <% const rlabel = r.estcli_nombre ?? r.Nombre ?? r.nombre ?? ('Estado ' + rid); %>
+                        <% const rlabel = r.estcli_nombre ?? r.Nombre ?? r.nombre ?? r.Estado ?? r.estado ?? r.descripcion ?? r.Descripcion ?? ('Estado ' + rid); %>
                         <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                       <% }) %>
                     </select>
@@ -239,7 +239,7 @@
                     <option value="">—</option>
                     <% (tiposClientes || []).forEach((r) => { %>
                       <% const rid = Number(r.tipc_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const rlabel = r.tipc_tipo ?? r.Tipo ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? ('Tipo cliente ' + rid); %>
+                      <% const rlabel = r.tipc_nombre ?? r.tipc_tipo ?? r.Tipo ?? r.Nombre ?? r.nombre ?? r.descripcion ?? r.Descripcion ?? ('Tipo cliente ' + rid); %>
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
