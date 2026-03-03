@@ -220,7 +220,16 @@ module.exports = {
         LIMIT 1
       `;
       const rows = await this.query(sql, [id]);
-      return rows.length > 0 ? rows[0] : null;
+      if (rows.length > 0) return rows[0];
+      // Fallback: si la consulta con JOINs devuelve 0 filas, intentar consulta simple (por si hay desajuste de columnas)
+      const tClientes = meta?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
+      for (const pk of ['cli_id', 'id', 'Id']) {
+        try {
+          const fallback = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+          if (fallback && fallback.length > 0) return fallback[0];
+        } catch (_) {}
+      }
+      return null;
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
       try {
