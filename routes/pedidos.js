@@ -548,8 +548,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
       });
     }
     const clientePedido = await db.getClienteById(pedidoPayload.Id_Cliente);
-    const dniCliente = clientePedido ? String(clientePedido.DNI_CIF || '').trim() : '';
-    const activo = Number(_n(_n(clientePedido && clientePedido.OK_KO, clientePedido && clientePedido.ok_ko), 0)) === 1;
+    const dniCliente = clientePedido ? String(_n(_n(clientePedido.cli_dni_cif, clientePedido.DNI_CIF), clientePedido.DniCif) || '').trim() : '';
+    const activo = Number(_n(_n(_n(clientePedido && clientePedido.cli_ok_ko, clientePedido && clientePedido.OK_KO), clientePedido && clientePedido.ok_ko), 0)) === 1;
     if (!clientePedido) {
       return res.status(400).render('pedido-form', {
         mode: 'create',
