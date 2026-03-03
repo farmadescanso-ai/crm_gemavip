@@ -336,22 +336,23 @@ module.exports = {
     }
   },
 
-  /** Cooperativas del cliente con NumAsociado. Join: clientes_cooperativas.Id_Cooperativa = cooperativas.id (o coop_id) */
+  /** Cooperativas del cliente con NumAsociado. Join: clientes_cooperativas.Id_Cooperativa = cooperativas.id (o coop_id).
+   * Soporta BD legacy (id, Nombre) y normalizada (coop_id, coop_nombre). */
   async getCooperativasByClienteId(clienteId) {
     try {
-      const joins = [
-        'cc.Id_Cooperativa = c.id',
-        'cc.Id_Cooperativa = c.coop_id'
+      const variants = [
+        { joinOn: 'cc.Id_Cooperativa = c.id', colNombre: 'c.Nombre' },
+        { joinOn: 'cc.Id_Cooperativa = c.coop_id', colNombre: 'c.coop_nombre' }
       ];
       for (const tRel of ['Clientes_Cooperativas', 'clientes_cooperativas']) {
-        for (const joinOn of joins) {
+        for (const v of variants) {
           try {
             const sql = `
-              SELECT cc.Id_Cooperativa, c.Nombre, cc.NumAsociado 
+              SELECT cc.Id_Cooperativa, ${v.colNombre} AS Nombre, cc.NumAsociado
               FROM \`${tRel}\` cc
-              INNER JOIN cooperativas c ON ${joinOn}
+              INNER JOIN cooperativas c ON ${v.joinOn}
               WHERE cc.Id_Cliente = ?
-              ORDER BY c.Nombre ASC
+              ORDER BY ${v.colNombre} ASC
             `;
             const rows = await this.query(sql, [clienteId]);
             if (rows && rows.length >= 0) return rows;
