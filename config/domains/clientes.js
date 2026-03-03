@@ -222,10 +222,10 @@ module.exports = {
       const rows = await this.query(sql, [id]);
       if (rows.length > 0) return rows[0];
       // Fallback: si la consulta con JOINs devuelve 0 filas, intentar consulta simple (por si hay desajuste de columnas)
-      const tClientes = meta?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
+      const t = meta?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
       for (const pk of ['cli_id', 'id', 'Id']) {
         try {
-          const fallback = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+          const fallback = await this.query(`SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
           if (fallback && fallback.length > 0) return fallback[0];
         } catch (_) {}
       }
