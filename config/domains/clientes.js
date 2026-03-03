@@ -140,8 +140,18 @@ module.exports = {
   async getClienteById(id) {
     if (!id || !Number.isFinite(Number(id))) return null;
     const numId = Number(id);
+    let simpleRow = null;
     try {
       const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
+      for (const pkCol of ['cli_id', 'id', 'Id']) {
+        try {
+          const simple = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]);
+          if (simple && simple.length > 0) {
+            simpleRow = simple[0];
+            break;
+          }
+        } catch (_) {}
+      }
       const meta = await this._ensureClientesMeta().catch(() => null);
       const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
       const colsLower = new Set(colsClientes.map((c) => String(c).toLowerCase()));
@@ -225,21 +235,22 @@ module.exports = {
       const rows = await this.query(sql, [id]);
       if (rows.length > 0) return rows[0];
       // Fallback: si la consulta con JOINs devuelve 0 filas, intentar consulta simple (por si hay desajuste de columnas)
-      for (const pk of ['cli_id', 'id', 'Id']) {
+      for (const pkCol of ['cli_id', 'id', 'Id']) {
         try {
-          const fallback = await this.query(`SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+          const fallback = await this.query(`SELECT * FROM \`${t}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]);
           if (fallback && fallback.length > 0) return fallback[0];
         } catch (_) {}
       }
-      return null;
+      return simpleRow;
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
+      if (simpleRow) return simpleRow;
       try {
         const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
         const pkCandidates = ['cli_id', 'id', 'Id'];
-        for (const pk of pkCandidates) {
+        for (const pkCol of pkCandidates) {
           try {
-            const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+            const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]);
             if (rows && rows.length > 0) return rows[0];
           } catch (_) {}
         }
