@@ -14,7 +14,7 @@ try {
 
 router.get('/vapid-public', (req, res) => {
   const keys = getVapidKeys();
-  if (!keys) return res.status(503).json({ ok: false, error: 'Push no configurado (VAPID keys)' });
+  if (!keys) return res.json({ ok: false, publicKey: null });
   res.json({ ok: true, publicKey: keys.publicKey });
 });
 
