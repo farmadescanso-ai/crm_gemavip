@@ -92,9 +92,28 @@ Ver `docs/PUNTO-23-LIKE-FULLTEXT.md` para más detalle.
 
 ## 4. Caché de catálogos ✅ Ya existe
 
-- `lib/catalog-cache.js` con TTL de 5 minutos.
-- `CATALOG_CACHE_TTL_MS` para ajustar.
-- En serverless, el primer request tras cold start sigue siendo lento; los siguientes (warm) usan caché.
+### Configuración
+- **`lib/catalog-cache.js`**: Caché en memoria con TTL configurable.
+- **TTL por defecto**: 5 minutos (`300000` ms).
+- **Variable**: `CATALOG_CACHE_TTL_MS` para ajustar (ej. `600000` = 10 min).
+
+### Catálogos cacheados
+| Clave | Uso | Sufijo |
+|-------|-----|--------|
+| `formasPago` | Formas de pago | — |
+| `tiposPedido` | Tipos de pedido | — |
+| `especialidades` | Especialidades | — |
+| `provincias` | Provincias (por país) | `filtroPais` |
+| `paises` | Países | — |
+
+### Invalidación
+- **`invalidateCatalogCache(key)`**: invalida un catálogo por clave (ej. tras crear/actualizar forma de pago).
+- **`invalidateCatalogCache()`** (sin argumento): limpia toda la caché.
+
+### Comportamiento en Vercel (serverless)
+- **Cold start**: caché vacía; el primer request de cada instancia consulta la BD.
+- **Warm**: los siguientes requests usan caché hasta que expire el TTL o se recicle la instancia.
+- No hay caché distribuida entre instancias; cada función tiene su propia caché en memoria.
 
 ---
 
