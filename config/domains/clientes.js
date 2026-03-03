@@ -224,13 +224,15 @@ module.exports = {
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
       try {
-        const meta = await this._ensureClientesMeta().catch(() => null);
-        const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
-        const pk = meta?.pk || 'Id';
-        const cols = await this._getColumns(tClientes).catch(() => []);
-        const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
-        const rows = await this.query(`SELECT ${colList} FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
-        return rows.length > 0 ? rows[0] : null;
+        const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
+        const pkCandidates = ['cli_id', 'id', 'Id'];
+        for (const pk of pkCandidates) {
+          try {
+            const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+            if (rows && rows.length > 0) return rows[0];
+          } catch (_) {}
+        }
+        return null;
       } catch (_) {
         return null;
       }
