@@ -58,14 +58,20 @@
     </div>
 
     <%
+      const fieldAliases = { cli_com_id: ['Id_Cial', 'id_cial'], id_cial: ['cli_com_id', 'Id_Cial'], cli_idiom_id: ['Id_Idioma', 'id_idioma'], id_idioma: ['cli_idiom_id', 'Id_Idioma'], cli_mon_id: ['Id_Moneda', 'id_moneda'], id_moneda: ['cli_mon_id', 'Id_Moneda'], cli_formp_id: ['Id_FormaPago', 'id_formapago'], cli_tarcli_id: ['cli_tarifa_legacy', 'Tarifa'], cli_tarifa_legacy: ['cli_tarcli_id', 'Tarifa'] };
       const pickVal = (name) => {
-        const v = (item && item[name] !== undefined) ? item[name] : '';
-        return (v === null || v === undefined) ? '' : v;
+        if (!item) return '';
+        const keys = [name, ...(fieldAliases[String(name).toLowerCase()] || [])];
+        for (const k of keys) {
+          const v = item[k];
+          if (v !== undefined && v !== null) return String(v);
+        }
+        return '';
       };
       const findById = (rows, id) => {
         const cur = Number(id ?? 0) || 0;
         if (!cur) return null;
-        const pkKeys = ['id', 'Id', 'ID', 'pais_id', 'formp_id', 'idi_id', 'idiom_id', 'mon_id', 'tipc_id', 'prov_id'];
+        const pkKeys = ['id', 'Id', 'ID', 'com_id', 'pais_id', 'formp_id', 'idi_id', 'idiom_id', 'mon_id', 'tipc_id', 'prov_id'];
         return (rows || []).find((r) => {
           for (const k of pkKeys) {
             if (r[k] !== undefined && r[k] !== null && Number(r[k]) === cur) return true;
@@ -102,15 +108,17 @@
           return (row?.FormaPago ?? row?.Nombre ?? row?.nombre) ?? (rawStr || '—');
         }
         if (spec.kind === 'select' && spec.options === 'idiomas') {
+          if (item?.IdiomaNombre) return item.IdiomaNombre;
           const row = findById(idiomas, raw);
-          const code = String(row?.Codigo ?? row?.codigo ?? '').trim();
-          const lbl = row?.Nombre ?? row?.nombre ?? '';
+          const code = String(row?.Codigo ?? row?.codigo ?? row?.ISO ?? '').trim();
+          const lbl = row?.Nombre ?? row?.nombre ?? row?.idiom_nombre ?? row?.Idioma ?? '';
           return (code && lbl) ? `${code} · ${lbl}` : (lbl || rawStr || '—');
         }
         if (spec.kind === 'select' && spec.options === 'monedas') {
+          if (item?.MonedaNombre) return item.MonedaNombre;
           const row = findById(monedas, raw);
-          const code = String(row?.Codigo ?? row?.codigo ?? '').trim();
-          const lbl = row?.Nombre ?? row?.nombre ?? row?.Moneda ?? '';
+          const code = String(row?.Codigo ?? row?.codigo ?? row?.ISO ?? '').trim();
+          const lbl = row?.Nombre ?? row?.nombre ?? row?.mon_nombre ?? row?.Moneda ?? '';
           return (code && lbl) ? `${code} · ${lbl}` : (lbl || rawStr || '—');
         }
         if (spec.kind === 'select' && spec.options === 'tarifas') {
