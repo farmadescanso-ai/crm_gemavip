@@ -336,34 +336,66 @@ module.exports = {
     }
   },
 
-  /** Cooperativas del cliente con NumAsociado. Join: clientes_cooperativas.Id_Cooperativa = cooperativas.id (o coop_id).
-   * Soporta BD legacy (id, Nombre) y normalizada (coop_id, coop_nombre). */
+  /** Cooperativas del cliente con NumAsociado. Detecta columnas dinámicamente para BD legacy y normalizada. */
   async getCooperativasByClienteId(clienteId) {
     try {
-      const variants = [
-        { joinOn: 'cc.Id_Cooperativa = c.id', colNombre: 'c.Nombre' },
-        { joinOn: 'cc.Id_Cooperativa = c.coop_id', colNombre: 'c.coop_nombre' }
-      ];
-      for (const tRel of ['Clientes_Cooperativas', 'clientes_cooperativas']) {
-        for (const v of variants) {
-          try {
-            const sql = `
-              SELECT cc.Id_Cooperativa, ${v.colNombre} AS Nombre, cc.NumAsociado
-              FROM \`${tRel}\` cc
-              INNER JOIN cooperativas c ON ${v.joinOn}
-              WHERE cc.Id_Cliente = ?
-              ORDER BY ${v.colNombre} ASC
-            `;
-            const rows = await this.query(sql, [clienteId]);
-            if (rows && rows.length >= 0) return rows;
-          } catch (_) {}
-        }
+      const tRel = await this._resolveTableNameCaseInsensitive('clientes_cooperativas');
+      const tCoop = await this._resolveTableNameCaseInsensitive('cooperativas');
+      const ccCols = await this._getColumns(tRel).catch(() => []);
+      const coopCols = await this._getColumns(tCoop).catch(() => []);
+
+      const pickCC = (cands) => this._pickCIFromColumns(ccCols, cands);
+      const pickCoop = (cands) => this._pickCIFromColumns(coopCols, cands);
+
+      const colCli = pickCC(['clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'cliente_id']);
+      const colCoop = pickCC(['clicoop_coop_id', 'Id_Cooperativa', 'id_cooperativa', 'CooperativaId', 'cooperativa_id']);
+      const colNumAsoc = pickCC(['clicoop_num_asociado', 'NumAsociado', 'numAsociado', 'numero_asociado']);
+      const colCoopPk = pickCoop(['coop_id', 'id', 'Id']);
+      const colCoopNombre = pickCoop(['coop_nombre', 'Nombre', 'nombre']);
+
+      if (!colCli || !colCoop || !colNumAsoc || !colCoopPk || !colCoopNombre) {
+        return [];
       }
-      return [];
+
+      const sql = `
+        SELECT cc.\`${colCoop}\` AS Id_Cooperativa, c.\`${colCoopNombre}\` AS Nombre, cc.\`${colNumAsoc}\` AS NumAsociado
+        FROM \`${tRel}\` cc
+        INNER JOIN \`${tCoop}\` c ON cc.\`${colCoop}\` = c.\`${colCoopPk}\`
+        WHERE cc.\`${colCli}\` = ?
+        ORDER BY c.\`${colCoopNombre}\` ASC
+      `;
+      const rows = await this.query(sql, [clienteId]);
+      return Array.isArray(rows) ? rows : [];
     } catch (error) {
       console.error('❌ Error obteniendo cooperativas del cliente:', error.message);
       return [];
     }
+  },
+
+  /** Obtiene NumAsociado Hefame para un cliente. Fallback cuando getCooperativasByClienteId devuelve vacío. */
+  async getNumAsociadoHefameByClienteId(clienteId) {
+    if (!clienteId) return null;
+    const tRel = await this._resolveTableNameCaseInsensitive('clientes_cooperativas');
+    const tCoop = await this._resolveTableNameCaseInsensitive('cooperativas');
+    const variants = [
+      { colCli: 'Id_Cliente', colCoop: 'Id_Cooperativa', colNum: 'NumAsociado', coopPk: 'id', coopNom: 'Nombre' },
+      { colCli: 'Id_Cliente', colCoop: 'Id_Cooperativa', colNum: 'NumAsociado', coopPk: 'coop_id', coopNom: 'coop_nombre' }
+    ];
+    for (const v of variants) {
+      try {
+        const sql = `
+          SELECT cc.\`${v.colNum}\` AS NumAsociado
+          FROM \`${tRel}\` cc
+          INNER JOIN \`${tCoop}\` c ON cc.\`${v.colCoop}\` = c.\`${v.coopPk}\`
+          WHERE cc.\`${v.colCli}\` = ? AND (c.\`${v.coopNom}\` LIKE '%hefame%' OR c.\`${v.coopNom}\` LIKE '%HEFAME%')
+          LIMIT 1
+        `;
+        const rows = await this.query(sql, [clienteId]);
+        const val = rows?.[0]?.NumAsociado ?? rows?.[0]?.numAsociado;
+        if (val != null && String(val).trim() !== '') return String(val).trim();
+      } catch (_) {}
+    }
+    return null;
   },
 
   /** Obtiene NumAsociado de clientes_cooperativas por Id_Cliente e Id_Cooperativa.

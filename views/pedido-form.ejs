@@ -530,7 +530,7 @@
       inputNumAsociadoHefame.placeholder = 'Cargando…';
       inputNumAsociadoHefame.value = '';
       try {
-        var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/cooperativas', { headers: { Accept: 'application/json' } });
+        var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/cooperativas', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         if (!r.ok) return;
         var json = await r.json().catch(function(){ return null; });
         if (!json || json.ok !== true) return;

@@ -243,8 +243,19 @@ router.get(
       if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
     }
 
-    const items = await db.getCooperativasByClienteId(id).catch(() => []);
-    const arr = Array.isArray(items) ? items : [];
+    let items = await db.getCooperativasByClienteId(id).catch(() => []);
+    let arr = Array.isArray(items) ? items : [];
+
+    // Fallback: si no hay cooperativas, buscar nº asociado Hefame directamente (por si falla el JOIN)
+    if (arr.length === 0 && db.getNumAsociadoHefameByClienteId) {
+      try {
+        const numAsoc = await db.getNumAsociadoHefameByClienteId(id);
+        if (numAsoc) {
+          arr = [{ Id_Cooperativa: null, Nombre: 'HEFAME', NumAsociado: numAsoc }];
+        }
+      } catch (_) {}
+    }
+
     return res.json({ ok: true, items: arr });
   })
 );
