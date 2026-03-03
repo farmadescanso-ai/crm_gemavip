@@ -119,12 +119,29 @@ Ver `docs/PUNTO-23-LIKE-FULLTEXT.md` para más detalle.
 
 ## 5. Login y bcrypt
 
-### Estado
-- bcrypt con 12 rondas (seguro pero más lento en serverless).
+### Estado actual
+- **Librería**: `bcryptjs` (implementación JS, sin dependencias nativas; compatible con Vercel).
+- **Rondas**: 12 (seguro; ~100–200 ms por hash/compare en serverless).
 
-### Opciones
-- **10 rondas**: Menor latencia, sigue siendo seguro. Cambiar en `routes/auth.js` y `routes/comerciales.js`.
-- Mantener 12 rondas si la prioridad es máxima seguridad.
+### Ubicaciones
+| Archivo | Uso | Línea aprox. |
+|---------|-----|--------------|
+| `routes/auth.js` | Restablecer contraseña (POST /login-restablecer-contrasena) | `bcrypt.hash(..., 12)` |
+| `routes/auth.js` | Cambiar contraseña (POST /cuenta/cambiar-contrasena) | `bcrypt.hash(..., 12)` |
+| `routes/comerciales.js` | Crear comercial | `bcrypt.hash(..., 12)` |
+| `routes/comerciales.js` | Actualizar contraseña de comercial (admin) | `bcrypt.hash(..., 12)` |
+
+El **login** usa `bcrypt.compare()` (mismo coste que hash); cada intento de login ejecuta una compare.
+
+### Opciones de optimización
+| Rondas | Latencia aprox. | Seguridad |
+|--------|-----------------|-----------|
+| 12 | ~100–200 ms | Muy alta |
+| 10 | ~25–50 ms | Alta (OWASP recomienda ≥10) |
+
+### Cómo cambiar
+1. Sustituir `12` por `10` en las 4 llamadas a `bcrypt.hash()` indicadas arriba.
+2. Opcional: usar variable `BCRYPT_ROUNDS` (ej. `Number(process.env.BCRYPT_ROUNDS) || 10`) para hacerlo configurable sin tocar código.
 
 ---
 
