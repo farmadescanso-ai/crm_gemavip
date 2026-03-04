@@ -1019,6 +1019,12 @@ class MySQLCRM {
   async getTiposPedido() {
     return getCatalogCached('tiposPedido', '', () => domains.catalogos.getTiposPedido.apply(this, arguments));
   }
+  async getTiposClientes() {
+    return getCatalogCached('tiposClientes', '', () => domains.catalogos.getTiposClientes.apply(this, arguments));
+  }
+  async getEstadosCliente() {
+    return getCatalogCached('estadosCliente', '', () => domains.catalogos.getEstadosCliente.apply(this, arguments));
+  }
   async getEspecialidades() {
     return getCatalogCached('especialidades', '', () => domains.catalogos.getEspecialidades.apply(this, arguments));
   }
