@@ -41,6 +41,11 @@
           <p class="ventas-dropzone__text">Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span></p>
         </div>
       </div>
+      <div id="ventas-selected-wrap" class="ventas-selected-wrap" hidden>
+        <p class="ventas-selected-title">Archivos seleccionados:</p>
+        <ul id="ventas-selected-list" class="ventas-selected-list"></ul>
+        <p class="ventas-selected-hint">Pulsa el botón para subir a la base de datos.</p>
+      </div>
       <div class="ventas-upload__actions">
         <button type="submit" class="btn ventas-btn-primary" id="ventas-submit-btn" disabled>
           Procesar PDFs
@@ -396,6 +401,8 @@
       dropzoneContent.querySelector('.ventas-dropzone__text').innerHTML =
         'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
     }
+    if (selectedWrap) selectedWrap.hidden = true;
+    if (selectedList) selectedList.innerHTML = '';
     updateSubmitState();
     errorEl.hidden = true;
     debugEl.hidden = true;
@@ -441,8 +448,34 @@
     }
   });
 
+  const selectedWrap = document.getElementById('ventas-selected-wrap');
+  const selectedList = document.getElementById('ventas-selected-list');
+
   function updateSubmitState() {
-    submitBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+    const hasFiles = fileInput.files && fileInput.files.length > 0;
+    submitBtn.disabled = !hasFiles;
+    dropzone.classList.toggle('ventas-dropzone--has-files', !!hasFiles);
+    if (dropzoneContent) {
+      const textEl = dropzoneContent.querySelector('.ventas-dropzone__text');
+      if (textEl) {
+        if (hasFiles) {
+          textEl.textContent = fileInput.files.length === 1 ? '1 archivo seleccionado' : fileInput.files.length + ' archivos seleccionados';
+        } else {
+          textEl.innerHTML = 'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
+        }
+      }
+    }
+    if (selectedWrap && selectedList) {
+      selectedWrap.hidden = !hasFiles;
+      if (hasFiles) {
+        selectedList.innerHTML = '';
+        for (let i = 0; i < fileInput.files.length; i++) {
+          const li = document.createElement('li');
+          li.textContent = fileInput.files[i].name;
+          selectedList.appendChild(li);
+        }
+      }
+    }
   }
 
   const refreshBtn = document.getElementById('ventas-refresh-btn');
@@ -486,20 +519,11 @@
     if (e.dataTransfer.files.length) {
       fileInput.files = e.dataTransfer.files;
       updateSubmitState();
-      dropzoneContent.querySelector('.ventas-dropzone__text').textContent = 
-        e.dataTransfer.files.length + ' archivo(s) seleccionado(s)';
     }
   });
 
   fileInput.addEventListener('change', () => {
     updateSubmitState();
-    if (fileInput.files.length) {
-      dropzoneContent.querySelector('.ventas-dropzone__text').textContent = 
-        fileInput.files.length + ' archivo(s) seleccionado(s)';
-    } else {
-      dropzoneContent.querySelector('.ventas-dropzone__text').innerHTML = 
-        'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
-    }
   });
 
   form.addEventListener('submit', async (e) => {
