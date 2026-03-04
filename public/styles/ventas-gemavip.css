@@ -761,3 +761,53 @@
 .ventas-table tbody tr:hover {
   background: rgba(0, 139, 210, 0.04);
 }
+
+/* Heatmap provincia x mes */
+.ventas-heatmap-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ventas-heatmap {
+  width: 100%;
+  min-width: 400px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ventas-heatmap th,
+.ventas-heatmap td {
+  padding: 8px 10px;
+  text-align: center;
+  border: 1px solid var(--gv-border);
+}
+
+.ventas-heatmap th {
+  font-weight: 700;
+  background: rgba(0, 139, 210, 0.08);
+  color: var(--gv-ink);
+}
+
+.ventas-heatmap__prov {
+  text-align: left !important;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.ventas-heatmap__cell {
+  min-width: 60px;
+  color: var(--gv-ink);
+}
+
+.ventas-heatmap__cell:hover {
+  outline: 2px solid var(--gv-primary);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.ventas-heatmap__total {
+  font-weight: 700;
+  background: rgba(0, 139, 210, 0.12) !important;
+  min-width: 80px;
+}

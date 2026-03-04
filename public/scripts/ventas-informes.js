@@ -138,6 +138,8 @@
   function destroyCharts() {
     Object.values(charts).forEach(c => { if (c) c.destroy(); });
     charts = {};
+    const provMesEl = document.getElementById('chart-provincia-mes');
+    if (provMesEl) provMesEl.innerHTML = '';
   }
 
   function renderCharts(data) {
@@ -197,37 +199,40 @@
     const evProvMes = data.evolucionProvinciaMes || [];
     const mesesLabels = data.meses || [];
     if (evProvMes.length && mesesLabels.length) {
-      const provDatasets = evProvMes.map((p, i) => ({
-        label: (p.nombre || p.codigo).slice(0, 25),
-        data: p.totales,
-        backgroundColor: GV_COLORS.palette[i % GV_COLORS.palette.length],
-        borderColor: GV_COLORS.palette[i % GV_COLORS.palette.length],
-        borderWidth: 1
-      }));
       const el = document.getElementById('chart-provincia-mes');
-      if (el) charts.provinciaMes = new Chart(el, {
-        type: 'bar',
-        data: { labels: mesesLabels, datasets: provDatasets },
-        options: {
-          responsive: true,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { position: 'top', labels: { usePointStyle: true, padding: 12, boxWidth: 14 } },
-            tooltip: {
-              callbacks: {
-                footer: function(items) {
-                  const total = items.reduce((s, i) => s + (i.raw || 0), 0);
-                  return 'Total mes: ' + total.toLocaleString('es-ES');
-                }
-              }
-            }
-          },
-          scales: {
-            x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 45, minRotation: 30 } },
-            y: { stacked: true, beginAtZero: true, ticks: { callback: v => v.toLocaleString('es-ES') } }
-          }
-        }
-      });
+      if (el) {
+        const maxVal = Math.max(...evProvMes.flatMap(p => p.totales || []), 1);
+        const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        const table = document.createElement('table');
+        table.className = 'ventas-heatmap';
+        const thead = document.createElement('thead');
+        const thr = document.createElement('tr');
+        thr.innerHTML = '<th>Provincia</th>' + mesesLabels.map(m => {
+          const parts = m.split('.');
+          const label = parts.length === 2 ? (MESES_CORTOS[parseInt(parts[0],10)-1] || parts[0]) + ' ' + parts[1] : m;
+          return '<th>' + label + '</th>';
+        }).join('') + '<th>Total</th>';
+        thead.appendChild(thr);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        evProvMes.forEach(p => {
+          const totales = p.totales || [];
+          const total = totales.reduce((s, v) => s + (v || 0), 0);
+          const tr = document.createElement('tr');
+          let cells = '<td class="ventas-heatmap__prov">' + (p.nombre || p.codigo) + '</td>';
+          totales.forEach((v) => {
+            const pct = maxVal > 0 ? (v || 0) / maxVal : 0;
+            const opacity = 0.12 + pct * 0.78;
+            cells += '<td class="ventas-heatmap__cell" style="background:rgba(0,139,210,' + opacity.toFixed(2) + ');color:' + (opacity > 0.5 ? '#fff' : 'inherit') + ';" title="' + (v || 0) + '">' + (v || 0).toLocaleString('es-ES') + '</td>';
+          });
+          cells += '<td class="ventas-heatmap__total"><strong>' + total.toLocaleString('es-ES') + '</strong></td>';
+          tr.innerHTML = cells;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        el.innerHTML = '';
+        el.appendChild(table);
+      }
     }
 
     const topProv = data.topProvincias || [];
