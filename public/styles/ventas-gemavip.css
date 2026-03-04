@@ -136,6 +136,14 @@
   gap: 8px;
 }
 
+.ventas-upload-inline {
+  margin-top: 16px;
+}
+
+.ventas-upload-inline .ventas-dropzone {
+  margin-bottom: 12px;
+}
+
 .ventas-filters-hd {
   display: flex;
   flex-wrap: wrap;

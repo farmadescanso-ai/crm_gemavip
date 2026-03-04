@@ -72,9 +72,36 @@
   <section class="ventas-upload-cta card" id="ventas-upload-cta">
     <div class="card-bd">
       <p class="ventas-upload-cta__text">No hay datos cargados. Sube tu primer informe PDF para comenzar.</p>
-      <button type="button" class="btn ventas-btn-primary ventas-upload-cta__btn" id="ventas-upload-cta-btn">
-        <span>📤</span> Subir archivos
-      </button>
+      <div class="ventas-upload-inline" id="ventas-upload-inline">
+        <form id="ventas-upload-form-inline" class="ventas-upload-form" enctype="multipart/form-data">
+          <div class="ventas-dropzone" id="ventas-dropzone-inline">
+            <input type="file" id="ventas-file-input-inline" name="pdfs" accept=".pdf" multiple />
+            <div class="ventas-dropzone__content" id="ventas-dropzone-content-inline">
+              <svg class="ventas-dropzone__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <p class="ventas-dropzone__text">Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span></p>
+            </div>
+          </div>
+          <div id="ventas-selected-wrap-inline" class="ventas-selected-wrap" hidden>
+            <p class="ventas-selected-title">Archivos seleccionados:</p>
+            <ul id="ventas-selected-list-inline" class="ventas-selected-list"></ul>
+            <p class="ventas-selected-hint">Pulsa el botón para subir a la base de datos.</p>
+          </div>
+          <div class="ventas-upload__actions">
+            <button type="submit" class="btn ventas-btn-primary" id="ventas-submit-btn-inline" disabled>
+              Procesar PDFs
+            </button>
+          </div>
+        </form>
+        <div id="ventas-processing-inline" class="ventas-processing" hidden>
+          <div class="ventas-spinner"></div>
+          <p>Procesando y guardando en la base de datos...</p>
+        </div>
+        <div id="ventas-error-inline" class="ventas-error" hidden></div>
+      </div>
     </div>
   </section>
   <% } %>
@@ -303,15 +330,17 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (function() {
-  const dropzone = document.getElementById('ventas-dropzone');
-  const fileInput = document.getElementById('ventas-file-input');
-  const dropzoneContent = document.getElementById('ventas-dropzone-content');
-  const form = document.getElementById('ventas-upload-form');
-  const submitBtn = document.getElementById('ventas-submit-btn');
-  const errorEl = document.getElementById('ventas-error');
-  const debugEl = document.getElementById('ventas-debug');
   const panelCargar = document.getElementById('ventas-panel-cargar');
   const panelDashboard = document.getElementById('ventas-panel-dashboard');
+  const hasDataOnLoad = <%- (typeof hasData !== 'undefined' && hasData) ? 'true' : 'false' %>;
+  const dropzone = hasDataOnLoad ? document.getElementById('ventas-dropzone') : document.getElementById('ventas-dropzone-inline');
+  const fileInput = hasDataOnLoad ? document.getElementById('ventas-file-input') : document.getElementById('ventas-file-input-inline');
+  const dropzoneContent = hasDataOnLoad ? document.getElementById('ventas-dropzone-content') : document.getElementById('ventas-dropzone-content-inline');
+  const form = hasDataOnLoad ? document.getElementById('ventas-upload-form') : document.getElementById('ventas-upload-form-inline');
+  const submitBtn = hasDataOnLoad ? document.getElementById('ventas-submit-btn') : document.getElementById('ventas-submit-btn-inline');
+  const errorEl = hasDataOnLoad ? document.getElementById('ventas-error') : document.getElementById('ventas-error-inline');
+  const debugEl = document.getElementById('ventas-debug');
+  const processingEl = hasDataOnLoad ? document.getElementById('ventas-processing') : document.getElementById('ventas-processing-inline');
 
   const initialData = <%- typeof initialData !== 'undefined' && initialData ? JSON.stringify(initialData) : 'null' %>;
   const savedFiles = <%- typeof savedFiles !== 'undefined' && savedFiles ? JSON.stringify(savedFiles) : '[]' %>;
@@ -409,17 +438,17 @@
   const anioActual = new Date().getFullYear();
 
   function resetUploadForm() {
-    form.reset();
-    fileInput.value = '';
+    if (form) form.reset();
+    if (fileInput) fileInput.value = '';
     if (dropzoneContent) {
-      dropzoneContent.querySelector('.ventas-dropzone__text').innerHTML =
-        'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
+      const te = dropzoneContent.querySelector('.ventas-dropzone__text');
+      if (te) te.innerHTML = 'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
     }
     if (selectedWrap) selectedWrap.hidden = true;
     if (selectedList) selectedList.innerHTML = '';
     updateSubmitState();
-    errorEl.hidden = true;
-    debugEl.hidden = true;
+    if (errorEl) errorEl.hidden = true;
+    if (debugEl) debugEl.hidden = true;
   }
 
   function showMainPanel(panelId) {
@@ -453,12 +482,6 @@
   }
 
   document.addEventListener('click', (e) => {
-    const uploadCtaBtn = e.target.closest('#ventas-upload-cta-btn');
-    if (uploadCtaBtn) {
-      e.preventDefault();
-      showMainPanel('cargar');
-      return;
-    }
     const navBtn = e.target.closest('.ventas-main-nav__item');
     if (navBtn && !navBtn.disabled) {
       showMainPanel(navBtn.dataset.panel);
@@ -471,24 +494,24 @@
     }
   });
 
-  const selectedWrap = document.getElementById('ventas-selected-wrap');
-  const selectedList = document.getElementById('ventas-selected-list');
+  const selectedWrap = hasDataOnLoad ? document.getElementById('ventas-selected-wrap') : document.getElementById('ventas-selected-wrap-inline');
+  const selectedList = hasDataOnLoad ? document.getElementById('ventas-selected-list') : document.getElementById('ventas-selected-list-inline');
 
   function updateSubmitState() {
-    const hasFiles = fileInput.files && fileInput.files.length > 0;
-    submitBtn.disabled = !hasFiles;
-    dropzone.classList.toggle('ventas-dropzone--has-files', !!hasFiles);
+    const hasFiles = fileInput && fileInput.files && fileInput.files.length > 0;
+    if (submitBtn) submitBtn.disabled = !hasFiles;
+    if (dropzone) dropzone.classList.toggle('ventas-dropzone--has-files', !!hasFiles);
     if (dropzoneContent) {
       const textEl = dropzoneContent.querySelector('.ventas-dropzone__text');
       if (textEl) {
-        if (hasFiles) {
+        if (hasFiles && fileInput) {
           textEl.textContent = fileInput.files.length === 1 ? '1 archivo seleccionado' : fileInput.files.length + ' archivos seleccionados';
         } else {
           textEl.innerHTML = 'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
         }
       }
     }
-    if (selectedWrap && selectedList) {
+    if (selectedWrap && selectedList && fileInput) {
       selectedWrap.hidden = !hasFiles;
       if (hasFiles) {
         selectedList.innerHTML = '';
@@ -535,26 +558,23 @@
     });
   }
 
-  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('ventas-dropzone--active'); });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('ventas-dropzone--active'));
-  dropzone.addEventListener('drop', (e) => {
+  if (dropzone) {
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('ventas-dropzone--active'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('ventas-dropzone--active'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('ventas-dropzone--active');
+      if (e.dataTransfer.files.length && fileInput) {
+        fileInput.files = e.dataTransfer.files;
+        updateSubmitState();
+      }
+    });
+  }
+  if (fileInput) fileInput.addEventListener('change', () => updateSubmitState());
+
+  if (form) form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    dropzone.classList.remove('ventas-dropzone--active');
-    if (e.dataTransfer.files.length) {
-      fileInput.files = e.dataTransfer.files;
-      updateSubmitState();
-    }
-  });
-
-  fileInput.addEventListener('change', () => {
-    updateSubmitState();
-  });
-
-  const processingEl = document.getElementById('ventas-processing');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!fileInput.files.length) return;
+    if (!fileInput || !fileInput.files || !fileInput.files.length) return;
 
     const fileNames = [];
     for (let i = 0; i < fileInput.files.length; i++) {
@@ -565,10 +585,10 @@
       : '¿Subir ' + fileNames.length + ' archivos a la base de datos?\n\n' + fileNames.map(f => '• ' + f).join('\n');
     if (!confirm(msg)) return;
 
-    errorEl.hidden = true;
-    submitBtn.disabled = true;
+    if (errorEl) errorEl.hidden = true;
+    if (submitBtn) submitBtn.disabled = true;
     const actionsDiv = form.querySelector('.ventas-upload__actions');
-    dropzone.style.display = 'none';
+    if (dropzone) dropzone.style.display = 'none';
     if (selectedWrap) selectedWrap.style.display = 'none';
     if (actionsDiv) actionsDiv.style.display = 'none';
     if (processingEl) processingEl.hidden = false;
@@ -589,11 +609,11 @@
         throw new Error(json.error || 'Error al procesar');
       }
 
-      debugEl.hidden = true;
-      if (json.debug && json.debug.rawTextSample) {
-        debugEl.innerHTML = '<strong>No se extrajeron ventas.</strong> Muestra del texto del PDF (para depuración):<pre style="max-height:200px;overflow:auto;font-size:11px;white-space:pre-wrap;">' + 
+      if (debugEl) debugEl.hidden = true;
+      if (json.debug && json.debug.rawTextSample && errorEl) {
+        errorEl.innerHTML = '<strong>No se extrajeron ventas.</strong> Muestra del texto del PDF (para depuración):<pre style="max-height:200px;overflow:auto;font-size:11px;white-space:pre-wrap;">' + 
           String(json.debug.rawTextSample).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
-        debugEl.hidden = false;
+        errorEl.hidden = false;
       }
 
       if (json.data) {
@@ -607,16 +627,20 @@
         resetUploadForm();
       }
     } catch (err) {
-      errorEl.textContent = err.message || 'Error al procesar los PDFs';
-      errorEl.hidden = false;
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Error al procesar los PDFs';
+        errorEl.hidden = false;
+      }
     } finally {
-      dropzone.style.display = '';
+      if (dropzone) dropzone.style.display = '';
       if (selectedWrap) selectedWrap.style.display = '';
       const ad = form.querySelector('.ventas-upload__actions');
       if (ad) ad.style.display = '';
       if (processingEl) processingEl.hidden = true;
-      submitBtn.textContent = 'Procesar PDFs';
-      submitBtn.disabled = false;
+      if (submitBtn) {
+        submitBtn.textContent = 'Procesar PDFs';
+        submitBtn.disabled = false;
+      }
     }
   });
 
