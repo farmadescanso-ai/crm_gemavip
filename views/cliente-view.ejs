@@ -58,7 +58,7 @@
     </div>
 
     <%
-      const fieldAliases = { cli_com_id: ['Id_Cial', 'id_cial'], id_cial: ['cli_com_id', 'Id_Cial'], cli_idiom_id: ['Id_Idioma', 'id_idioma'], id_idioma: ['cli_idiom_id', 'Id_Idioma'], cli_mon_id: ['Id_Moneda', 'id_moneda'], id_moneda: ['cli_mon_id', 'Id_Moneda'], cli_formp_id: ['Id_FormaPago', 'id_formapago'], cli_tarcli_id: ['cli_tarifa_legacy', 'Tarifa'], cli_tarifa_legacy: ['cli_tarcli_id', 'Tarifa'] };
+      const fieldAliases = { cli_com_id: ['Id_Cial', 'id_cial'], id_cial: ['cli_com_id', 'Id_Cial'], cli_idiom_id: ['Id_Idioma', 'id_idioma'], id_idioma: ['cli_idiom_id', 'Id_Idioma'], cli_mon_id: ['Id_Moneda', 'id_moneda'], id_moneda: ['cli_mon_id', 'Id_Moneda'], cli_formp_id: ['Id_FormaPago', 'id_formapago'], cli_tarcli_id: ['cli_tarifa_legacy', 'Tarifa'], cli_tarifa_legacy: ['cli_tarcli_id', 'Tarifa'], cli_esp_id: ['Id_Especialidad', 'id_especialidad'], id_especialidad: ['cli_esp_id', 'Id_Especialidad'] };
       const pickVal = (name) => {
         if (!item) return '';
         const keys = [name, ...(fieldAliases[String(name).toLowerCase()] || [])];
@@ -71,7 +71,7 @@
       const findById = (rows, id) => {
         const cur = Number(id ?? 0) || 0;
         if (!cur) return null;
-        const pkKeys = ['id', 'Id', 'ID', 'com_id', 'pais_id', 'formp_id', 'idi_id', 'idiom_id', 'mon_id', 'tipc_id', 'prov_id'];
+        const pkKeys = ['id', 'Id', 'ID', 'com_id', 'pais_id', 'formp_id', 'idi_id', 'idiom_id', 'mon_id', 'tipc_id', 'esp_id', 'prov_id'];
         return (rows || []).find((r) => {
           for (const k of pkKeys) {
             if (r[k] !== undefined && r[k] !== null && Number(r[k]) === cur) return true;
@@ -95,6 +95,11 @@
           return item?.ComercialNombre ?? row?.com_nombre ?? row?.Nombre ?? (rawStr || '—');
         }
         if (spec.kind === 'select' && spec.options === 'tipos_clientes') return item?.TipoClienteNombre ?? (rawStr || '—');
+        if (spec.kind === 'select' && spec.options === 'especialidades') {
+          if (item?.EspecialidadNombre) return item.EspecialidadNombre;
+          const row = findById(especialidades, raw);
+          return row?.esp_nombre ?? row?.Nombre ?? row?.nombre ?? (rawStr || '—');
+        }
         if (spec.kind === 'select' && spec.options === 'provincias') {
           const row = findById(provincias, raw);
           return item?.ProvinciaNombre ?? row?.prov_nombre ?? row?.Nombre ?? row?.nombre ?? (rawStr || '—');

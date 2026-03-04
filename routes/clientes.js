@@ -71,13 +71,14 @@ router.get('/', requireLogin, async (req, res, next) => {
 
 router.get('/new', requireLogin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
+    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_nombre', 'tipc_tipo', 'Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
@@ -100,6 +101,7 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       paises: Array.isArray(paises) ? paises : [],
       formasPago: Array.isArray(formasPago) ? formasPago : [],
       tiposClientes: Array.isArray(tiposClientes) ? tiposClientes : [],
+      especialidades: Array.isArray(especialidades) ? especialidades : [],
       idiomas: Array.isArray(idiomas) ? idiomas : [],
       monedas: Array.isArray(monedas) ? monedas : [],
       estadosCliente: Array.isArray(estadosCliente) ? estadosCliente : [],
@@ -115,13 +117,14 @@ router.get('/new', requireLogin, async (_req, res, next) => {
 
 router.post('/new', requireLogin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
+    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_nombre', 'tipc_tipo', 'Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
@@ -241,7 +244,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     const admin = isAdminUser(res.locals.user);
     const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
     if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
@@ -249,6 +252,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_nombre', 'tipc_tipo', 'Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
@@ -275,6 +279,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       paises,
       formasPago,
       tiposClientes,
+      especialidades: especialidades || [],
       idiomas,
       monedas,
       estadosCliente,
@@ -309,7 +314,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
+    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
@@ -317,6 +322,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_nombre', 'tipc_tipo', 'Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
@@ -338,6 +344,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       paises,
       formasPago,
       tiposClientes,
+      especialidades: especialidades || [],
       idiomas,
       monedas,
       estadosCliente,
@@ -367,13 +374,14 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, meta, provincias, paises, formasPago, tiposClientes, idiomas, monedas, estadosCliente, cooperativas, gruposCompras] = await Promise.all([
+    const [item, meta, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras] = await Promise.all([
       db.getClienteById(id),
       db._ensureClientesMeta().catch(() => null),
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
       loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_nombre', 'tipc_tipo', 'Tipo', 'Nombre', 'Descripcion', 'descripcion'] }),
+      loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db),
@@ -414,6 +422,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
         paises,
         formasPago,
         tiposClientes,
+        especialidades: especialidades || [],
         idiomas,
         monedas,
         estadosCliente,
