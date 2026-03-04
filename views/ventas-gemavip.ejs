@@ -25,8 +25,7 @@
   <div class="card-hd">
     <h2 class="card-title">Cargar informes PDF</h2>
     <p class="card-subtitle">
-      Formatos soportados: <code>VENTAS GEMAVIP 022026 TOTAL.pdf</code>, 
-      <code>VENTAS GEMAVIP NOV ENERO 012026.pdf</code>, etc. (hasta 5 archivos, 15 MB cada uno)
+      Formato: PDF (hasta 5 archivos, 15 MB cada uno)
     </p>
   </div>
   <div class="card-bd">
@@ -48,10 +47,6 @@
         </button>
       </div>
     </form>
-    <div id="ventas-loading" class="ventas-loading" hidden>
-      <div class="ventas-spinner"></div>
-      <p>Procesando PDFs...</p>
-    </div>
     <div id="ventas-error" class="ventas-error" hidden></div>
     <div id="ventas-debug" class="ventas-debug" hidden></div>
     <% if (typeof hasData !== 'undefined' && hasData) { %>
@@ -65,8 +60,11 @@
 
 <div id="ventas-panel-dashboard" class="ventas-panel ventas-dashboard <%= (typeof hasData !== 'undefined' && hasData) ? 'ventas-panel--active' : '' %>" <%= (typeof hasData !== 'undefined' && hasData) ? '' : 'hidden' %>>
   <section class="ventas-filters card">
-    <div class="card-hd">
+    <div class="card-hd ventas-filters-hd">
       <h2 class="card-title">Filtros y comparativas</h2>
+      <button type="button" class="btn ventas-btn-primary ventas-btn-refresh" id="ventas-refresh-btn" title="Actualizar datos desde la BD">
+        <span class="ventas-btn-refresh__icon">↻</span> Actualizar
+      </button>
     </div>
     <div class="card-bd">
       <div class="ventas-filters__row">
@@ -291,8 +289,6 @@
   const dropzoneContent = document.getElementById('ventas-dropzone-content');
   const form = document.getElementById('ventas-upload-form');
   const submitBtn = document.getElementById('ventas-submit-btn');
-  const loading = document.getElementById('ventas-loading');
-  if (loading) loading.hidden = true;
   const errorEl = document.getElementById('ventas-error');
   const debugEl = document.getElementById('ventas-debug');
   const panelCargar = document.getElementById('ventas-panel-cargar');
@@ -449,6 +445,18 @@
     submitBtn.disabled = !fileInput.files || fileInput.files.length === 0;
   }
 
+  const refreshBtn = document.getElementById('ventas-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      const icon = refreshBtn.querySelector('.ventas-btn-refresh__icon');
+      if (icon) icon.classList.add('ventas-spin');
+      await fetchDataWithFilters();
+      if (icon) icon.classList.remove('ventas-spin');
+      refreshBtn.disabled = false;
+    });
+  }
+
   const clearBtn = document.getElementById('ventas-clear-btn');
   if (clearBtn) {
     clearBtn.addEventListener('click', async () => {
@@ -498,8 +506,8 @@
     e.preventDefault();
     if (!fileInput.files.length) return;
 
-    loading.hidden = false;
     errorEl.hidden = true;
+    submitBtn.textContent = 'Subiendo...';
     submitBtn.disabled = true;
 
     const fd = new FormData();
@@ -536,7 +544,7 @@
       errorEl.textContent = err.message || 'Error al procesar los PDFs';
       errorEl.hidden = false;
     } finally {
-      loading.hidden = true;
+      submitBtn.textContent = 'Procesar PDFs';
       submitBtn.disabled = false;
     }
   });
@@ -578,10 +586,9 @@
     try {
       const res = await fetch('/ventas-gemavip/api/data' + (params.toString() ? '?' + params.toString() : ''));
       const json = await res.json();
-      if (json.ok) {
-        rawData = json.data || { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: [] };
+      if (json.ok && json.data) {
         if (json.catalogos) Object.assign(catalogos, json.catalogos);
-        if (typeof applyFilters === 'function') applyFilters();
+        renderDashboard(json.data);
       }
     } catch (_) {}
   }

@@ -118,6 +118,28 @@
   display: none !important;
 }
 
+.ventas-filters-hd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ventas-btn-refresh {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.ventas-btn-refresh__icon {
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.ventas-btn-refresh__icon.ventas-spin {
+  animation: ventas-spin 0.6s linear infinite;
+}
+
 /* Upload */
 .ventas-upload .card-subtitle code {
   font-size: 12px;
