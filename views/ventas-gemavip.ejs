@@ -452,12 +452,13 @@
     renderDashboard(rawData);
   }
 
-  const uploadCtaBtn = document.getElementById('ventas-upload-cta-btn');
-  if (uploadCtaBtn) {
-    uploadCtaBtn.addEventListener('click', () => showMainPanel('cargar'));
-  }
-
   document.addEventListener('click', (e) => {
+    const uploadCtaBtn = e.target.closest('#ventas-upload-cta-btn');
+    if (uploadCtaBtn) {
+      e.preventDefault();
+      showMainPanel('cargar');
+      return;
+    }
     const navBtn = e.target.closest('.ventas-main-nav__item');
     if (navBtn && !navBtn.disabled) {
       showMainPanel(navBtn.dataset.panel);
