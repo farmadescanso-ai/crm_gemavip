@@ -198,24 +198,21 @@
     const mesesLabels = data.meses || [];
     if (evProvMes.length && mesesLabels.length) {
       const provDatasets = evProvMes.map((p, i) => ({
-        label: p.nombre || p.codigo,
+        label: (p.nombre || p.codigo).slice(0, 25),
         data: p.totales,
+        backgroundColor: GV_COLORS.palette[i % GV_COLORS.palette.length],
         borderColor: GV_COLORS.palette[i % GV_COLORS.palette.length],
-        backgroundColor: GV_COLORS.palette[i % GV_COLORS.palette.length] + '20',
-        fill: false,
-        tension: 0.35,
-        pointRadius: 3,
-        pointHoverRadius: 6
+        borderWidth: 1
       }));
       const el = document.getElementById('chart-provincia-mes');
       if (el) charts.provinciaMes = new Chart(el, {
-        type: 'line',
+        type: 'bar',
         data: { labels: mesesLabels, datasets: provDatasets },
         options: {
           responsive: true,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } },
+            legend: { position: 'top', labels: { usePointStyle: true, padding: 12, boxWidth: 14 } },
             tooltip: {
               callbacks: {
                 footer: function(items) {
@@ -226,8 +223,8 @@
             }
           },
           scales: {
-            y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('es-ES') } },
-            x: { grid: { display: false } }
+            x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 45, minRotation: 30 } },
+            y: { stacked: true, beginAtZero: true, ticks: { callback: v => v.toLocaleString('es-ES') } }
           }
         }
       });
