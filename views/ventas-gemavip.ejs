@@ -4,23 +4,23 @@
   <div class="ventas-hero__inner">
     <h1 class="ventas-hero__title">Dashboard de Ventas Gemavip</h1>
     <p class="ventas-hero__subtitle">
-      Carga tus informes PDF de ventas y visualiza la evolución por artículos, provincias y meses.
+      Consulta el dashboard con los datos ya cargados o añade un PDF cuando lo necesites.
     </p>
   </div>
 </section>
 
 <nav class="ventas-main-nav" aria-label="Navegación principal">
-  <button type="button" class="ventas-main-nav__item active" data-panel="cargar">
-    <span class="ventas-main-nav__icon">📤</span>
-    Cargar más ficheros
-  </button>
-  <button type="button" class="ventas-main-nav__item" data-panel="dashboard" id="ventas-nav-dashboard">
+  <button type="button" class="ventas-main-nav__item <%= (typeof hasData !== 'undefined' && hasData) ? 'active' : '' %>" data-panel="dashboard" id="ventas-nav-dashboard">
     <span class="ventas-main-nav__icon">📊</span>
     Dashboard
   </button>
+  <button type="button" class="ventas-main-nav__item <%= (typeof hasData !== 'undefined' && !hasData) ? 'active' : '' %>" data-panel="cargar">
+    <span class="ventas-main-nav__icon">📤</span>
+    Añadir PDF
+  </button>
 </nav>
 
-<section id="ventas-panel-cargar" class="ventas-panel ventas-panel--active">
+<section id="ventas-panel-cargar" class="ventas-panel <%= (typeof hasData !== 'undefined' && hasData) ? '' : 'ventas-panel--active' %>" <%= (typeof hasData !== 'undefined' && hasData) ? 'hidden' : '' %>>
 <section class="ventas-upload card">
   <div class="card-hd">
     <h2 class="card-title">Cargar informes PDF</h2>
@@ -74,7 +74,7 @@
 </section>
 </section>
 
-<div id="ventas-panel-dashboard" class="ventas-panel ventas-dashboard" hidden>
+<div id="ventas-panel-dashboard" class="ventas-panel ventas-dashboard <%= (typeof hasData !== 'undefined' && hasData) ? 'ventas-panel--active' : '' %>" <%= (typeof hasData !== 'undefined' && hasData) ? '' : 'hidden' %>>
   <section class="ventas-filters card">
     <div class="card-hd">
       <h2 class="card-title">Filtros y comparativas</h2>
@@ -303,6 +303,7 @@
   const form = document.getElementById('ventas-upload-form');
   const submitBtn = document.getElementById('ventas-submit-btn');
   const loading = document.getElementById('ventas-loading');
+  if (loading) loading.hidden = true;
   const errorEl = document.getElementById('ventas-error');
   const debugEl = document.getElementById('ventas-debug');
   const panelCargar = document.getElementById('ventas-panel-cargar');

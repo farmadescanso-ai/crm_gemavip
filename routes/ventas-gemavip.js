@@ -190,6 +190,7 @@ router.get('/ventas-gemavip', async (req, res, next) => {
     const cache = await getCache();
     const fileNames = (cache?.files?.length ? cache.files : savedFiles).map((f) => (typeof f === 'string' ? f : (f && f.name)) || '').filter(Boolean);
 
+    const hasData = !!(initialData || (fileNames && fileNames.length > 0));
     res.render('ventas-gemavip', {
       title: 'Ventas Gemavip',
       headerVariant: 'ventas',
@@ -197,6 +198,7 @@ router.get('/ventas-gemavip', async (req, res, next) => {
       initialData,
       catalogos,
       savedFiles: fileNames,
+      hasData,
       queryParams: { anio, mes, provincia, articulo, view: req.query.view || 'evolucion-mes' }
     });
   } catch (e) {
