@@ -27,6 +27,12 @@ FROM clientes c
 LEFT JOIN tipos_clientes tc ON tc.tipc_id = c.cli_tipc_id
 WHERE c.cli_tipc_id IS NOT NULL AND c.cli_tipc_id <> 0 AND tc.tipc_id IS NULL;
 
+-- 1.2b Clientes con especialidad (cli_esp_id) huérfana
+SELECT 'clientes.cli_esp_id' AS fk_check, COUNT(*) AS huérfanos
+FROM clientes c
+LEFT JOIN especialidades esp ON esp.esp_id = c.cli_esp_id
+WHERE c.cli_esp_id IS NOT NULL AND c.cli_esp_id <> 0 AND esp.esp_id IS NULL;
+
 -- 1.3 Clientes con provincia (cli_prov_id) huérfana
 SELECT 'clientes.cli_prov_id' AS fk_check, COUNT(*) AS huérfanos
 FROM clientes c

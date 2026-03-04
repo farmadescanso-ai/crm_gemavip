@@ -9,11 +9,19 @@ const { requireLogin, isAdminUser } = require('../lib/auth');
 const { parsePagination } = require('../lib/pagination');
 const {
   loadSimpleCatalogForSelect,
+  loadEstadosClienteForSelect,
   applySpainDefaultsIfEmpty,
   buildClienteFormModel,
   coerceClienteValue
 } = require('../lib/cliente-helpers');
 const { normalizeTelefonoForDB } = require('../lib/telefono-utils');
+
+/** Obtiene catálogo con fallback si el método principal devuelve vacío (p.ej. timeout en serverless). */
+async function getCatalogWithFallback(db, methodName, fallbackFn) {
+  const data = await (db[methodName] ? db[methodName]() : Promise.resolve([])).catch(() => []);
+  if (Array.isArray(data) && data.length > 0) return data;
+  return fallbackFn();
+}
 
 function normalizePayloadTelefonos(payload) {
   const telCols = ['cli_telefono', 'cli_movil', 'Telefono', 'Movil', 'telefono', 'movil'];
@@ -76,11 +84,11 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      _n(db.getTiposClientes && db.getTiposClientes().catch(() => []), []),
-      _n(db.getEspecialidades && db.getEspecialidades().catch(() => []), []),
+      getCatalogWithFallback(db, 'getTiposClientes', () => loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_tipo', 'tipc_nombre', 'Tipo', 'Nombre'] })),
+      getCatalogWithFallback(db, 'getEspecialidades', () => loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] })),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      _n(db.getEstadosCliente && db.getEstadosCliente().catch(() => []), []),
+      getCatalogWithFallback(db, 'getEstadosCliente', () => loadEstadosClienteForSelect(db)),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -122,11 +130,11 @@ router.post('/new', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      _n(db.getTiposClientes && db.getTiposClientes().catch(() => []), []),
-      _n(db.getEspecialidades && db.getEspecialidades().catch(() => []), []),
+      getCatalogWithFallback(db, 'getTiposClientes', () => loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_tipo', 'tipc_nombre', 'Tipo', 'Nombre'] })),
+      getCatalogWithFallback(db, 'getEspecialidades', () => loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] })),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      _n(db.getEstadosCliente && db.getEstadosCliente().catch(() => []), []),
+      getCatalogWithFallback(db, 'getEstadosCliente', () => loadEstadosClienteForSelect(db)),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -250,11 +258,11 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      _n(db.getTiposClientes && db.getTiposClientes().catch(() => []), []),
-      _n(db.getEspecialidades && db.getEspecialidades().catch(() => []), []),
+      getCatalogWithFallback(db, 'getTiposClientes', () => loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_tipo', 'tipc_nombre', 'Tipo', 'Nombre'] })),
+      getCatalogWithFallback(db, 'getEspecialidades', () => loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] })),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      _n(db.getEstadosCliente && db.getEstadosCliente().catch(() => []), []),
+      getCatalogWithFallback(db, 'getEstadosCliente', () => loadEstadosClienteForSelect(db)),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -320,11 +328,11 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      _n(db.getTiposClientes && db.getTiposClientes().catch(() => []), []),
-      _n(db.getEspecialidades && db.getEspecialidades().catch(() => []), []),
+      getCatalogWithFallback(db, 'getTiposClientes', () => loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_tipo', 'tipc_nombre', 'Tipo', 'Nombre'] })),
+      getCatalogWithFallback(db, 'getEspecialidades', () => loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] })),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      _n(db.getEstadosCliente && db.getEstadosCliente().catch(() => []), []),
+      getCatalogWithFallback(db, 'getEstadosCliente', () => loadEstadosClienteForSelect(db)),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -379,11 +387,11 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
       _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      _n(db.getTiposClientes && db.getTiposClientes().catch(() => []), []),
-      _n(db.getEspecialidades && db.getEspecialidades().catch(() => []), []),
+      getCatalogWithFallback(db, 'getTiposClientes', () => loadSimpleCatalogForSelect(db, 'tipos_clientes', { labelCandidates: ['tipc_tipo', 'tipc_nombre', 'Tipo', 'Nombre'] })),
+      getCatalogWithFallback(db, 'getEspecialidades', () => loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] })),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      _n(db.getEstadosCliente && db.getEstadosCliente().catch(() => []), []),
+      getCatalogWithFallback(db, 'getEstadosCliente', () => loadEstadosClienteForSelect(db)),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), [])
     ]);
