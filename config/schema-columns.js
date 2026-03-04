@@ -20,8 +20,8 @@ const SCHEMA_COLUMNS = {
   comerciales: ['com_id', 'com_nombre', 'com_email', 'com_dni', 'com_password', 'com_roll', 'com_fijo_mensual', 'com_movil', 'com_direccion', 'com_codp_id', 'com_poblacion', 'com_codigo_postal', 'com_prov_id', 'com_teams_access_token', 'com_teams_refresh_token', 'com_teams_email', 'com_teams_token_expires_at', 'com_meet_access_token', 'com_meet_refresh_token', 'com_meet_email', 'com_meet_token_expires_at', 'com_plataforma_reunion_preferida'],
   comerciales_codigos_postales_marcas: ['comdod_id', 'comdod_Id_Comercial', 'comdod_Id_CodigoPostal', 'comdod_Id_Marca', 'comdod_FechaInicio', 'comdod_FechaFin', 'comdod_Activo', 'comdod_Prioridad', 'comdod_Observaciones', 'comdod_CreadoPor', 'comdod_CreadoEn', 'comdod_ActualizadoEn'],
   cooperativas: ['coop_id', 'coop_nombre', 'coop_email', 'coop_telefono', 'coop_contacto'],
-  especialidades: ['esp_id', 'esp_nombre', 'esp_activo'],
-  estdoClientes: ['estcli_id', 'estcli_nombre', 'estcli_activo'],
+  especialidades: ['esp_id', 'esp_nombre', 'esp_observaciones'],
+  estdoClientes: ['estcli_id', 'estcli_nombre'],
   formas_pago: ['formp_id', 'formp_nombre', 'formp_dias'],
   gruposCompras: ['grucom_id', 'grucom_Nombre', 'grucom_CIF', 'grucom_Email', 'grucom_Telefono', 'grucom_Contacto', 'grucom_Direccion', 'grucom_Poblacion', 'grucom_CodigoPostal', 'grucom_Provincia', 'grucom_Pais', 'grucom_Observaciones', 'grucom_Activo', 'grucom_CreadoEn', 'grucom_ActualizadoEn'],
   idiomas: ['idiom_id', 'idiom_codigo', 'idiom_nombre'],
@@ -33,7 +33,7 @@ const SCHEMA_COLUMNS = {
   provincias: ['prov_id', 'prov_nombre', 'prov_codigo', 'prov_pais', 'prov_codigo_pais'],
   tarifasClientes: ['tarcli_id', 'tarcli_nombre', 'tarcli_activo'],
   tarifasClientes_precios: ['tarclip_id', 'tarclip_tarcli_id', 'tarclip_art_id', 'tarclip_precio'],
-  tipos_clientes: ['tipc_id', 'tipc_tipo', 'tipc_activo'],
+  tipos_clientes: ['tipc_id', 'tipc_tipo'],
   tipos_pedidos: ['tipp_id', 'tipp_tipo', 'tipp_activo'],
   visitas: ['vis_id', 'vis_cli_id', 'vis_com_id', 'vis_centp_id', 'vis_presc_id', 'vis_ruta_id', 'vis_tipo', 'vis_fecha', 'vis_hora', 'vis_hora_final', 'vis_estado', 'vis_notas', 'Id_Comercial', 'Hora_Final']
 };
