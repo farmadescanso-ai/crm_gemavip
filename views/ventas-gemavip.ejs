@@ -330,6 +330,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (function() {
+  'use strict';
   const panelCargar = document.getElementById('ventas-panel-cargar');
   const panelDashboard = document.getElementById('ventas-panel-dashboard');
   const hasDataOnLoad = <%- (typeof hasData !== 'undefined' && hasData) ? 'true' : 'false' %>;
@@ -342,10 +343,10 @@
   const debugEl = document.getElementById('ventas-debug');
   const processingEl = hasDataOnLoad ? document.getElementById('ventas-processing') : document.getElementById('ventas-processing-inline');
 
-  const initialData = <%- typeof initialData !== 'undefined' && initialData ? JSON.stringify(initialData) : 'null' %>;
-  const savedFiles = <%- typeof savedFiles !== 'undefined' && savedFiles ? JSON.stringify(savedFiles) : '[]' %>;
-  let catalogos = <%- typeof catalogos !== 'undefined' && catalogos ? JSON.stringify(catalogos) : '{"años":[],"meses":[],"provincias":[],"materiales":[]}' %>;
-  const queryParams = <%- typeof queryParams !== 'undefined' && queryParams ? JSON.stringify(queryParams) : '{"view":"evolucion-mes"}' %>;
+  const initialData = <%- (typeof initialData !== 'undefined' && initialData ? JSON.stringify(initialData) : 'null').replace(/<\//g, '\\x3c/') %>;
+  const savedFiles = <%- (typeof savedFiles !== 'undefined' && savedFiles ? JSON.stringify(savedFiles) : '[]').replace(/<\//g, '\\x3c/') %>;
+  let catalogos = <%- (typeof catalogos !== 'undefined' && catalogos ? JSON.stringify(catalogos) : '{"años":[],"meses":[],"provincias":[],"materiales":[]}').replace(/<\//g, '\\x3c/') %>;
+  const queryParams = <%- (typeof queryParams !== 'undefined' && queryParams ? JSON.stringify(queryParams) : '{"view":"evolucion-mes"}').replace(/<\//g, '\\x3c/') %>;
 
   const GV_COLORS = {
     primary: '#008bd2',

@@ -69,7 +69,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       fontSrc: ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "cdn.jsdelivr.net", "https://cdn.jsdelivr.net"],
       frameSrc: ["'self'", "https://vercel.live"]
     }
   }
