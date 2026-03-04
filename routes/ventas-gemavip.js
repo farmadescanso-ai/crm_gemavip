@@ -258,7 +258,10 @@ router.post('/ventas-gemavip/upload', (req, res, next) => {
 
     for (const f of files) {
       try {
-        await savePdf(f.buffer, f.originalname).then((r) => savedNames.push(r.savedAs));
+        try {
+          const r = await savePdf(f.buffer, f.originalname);
+          if (r?.savedAs) savedNames.push(r.savedAs);
+        } catch (_) { /* disco puede fallar en Vercel; continuamos con BD */ }
         const data = await parseVentasPdf(f.buffer, f.originalname);
         results.push(data);
       } catch (err) {

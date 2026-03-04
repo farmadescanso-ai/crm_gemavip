@@ -9,24 +9,10 @@
   </div>
 </section>
 
-<nav class="ventas-main-nav" aria-label="Navegación principal">
-  <button type="button" class="ventas-main-nav__item active" data-panel="dashboard" id="ventas-nav-dashboard">
-    <span class="ventas-main-nav__icon">📊</span>
-    Dashboard
-  </button>
-  <button type="button" class="ventas-main-nav__item" data-panel="cargar">
-    <span class="ventas-main-nav__icon">📤</span>
-    Añadir PDF
-  </button>
-</nav>
-
-<section id="ventas-panel-cargar" class="ventas-panel" hidden>
-<section class="ventas-upload card">
+<section class="ventas-upload-card card">
   <div class="card-hd">
-    <h2 class="card-title">Cargar informes PDF</h2>
-    <p class="card-subtitle">
-      Formato: PDF (hasta 5 archivos, 15 MB cada uno)
-    </p>
+    <h2 class="card-title">Subir PDF</h2>
+    <p class="card-subtitle">Formato: PDF. Máx. 5 archivos, 15 MB cada uno.</p>
   </div>
   <div class="card-bd">
     <form id="ventas-upload-form" class="ventas-upload-form" enctype="multipart/form-data">
@@ -38,73 +24,30 @@
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
-          <p class="ventas-dropzone__text">Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span></p>
+          <p class="ventas-dropzone__text">Arrastra PDFs aquí o haz clic para seleccionar</p>
         </div>
       </div>
       <div id="ventas-selected-wrap" class="ventas-selected-wrap" hidden>
-        <p class="ventas-selected-title">Archivos seleccionados:</p>
-        <ul id="ventas-selected-list" class="ventas-selected-list"></ul>
-        <p class="ventas-selected-hint">Pulsa el botón para subir a la base de datos.</p>
-      </div>
-      <div class="ventas-upload__actions">
-        <button type="submit" class="btn ventas-btn-primary" id="ventas-submit-btn" disabled>
-          Procesar PDFs
-        </button>
+        <p class="ventas-selected-title" id="ventas-selected-title"></p>
+        <div class="ventas-upload__actions">
+          <button type="submit" class="btn ventas-btn-primary" id="ventas-submit-btn">Subir a la base de datos</button>
+        </div>
       </div>
     </form>
     <div id="ventas-processing" class="ventas-processing" hidden>
       <div class="ventas-spinner"></div>
-      <p>Procesando y guardando en la base de datos...</p>
+      <p>Subiendo y guardando...</p>
     </div>
     <div id="ventas-error" class="ventas-error" hidden></div>
-    <div id="ventas-debug" class="ventas-debug" hidden></div>
     <% if (typeof hasData !== 'undefined' && hasData) { %>
     <p class="ventas-clear-hint">
-      <button type="button" class="ventas-clear-btn" id="ventas-clear-btn">Vaciar datos y empezar de cero</button>
+      <button type="button" class="ventas-clear-btn" id="ventas-clear-btn">Vaciar datos</button>
     </p>
     <% } %>
   </div>
 </section>
-</section>
 
-<div id="ventas-panel-dashboard" class="ventas-panel ventas-dashboard ventas-panel--active">
-  <% if (typeof hasData !== 'undefined' && !hasData) { %>
-  <section class="ventas-upload-cta card" id="ventas-upload-cta">
-    <div class="card-bd">
-      <p class="ventas-upload-cta__text">No hay datos cargados. Sube tu primer informe PDF para comenzar.</p>
-      <div class="ventas-upload-inline" id="ventas-upload-inline">
-        <form id="ventas-upload-form-inline" class="ventas-upload-form" enctype="multipart/form-data">
-          <div class="ventas-dropzone" id="ventas-dropzone-inline">
-            <input type="file" id="ventas-file-input-inline" name="pdfs" accept=".pdf" multiple />
-            <div class="ventas-dropzone__content" id="ventas-dropzone-content-inline">
-              <svg class="ventas-dropzone__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-              <p class="ventas-dropzone__text">Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span></p>
-            </div>
-          </div>
-          <div id="ventas-selected-wrap-inline" class="ventas-selected-wrap" hidden>
-            <p class="ventas-selected-title">Archivos seleccionados:</p>
-            <ul id="ventas-selected-list-inline" class="ventas-selected-list"></ul>
-            <p class="ventas-selected-hint">Pulsa el botón para subir a la base de datos.</p>
-          </div>
-          <div class="ventas-upload__actions">
-            <button type="submit" class="btn ventas-btn-primary" id="ventas-submit-btn-inline" disabled>
-              Procesar PDFs
-            </button>
-          </div>
-        </form>
-        <div id="ventas-processing-inline" class="ventas-processing" hidden>
-          <div class="ventas-spinner"></div>
-          <p>Procesando y guardando en la base de datos...</p>
-        </div>
-        <div id="ventas-error-inline" class="ventas-error" hidden></div>
-      </div>
-    </div>
-  </section>
-  <% } %>
+<div id="ventas-panel-dashboard" class="ventas-dashboard">
   <section class="ventas-filters card">
     <div class="card-hd ventas-filters-hd">
       <h2 class="card-title">Filtros y comparativas</h2>
@@ -331,17 +274,15 @@
 <script>
 ;(function() {
   'use strict';
-  const panelCargar = document.getElementById('ventas-panel-cargar');
-  const panelDashboard = document.getElementById('ventas-panel-dashboard');
-  const hasDataOnLoad = <%- (typeof hasData !== 'undefined' && hasData) ? 'true' : 'false' %>;
-  const dropzone = hasDataOnLoad ? document.getElementById('ventas-dropzone') : document.getElementById('ventas-dropzone-inline');
-  const fileInput = hasDataOnLoad ? document.getElementById('ventas-file-input') : document.getElementById('ventas-file-input-inline');
-  const dropzoneContent = hasDataOnLoad ? document.getElementById('ventas-dropzone-content') : document.getElementById('ventas-dropzone-content-inline');
-  const form = hasDataOnLoad ? document.getElementById('ventas-upload-form') : document.getElementById('ventas-upload-form-inline');
-  const submitBtn = hasDataOnLoad ? document.getElementById('ventas-submit-btn') : document.getElementById('ventas-submit-btn-inline');
-  const errorEl = hasDataOnLoad ? document.getElementById('ventas-error') : document.getElementById('ventas-error-inline');
-  const debugEl = document.getElementById('ventas-debug');
-  const processingEl = hasDataOnLoad ? document.getElementById('ventas-processing') : document.getElementById('ventas-processing-inline');
+  const dropzone = document.getElementById('ventas-dropzone');
+  const fileInput = document.getElementById('ventas-file-input');
+  const dropzoneContent = document.getElementById('ventas-dropzone-content');
+  const form = document.getElementById('ventas-upload-form');
+  const submitBtn = document.getElementById('ventas-submit-btn');
+  const selectedWrap = document.getElementById('ventas-selected-wrap');
+  const selectedTitle = document.getElementById('ventas-selected-title');
+  const errorEl = document.getElementById('ventas-error');
+  const processingEl = document.getElementById('ventas-processing');
 
   const initialData = <%- (typeof initialData !== 'undefined' && initialData ? JSON.stringify(initialData) : 'null').replace(/<\//g, '\\x3c/') %>;
   const savedFiles = <%- (typeof savedFiles !== 'undefined' && savedFiles ? JSON.stringify(savedFiles) : '[]').replace(/<\//g, '\\x3c/') %>;
@@ -443,33 +384,15 @@
     if (fileInput) fileInput.value = '';
     if (dropzoneContent) {
       const te = dropzoneContent.querySelector('.ventas-dropzone__text');
-      if (te) te.innerHTML = 'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
+      if (te) te.textContent = 'Arrastra PDFs aquí o haz clic para seleccionar';
     }
     if (selectedWrap) selectedWrap.hidden = true;
-    if (selectedList) selectedList.innerHTML = '';
+    if (dropzone) dropzone.style.display = '';
     updateSubmitState();
     if (errorEl) errorEl.hidden = true;
-    if (debugEl) debugEl.hidden = true;
-  }
-
-  function showMainPanel(panelId) {
-    panelCargar.classList.toggle('ventas-panel--active', panelId === 'cargar');
-    panelCargar.hidden = panelId !== 'cargar';
-    panelDashboard.classList.toggle('ventas-panel--active', panelId === 'dashboard');
-    panelDashboard.hidden = panelId !== 'dashboard';
-    document.querySelectorAll('.ventas-main-nav__item').forEach(b => b.classList.toggle('active', b.dataset.panel === panelId));
-    if (panelId === 'cargar') {
-      resetUploadForm();
-    }
-    if (panelId === 'dashboard' && panelDashboard && !panelDashboard.hidden && rawData === null) {
-      rawData = { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: [] };
-      renderDashboard(rawData);
-    }
   }
 
   const hasData = initialData || (typeof savedFiles !== 'undefined' && savedFiles && savedFiles.length > 0);
-  panelDashboard.hidden = false;
-  showMainPanel('dashboard');
   if (hasData) {
     rawData = initialData || { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: savedFiles || [] };
     renderDashboard(rawData);
@@ -483,11 +406,6 @@
   }
 
   document.addEventListener('click', (e) => {
-    const navBtn = e.target.closest('.ventas-main-nav__item');
-    if (navBtn && !navBtn.disabled) {
-      showMainPanel(navBtn.dataset.panel);
-      return;
-    }
     const btn = e.target.closest('.ventas-chart-nav__item');
     if (btn) {
       showChartPanel(btn.dataset.chart);
@@ -495,34 +413,19 @@
     }
   });
 
-  const selectedWrap = hasDataOnLoad ? document.getElementById('ventas-selected-wrap') : document.getElementById('ventas-selected-wrap-inline');
-  const selectedList = hasDataOnLoad ? document.getElementById('ventas-selected-list') : document.getElementById('ventas-selected-list-inline');
-
   function updateSubmitState() {
     const hasFiles = fileInput && fileInput.files && fileInput.files.length > 0;
-    if (submitBtn) submitBtn.disabled = !hasFiles;
+    if (selectedWrap) selectedWrap.hidden = !hasFiles;
     if (dropzone) dropzone.classList.toggle('ventas-dropzone--has-files', !!hasFiles);
-    if (dropzoneContent) {
-      const textEl = dropzoneContent.querySelector('.ventas-dropzone__text');
-      if (textEl) {
-        if (hasFiles && fileInput) {
-          textEl.textContent = fileInput.files.length === 1 ? '1 archivo seleccionado' : fileInput.files.length + ' archivos seleccionados';
-        } else {
-          textEl.innerHTML = 'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
-        }
-      }
+    if (hasFiles && fileInput && selectedTitle) {
+      const n = fileInput.files.length;
+      const names = [];
+      for (let i = 0; i < n; i++) names.push(fileInput.files[i].name);
+      selectedTitle.textContent = n === 1 ? 'Archivo: ' + names[0] : n + ' archivos: ' + names.join(', ');
     }
-    if (selectedWrap && selectedList && fileInput) {
-      selectedWrap.hidden = !hasFiles;
-      if (hasFiles) {
-        selectedList.innerHTML = '';
-        const files = fileInput.files;
-        for (let i = 0; i < files.length; i++) {
-          const li = document.createElement('li');
-          li.innerHTML = '<strong>' + (files[i].name || 'archivo ' + (i + 1)) + '</strong>';
-          selectedList.appendChild(li);
-        }
-      }
+    if (dropzoneContent) {
+      const te = dropzoneContent.querySelector('.ventas-dropzone__text');
+      if (te) te.textContent = hasFiles && fileInput ? (fileInput.files.length === 1 ? '1 archivo' : fileInput.files.length + ' archivos') : 'Arrastra PDFs aquí o haz clic para seleccionar';
     }
   }
 
@@ -577,71 +480,41 @@
     e.preventDefault();
     if (!fileInput || !fileInput.files || !fileInput.files.length) return;
 
-    const fileNames = [];
-    for (let i = 0; i < fileInput.files.length; i++) {
-      fileNames.push(fileInput.files[i].name);
-    }
-    const msg = fileNames.length === 1
-      ? '¿Subir el archivo "' + fileNames[0] + '" a la base de datos?'
-      : '¿Subir ' + fileNames.length + ' archivos a la base de datos?\n\n' + fileNames.map(f => '• ' + f).join('\n');
-    if (!confirm(msg)) return;
-
     if (errorEl) errorEl.hidden = true;
     if (submitBtn) submitBtn.disabled = true;
-    const actionsDiv = form.querySelector('.ventas-upload__actions');
     if (dropzone) dropzone.style.display = 'none';
     if (selectedWrap) selectedWrap.style.display = 'none';
-    if (actionsDiv) actionsDiv.style.display = 'none';
     if (processingEl) processingEl.hidden = false;
 
     const fd = new FormData();
-    for (let i = 0; i < fileInput.files.length; i++) {
-      fd.append('pdfs', fileInput.files[i]);
-    }
+    for (let i = 0; i < fileInput.files.length; i++) fd.append('pdfs', fileInput.files[i]);
 
     try {
-      const res = await fetch('/ventas-gemavip/upload', {
-        method: 'POST',
-        body: fd
-      });
-      const json = await res.json().catch(() => ({}));
+      const url = (window.location.origin || '') + '/ventas-gemavip/upload';
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 55000);
+      const res = await fetch(url, { method: 'POST', body: fd, signal: ctrl.signal });
+      clearTimeout(t);
+      const json = await res.json().catch(() => ({ ok: false, error: 'Error de conexión' }));
 
-      if (!json.ok) {
-        throw new Error(json.error || 'Error al procesar');
-      }
+      if (!json.ok) throw new Error(json.error || 'Error al procesar');
 
-      if (debugEl) debugEl.hidden = true;
       if (json.debug && json.debug.rawTextSample && errorEl) {
-        errorEl.innerHTML = '<strong>No se extrajeron ventas.</strong> Muestra del texto del PDF (para depuración):<pre style="max-height:200px;overflow:auto;font-size:11px;white-space:pre-wrap;">' + 
-          String(json.debug.rawTextSample).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+        errorEl.innerHTML = '<strong>No se extrajeron ventas del PDF.</strong> Verifica el formato.';
         errorEl.hidden = false;
       }
-
-      if (json.data) {
-        rawData = json.data;
-        renderDashboard(json.data);
-        const cta = document.getElementById('ventas-upload-cta');
-        if (cta) cta.hidden = true;
-        panelDashboard.hidden = false;
-        showMainPanel('dashboard');
-        panelDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        resetUploadForm();
-      }
+      if (json.data) window.location.reload();
     } catch (err) {
       if (errorEl) {
-        errorEl.textContent = err.message || 'Error al procesar los PDFs';
+        errorEl.textContent = err.name === 'AbortError' ? 'La subida tardó demasiado. Prueba con archivos más pequeños.' : (err.message || 'Error al subir');
         errorEl.hidden = false;
       }
     } finally {
       if (dropzone) dropzone.style.display = '';
       if (selectedWrap) selectedWrap.style.display = '';
-      const ad = form.querySelector('.ventas-upload__actions');
-      if (ad) ad.style.display = '';
       if (processingEl) processingEl.hidden = true;
-      if (submitBtn) {
-        submitBtn.textContent = 'Procesar PDFs';
-        submitBtn.disabled = false;
-      }
+      if (submitBtn) submitBtn.disabled = false;
+      resetUploadForm();
     }
   });
 
