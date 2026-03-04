@@ -9,7 +9,7 @@ const multer = require('multer');
 const path = require('path');
 const { parseVentasPdf, mergeVentasResults } = require('../lib/ventas-pdf-parser');
 const { savePdf, getCache, saveCache, listSavedPdfs, readSavedPdf, removePdf } = require('../lib/ventas-storage');
-const { insertOrUpdateVentas, getVentasFiltradas, getCatalogos } = require('../lib/ventas-hefame-db');
+const { insertOrUpdateVentas, getVentasFiltradas, getCatalogos, clearAllVentas } = require('../lib/ventas-hefame-db');
 
 const router = express.Router();
 
@@ -353,6 +353,23 @@ router.post('/ventas-gemavip/reprocess', async (req, res, next) => {
       ok: true,
       data: buildDashboardData(fromDb)
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /ventas-gemavip/clear - Vaciar todos los datos de ventas_hefame, caché y PDFs en disco
+router.post('/ventas-gemavip/clear', async (req, res, next) => {
+  try {
+    await clearAllVentas();
+    await saveCache({ files: [], parsed: null, lastUpdated: new Date().toISOString() });
+    const pdfs = await listSavedPdfs();
+    for (const f of pdfs) {
+      try {
+        await removePdf(typeof f === 'object' ? f.name : f);
+      } catch (_) {}
+    }
+    return res.json({ ok: true, message: 'Datos de ventas eliminados' });
   } catch (e) {
     next(e);
   }

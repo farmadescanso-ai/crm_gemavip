@@ -54,21 +54,10 @@
     </div>
     <div id="ventas-error" class="ventas-error" hidden></div>
     <div id="ventas-debug" class="ventas-debug" hidden></div>
-    <% if (typeof savedFiles !== 'undefined' && savedFiles && savedFiles.length > 0) { %>
-    <div class="ventas-saved card" style="margin-top: 16px;">
-      <div class="card-hd">
-        <h3 class="card-title">PDFs guardados (<%= savedFiles.length %>)</h3>
-        <p class="card-subtitle">Los datos se cargan automáticamente. Añade más PDFs arriba para fusionarlos.</p>
-      </div>
-      <div class="card-bd">
-        <ul class="ventas-saved-list">
-          <% savedFiles.forEach((f) => { %>
-            <li><code><%= f %></code></li>
-          <% }) %>
-        </ul>
-        <button type="button" class="btn secondary" id="ventas-reprocess-btn">Reprocesar todos</button>
-      </div>
-    </div>
+    <% if (typeof hasData !== 'undefined' && hasData) { %>
+    <p class="ventas-clear-hint">
+      <button type="button" class="ventas-clear-btn" id="ventas-clear-btn">Vaciar datos y empezar de cero</button>
+    </p>
     <% } %>
   </div>
 </section>
@@ -404,14 +393,29 @@
 
   const anioActual = new Date().getFullYear();
 
+  function resetUploadForm() {
+    form.reset();
+    fileInput.value = '';
+    if (dropzoneContent) {
+      dropzoneContent.querySelector('.ventas-dropzone__text').innerHTML =
+        'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
+    }
+    updateSubmitState();
+    errorEl.hidden = true;
+    debugEl.hidden = true;
+  }
+
   function showMainPanel(panelId) {
     panelCargar.classList.toggle('ventas-panel--active', panelId === 'cargar');
     panelCargar.hidden = panelId !== 'cargar';
     panelDashboard.classList.toggle('ventas-panel--active', panelId === 'dashboard');
     panelDashboard.hidden = panelId !== 'dashboard';
     document.querySelectorAll('.ventas-main-nav__item').forEach(b => b.classList.toggle('active', b.dataset.panel === panelId));
+    if (panelId === 'cargar') {
+      resetUploadForm();
+    }
     if (panelId === 'dashboard' && panelDashboard && !panelDashboard.hidden && rawData === null) {
-      rawData = { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: savedFiles || [] };
+      rawData = { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: [] };
       renderDashboard(rawData);
     }
   }
@@ -441,34 +445,31 @@
     }
   });
 
-  const reprocessBtn = document.getElementById('ventas-reprocess-btn');
-  if (reprocessBtn) {
-    reprocessBtn.addEventListener('click', async () => {
-      loading.hidden = false;
-      errorEl.hidden = true;
-      try {
-        const res = await fetch('/ventas-gemavip/reprocess', { method: 'POST' });
-        const json = await res.json();
-        if (json.ok && json.data) {
-          rawData = json.data;
-          renderDashboard(json.data);
-          panelDashboard.hidden = false;
-          showMainPanel('dashboard');
-        }
-      } catch (e) {
-        errorEl.textContent = e.message || 'Error';
-        errorEl.hidden = false;
-      } finally {
-        loading.hidden = true;
-      }
-    });
-  }
-
   function updateSubmitState() {
     submitBtn.disabled = !fileInput.files || fileInput.files.length === 0;
   }
 
-  dropzone.addEventListener('click', () => fileInput.click());
+  const clearBtn = document.getElementById('ventas-clear-btn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar todos los datos de ventas? Tendrás que volver a subir los PDFs.')) return;
+      clearBtn.disabled = true;
+      try {
+        const res = await fetch('/ventas-gemavip/clear', { method: 'POST' });
+        const json = await res.json();
+        if (json.ok) {
+          window.location.reload();
+        } else {
+          alert(json.error || 'Error al vaciar');
+        }
+      } catch (e) {
+        alert(e.message || 'Error');
+      } finally {
+        clearBtn.disabled = false;
+      }
+    });
+  }
+
   dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('ventas-dropzone--active'); });
   dropzone.addEventListener('dragleave', () => dropzone.classList.remove('ventas-dropzone--active'));
   dropzone.addEventListener('drop', (e) => {

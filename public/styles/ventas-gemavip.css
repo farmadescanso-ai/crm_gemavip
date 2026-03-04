@@ -134,6 +134,7 @@
 }
 
 .ventas-dropzone {
+  position: relative;
   border: 2px dashed var(--gv-border);
   border-radius: var(--gv-radius);
   padding: 32px 24px;
@@ -169,17 +170,43 @@
   text-decoration: underline;
 }
 
+.ventas-dropzone__content {
+  pointer-events: none;
+}
+
 .ventas-dropzone input[type="file"] {
   position: absolute;
-  width: 0;
-  height: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
-  overflow: hidden;
+  cursor: pointer;
+  z-index: 1;
 }
 
 .ventas-upload__actions {
   display: flex;
   justify-content: center;
+}
+
+.ventas-clear-hint {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: var(--gv-muted);
+}
+
+.ventas-clear-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--gv-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.ventas-clear-btn:hover:not(:disabled) {
+  color: #c00;
 }
 
 .ventas-btn-primary {
