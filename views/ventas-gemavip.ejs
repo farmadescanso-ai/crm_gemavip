@@ -329,7 +329,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-(function() {
+;(function() {
   'use strict';
   const panelCargar = document.getElementById('ventas-panel-cargar');
   const panelDashboard = document.getElementById('ventas-panel-dashboard');
@@ -885,7 +885,7 @@
             },
             tooltip: {
               callbacks: {
-                footer: function(items) {
+                footer: (items) => {
                   const total = items.reduce((s, i) => s + (i.raw || 0), 0);
                   return 'Total mes: ' + total.toLocaleString('es-ES');
                 }
