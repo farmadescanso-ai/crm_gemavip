@@ -52,6 +52,10 @@
         </button>
       </div>
     </form>
+    <div id="ventas-processing" class="ventas-processing" hidden>
+      <div class="ventas-spinner"></div>
+      <p>Procesando y guardando en la base de datos...</p>
+    </div>
     <div id="ventas-error" class="ventas-error" hidden></div>
     <div id="ventas-debug" class="ventas-debug" hidden></div>
     <% if (typeof hasData !== 'undefined' && hasData) { %>
@@ -469,9 +473,10 @@
       selectedWrap.hidden = !hasFiles;
       if (hasFiles) {
         selectedList.innerHTML = '';
-        for (let i = 0; i < fileInput.files.length; i++) {
+        const files = fileInput.files;
+        for (let i = 0; i < files.length; i++) {
           const li = document.createElement('li');
-          li.textContent = fileInput.files[i].name;
+          li.innerHTML = '<strong>' + (files[i].name || 'archivo ' + (i + 1)) + '</strong>';
           selectedList.appendChild(li);
         }
       }
@@ -526,13 +531,19 @@
     updateSubmitState();
   });
 
+  const processingEl = document.getElementById('ventas-processing');
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!fileInput.files.length) return;
 
     errorEl.hidden = true;
-    submitBtn.textContent = 'Subiendo...';
     submitBtn.disabled = true;
+    const actionsDiv = form.querySelector('.ventas-upload__actions');
+    dropzone.style.display = 'none';
+    if (selectedWrap) selectedWrap.style.display = 'none';
+    if (actionsDiv) actionsDiv.style.display = 'none';
+    if (processingEl) processingEl.hidden = false;
 
     const fd = new FormData();
     for (let i = 0; i < fileInput.files.length; i++) {
@@ -563,11 +574,17 @@
         panelDashboard.hidden = false;
         showMainPanel('dashboard');
         panelDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        resetUploadForm();
       }
     } catch (err) {
       errorEl.textContent = err.message || 'Error al procesar los PDFs';
       errorEl.hidden = false;
     } finally {
+      dropzone.style.display = '';
+      if (selectedWrap) selectedWrap.style.display = '';
+      const ad = form.querySelector('.ventas-upload__actions');
+      if (ad) ad.style.display = '';
+      if (processingEl) processingEl.hidden = true;
       submitBtn.textContent = 'Procesar PDFs';
       submitBtn.disabled = false;
     }
