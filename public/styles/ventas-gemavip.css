@@ -227,6 +227,10 @@
   pointer-events: none;
 }
 
+.ventas-dropzone--simple .ventas-dropzone__content {
+  pointer-events: auto;
+}
+
 .ventas-dropzone input[type="file"] {
   position: absolute;
   inset: 0;
@@ -314,6 +318,23 @@
 .ventas-btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.ventas-btn-secondary {
+  background: transparent;
+  color: var(--gv-primary);
+  font-weight: 600;
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: 2px solid var(--gv-primary);
+  text-decoration: none;
+  display: inline-block;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ventas-btn-secondary:hover {
+  background: rgba(0, 139, 210, 0.1);
+  color: var(--gv-primary-2);
 }
 
 .ventas-processing {

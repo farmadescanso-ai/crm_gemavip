@@ -1,0 +1,246 @@
+<%- include('partials/header', { title: 'Informes - Ventas Gemavip', headerVariant: 'ventas', extraStyles: ['/assets/styles/ventas-gemavip.css'] }) %>
+
+<section class="ventas-hero">
+  <div class="ventas-hero__inner">
+    <h1 class="ventas-hero__title">Informes de ventas</h1>
+    <p class="ventas-hero__subtitle">
+      Dashboard con gráficos y filtros. Los datos se cargan desde la base de datos.
+    </p>
+  </div>
+</section>
+
+<p style="text-align:center;margin-bottom:1.5rem;">
+  <% if (typeof uploadSuccess !== 'undefined' && uploadSuccess) { %>
+  <span class="ventas-success-msg" style="display:inline-block;margin-right:1rem;color:var(--gv-green,#28a745);font-weight:600;">✓ PDFs guardados correctamente</span>
+  <% } %>
+  <a href="/ventas-gemavip/subir" class="btn ventas-btn-primary">Subir más PDFs</a>
+</p>
+
+<div id="ventas-panel-dashboard" class="ventas-dashboard">
+  <section class="ventas-filters card">
+    <div class="card-hd ventas-filters-hd">
+      <h2 class="card-title">Filtros y comparativas</h2>
+      <button type="button" class="btn ventas-btn-primary ventas-btn-refresh" id="ventas-refresh-btn" title="Actualizar datos desde la BD">
+        <span class="ventas-btn-refresh__icon">↻</span> Actualizar
+      </button>
+    </div>
+    <div class="card-bd">
+      <div class="ventas-filters__row">
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-anio">Año</label>
+          <select id="ventas-filter-anio" class="ventas-filter-select">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-mes">Mes</label>
+          <select id="ventas-filter-mes" class="ventas-filter-select">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-provincia">Provincia</label>
+          <select id="ventas-filter-provincia" class="ventas-filter-select">
+            <option value="all">Todas</option>
+          </select>
+        </div>
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-articulo">Artículo</label>
+          <select id="ventas-filter-articulo" class="ventas-filter-select">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+      </div>
+      <div class="ventas-comparativas">
+        <div class="ventas-comparativa" id="ventas-comp-mes">
+          <span class="ventas-comp-label">Mes actual vs anterior</span>
+          <span class="ventas-comp-value" id="ventas-comp-mes-value">—</span>
+        </div>
+        <div class="ventas-comparativa" id="ventas-comp-anio">
+          <span class="ventas-comp-label">Mismo periodo vs año anterior</span>
+          <span class="ventas-comp-value" id="ventas-comp-anio-value">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ventas-stats card">
+    <div class="card-hd">
+      <h2 class="card-title">Resumen</h2>
+    </div>
+    <div class="card-bd">
+      <div class="ventas-stats__grid">
+        <div class="ventas-stat" data-variant="blue">
+          <span class="ventas-stat__label">Total unidades</span>
+          <span class="ventas-stat__value" id="stat-total">—</span>
+        </div>
+        <div class="ventas-stat" data-variant="green">
+          <span class="ventas-stat__label">Materiales</span>
+          <span class="ventas-stat__value" id="stat-materiales">—</span>
+        </div>
+        <div class="ventas-stat" data-variant="yellow">
+          <span class="ventas-stat__label">Provincias</span>
+          <span class="ventas-stat__value" id="stat-provincias">—</span>
+        </div>
+        <div class="ventas-stat" data-variant="navy">
+          <span class="ventas-stat__label">Meses</span>
+          <span class="ventas-stat__value" id="stat-meses">—</span>
+        </div>
+      </div>
+      <p class="ventas-files" id="ventas-files-list"></p>
+    </div>
+  </section>
+
+  <div class="ventas-chart-menu">
+    <h3 class="ventas-chart-menu__title">Vistas disponibles</h3>
+    <p class="ventas-chart-menu__subtitle">Selecciona una vista para ver los datos con los filtros aplicados</p>
+    <nav class="ventas-chart-nav" aria-label="Gráficos">
+      <button type="button" class="ventas-chart-nav__item active" data-chart="evolucion-mes" title="Total de unidades vendidas por mes">
+        <span class="ventas-chart-nav__label">Evolución por mes</span>
+        <span class="ventas-chart-nav__desc">Total unidades por mes</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="top-materiales" title="Materiales con más ventas">
+        <span class="ventas-chart-nav__label">Top artículos</span>
+        <span class="ventas-chart-nav__desc">Materiales con más ventas</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="provincias" title="Distribución geográfica">
+        <span class="ventas-chart-nav__label">Ventas por provincia</span>
+        <span class="ventas-chart-nav__desc">Distribución geográfica</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="provincia-mes" title="Top 10 provincias a lo largo del tiempo">
+        <span class="ventas-chart-nav__label">Provincia x mes</span>
+        <span class="ventas-chart-nav__desc">Evolución por provincia y mes</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="material-mes" title="Top 8 materiales a lo largo del tiempo">
+        <span class="ventas-chart-nav__label">Artículo x mes</span>
+        <span class="ventas-chart-nav__desc">Evolución por artículo y mes</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="anio-vs-anio" title="Mismo periodo en ambos años">
+        <span class="ventas-chart-nav__label">Año vs año anterior</span>
+        <span class="ventas-chart-nav__desc">Comparativa mismo periodo</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="mes-vs-mes" title="Últimos dos meses con datos">
+        <span class="ventas-chart-nav__label">Mes actual vs anterior</span>
+        <span class="ventas-chart-nav__desc">Comparativa dos últimos meses</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="detalle" title="Tabla completa de datos">
+        <span class="ventas-chart-nav__label">Detalle tabla</span>
+        <span class="ventas-chart-nav__desc">Tabla completa extraída</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="ventas-charts">
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="evolucion-mes">
+      <div class="card-hd">
+        <h2 class="card-title">Evolución por mes</h2>
+        <p class="card-subtitle">Total de unidades vendidas por mes</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-evolucion-mes"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="top-materiales" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Top artículos</h2>
+        <p class="card-subtitle">Materiales con más ventas</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-top-materiales"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="provincias" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Ventas por provincia</h2>
+        <p class="card-subtitle">Distribución geográfica</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-provincias"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-card--wide ventas-chart-panel" data-chart-panel="provincia-mes" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Comparativa evolución por provincia y mes</h2>
+        <p class="card-subtitle">Top 10 provincias: evolución de ventas a lo largo del tiempo</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap ventas-chart-wrap--tall">
+          <canvas id="chart-provincia-mes"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-card--wide ventas-chart-panel" data-chart-panel="material-mes" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Evolución por artículo y mes</h2>
+        <p class="card-subtitle">Top 8 materiales a lo largo del tiempo</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-material-mes"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-card--wide ventas-chart-panel" data-chart-panel="anio-vs-anio" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Comparativa año vs año anterior</h2>
+        <p class="card-subtitle">Mismo periodo: meses con datos en ambos años</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap ventas-chart-wrap--tall">
+          <canvas id="chart-anio-vs-anio"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="mes-vs-mes" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Mes actual vs mes anterior</h2>
+        <p class="card-subtitle">Comparativa de los dos últimos meses con datos</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-mes-vs-mes"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card ventas-table-card ventas-chart-panel" data-chart-panel="detalle" hidden>
+    <div class="card-hd">
+      <h2 class="card-title">Detalle de ventas</h2>
+      <p class="card-subtitle">Tabla completa de datos extraídos</p>
+    </div>
+    <div class="card-bd">
+      <div class="table-wrap">
+        <table class="ventas-table" id="ventas-detail-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Provincia</th>
+              <th>Mes/Año</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="application/json" id="ventas-page-data"><%- JSON.stringify({ initialData: typeof initialData !== 'undefined' ? initialData : null, catalogos: typeof catalogos !== 'undefined' ? catalogos : {}, queryParams: typeof queryParams !== 'undefined' ? queryParams : {}, savedFiles: typeof savedFiles !== 'undefined' ? savedFiles : [] }).replace(/<\//g, '\\u003c/') %></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/assets/scripts/ventas-informes.js"></script>
+
+<%- include('partials/footer') %>

@@ -150,8 +150,30 @@ function buildDashboardData(merged) {
   };
 }
 
-// GET /ventas-gemavip - Landing (carga datos desde BD con filtros opcionales)
-router.get('/ventas-gemavip', async (req, res, next) => {
+// GET /ventas-gemavip - Redirige a subir
+router.get('/ventas-gemavip', (req, res) => {
+  res.redirect(302, '/ventas-gemavip/subir');
+});
+
+// GET /ventas-gemavip/subir - Página para subir PDFs (formulario tradicional, sin JS)
+router.get('/ventas-gemavip/subir', async (req, res, next) => {
+  try {
+    const uploadSuccess = req.query.upload === 'ok' ? 'PDFs subidos y guardados correctamente.' : null;
+    const uploadError = req.query.error ? decodeURIComponent(req.query.error) : null;
+    res.render('ventas-gemavip-subir', {
+      title: 'Subir PDFs - Ventas Gemavip',
+      headerVariant: 'ventas',
+      extraStyles: ['/assets/styles/ventas-gemavip.css'],
+      uploadSuccess,
+      uploadError
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /ventas-gemavip/informes - Dashboard con gráficos (datos desde BD)
+router.get('/ventas-gemavip/informes', async (req, res, next) => {
   try {
     const anio = req.query.anio ? Number(req.query.anio) : null;
     const mes = req.query.mes ? Number(req.query.mes) : null;
@@ -173,7 +195,6 @@ router.get('/ventas-gemavip', async (req, res, next) => {
       }
       catalogos = await getCatalogos();
     } catch (dbErr) {
-      // Fallback a caché si la tabla ventas_hefame no existe aún
       const cache = await getCache();
       if (cache?.parsed) {
         initialData = buildDashboardData(cache.parsed);
@@ -189,16 +210,18 @@ router.get('/ventas-gemavip', async (req, res, next) => {
     const savedFiles = (await listSavedPdfs()).map((f) => (typeof f === 'object' && f.name ? f.name : f)).filter(Boolean);
     const cache = await getCache();
     const fileNames = (cache?.files?.length ? cache.files : savedFiles).map((f) => (typeof f === 'string' ? f : (f && f.name)) || '').filter(Boolean);
-
     const hasData = !!(initialData || (fileNames && fileNames.length > 0));
-    res.render('ventas-gemavip', {
-      title: 'Ventas Gemavip',
+    const uploadSuccess = req.query.upload === 'ok';
+
+    res.render('ventas-gemavip-informes', {
+      title: 'Informes - Ventas Gemavip',
       headerVariant: 'ventas',
       extraStyles: ['/assets/styles/ventas-gemavip.css'],
       initialData,
       catalogos,
       savedFiles: fileNames,
       hasData,
+      uploadSuccess,
       queryParams: { anio, mes, provincia, articulo, view: req.query.view || 'evolucion-mes' }
     });
   } catch (e) {
@@ -246,7 +269,12 @@ router.post('/ventas-gemavip/upload', (req, res, next) => {
 }, async (req, res, next) => {
   try {
     const files = req.files || [];
+    const wantsRedirect = req.body && req.body.redirect === '1';
+
     if (files.length === 0) {
+      if (wantsRedirect) {
+        return res.redirect(302, '/ventas-gemavip/subir?error=' + encodeURIComponent('No se han subido archivos PDF. Selecciona al menos uno.'));
+      }
       return res.status(400).json({
         ok: false,
         error: 'No se han subido archivos PDF. Selecciona al menos uno.'
@@ -301,12 +329,22 @@ router.post('/ventas-gemavip/upload', (req, res, next) => {
       ? { rawTextSample: results.find((r) => r.rawTextSample)?.rawTextSample }
       : undefined;
 
+    if (req.body && req.body.redirect === '1') {
+      if (data.ventas.length === 0 && results.length > 0 && debug?.rawTextSample) {
+        return res.redirect(302, '/ventas-gemavip/subir?error=' + encodeURIComponent('No se extrajeron ventas del PDF. Verifica el formato.'));
+      }
+      return res.redirect(302, '/ventas-gemavip/informes?upload=ok');
+    }
+
     return res.json({
       ok: true,
       data,
       debug
     });
   } catch (e) {
+    if (req.body && req.body.redirect === '1') {
+      return res.redirect(302, '/ventas-gemavip/subir?error=' + encodeURIComponent(e.message || 'Error al procesar'));
+    }
     next(e);
   }
 });

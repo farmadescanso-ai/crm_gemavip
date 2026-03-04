@@ -1,0 +1,48 @@
+<%- include('partials/header', { title: 'Subir PDFs - Ventas Gemavip', headerVariant: 'ventas', extraStyles: ['/assets/styles/ventas-gemavip.css'] }) %>
+
+<section class="ventas-hero">
+  <div class="ventas-hero__inner">
+    <h1 class="ventas-hero__title">Subir PDFs de ventas</h1>
+    <p class="ventas-hero__subtitle">
+      Selecciona uno o varios PDFs de Hefame. Se procesarán y guardarán en la base de datos.
+    </p>
+  </div>
+</section>
+
+<section class="ventas-upload-card card">
+  <div class="card-hd">
+    <h2 class="card-title">Subir PDF</h2>
+    <p class="card-subtitle">Formato: PDF. Máx. 5 archivos, 15 MB cada uno.</p>
+  </div>
+  <div class="card-bd">
+    <form action="/ventas-gemavip/upload" method="POST" enctype="multipart/form-data" class="ventas-upload-form">
+      <input type="hidden" name="redirect" value="1" />
+      <div class="ventas-dropzone ventas-dropzone--simple">
+        <label for="ventas-file-input" class="ventas-dropzone__content" style="cursor:pointer;display:block;">
+          <svg class="ventas-dropzone__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p class="ventas-dropzone__text">Haz clic para seleccionar PDFs</p>
+        </label>
+        <input type="file" id="ventas-file-input" name="pdfs" accept=".pdf" multiple required />
+      </div>
+      <div class="ventas-upload__actions" style="margin-top:1rem;">
+        <button type="submit" class="btn ventas-btn-primary">Subir y guardar en BD</button>
+      </div>
+    </form>
+    <% if (typeof uploadError !== 'undefined' && uploadError) { %>
+    <div class="ventas-error" style="margin-top:1rem;"><%= uploadError %></div>
+    <% } %>
+    <% if (typeof uploadSuccess !== 'undefined' && uploadSuccess) { %>
+    <div class="ventas-success" style="margin-top:1rem;color:var(--gv-green,#28a745);"><%= uploadSuccess %></div>
+    <% } %>
+  </div>
+</section>
+
+<p style="text-align:center;margin-top:2rem;">
+  <a href="/ventas-gemavip/informes" class="btn ventas-btn-secondary">Ver informes y gráficos</a>
+</p>
+
+<%- include('partials/footer') %>
