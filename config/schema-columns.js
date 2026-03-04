@@ -33,7 +33,7 @@ const SCHEMA_COLUMNS = {
   provincias: ['prov_id', 'prov_nombre', 'prov_codigo', 'prov_pais', 'prov_codigo_pais'],
   tarifasClientes: ['tarcli_id', 'tarcli_nombre', 'tarcli_activo'],
   tarifasClientes_precios: ['tarclip_id', 'tarclip_tarcli_id', 'tarclip_art_id', 'tarclip_precio'],
-  tipos_clientes: ['tipc_id', 'tipc_nombre', 'tipc_activo'],
+  tipos_clientes: ['tipc_id', 'tipc_tipo', 'tipc_activo'],
   tipos_pedidos: ['tipp_id', 'tipp_tipo', 'tipp_activo'],
   visitas: ['vis_id', 'vis_cli_id', 'vis_com_id', 'vis_centp_id', 'vis_presc_id', 'vis_ruta_id', 'vis_tipo', 'vis_fecha', 'vis_hora', 'vis_hora_final', 'vis_estado', 'vis_notas', 'Id_Comercial', 'Hora_Final']
 };
@@ -43,7 +43,12 @@ const USE_STATIC = process.env.USE_STATIC_SCHEMA !== '0';
 function getColumns(tableName) {
   if (!USE_STATIC) return null;
   const key = String(tableName || '').trim();
-  return SCHEMA_COLUMNS[key] || null;
+  if (SCHEMA_COLUMNS[key]) return SCHEMA_COLUMNS[key];
+  const keyLower = key.toLowerCase();
+  for (const k of Object.keys(SCHEMA_COLUMNS)) {
+    if (k.toLowerCase() === keyLower) return SCHEMA_COLUMNS[k];
+  }
+  return null;
 }
 
 function hasStaticSchema(tableName) {
