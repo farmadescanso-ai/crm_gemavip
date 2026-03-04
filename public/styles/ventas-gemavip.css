@@ -118,6 +118,24 @@
   display: none !important;
 }
 
+.ventas-upload-cta {
+  margin-bottom: 24px;
+  border: 2px dashed var(--gv-primary);
+  background: rgba(0, 139, 210, 0.06);
+}
+
+.ventas-upload-cta__text {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: var(--gv-text);
+}
+
+.ventas-upload-cta__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .ventas-filters-hd {
   display: flex;
   flex-wrap: wrap;

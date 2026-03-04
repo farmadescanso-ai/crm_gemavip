@@ -10,17 +10,17 @@
 </section>
 
 <nav class="ventas-main-nav" aria-label="Navegación principal">
-  <button type="button" class="ventas-main-nav__item <%= (typeof hasData !== 'undefined' && hasData) ? 'active' : '' %>" data-panel="dashboard" id="ventas-nav-dashboard">
+  <button type="button" class="ventas-main-nav__item active" data-panel="dashboard" id="ventas-nav-dashboard">
     <span class="ventas-main-nav__icon">📊</span>
     Dashboard
   </button>
-  <button type="button" class="ventas-main-nav__item <%= (typeof hasData !== 'undefined' && !hasData) ? 'active' : '' %>" data-panel="cargar">
+  <button type="button" class="ventas-main-nav__item" data-panel="cargar">
     <span class="ventas-main-nav__icon">📤</span>
     Añadir PDF
   </button>
 </nav>
 
-<section id="ventas-panel-cargar" class="ventas-panel <%= (typeof hasData !== 'undefined' && hasData) ? '' : 'ventas-panel--active' %>" <%= (typeof hasData !== 'undefined' && hasData) ? 'hidden' : '' %>>
+<section id="ventas-panel-cargar" class="ventas-panel" hidden>
 <section class="ventas-upload card">
   <div class="card-hd">
     <h2 class="card-title">Cargar informes PDF</h2>
@@ -67,7 +67,17 @@
 </section>
 </section>
 
-<div id="ventas-panel-dashboard" class="ventas-panel ventas-dashboard <%= (typeof hasData !== 'undefined' && hasData) ? 'ventas-panel--active' : '' %>" <%= (typeof hasData !== 'undefined' && hasData) ? '' : 'hidden' %>>
+<div id="ventas-panel-dashboard" class="ventas-panel ventas-dashboard ventas-panel--active">
+  <% if (typeof hasData !== 'undefined' && !hasData) { %>
+  <section class="ventas-upload-cta card" id="ventas-upload-cta">
+    <div class="card-bd">
+      <p class="ventas-upload-cta__text">No hay datos cargados. Sube tu primer informe PDF para comenzar.</p>
+      <button type="button" class="btn ventas-btn-primary ventas-upload-cta__btn" id="ventas-upload-cta-btn">
+        <span>📤</span> Subir archivos
+      </button>
+    </div>
+  </section>
+  <% } %>
   <section class="ventas-filters card">
     <div class="card-hd ventas-filters-hd">
       <h2 class="card-title">Filtros y comparativas</h2>
@@ -428,15 +438,23 @@
   }
 
   const hasData = initialData || (typeof savedFiles !== 'undefined' && savedFiles && savedFiles.length > 0);
+  panelDashboard.hidden = false;
+  showMainPanel('dashboard');
   if (hasData) {
     rawData = initialData || { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: savedFiles || [] };
     renderDashboard(rawData);
-    panelDashboard.hidden = false;
-    showMainPanel('dashboard');
     const viewFromUrl = queryParams?.view || 'evolucion-mes';
     if (viewFromUrl && document.querySelector('.ventas-chart-nav__item[data-chart="' + viewFromUrl + '"]')) {
       showChartPanel(viewFromUrl);
     }
+  } else {
+    rawData = { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: [] };
+    renderDashboard(rawData);
+  }
+
+  const uploadCtaBtn = document.getElementById('ventas-upload-cta-btn');
+  if (uploadCtaBtn) {
+    uploadCtaBtn.addEventListener('click', () => showMainPanel('cargar'));
   }
 
   document.addEventListener('click', (e) => {
@@ -537,6 +555,15 @@
     e.preventDefault();
     if (!fileInput.files.length) return;
 
+    const fileNames = [];
+    for (let i = 0; i < fileInput.files.length; i++) {
+      fileNames.push(fileInput.files[i].name);
+    }
+    const msg = fileNames.length === 1
+      ? '¿Subir el archivo "' + fileNames[0] + '" a la base de datos?'
+      : '¿Subir ' + fileNames.length + ' archivos a la base de datos?\n\n' + fileNames.map(f => '• ' + f).join('\n');
+    if (!confirm(msg)) return;
+
     errorEl.hidden = true;
     submitBtn.disabled = true;
     const actionsDiv = form.querySelector('.ventas-upload__actions');
@@ -571,6 +598,8 @@
       if (json.data) {
         rawData = json.data;
         renderDashboard(json.data);
+        const cta = document.getElementById('ventas-upload-cta');
+        if (cta) cta.hidden = true;
         panelDashboard.hidden = false;
         showMainPanel('dashboard');
         panelDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
