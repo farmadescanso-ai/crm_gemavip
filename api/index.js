@@ -22,6 +22,7 @@ const articulosRouter = require('../routes/articulos');
 const clientesRouter = require('../routes/clientes');
 const pedidosRouter = require('../routes/pedidos');
 const dashboardRouter = require('../routes/dashboard');
+const ventasGemavipRouter = require('../routes/ventas-gemavip');
 const db = require('../config/mysql-crm');
 const {
   _n,
@@ -421,6 +422,7 @@ app.get('/sw.js', (req, res) => {
 
 // Vistas y endpoints públicos (no requieren login)
 app.use('/', publicRouter);
+app.use('/', ventasGemavipRouter);
 app.use('/', authRouter);
 app.use('/', dashboardRouter);
 app.use('/', manualRouter);

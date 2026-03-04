@@ -35,7 +35,8 @@ const SCHEMA_COLUMNS = {
   tarifasClientes_precios: ['tarclip_id', 'tarclip_tarcli_id', 'tarclip_art_id', 'tarclip_precio'],
   tipos_clientes: ['tipc_id', 'tipc_tipo'],
   tipos_pedidos: ['tipp_id', 'tipp_tipo', 'tipp_activo'],
-  visitas: ['vis_id', 'vis_cli_id', 'vis_com_id', 'vis_centp_id', 'vis_presc_id', 'vis_ruta_id', 'vis_tipo', 'vis_fecha', 'vis_hora', 'vis_hora_final', 'vis_estado', 'vis_notas', 'Id_Comercial', 'Hora_Final']
+  visitas: ['vis_id', 'vis_cli_id', 'vis_com_id', 'vis_centp_id', 'vis_presc_id', 'vis_ruta_id', 'vis_tipo', 'vis_fecha', 'vis_hora', 'vis_hora_final', 'vis_estado', 'vis_notas', 'Id_Comercial', 'Hora_Final'],
+  ventas_hefame: ['venhef_id', 'venhef_material_codigo', 'venhef_material_descripcion', 'venhef_provincia_codigo', 'venhef_provincia_nombre', 'venhef_mes', 'venhef_anio', 'venhef_cantidad', 'venhef_origen_archivo', 'venhef_created_at', 'venhef_updated_at']
 };
 
 const USE_STATIC = process.env.USE_STATIC_SCHEMA !== '0';

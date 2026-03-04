@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <link rel="icon" href="/assets/images/gemavip-logo.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles/gemavip.css" />
+    <link rel="stylesheet" href="/assets/styles/gemavip.css?v=2" />
     <% if (typeof extraStyles !== 'undefined' && Array.isArray(extraStyles)) { %>
       <% extraStyles.forEach((href) => { %>
         <% if (href) { %>
@@ -46,6 +46,21 @@
           </a>
           <nav class="nav" aria-label="Principal">
             <a href="/registro-visitas">Formulario</a>
+            <a href="/login">Acceso CRM</a>
+          </nav>
+          <div class="userbox"></div>
+        <% } else if (hv === 'ventas') { %>
+          <a class="brand" href="/ventas-gemavip" style="text-decoration:none;">
+            <img
+              class="brand-logo"
+              src="/assets/images/logo-gemavip.jpeg"
+              alt="Gemavip"
+              onerror="this.onerror=null; this.src='/assets/images/gemavip-logo.svg';"
+            />
+            <span class="brand-title">VENTAS GEMAVIP</span>
+          </a>
+          <nav class="nav" aria-label="Principal">
+            <a href="/ventas-gemavip">Dashboard</a>
             <a href="/login">Acceso CRM</a>
           </nav>
           <div class="userbox"></div>

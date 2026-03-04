@@ -1,0 +1,897 @@
+<%- include('partials/header', { title: 'Ventas Gemavip', headerVariant: 'ventas', extraStyles: ['/assets/styles/ventas-gemavip.css'] }) %>
+
+<section class="ventas-hero">
+  <div class="ventas-hero__inner">
+    <h1 class="ventas-hero__title">Dashboard de Ventas Gemavip</h1>
+    <p class="ventas-hero__subtitle">
+      Carga tus informes PDF de ventas y visualiza la evolución por artículos, provincias y meses.
+    </p>
+  </div>
+</section>
+
+<nav class="ventas-main-nav" aria-label="Navegación principal">
+  <button type="button" class="ventas-main-nav__item active" data-panel="cargar">
+    <span class="ventas-main-nav__icon">📤</span>
+    Cargar más ficheros
+  </button>
+  <button type="button" class="ventas-main-nav__item" data-panel="dashboard" id="ventas-nav-dashboard">
+    <span class="ventas-main-nav__icon">📊</span>
+    Dashboard
+  </button>
+</nav>
+
+<section id="ventas-panel-cargar" class="ventas-panel ventas-panel--active">
+<section class="ventas-upload card">
+  <div class="card-hd">
+    <h2 class="card-title">Cargar informes PDF</h2>
+    <p class="card-subtitle">
+      Formatos soportados: <code>VENTAS GEMAVIP 022026 TOTAL.pdf</code>, 
+      <code>VENTAS GEMAVIP NOV ENERO 012026.pdf</code>, etc. (hasta 5 archivos, 15 MB cada uno)
+    </p>
+  </div>
+  <div class="card-bd">
+    <form id="ventas-upload-form" class="ventas-upload-form" enctype="multipart/form-data">
+      <div class="ventas-dropzone" id="ventas-dropzone">
+        <input type="file" id="ventas-file-input" name="pdfs" accept=".pdf" multiple />
+        <div class="ventas-dropzone__content" id="ventas-dropzone-content">
+          <svg class="ventas-dropzone__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p class="ventas-dropzone__text">Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span></p>
+        </div>
+      </div>
+      <div class="ventas-upload__actions">
+        <button type="submit" class="btn ventas-btn-primary" id="ventas-submit-btn" disabled>
+          Procesar PDFs
+        </button>
+      </div>
+    </form>
+    <div id="ventas-loading" class="ventas-loading" hidden>
+      <div class="ventas-spinner"></div>
+      <p>Procesando PDFs...</p>
+    </div>
+    <div id="ventas-error" class="ventas-error" hidden></div>
+    <div id="ventas-debug" class="ventas-debug" hidden></div>
+    <% if (typeof savedFiles !== 'undefined' && savedFiles && savedFiles.length > 0) { %>
+    <div class="ventas-saved card" style="margin-top: 16px;">
+      <div class="card-hd">
+        <h3 class="card-title">PDFs guardados (<%= savedFiles.length %>)</h3>
+        <p class="card-subtitle">Los datos se cargan automáticamente. Añade más PDFs arriba para fusionarlos.</p>
+      </div>
+      <div class="card-bd">
+        <ul class="ventas-saved-list">
+          <% savedFiles.forEach((f) => { %>
+            <li><code><%= f %></code></li>
+          <% }) %>
+        </ul>
+        <button type="button" class="btn secondary" id="ventas-reprocess-btn">Reprocesar todos</button>
+      </div>
+    </div>
+    <% } %>
+  </div>
+</section>
+</section>
+
+<div id="ventas-panel-dashboard" class="ventas-panel ventas-dashboard" hidden>
+  <section class="ventas-filters card">
+    <div class="card-hd">
+      <h2 class="card-title">Filtros y comparativas</h2>
+    </div>
+    <div class="card-bd">
+      <div class="ventas-filters__row">
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-anio">Año</label>
+          <select id="ventas-filter-anio" class="ventas-filter-select">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-mes">Mes</label>
+          <select id="ventas-filter-mes" class="ventas-filter-select">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-provincia">Provincia</label>
+          <select id="ventas-filter-provincia" class="ventas-filter-select">
+            <option value="all">Todas</option>
+          </select>
+        </div>
+        <div class="ventas-filter-group">
+          <label class="ventas-filter-label" for="ventas-filter-articulo">Artículo</label>
+          <select id="ventas-filter-articulo" class="ventas-filter-select">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+      </div>
+      <div class="ventas-comparativas">
+        <div class="ventas-comparativa" id="ventas-comp-mes">
+          <span class="ventas-comp-label">Mes actual vs anterior</span>
+          <span class="ventas-comp-value" id="ventas-comp-mes-value">—</span>
+        </div>
+        <div class="ventas-comparativa" id="ventas-comp-anio">
+          <span class="ventas-comp-label">Mismo periodo vs año anterior</span>
+          <span class="ventas-comp-value" id="ventas-comp-anio-value">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ventas-stats card">
+    <div class="card-hd">
+      <h2 class="card-title">Resumen</h2>
+    </div>
+    <div class="card-bd">
+      <div class="ventas-stats__grid">
+        <div class="ventas-stat" data-variant="blue">
+          <span class="ventas-stat__label">Total unidades</span>
+          <span class="ventas-stat__value" id="stat-total">—</span>
+        </div>
+        <div class="ventas-stat" data-variant="green">
+          <span class="ventas-stat__label">Materiales</span>
+          <span class="ventas-stat__value" id="stat-materiales">—</span>
+        </div>
+        <div class="ventas-stat" data-variant="yellow">
+          <span class="ventas-stat__label">Provincias</span>
+          <span class="ventas-stat__value" id="stat-provincias">—</span>
+        </div>
+        <div class="ventas-stat" data-variant="navy">
+          <span class="ventas-stat__label">Meses</span>
+          <span class="ventas-stat__value" id="stat-meses">—</span>
+        </div>
+      </div>
+      <p class="ventas-files" id="ventas-files-list"></p>
+    </div>
+  </section>
+
+  <div class="ventas-chart-menu">
+    <h3 class="ventas-chart-menu__title">Vistas disponibles</h3>
+    <p class="ventas-chart-menu__subtitle">Selecciona una vista para ver los datos con los filtros aplicados</p>
+    <nav class="ventas-chart-nav" aria-label="Gráficos">
+      <button type="button" class="ventas-chart-nav__item active" data-chart="evolucion-mes" title="Total de unidades vendidas por mes">
+        <span class="ventas-chart-nav__label">Evolución por mes</span>
+        <span class="ventas-chart-nav__desc">Total unidades por mes</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="top-materiales" title="Materiales con más ventas">
+        <span class="ventas-chart-nav__label">Top artículos</span>
+        <span class="ventas-chart-nav__desc">Materiales con más ventas</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="provincias" title="Distribución geográfica">
+        <span class="ventas-chart-nav__label">Ventas por provincia</span>
+        <span class="ventas-chart-nav__desc">Distribución geográfica</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="provincia-mes" title="Top 10 provincias a lo largo del tiempo">
+        <span class="ventas-chart-nav__label">Provincia x mes</span>
+        <span class="ventas-chart-nav__desc">Evolución por provincia y mes</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="material-mes" title="Top 8 materiales a lo largo del tiempo">
+        <span class="ventas-chart-nav__label">Artículo x mes</span>
+        <span class="ventas-chart-nav__desc">Evolución por artículo y mes</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="anio-vs-anio" title="Mismo periodo en ambos años">
+        <span class="ventas-chart-nav__label">Año vs año anterior</span>
+        <span class="ventas-chart-nav__desc">Comparativa mismo periodo</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="mes-vs-mes" title="Últimos dos meses con datos">
+        <span class="ventas-chart-nav__label">Mes actual vs anterior</span>
+        <span class="ventas-chart-nav__desc">Comparativa dos últimos meses</span>
+      </button>
+      <button type="button" class="ventas-chart-nav__item" data-chart="detalle" title="Tabla completa de datos">
+        <span class="ventas-chart-nav__label">Detalle tabla</span>
+        <span class="ventas-chart-nav__desc">Tabla completa extraída</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="ventas-charts">
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="evolucion-mes">
+      <div class="card-hd">
+        <h2 class="card-title">Evolución por mes</h2>
+        <p class="card-subtitle">Total de unidades vendidas por mes</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-evolucion-mes"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="top-materiales" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Top artículos</h2>
+        <p class="card-subtitle">Materiales con más ventas</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-top-materiales"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="provincias" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Ventas por provincia</h2>
+        <p class="card-subtitle">Distribución geográfica</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-provincias"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-card--wide ventas-chart-panel" data-chart-panel="provincia-mes" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Comparativa evolución por provincia y mes</h2>
+        <p class="card-subtitle">Top 10 provincias: evolución de ventas a lo largo del tiempo</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap ventas-chart-wrap--tall">
+          <canvas id="chart-provincia-mes"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-card--wide ventas-chart-panel" data-chart-panel="material-mes" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Evolución por artículo y mes</h2>
+        <p class="card-subtitle">Top 8 materiales a lo largo del tiempo</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-material-mes"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-card--wide ventas-chart-panel" data-chart-panel="anio-vs-anio" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Comparativa año vs año anterior</h2>
+        <p class="card-subtitle">Mismo periodo: meses con datos en ambos años</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap ventas-chart-wrap--tall">
+          <canvas id="chart-anio-vs-anio"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ventas-chart-card ventas-chart-panel" data-chart-panel="mes-vs-mes" hidden>
+      <div class="card-hd">
+        <h2 class="card-title">Mes actual vs mes anterior</h2>
+        <p class="card-subtitle">Comparativa de los dos últimos meses con datos</p>
+      </div>
+      <div class="card-bd">
+        <div class="ventas-chart-wrap">
+          <canvas id="chart-mes-vs-mes"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card ventas-table-card ventas-chart-panel" data-chart-panel="detalle" hidden>
+    <div class="card-hd">
+      <h2 class="card-title">Detalle de ventas</h2>
+      <p class="card-subtitle">Tabla completa de datos extraídos</p>
+    </div>
+    <div class="card-bd">
+      <div class="table-wrap">
+        <table class="ventas-table" id="ventas-detail-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Provincia</th>
+              <th>Mes/Año</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  const dropzone = document.getElementById('ventas-dropzone');
+  const fileInput = document.getElementById('ventas-file-input');
+  const dropzoneContent = document.getElementById('ventas-dropzone-content');
+  const form = document.getElementById('ventas-upload-form');
+  const submitBtn = document.getElementById('ventas-submit-btn');
+  const loading = document.getElementById('ventas-loading');
+  const errorEl = document.getElementById('ventas-error');
+  const debugEl = document.getElementById('ventas-debug');
+  const panelCargar = document.getElementById('ventas-panel-cargar');
+  const panelDashboard = document.getElementById('ventas-panel-dashboard');
+
+  const initialData = <%- typeof initialData !== 'undefined' && initialData ? JSON.stringify(initialData) : 'null' %>;
+  const savedFiles = <%- typeof savedFiles !== 'undefined' && savedFiles ? JSON.stringify(savedFiles) : '[]' %>;
+  let catalogos = <%- typeof catalogos !== 'undefined' && catalogos ? JSON.stringify(catalogos) : '{"años":[],"meses":[],"provincias":[],"materiales":[]}' %>;
+  const queryParams = <%- typeof queryParams !== 'undefined' && queryParams ? JSON.stringify(queryParams) : '{"view":"evolucion-mes"}' %>;
+
+  const GV_COLORS = {
+    primary: '#008bd2',
+    primary2: '#17428b',
+    yellow: '#ffba00',
+    green: '#8fae1b',
+    palette: ['#008bd2', '#17428b', '#ffba00', '#8fae1b', '#2ea3f2', '#5b667a', '#0c143a', '#7ad03a', '#e85d04', '#9d4edd']
+  };
+
+  let charts = {};
+  let rawData = null;
+
+  const MESES_NOMBRES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  function filterData(data, anio, mes, provinciaCodigo, materialCodigo) {
+    if (!data) return data;
+    let ventasF = data.ventas || [];
+    if (anio !== 'all') {
+      const suf = '.' + anio;
+      ventasF = ventasF.filter(v => (v.mesKey || '').endsWith(suf));
+    }
+    if (mes !== 'all') {
+      const m = Number(mes);
+      ventasF = ventasF.filter(v => Number(v.mes) === m);
+    }
+    if (provinciaCodigo !== 'all') {
+      ventasF = ventasF.filter(v => v.provinciaCodigo === provinciaCodigo);
+    }
+    if (materialCodigo !== 'all') {
+      ventasF = ventasF.filter(v => v.materialCodigo === materialCodigo);
+    }
+    const mesesF = anio === 'all'
+      ? [...new Set(ventasF.map(v => v.mesKey).filter(Boolean))].sort((a, b) => {
+          const [ma, aa] = a.split('.').map(Number);
+          const [mb, ab] = b.split('.').map(Number);
+          return aa !== ab ? aa - ab : ma - mb;
+        })
+      : (data.meses || []).filter(m => m.endsWith('.' + anio)).sort();
+    const byMes = {};
+    const byMaterial = {};
+    const byProvincia = {};
+    const byMaterialMes = {};
+    const byProvinciaMes = {};
+    const matSet = new Set();
+    const provSet = new Set();
+    ventasF.forEach(v => {
+      byMes[v.mesKey] = (byMes[v.mesKey] || 0) + v.cantidad;
+      byMaterial[v.materialCodigo] = (byMaterial[v.materialCodigo] || 0) + v.cantidad;
+      byProvincia[v.provinciaCodigo] = (byProvincia[v.provinciaCodigo] || 0) + v.cantidad;
+      byMaterialMes[v.materialCodigo + '|' + v.mesKey] = (byMaterialMes[v.materialCodigo + '|' + v.mesKey] || 0) + v.cantidad;
+      if (!byProvinciaMes[v.provinciaCodigo]) byProvinciaMes[v.provinciaCodigo] = {};
+      byProvinciaMes[v.provinciaCodigo][v.mesKey] = (byProvinciaMes[v.provinciaCodigo][v.mesKey] || 0) + v.cantidad;
+      matSet.add(v.materialCodigo);
+      provSet.add(v.provinciaCodigo);
+    });
+    const materialesF = (data.materiales || []).filter(m => matSet.has(m.codigo));
+    const provinciasF = (data.provincias || []).filter(p => provSet.has(p.codigo));
+    const topMateriales = materialesF.map(m => ({ ...m, total: byMaterial[m.codigo] || 0 })).sort((a,b) => (b.total||0)-(a.total||0)).slice(0, 15);
+    const topProvincias = provinciasF.map(p => ({ ...p, total: byProvincia[p.codigo] || 0 })).sort((a,b) => (b.total||0)-(a.total||0)).slice(0, 12);
+    const topProvEvol = topProvincias.slice(0, 10);
+    return {
+      ...data,
+      ventas: ventasF,
+      materiales: materialesF,
+      provincias: provinciasF,
+      meses: mesesF,
+      evolucionMeses: mesesF.map(m => ({ mes: m, total: byMes[m] || 0 })),
+      topMateriales,
+      topProvincias,
+      evolucionMaterialMes: mesesF.map(mesKey => {
+        const row = { mes: mesKey };
+        topMateriales.slice(0, 8).forEach(m => { row[m.codigo] = byMaterialMes[m.codigo + '|' + mesKey] || 0; });
+        return row;
+      }),
+      evolucionProvinciaMes: topProvEvol.map(p => ({
+        codigo: p.codigo,
+        nombre: p.nombre,
+        totales: mesesF.map(m => byProvinciaMes[p.codigo]?.[m] || 0)
+      })),
+      totalUnidades: ventasF.reduce((s,v) => s + (v.cantidad||0), 0),
+      materialLabels: topMateriales.slice(0, 8).map(m => (m.descripcion||m.codigo).slice(0, 25))
+    };
+  }
+
+  function showChartPanel(id) {
+    document.querySelectorAll('.ventas-chart-panel').forEach(p => { p.hidden = p.dataset.chartPanel !== id; });
+    document.querySelectorAll('.ventas-chart-nav__item').forEach(b => { b.classList.toggle('active', b.dataset.chart === id); });
+  }
+
+  const anioActual = new Date().getFullYear();
+
+  function showMainPanel(panelId) {
+    panelCargar.classList.toggle('ventas-panel--active', panelId === 'cargar');
+    panelCargar.hidden = panelId !== 'cargar';
+    panelDashboard.classList.toggle('ventas-panel--active', panelId === 'dashboard');
+    panelDashboard.hidden = panelId !== 'dashboard';
+    document.querySelectorAll('.ventas-main-nav__item').forEach(b => b.classList.toggle('active', b.dataset.panel === panelId));
+    if (panelId === 'dashboard' && panelDashboard && !panelDashboard.hidden && rawData === null) {
+      rawData = { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: savedFiles || [] };
+      renderDashboard(rawData);
+    }
+  }
+
+  const hasData = initialData || (typeof savedFiles !== 'undefined' && savedFiles && savedFiles.length > 0);
+  if (hasData) {
+    rawData = initialData || { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: savedFiles || [] };
+    renderDashboard(rawData);
+    panelDashboard.hidden = false;
+    showMainPanel('dashboard');
+    const viewFromUrl = queryParams?.view || 'evolucion-mes';
+    if (viewFromUrl && document.querySelector('.ventas-chart-nav__item[data-chart="' + viewFromUrl + '"]')) {
+      showChartPanel(viewFromUrl);
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const navBtn = e.target.closest('.ventas-main-nav__item');
+    if (navBtn && !navBtn.disabled) {
+      showMainPanel(navBtn.dataset.panel);
+      return;
+    }
+    const btn = e.target.closest('.ventas-chart-nav__item');
+    if (btn) {
+      showChartPanel(btn.dataset.chart);
+      updateUrlFromFiltersAndView();
+    }
+  });
+
+  const reprocessBtn = document.getElementById('ventas-reprocess-btn');
+  if (reprocessBtn) {
+    reprocessBtn.addEventListener('click', async () => {
+      loading.hidden = false;
+      errorEl.hidden = true;
+      try {
+        const res = await fetch('/ventas-gemavip/reprocess', { method: 'POST' });
+        const json = await res.json();
+        if (json.ok && json.data) {
+          rawData = json.data;
+          renderDashboard(json.data);
+          panelDashboard.hidden = false;
+          showMainPanel('dashboard');
+        }
+      } catch (e) {
+        errorEl.textContent = e.message || 'Error';
+        errorEl.hidden = false;
+      } finally {
+        loading.hidden = true;
+      }
+    });
+  }
+
+  function updateSubmitState() {
+    submitBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('ventas-dropzone--active'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('ventas-dropzone--active'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('ventas-dropzone--active');
+    if (e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      updateSubmitState();
+      dropzoneContent.querySelector('.ventas-dropzone__text').textContent = 
+        e.dataTransfer.files.length + ' archivo(s) seleccionado(s)';
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    updateSubmitState();
+    if (fileInput.files.length) {
+      dropzoneContent.querySelector('.ventas-dropzone__text').textContent = 
+        fileInput.files.length + ' archivo(s) seleccionado(s)';
+    } else {
+      dropzoneContent.querySelector('.ventas-dropzone__text').innerHTML = 
+        'Arrastra aquí tus PDFs o <span class="ventas-dropzone__browse">selecciona archivos</span>';
+    }
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!fileInput.files.length) return;
+
+    loading.hidden = false;
+    errorEl.hidden = true;
+    submitBtn.disabled = true;
+
+    const fd = new FormData();
+    for (let i = 0; i < fileInput.files.length; i++) {
+      fd.append('pdfs', fileInput.files[i]);
+    }
+
+    try {
+      const res = await fetch('/ventas-gemavip/upload', {
+        method: 'POST',
+        body: fd
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!json.ok) {
+        throw new Error(json.error || 'Error al procesar');
+      }
+
+      debugEl.hidden = true;
+      if (json.debug && json.debug.rawTextSample) {
+        debugEl.innerHTML = '<strong>No se extrajeron ventas.</strong> Muestra del texto del PDF (para depuración):<pre style="max-height:200px;overflow:auto;font-size:11px;white-space:pre-wrap;">' + 
+          String(json.debug.rawTextSample).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+        debugEl.hidden = false;
+      }
+
+      if (json.data) {
+        rawData = json.data;
+        renderDashboard(json.data);
+        panelDashboard.hidden = false;
+        showMainPanel('dashboard');
+        panelDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (err) {
+      errorEl.textContent = err.message || 'Error al procesar los PDFs';
+      errorEl.hidden = false;
+    } finally {
+      loading.hidden = true;
+      submitBtn.disabled = false;
+    }
+  });
+
+  function destroyCharts() {
+    Object.values(charts).forEach(c => { if (c) c.destroy(); });
+    charts = {};
+  }
+
+  function buildFilterParams() {
+    const anio = document.getElementById('ventas-filter-anio')?.value || 'all';
+    const mes = document.getElementById('ventas-filter-mes')?.value || 'all';
+    const prov = document.getElementById('ventas-filter-provincia')?.value || 'all';
+    const art = document.getElementById('ventas-filter-articulo')?.value || 'all';
+    return { anio, mes, prov, art };
+  }
+
+  function updateUrlFromFiltersAndView() {
+    const { anio, mes, prov, art } = buildFilterParams();
+    const view = document.querySelector('.ventas-chart-nav__item.active')?.dataset?.chart || 'evolucion-mes';
+    const params = new URLSearchParams();
+    if (view && view !== 'evolucion-mes') params.set('view', view);
+    if (anio && anio !== 'all') params.set('anio', anio);
+    if (mes && mes !== 'all') params.set('mes', mes);
+    if (prov && prov !== 'all') params.set('provincia', prov);
+    if (art && art !== 'all') params.set('articulo', art);
+    const qs = params.toString();
+    const url = '/ventas-gemavip' + (qs ? '?' + qs : '');
+    window.history.replaceState({}, '', url);
+  }
+
+  async function fetchDataWithFilters() {
+    const { anio, mes, prov, art } = buildFilterParams();
+    const params = new URLSearchParams();
+    if (anio && anio !== 'all') params.set('anio', anio);
+    if (mes && mes !== 'all') params.set('mes', mes);
+    if (prov && prov !== 'all') params.set('provincia', prov);
+    if (art && art !== 'all') params.set('articulo', art);
+    try {
+      const res = await fetch('/ventas-gemavip/api/data' + (params.toString() ? '?' + params.toString() : ''));
+      const json = await res.json();
+      if (json.ok) {
+        rawData = json.data || { ventas: [], materiales: [], provincias: [], meses: [], años: [], files: [] };
+        if (json.catalogos) Object.assign(catalogos, json.catalogos);
+        if (typeof applyFilters === 'function') applyFilters();
+      }
+    } catch (_) {}
+  }
+
+  function renderDashboard(data) {
+    rawData = data;
+
+    const anioSelect = document.getElementById('ventas-filter-anio');
+    const mesSelect = document.getElementById('ventas-filter-mes');
+    const provSelect = document.getElementById('ventas-filter-provincia');
+    const artSelect = document.getElementById('ventas-filter-articulo');
+
+    const años = catalogos?.años?.length ? catalogos.años : (data.años || []);
+    const meses = catalogos?.meses?.length ? catalogos.meses : [...new Set((data.ventas || []).map(v => v.mes).filter(Boolean))].sort((a,b) => a - b);
+    const provincias = catalogos?.provincias?.length ? catalogos.provincias : (data.provincias || []);
+    const materiales = catalogos?.materiales?.length ? catalogos.materiales : (data.materiales || []);
+
+    if (anioSelect) {
+      anioSelect.innerHTML = '<option value="all">Todos</option>' + años.map(a => '<option value="' + a + '">' + a + '</option>').join('');
+      if (queryParams?.anio && años.includes(Number(queryParams.anio))) anioSelect.value = String(queryParams.anio);
+      else if (años.includes(anioActual)) anioSelect.value = String(anioActual);
+    }
+    if (mesSelect) {
+      mesSelect.innerHTML = '<option value="all">Todos</option>' + meses.map(m => '<option value="' + m + '">' + (MESES_NOMBRES[m-1] || m) + '</option>').join('');
+      if (queryParams?.mes) mesSelect.value = String(queryParams.mes);
+    }
+    if (provSelect) {
+      const provs = provincias.slice().sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+      provSelect.innerHTML = '<option value="all">Todas</option>' + provs.map(p => '<option value="' + (p.codigo || '') + '">' + (p.nombre || p.codigo || '') + '</option>').join('');
+      if (queryParams?.provincia) provSelect.value = String(queryParams.provincia);
+    }
+    if (artSelect) {
+      const arts = materiales.slice().sort((a, b) => (a.descripcion || '').localeCompare(b.descripcion || ''));
+      artSelect.innerHTML = '<option value="all">Todos</option>' + arts.map(m => '<option value="' + (m.codigo || '') + '">' + ((m.descripcion || m.codigo || '').slice(0, 50) + (m.descripcion && m.descripcion.length > 50 ? '…' : '')) + '</option>').join('');
+      if (queryParams?.articulo) artSelect.value = String(queryParams.articulo);
+    }
+
+    function applyFilters() {
+      const { anio, mes, prov, art } = buildFilterParams();
+      const filtered = filterData(rawData, anio, mes, prov, art);
+        document.getElementById('stat-total').textContent = (filtered.totalUnidades || 0).toLocaleString('es-ES');
+        document.getElementById('stat-materiales').textContent = (filtered.materiales || []).length;
+        document.getElementById('stat-provincias').textContent = (filtered.provincias || []).length;
+        document.getElementById('stat-meses').textContent = (filtered.meses || []).length;
+        const tbodyFilter = document.querySelector('#ventas-detail-table tbody');
+        if (tbodyFilter) {
+          tbodyFilter.innerHTML = '';
+          (filtered.ventas || []).slice(0, 200).forEach(v => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + (v.materialDescripcion || v.materialCodigo) + '</td><td>' + (v.provinciaNombre || v.provinciaCodigo) + '</td><td>' + (v.mesKey || '') + '</td><td>' + (v.cantidad || 0) + '</td>';
+            tbodyFilter.appendChild(tr);
+          });
+          if ((filtered.ventas || []).length > 200) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + filtered.ventas.length + ' registros</td>';
+            tbodyFilter.appendChild(tr);
+          }
+        }
+        renderCharts(filtered);
+      updateUrlFromFiltersAndView();
+    }
+    const onFilterChange = () => { fetchDataWithFilters(); };
+    if (anioSelect) anioSelect.onchange = onFilterChange;
+    if (mesSelect) mesSelect.onchange = onFilterChange;
+    if (provSelect) provSelect.onchange = onFilterChange;
+    if (artSelect) artSelect.onchange = onFilterChange;
+    applyFilters();
+    }
+
+    const compMes = data.comparacionMes;
+    document.getElementById('ventas-comp-mes-value').textContent = compMes
+      ? compMes.mesActual + ': ' + (compMes.totalActual||0).toLocaleString('es-ES') + ' | ' +
+        compMes.mesAnterior + ': ' + (compMes.totalAnterior||0).toLocaleString('es-ES') +
+        (compMes.variacion != null ? ' (' + (parseFloat(compMes.variacion) >= 0 ? '+' : '') + compMes.variacion + '%)' : '')
+      : '—';
+
+    const compAnio = data.comparacionAnioAnterior;
+    document.getElementById('ventas-comp-anio-value').textContent = compAnio
+      ? compAnio.anioActual + ': ' + (compAnio.totalActual||0).toLocaleString('es-ES') + ' | ' +
+        compAnio.anioAnterior + ': ' + (compAnio.totalAnterior||0).toLocaleString('es-ES') +
+        (compAnio.variacionPct != null ? ' (' + (parseFloat(compAnio.variacionPct) >= 0 ? '+' : '') + compAnio.variacionPct + '%)' : '')
+      : '—';
+
+    document.getElementById('stat-total').textContent = (data.totalUnidades || 0).toLocaleString('es-ES');
+    document.getElementById('stat-materiales').textContent = (data.materiales || []).length;
+    document.getElementById('stat-provincias').textContent = (data.provincias || []).length;
+    document.getElementById('stat-meses').textContent = (data.meses || []).length;
+
+    const filesList = document.getElementById('ventas-files-list');
+    filesList.textContent = (data.files || []).length ? 'Ficheros: ' + data.files.join(', ') : '';
+
+    renderCharts(data);
+  }
+
+  function renderCharts(data) {
+    destroyCharts();
+
+    const tbody = document.querySelector('#ventas-detail-table tbody');
+    tbody.innerHTML = '';
+    (data.ventas || []).slice(0, 200).forEach(v => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (v.materialDescripcion || v.materialCodigo) + '</td>' +
+        '<td>' + (v.provinciaNombre || v.provinciaCodigo) + '</td>' +
+        '<td>' + (v.mesKey || '') + '</td>' +
+        '<td>' + (v.cantidad || 0) + '</td>';
+      tbody.appendChild(tr);
+    });
+    if ((data.ventas || []).length > 200) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + data.ventas.length + ' registros</td>';
+      tbody.appendChild(tr);
+    }
+
+    // Chart evolución mes
+    const evolucion = data.evolucionMeses || [];
+    if (evolucion.length) {
+      charts.evolucion = new Chart(document.getElementById('chart-evolucion-mes'), {
+        type: 'line',
+        data: {
+          labels: evolucion.map(x => x.mes),
+          datasets: [{
+            label: 'Unidades',
+            data: evolucion.map(x => x.total),
+            borderColor: GV_COLORS.primary,
+            backgroundColor: GV_COLORS.primary + '33',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // Chart top materiales
+    const topMat = data.topMateriales || [];
+    if (topMat.length) {
+      charts.materiales = new Chart(document.getElementById('chart-top-materiales'), {
+        type: 'bar',
+        data: {
+          labels: topMat.map(m => (m.descripcion || m.codigo).slice(0, 22) + (m.descripcion && m.descripcion.length > 22 ? '…' : '')),
+          datasets: [{
+            label: 'Unidades',
+            data: topMat.map(m => m.total),
+            backgroundColor: GV_COLORS.palette
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // Chart comparativa evolución provincia x mes (líneas)
+    const evProvMes = data.evolucionProvinciaMes || [];
+    const mesesLabels = data.meses || [];
+    if (evProvMes.length && mesesLabels.length) {
+      const provDatasets = evProvMes.map((p, i) => ({
+        label: p.nombre || p.codigo,
+        data: p.totales,
+        borderColor: GV_COLORS.palette[i % GV_COLORS.palette.length],
+        backgroundColor: GV_COLORS.palette[i % GV_COLORS.palette.length] + '20',
+        fill: false,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 6
+      }));
+
+      charts.provinciaMes = new Chart(document.getElementById('chart-provincia-mes'), {
+        type: 'line',
+        data: {
+          labels: mesesLabels,
+          datasets: provDatasets
+        },
+        options: {
+          responsive: true,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                usePointStyle: true,
+                padding: 16
+              }
+            },
+            tooltip: {
+              callbacks: {
+                footer: function(items) {
+                  const total = items.reduce((s, i) => s + (i.raw || 0), 0);
+                  return 'Total mes: ' + total.toLocaleString('es-ES');
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: v => v.toLocaleString('es-ES') }
+            },
+            x: {
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    // Chart provincias
+    const topProv = data.topProvincias || [];
+    if (topProv.length) {
+      charts.provincias = new Chart(document.getElementById('chart-provincias'), {
+        type: 'doughnut',
+        data: {
+          labels: topProv.map(p => p.nombre || p.codigo),
+          datasets: [{
+            data: topProv.map(p => p.total),
+            backgroundColor: GV_COLORS.palette
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'right' }
+          }
+        }
+      });
+    }
+
+    // Chart material x mes (stacked bar)
+    const evMatMes = data.evolucionMaterialMes || [];
+    const topMat8 = (data.topMateriales || []).slice(0, 8);
+    const matLabels = data.materialLabels || topMat8.map(m => (m.descripcion || m.codigo).slice(0, 20));
+    if (evMatMes.length && topMat8.length) {
+      const codigos = topMat8.map(m => m.codigo);
+      const ds = codigos.map((cod, i) => ({
+        label: matLabels[i] || cod,
+        data: evMatMes.map(row => row[cod] || 0),
+        backgroundColor: GV_COLORS.palette[i % GV_COLORS.palette.length]
+      }));
+
+      charts.materialMes = new Chart(document.getElementById('chart-material-mes'), {
+        type: 'bar',
+        data: {
+          labels: evMatMes.map(r => r.mes),
+          datasets: ds
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          scales: {
+            x: { stacked: true },
+            y: { stacked: true, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    const compAnio = rawData?.comparacionAnioAnterior;
+    const mesesNombres = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    if (compAnio && compAnio.mesesComunes?.length) {
+      charts.anioVsAnio = new Chart(document.getElementById('chart-anio-vs-anio'), {
+        type: 'bar',
+        data: {
+          labels: compAnio.mesesComunes.map(r => mesesNombres[parseInt(r.mes,10)-1] || r.mes),
+          datasets: [
+            { label: '' + compAnio.anioActual, data: compAnio.mesesComunes.map(r => r.totalActual), backgroundColor: GV_COLORS.primary },
+            { label: '' + compAnio.anioAnterior, data: compAnio.mesesComunes.map(r => r.totalAnterior), backgroundColor: GV_COLORS.primary2 + '99' }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          scales: {
+            x: { stacked: false },
+            y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('es-ES') } }
+          }
+        }
+      });
+    }
+
+    const compMes = rawData?.comparacionMes;
+    if (compMes) {
+      charts.mesVsMes = new Chart(document.getElementById('chart-mes-vs-mes'), {
+        type: 'bar',
+        data: {
+          labels: [compMes.mesAnterior, compMes.mesActual],
+          datasets: [{ label: 'Unidades', data: [compMes.totalAnterior, compMes.totalActual], backgroundColor: [GV_COLORS.primary2 + '99', GV_COLORS.primary] }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('es-ES') } } }
+        }
+      });
+    }
+
+    showChartPanel('evolucion-mes');
+  }
+})();
+</script>
+
+<%- include('partials/footer') %>
