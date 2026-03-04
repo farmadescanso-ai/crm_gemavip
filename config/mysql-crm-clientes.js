@@ -93,8 +93,11 @@ module.exports = {
   async _getEstadoClienteIds() {
     if (this._metaCache?.estadoClienteIds) return this._metaCache.estadoClienteIds;
     const tEstados = await this._resolveTableNameCaseInsensitive('estdoClientes');
-    const rows = await this.query(`SELECT id, Nombre FROM \`${tEstados}\``).catch(() => []);
-    const map = new Map((rows || []).map(r => [String(r.Nombre || '').toLowerCase(), Number(r.id)]));
+    const rows = await this.query(`SELECT * FROM \`${tEstados}\` LIMIT 20`).catch(() => []);
+    const rowKeys = rows && rows[0] ? Object.keys(rows[0]) : [];
+    const idCol = rowKeys.find(k => /estcli_id|^id$/i.test(k)) || rowKeys[0];
+    const nomCol = rowKeys.find(k => /estcli_nombre|nombre|Nombre/i.test(k) && !/^id/i.test(k)) || rowKeys[1] || rowKeys[0];
+    const map = new Map((rows || []).map(r => [String((r[nomCol] || r.Nombre || r.nombre) || '').toLowerCase(), Number(r[idCol] ?? r.id ?? r.Id ?? 0)]));
     const ids = {
       potencial: map.get('potencial') || 1,
       activo: map.get('activo') || 2,

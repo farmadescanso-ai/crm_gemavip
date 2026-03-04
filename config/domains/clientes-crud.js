@@ -91,8 +91,9 @@ module.exports = {
           const ids = await this._getEstadoClienteIds().catch(() => ({ potencial: 1, activo: 2, inactivo: 3 }));
           const dniToCheck = (payload.DNI_CIF !== undefined) ? payload.DNI_CIF : (clienteActual?.DNI_CIF);
           const dniValido = this._isValidDniCif(dniToCheck);
-          const estadoReq = (payload.Id_EstdoCliente !== undefined && payload.Id_EstdoCliente !== null && String(payload.Id_EstdoCliente).trim() !== '')
-            ? Number(payload.Id_EstdoCliente)
+          const estadoFromPayload = payload.Id_EstdoCliente ?? payload[colEstadoCliente] ?? null;
+          const estadoReq = (estadoFromPayload !== undefined && estadoFromPayload !== null && String(estadoFromPayload).trim() !== '')
+            ? Number(estadoFromPayload)
             : null;
           const okKoToCheck = (payload.OK_KO !== undefined) ? payload.OK_KO : (clienteActual?.OK_KO);
           const esInactivoPorOkKo = (estadoReq === null) && (
@@ -110,6 +111,7 @@ module.exports = {
             estadoFinal = dniValido ? ids.activo : ids.potencial;
           }
           payload.Id_EstdoCliente = estadoFinal;
+          payload[colEstadoCliente] = estadoFinal;
           payload.OK_KO = (estadoFinal === ids.inactivo) ? 0 : 1;
         }
       } catch (e) {
