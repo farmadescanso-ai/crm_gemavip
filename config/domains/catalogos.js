@@ -146,13 +146,20 @@ module.exports = {
       const keys = r0 ? Object.keys(r0) : [];
       const pk = keys.find((k) => /tipc_id|^id$|^Id$/i.test(k)) || keys[0];
       const nom = keys.find((k) => /tipc_tipo|tipc_nombre|^Nombre$|^nombre$|^Tipo$/i.test(k)) || keys.find((k) => k !== pk) || pk;
-      return (rows || []).map((r) => ({
-        ...r,
-        tipc_id: r[pk] ?? r.tipc_id ?? r.id ?? r.Id,
-        tipc_tipo: r[nom] ?? r.tipc_tipo ?? r.tipc_nombre ?? r.Tipo ?? r.Nombre ?? '',
-        id: r[pk] ?? r.tipc_id ?? r.id ?? r.Id,
-        Nombre: r[nom] ?? r.tipc_tipo ?? r.tipc_nombre ?? r.Nombre ?? r.nombre ?? ''
-      }));
+      return (rows || []).map((r) => {
+        const val = r[nom] ?? r.tipc_tipo ?? r.tipc_nombre ?? r.Tipo ?? r.Nombre ?? r.nombre ?? '';
+        const pkVal = r[pk] ?? r.tipc_id ?? r.id ?? r.Id;
+        return {
+          ...r,
+          tipc_id: pkVal,
+          tipc_tipo: val,
+          tipc_nombre: val,
+          id: pkVal,
+          Nombre: val,
+          nombre: val,
+          Tipo: val
+        };
+      });
     } catch (error) {
       console.error('❌ Error obteniendo tipos_clientes:', error.message);
       return [];

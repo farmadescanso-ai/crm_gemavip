@@ -171,11 +171,12 @@
                     </select>
                     <small style="color: var(--gv-muted);">Si seleccionas Activo sin DNI/CIF válido, se guardará como Potencial.</small>
                   <% } else if (spec.kind === 'select' && spec.options === 'tipo_contacto') { %>
+                    <% const curTipo = String(_pickVal(name) || '').trim(); %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">— Seleccionar —</option>
-                      <option value="Empresa" <%= _pickVal(name) === 'Empresa' ? 'selected' : '' %>>Empresa</option>
-                      <option value="Persona" <%= _pickVal(name) === 'Persona' ? 'selected' : '' %>>Persona</option>
-                      <option value="Otros" <%= _pickVal(name) === 'Otros' ? 'selected' : '' %>>Otros</option>
+                      <option value="Empresa" <%= curTipo.toLowerCase() === 'empresa' ? 'selected' : '' %>>Empresa</option>
+                      <option value="Persona" <%= curTipo.toLowerCase() === 'persona' ? 'selected' : '' %>>Persona</option>
+                      <option value="Otros" <%= curTipo.toLowerCase() === 'otros' ? 'selected' : '' %>>Otros</option>
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'comerciales') { %>
                     <% const cur = Number(_pickVal(name) || 0) || 0; %>
