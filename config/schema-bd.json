@@ -1,0 +1,86 @@
+{
+  "_meta": {
+    "origen": "crm_gemavip (3).sql",
+    "nota": "Usar nombres exactos. estdoClientes tiene typo (no estadoClientes)."
+  },
+  "clientes": {
+    "pk": "cli_id",
+    "cols": ["cli_id", "cli_com_id", "cli_dni_cif", "cli_nombre_razon_social", "cli_nombre_cial", "cli_numero_farmacia", "cli_direccion", "cli_poblacion", "cli_codigo_postal", "cli_movil", "cli_email", "cli_tipo_cliente_txt", "cli_tipc_id", "cli_esp_id", "cli_CodPais", "cli_Pais", "cli_Idioma", "cli_idiom_id", "cli_Moneda", "cli_mon_id", "cli_NomContacto", "cli_tarifa_legacy", "cli_formp_id", "cli_dto", "cli_CuentaContable", "cli_RE", "cli_Banco", "cli_Swift", "cli_IBAN", "cli_Modelo_347", "cli_prov_id", "cli_codp_id", "cli_telefono", "cli_Web", "cli_pais_id", "cli_ok_ko", "cli_estcli_id", "cli_activo", "cli_creado_holded", "cli_referencia", "cli_regimen", "cli_ref_mandato", "cli_tags", "cli_cuenta_ventas", "cli_cuenta_compras", "cli_visibilidad_portal", "cli_FechaBaja", "cli_MotivoBaja", "cli_tipo_contacto", "cli_Id_cliente_relacionado"],
+    "fk": { "cli_com_id": "comerciales", "cli_tipc_id": "tipos_clientes", "cli_esp_id": "especialidades", "cli_idiom_id": "idiomas", "cli_mon_id": "monedas", "cli_formp_id": "formas_pago", "cli_prov_id": "provincias", "cli_pais_id": "paises", "cli_estcli_id": "estdoClientes" }
+  },
+  "provincias": {
+    "pk": "prov_id",
+    "cols": ["prov_id", "prov_nombre", "prov_codigo", "prov_pais", "prov_codigo_pais"]
+  },
+  "paises": {
+    "pk": "pais_id",
+    "cols": ["pais_id", "pais_codigo", "pais_nombre"]
+  },
+  "codigos_postales": {
+    "pk": "codpos_id",
+    "cols": ["codpos_id", "codpos_CodigoPostal", "codpos_Localidad", "codpos_Provincia", "codpos_Id_Provincia", "codpos_ComunidadAutonoma", "codpos_Latitud", "codpos_Longitud", "codpos_Activo", "codpos_CreadoEn", "codpos_ActualizadoEn", "codpos_NumClientes"]
+  },
+  "tipos_clientes": {
+    "pk": "tipc_id",
+    "cols": ["tipc_id", "tipc_tipo"]
+  },
+  "especialidades": {
+    "pk": "esp_id",
+    "cols": ["esp_id", "esp_nombre", "esp_observaciones"]
+  },
+  "estdoClientes": {
+    "pk": "estcli_id",
+    "cols": ["estcli_id", "estcli_nombre"],
+    "alias": "estadoClientes (no existe, typo en nombre)"
+  },
+  "idiomas": {
+    "pk": "idiom_id",
+    "cols": ["idiom_id", "idiom_codigo", "idiom_nombre"]
+  },
+  "monedas": {
+    "pk": "mon_id",
+    "cols": ["mon_id", "mon_codigo", "mon_nombre", "mon_simbolo", "mon_codigo_numerico", "mon_bandera"]
+  },
+  "formas_pago": {
+    "pk": "formp_id",
+    "cols": ["formp_id", "formp_nombre"]
+  },
+  "comerciales": {
+    "pk": "com_id",
+    "cols": ["com_id", "com_nombre", "com_email", "com_dni", "com_password", "com_roll", "com_fijo_mensual", "com_movil", "com_direccion", "com_codp_id", "com_poblacion", "com_codigo_postal", "com_prov_id"]
+  },
+  "pedidos": {
+    "pk": "ped_id",
+    "cols": ["ped_id", "ped_com_id", "ped_cli_id", "ped_direnv_id", "ped_formp_id", "ped_tipp_id", "ped_tarcli_id", "ped_Serie", "ped_numero", "ped_fecha", "ped_FechaEntrega", "ped_estado_txt", "ped_estped_id", "ped_Id_EstadoPedido"]
+  },
+  "clientes_relacionados": {
+    "pk": "clirel_id",
+    "cols": ["clirel_id", "clirel_cli_origen_id", "clirel_cli_relacionado_id", "clirel_descripcion"]
+  },
+  "estados_pedido": {
+    "pk": "estped_id",
+    "cols": ["estped_id", "estped_codigo", "estped_nombre", "estped_color", "estped_activo", "estped_orden"]
+  },
+  "agenda": { "pk": "ag_id", "cols": ["ag_id", "ag_nombre", "ag_apellidos", "ag_cargo", "ag_especialidad", "ag_tipcar_id", "ag_esp_id", "ag_empresa", "ag_email", "ag_movil", "ag_telefono", "ag_extension", "ag_notas", "ag_activo"] },
+  "agenda_especialidades": { "pk": "agesp_id", "cols": ["agesp_id", "agesp_nombre", "agesp_activo"] },
+  "agenda_roles": { "pk": "agrol_id", "cols": ["agrol_id", "agrol_nombre", "agrol_activo"] },
+  "api_keys": { "pk": "api_id", "cols": ["api_id", "api_nombre", "api_api_key", "api_descripcion", "api_activa", "api_permisos"] },
+  "articulos": { "pk": "art_id", "cols": ["art_id", "art_sku", "art_codigo_interno", "art_nombre", "art_presentacion", "art_mar_id", "art_ean13", "art_activo"] },
+  "centros_prescriptores": { "pk": "cent_id", "cols": ["cent_id"] },
+  "clientes_contactos": { "pk": ["clicont_cli_id", "clicont_ag_id"], "cols": ["clicont_cli_id", "clicont_ag_id"] },
+  "clientes_cooperativas": { "pk": "detco_id", "cols": ["detco_id"] },
+  "clientes_gruposCompras": { "pk": "detgru_id", "cols": ["detgru_id"] },
+  "comerciales_codigos_postales_marcas": { "pk": "comdod_id", "cols": ["comdod_id"] },
+  "cooperativas": { "pk": "coop_id", "cols": ["coop_id"] },
+  "descuentos_pedido": { "pk": "descped_id", "cols": ["descped_id"] },
+  "direccionesEnvio": { "pk": "direnv_id", "cols": ["direnv_id", "direnv_cli_id", "direnv_nombre", "direnv_direccion", "direnv_poblacion", "direnv_codigo_postal", "direnv_prov_id"] },
+  "estadoComisiones": { "pk": "estcomi_id", "cols": ["estcomi_id"] },
+  "estados_visita": { "pk": "estvis_id", "cols": ["estvis_id"] },
+  "gruposCompras": { "pk": "grupcompr_id", "cols": ["grupcompr_id"] },
+  "marcas": { "pk": "mar_id", "cols": ["mar_id", "mar_nombre"] },
+  "pedidos_articulos": { "pk": "pedart_id", "cols": ["pedart_id", "pedart_ped_id", "pedart_art_id"] },
+  "tarifasClientes": { "pk": "tarcli_id", "cols": ["tarcli_id"] },
+  "tiposcargorol": { "pk": "tipcar_id", "cols": ["tipcar_id"] },
+  "tipos_pedidos": { "pk": "tipp_id", "cols": ["tipp_id"] },
+  "visitas": { "pk": "vis_id", "cols": ["vis_id", "vis_com_id", "vis_cli_id", "vis_fecha", "vis_estvis_id"] }
+}

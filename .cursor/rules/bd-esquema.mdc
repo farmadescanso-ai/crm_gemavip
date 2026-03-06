@@ -1,0 +1,26 @@
+---
+description: Referencia del esquema de BD CRM Gemavip - usar nombres exactos de tablas y columnas
+alwaysApply: true
+---
+
+# Esquema BD CRM Gemavip
+
+Al trabajar con tablas o columnas de la base de datos, **consultar siempre**:
+
+- **`config/schema-bd.json`** – Esquema compacto (PK, columnas, FKs) para acceso rápido
+- **`docs/BD-ESQUEMA-REFERENCIA.md`** – Documentación detallada con tipos y notas
+
+## Convenciones críticas
+
+| Tabla | PK | Nota |
+|-------|-----|------|
+| `clientes` | `cli_id` | |
+| `provincias` | `prov_id` | Columna país: `prov_codigo_pais` (no CodigoPais) |
+| `paises` | `pais_id` | Columna código: `pais_codigo` (no Id_pais) |
+| `codigos_postales` | `codpos_id` | Usar `codpos_CodigoPostal`, `codpos_Localidad`, `codpos_Id_Provincia` |
+| `estdoClientes` | `estcli_id` | **Typo:** `estdoClientes` (no estadoClientes) |
+| `idiomas` | `idiom_id` | Código: `idiom_codigo` (ej. 'es') |
+| `monedas` | `mon_id` | Código: `mon_codigo` (ej. 'EUR') |
+
+- **Collation:** Usar `COLLATE utf8mb4_unicode_ci` si hay conflicto entre tablas.
+- **Prefijos:** `cli_`, `prov_`, `pais_`, `codpos_`, `tipc_`, `esp_`, `estcli_`, `idiom_`, `mon_`, `formp_`, `com_`, `ped_`.
