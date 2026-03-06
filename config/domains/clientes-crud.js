@@ -10,6 +10,20 @@ const { normalizeTelefonoForDB } = require('../../lib/telefono-utils');
 
 const MAX_CODIGO_POSTAL_LENGTH = 8;
 
+const CP_ESPANA_REGEX = /^[0-5][0-9]{4}$/;
+
+function isProvinciaEspanola(provincia) {
+  if (!provincia) return false;
+  const cod = String(provincia.prov_codigo_pais ?? provincia.CodigoPais ?? provincia.codigo_pais ?? '').trim().toUpperCase();
+  return cod === 'ES';
+}
+
+function isCpEspanol(cp) {
+  if (!cp || typeof cp !== 'string') return false;
+  const limpio = String(cp).trim().replace(/\s/g, '');
+  return CP_ESPANA_REGEX.test(limpio);
+}
+
 function normalizePayloadTelefonos(payload) {
   const telCols = ['cli_telefono', 'cli_movil', 'Telefono', 'Movil'];
   for (const col of telCols) {
@@ -29,6 +43,43 @@ function normalizePayloadCodigoPostal(payload) {
         payload[col] = raw.slice(0, MAX_CODIGO_POSTAL_LENGTH);
       }
     }
+  }
+}
+
+async function aplicarNormalizacionEspanaCliente(db, payload, { clienteActual, provincias }) {
+  const cp = String(payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal ?? clienteActual?.cli_codigo_postal ?? clienteActual?.CodigoPostal ?? '').trim();
+  const provId = payload.cli_prov_id ?? payload.Id_Provincia ?? payload.id_provincia ?? clienteActual?.cli_prov_id ?? clienteActual?.Id_Provincia;
+  const poblacion = String(payload.cli_poblacion ?? payload.Poblacion ?? payload.poblacion ?? clienteActual?.cli_poblacion ?? clienteActual?.Poblacion ?? '').trim();
+
+  const provincia = provId && provincias?.length
+    ? provincias.find((p) => Number(p?.prov_id ?? p?.id ?? p?.Id ?? 0) === Number(provId))
+    : null;
+  const provinciaEspanola = isProvinciaEspanola(provincia);
+  const cpEspanol = isCpEspanol(cp);
+
+  if (provinciaEspanola || cpEspanol) {
+    const espana = await db.getPaisByCodigoISO?.('ES').catch(() => null);
+    if (espana) {
+      const espanaId = espana.pais_id ?? espana.id ?? espana.Id;
+      payload.cli_pais_id = espanaId;
+      payload.Id_Pais = espanaId;
+      payload.CodPais = 'ES';
+      payload.Pais = espana.pais_nombre ?? espana.Nombre_pais ?? espana.Nombre ?? 'España';
+    }
+  }
+
+  if (!cp && provinciaEspanola && poblacion && db.getCodigosPostales) {
+    try {
+      const cps = await db.getCodigosPostales({ idProvincia: provId, localidad: poblacion, limit: 1 });
+      const cpRow = cps?.[0];
+      const cpCol = cpRow?.codpos_CodigoPostal ?? cpRow?.CodigoPostal ?? cpRow?.codigo_postal;
+      if (cpCol) {
+        const cpVal = String(cpCol).trim().slice(0, MAX_CODIGO_POSTAL_LENGTH);
+        payload.cli_codigo_postal = cpVal;
+        payload.CodigoPostal = cpVal;
+        payload.codigo_postal = cpVal;
+      }
+    } catch (_) {}
   }
 }
 
@@ -71,6 +122,9 @@ module.exports = {
       const provincias = await this.getProvincias();
       const paises = await this.getPaises();
 
+      const clienteActual = await this.getClienteById(id);
+      await aplicarNormalizacionEspanaCliente(this, payload, { clienteActual, provincias });
+
       if (payload.Id_Pais !== undefined) {
         try {
           const pais = await this.getPaisById(payload.Id_Pais);
@@ -83,8 +137,6 @@ module.exports = {
           console.warn('⚠️  No se pudo obtener país por ID:', error.message);
         }
       }
-
-      const clienteActual = await this.getClienteById(id);
       const efectivoPaisId = payload.cli_pais_id ?? payload.Id_Pais ?? clienteActual?.cli_pais_id ?? clienteActual?.Id_Pais;
       if (efectivoPaisId) {
         try {
@@ -413,6 +465,8 @@ module.exports = {
 
       const provincias = await this.getProvincias();
       const paises = await this.getPaises();
+
+      await aplicarNormalizacionEspanaCliente(this, payload, { clienteActual: null, provincias });
 
       if (payload.Id_Pais !== undefined) {
         try {
