@@ -81,7 +81,7 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))),
+      Promise.resolve(db.getEstadosCliente?.().catch(() => [])).then((r) => (Array.isArray(r) && r.length > 0 ? r : loadEstadosClienteForSelect(db))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -127,7 +127,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))),
+      Promise.resolve(db.getEstadosCliente?.().catch(() => [])).then((r) => (Array.isArray(r) && r.length > 0 ? r : loadEstadosClienteForSelect(db))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -255,7 +255,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))),
+      Promise.resolve(db.getEstadosCliente?.().catch(() => [])).then((r) => (Array.isArray(r) && r.length > 0 ? r : loadEstadosClienteForSelect(db))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -325,7 +325,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))),
+      Promise.resolve(db.getEstadosCliente?.().catch(() => [])).then((r) => (Array.isArray(r) && r.length > 0 ? r : loadEstadosClienteForSelect(db))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
       db._ensureClientesMeta().catch(() => null)
@@ -384,7 +384,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'especialidades', { labelCandidates: ['esp_nombre', 'Nombre', 'nombre', 'Especialidad'] }).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
       loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))),
+      Promise.resolve(db.getEstadosCliente?.().catch(() => [])).then((r) => (Array.isArray(r) && r.length > 0 ? r : loadEstadosClienteForSelect(db))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), [])
     ]);

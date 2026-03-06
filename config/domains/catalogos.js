@@ -167,11 +167,12 @@ module.exports = {
   },
 
   async getEstadosCliente() {
+    // Intentar primero con nombre exacto (tabla estdoClientes, typo en nombre)
     for (const tableKey of ['estdoClientes', 'estadoClientes']) {
       try {
         const t = await this._resolveTableNameCaseInsensitive(tableKey);
         const table = t || tableKey;
-        const rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY 1 ASC`);
+        const rows = await this.query(`SELECT estcli_id, estcli_nombre FROM \`${table}\` ORDER BY estcli_id ASC`);
         if (!Array.isArray(rows) || rows.length === 0) continue;
         const r0 = rows[0];
         const keys = r0 ? Object.keys(r0) : [];
