@@ -271,10 +271,10 @@
                     <option value="">—</option>
                     <% (idiomas || []).forEach((r) => { %>
                       <% const rid = Number(r.idiom_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const code = (r.Codigo ?? r.codigo ?? '').toString().trim(); %>
+                      <% const code = (r.Codigo ?? r.codigo ?? r.idiom_codigo ?? '').toString().trim().toUpperCase(); %>
                       <% const rname = r.idiom_nombre ?? r.Nombre ?? r.Idioma ?? r.descripcion ?? r.Descripcion ?? ('Idioma ' + rid); %>
                       <% const rlabel = code ? (code + ' · ' + rname) : rname; %>
-                      <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
+                      <option value="<%= rid %>" data-idiom-codigo="<%= code %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'monedas') { %>
@@ -283,10 +283,10 @@
                     <option value="">—</option>
                     <% (monedas || []).forEach((r) => { %>
                       <% const rid = Number(r.mon_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
-                      <% const code = (r.Codigo ?? r.codigo ?? r.ISO ?? r.Iso ?? '').toString().trim(); %>
+                      <% const code = (r.Codigo ?? r.codigo ?? r.ISO ?? r.Iso ?? r.mon_codigo ?? '').toString().trim().toUpperCase(); %>
                       <% const rname = r.mon_nombre ?? r.Nombre ?? r.Moneda ?? r.descripcion ?? r.Descripcion ?? ('Moneda ' + rid); %>
                       <% const rlabel = code ? (code + ' · ' + rname) : rname; %>
-                      <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
+                      <option value="<%= rid %>" data-mon-codigo="<%= code %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'cooperativas') { %>
@@ -543,6 +543,32 @@
       if (cpTimeout) clearTimeout(cpTimeout);
       cpTimeout = setTimeout(tryProvinciaPaisFromCp, 600);
     });
+  }
+
+  // Al seleccionar España: auto-rellenar idioma (Español) y moneda (Euro)
+  var paisSelect = form.querySelector('select[name="cli_pais_id"], select[name="Id_Pais"], select[name="id_pais"]');
+  var idiomSelect = form.querySelector('select[name="cli_idiom_id"], select[name="Id_Idioma"], select[name="id_idioma"]');
+  var monSelect = form.querySelector('select[name="cli_mon_id"], select[name="Id_Moneda"], select[name="id_moneda"]');
+  if (paisSelect && (idiomSelect || monSelect)) {
+    function aplicarIdiomaMonedaEspana() {
+      var selOpt = paisSelect.options[paisSelect.selectedIndex];
+      var isEspana = selOpt && selOpt.getAttribute('data-pais-codigo') === 'ES';
+      if (!isEspana) return;
+      if (idiomSelect) {
+        var optEs = idiomSelect.querySelector('option[data-idiom-codigo="ES"]');
+        if (optEs && (!idiomSelect.value || idiomSelect.value === '')) {
+          idiomSelect.value = optEs.value;
+        }
+      }
+      if (monSelect) {
+        var optEur = monSelect.querySelector('option[data-mon-codigo="EUR"]');
+        if (optEur && (!monSelect.value || monSelect.value === '')) {
+          monSelect.value = optEur.value;
+        }
+      }
+    }
+    paisSelect.addEventListener('change', aplicarIdiomaMonedaEspana);
+    aplicarIdiomaMonedaEspana();
   }
 
   // Validación CP España: 5 dígitos numéricos (los 2 primeros = provincia)

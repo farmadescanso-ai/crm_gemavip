@@ -65,6 +65,35 @@ async function aplicarNormalizacionEspanaCliente(db, payload, { clienteActual, p
       payload.Id_Pais = espanaId;
       payload.CodPais = 'ES';
       payload.Pais = espana.pais_nombre ?? espana.Nombre_pais ?? espana.Nombre ?? 'España';
+      const idiomVacio = (payload.cli_idiom_id ?? payload.Id_Idioma ?? clienteActual?.cli_idiom_id ?? clienteActual?.Id_Idioma) == null || String(payload.cli_idiom_id ?? payload.Id_Idioma ?? '').trim() === '';
+      const monVacio = (payload.cli_mon_id ?? payload.Id_Moneda ?? clienteActual?.cli_mon_id ?? clienteActual?.Id_Moneda) == null || String(payload.cli_mon_id ?? payload.Id_Moneda ?? '').trim() === '';
+      if (idiomVacio || monVacio) {
+        try {
+          const { loadSimpleCatalogForSelect } = require('../../lib/cliente-helpers');
+          const [idiomas, monedas] = await Promise.all([
+            loadSimpleCatalogForSelect(db, 'idiomas').catch(() => []),
+            loadSimpleCatalogForSelect(db, 'monedas').catch(() => [])
+          ]);
+          if (idiomVacio && idiomas?.length) {
+            const es = idiomas.find((r) => String(r?.idiom_codigo ?? r?.Codigo ?? r?.codigo ?? '').trim().toUpperCase() === 'ES')
+              || idiomas.find((r) => /español|espanol|castellano/i.test(String(r?.idiom_nombre ?? r?.Nombre ?? '')));
+            if (es) {
+              const esId = es.idiom_id ?? es.id ?? es.Id;
+              payload.cli_idiom_id = esId;
+              payload.Id_Idioma = esId;
+            }
+          }
+          if (monVacio && monedas?.length) {
+            const eur = monedas.find((r) => String(r?.mon_codigo ?? r?.Codigo ?? r?.codigo ?? r?.ISO ?? '').trim().toUpperCase() === 'EUR')
+              || monedas.find((r) => /euro|€/i.test(String(r?.mon_nombre ?? r?.Nombre ?? '')));
+            if (eur) {
+              const eurId = eur.mon_id ?? eur.id ?? eur.Id;
+              payload.cli_mon_id = eurId;
+              payload.Id_Moneda = eurId;
+            }
+          }
+        } catch (_) {}
+      }
     }
   }
 
