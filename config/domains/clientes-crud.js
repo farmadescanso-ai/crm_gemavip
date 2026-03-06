@@ -8,6 +8,8 @@
 const { debug } = require('../../lib/logger');
 const { normalizeTelefonoForDB } = require('../../lib/telefono-utils');
 
+const MAX_CODIGO_POSTAL_LENGTH = 8;
+
 function normalizePayloadTelefonos(payload) {
   const telCols = ['cli_telefono', 'cli_movil', 'Telefono', 'Movil'];
   for (const col of telCols) {
@@ -18,10 +20,23 @@ function normalizePayloadTelefonos(payload) {
   }
 }
 
+function normalizePayloadCodigoPostal(payload) {
+  const cpCols = ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal'];
+  for (const col of cpCols) {
+    if (payload[col] != null && payload[col] !== '') {
+      const raw = String(payload[col]).trim().replace(/\s+/g, ' ').trim();
+      if (raw) {
+        payload[col] = raw.slice(0, MAX_CODIGO_POSTAL_LENGTH);
+      }
+    }
+  }
+}
+
 module.exports = {
   async updateCliente(id, payload) {
     try {
       normalizePayloadTelefonos(payload);
+      normalizePayloadCodigoPostal(payload);
 
       if (payload.Tarifa !== undefined) {
         const raw = payload.Tarifa;
@@ -70,6 +85,23 @@ module.exports = {
       }
 
       const clienteActual = await this.getClienteById(id);
+      const efectivoPaisId = payload.cli_pais_id ?? payload.Id_Pais ?? clienteActual?.cli_pais_id ?? clienteActual?.Id_Pais;
+      if (efectivoPaisId) {
+        try {
+          const pais = await this.getPaisById(efectivoPaisId);
+          if (pais) {
+            const codigoPais = String(pais.pais_codigo ?? pais.Id_pais ?? pais.id_pais ?? '').trim().toUpperCase();
+            if (codigoPais === 'ES') {
+              const cp = String(payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal ?? clienteActual?.cli_codigo_postal ?? clienteActual?.CodigoPostal ?? '').trim().replace(/\s/g, '');
+              if (cp && !/^[0-9]{5}$/.test(cp)) {
+                throw new Error('El código postal de España debe tener exactamente 5 dígitos numéricos.');
+              }
+            }
+          }
+        } catch (error) {
+          if (error.message && error.message.includes('código postal')) throw error;
+        }
+      }
       const provinciaId = payload.Id_Provincia !== undefined ? payload.Id_Provincia : (clienteActual?.Id_Provincia || clienteActual?.id_Provincia);
       const paisId = payload.Id_Pais !== undefined ? payload.Id_Pais : (clienteActual?.Id_Pais || clienteActual?.id_Pais);
 
@@ -259,7 +291,16 @@ module.exports = {
         NomContacto: 'NomContacto',
         Web: 'Web',
         MotivoBaja: 'MotivoBaja',
-        FechaBaja: 'FechaBaja'
+        FechaBaja: 'FechaBaja',
+        // Campos Holded
+        cli_creado_holded: 'cli_creado_holded',
+        cli_referencia: 'cli_referencia',
+        cli_regimen: 'cli_regimen',
+        cli_ref_mandato: 'cli_ref_mandato',
+        cli_tags: 'cli_tags',
+        cli_cuenta_ventas: 'cli_cuenta_ventas',
+        cli_cuenta_compras: 'cli_cuenta_compras',
+        cli_visibilidad_portal: 'cli_visibilidad_portal'
       };
       const pickColName = (key) => {
         const mapped = legacyToCol[key];
@@ -298,6 +339,7 @@ module.exports = {
   async createCliente(payload) {
     try {
       normalizePayloadTelefonos(payload);
+      normalizePayloadCodigoPostal(payload);
 
       if (payload.Tarifa === undefined || payload.Tarifa === null || (typeof payload.Tarifa === 'string' && payload.Tarifa.trim() === '')) {
         payload.Tarifa = 0;
@@ -379,8 +421,16 @@ module.exports = {
             const { normalizeTitleCaseES } = require('../../utils/normalize-utf8');
             payload.CodPais = pais.Id_pais;
             payload.Pais = normalizeTitleCaseES(pais.Nombre_pais || '');
+            const codigoPais = String(pais.pais_codigo ?? pais.Id_pais ?? pais.id_pais ?? '').trim().toUpperCase();
+            if (codigoPais === 'ES') {
+              const cp = String(payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal ?? '').trim().replace(/\s/g, '');
+              if (cp && !/^[0-9]{5}$/.test(cp)) {
+                throw new Error('El código postal de España debe tener exactamente 5 dígitos numéricos.');
+              }
+            }
           }
         } catch (error) {
+          if (error.message && error.message.includes('código postal')) throw error;
           console.warn('⚠️  No se pudo obtener país por ID:', error.message);
         }
       }
@@ -518,7 +568,16 @@ module.exports = {
         NomContacto: 'NomContacto',
         Web: 'Web',
         MotivoBaja: 'MotivoBaja',
-        FechaBaja: 'FechaBaja'
+        FechaBaja: 'FechaBaja',
+        // Campos Holded
+        cli_creado_holded: 'cli_creado_holded',
+        cli_referencia: 'cli_referencia',
+        cli_regimen: 'cli_regimen',
+        cli_ref_mandato: 'cli_ref_mandato',
+        cli_tags: 'cli_tags',
+        cli_cuenta_ventas: 'cli_cuenta_ventas',
+        cli_cuenta_compras: 'cli_cuenta_compras',
+        cli_visibilidad_portal: 'cli_visibilidad_portal'
       };
       const colsListCreate = meta?.cols || [];
       const mappedPayload = {};

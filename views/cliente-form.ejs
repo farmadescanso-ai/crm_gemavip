@@ -211,7 +211,8 @@
                       <% (paises || []).forEach((p) => { %>
                         <% const pid = Number(p.pais_id ?? p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
                         <% const plabel = p.pais_nombre ?? p.Nombre_pais ?? p.Nombre ?? p.nombre ?? p.Pais ?? ('País ' + pid); %>
-                        <option value="<%= pid %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
+                        <% const pCodigo = String(p.pais_codigo ?? p.Id_pais ?? p.id_pais ?? '').trim().toUpperCase(); %>
+                        <option value="<%= pid %>" data-pais-codigo="<%= pCodigo %>" <%= pid === curId ? 'selected' : '' %>><%= plabel %></option>
                       <% }) %>
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'provincias') { %>
@@ -542,6 +543,32 @@
       if (cpTimeout) clearTimeout(cpTimeout);
       cpTimeout = setTimeout(tryProvinciaPaisFromCp, 600);
     });
+  }
+
+  // Validación CP España: 5 dígitos numéricos (los 2 primeros = provincia)
+  var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');
+  var paisSelect = form.querySelector('select[name="cli_pais_id"], select[name="Id_Pais"], select[name="id_pais"]');
+  if (cpInput && paisSelect) {
+    form.addEventListener('submit', function (e) {
+      var cp = String(cpInput.value || '').trim().replace(/\s+/g, '');
+      var selOpt = paisSelect.options[paisSelect.selectedIndex];
+      var isEspana = selOpt && selOpt.getAttribute('data-pais-codigo') === 'ES';
+      if (!isEspana || !cp) {
+        cpInput.setCustomValidity('');
+        return;
+      }
+      if (!/^[0-9]{5}$/.test(cp)) {
+        e.preventDefault();
+        e.stopPropagation();
+        cpInput.setCustomValidity('El código postal de España debe tener exactamente 5 dígitos numéricos.');
+        cpInput.reportValidity();
+        cpInput.focus();
+        return false;
+      }
+      cpInput.setCustomValidity('');
+    });
+    cpInput.addEventListener('input', function () { cpInput.setCustomValidity(''); });
+    cpInput.addEventListener('change', function () { cpInput.setCustomValidity(''); });
   }
 
   // Dirty tracking
