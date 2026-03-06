@@ -78,4 +78,9 @@ CALL _add_index_if_not_exists('direccionesEnvio', 'idx_direnv_cliente', '`direnv
 CALL _add_index_if_not_exists('direccionesEnvio', 'idx_direnv_cliente_activa', '`direnv_cli_id`,`direnv_activa`', 'BTREE');
 CALL _add_index_if_not_exists('direccionesEnvio', 'idx_direnv_cliente_activa_principal', '`direnv_cli_id`,`direnv_activa`,`direnv_es_principal`', 'BTREE');
 
+-- CÓDIGOS POSTALES (búsqueda por CP para auto-rellenar provincia/país en formularios)
+-- Usar CodigoPostal o codpos_CodigoPostal según tu esquema (descomenta el que aplique)
+CALL _add_index_if_not_exists('codigos_postales', 'idx_codpos_codigo', '`CodigoPostal`', 'BTREE');
+-- CALL _add_index_if_not_exists('codigos_postales', 'idx_codpos_codigo', '`codpos_CodigoPostal`', 'BTREE');
+
 DROP PROCEDURE IF EXISTS _add_index_if_not_exists;

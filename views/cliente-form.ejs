@@ -504,33 +504,43 @@
   if (formatNo) formatNo.addEventListener('click', function () { hideFormatModal(); if (nameInput) nameInput.focus(); });
   if (formatYes) formatYes.addEventListener('click', hideFormatModal);
 
-  // Auto-rellenar provincia al cambiar código postal
+  // Auto-rellenar provincia y país al cambiar código postal
   var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');
   var provSelect = form.querySelector('select[name="cli_prov_id"], select[name="Id_Provincia"], select[name="id_provincia"]');
-  if (cpInput && provSelect) {
+  var paisSelect = form.querySelector('select[name="cli_pais_id"], select[name="Id_Pais"], select[name="id_pais"]');
+  if (cpInput && (provSelect || paisSelect)) {
     var cpTimeout = null;
-    function tryProvinciaFromCp() {
+    function tryProvinciaPaisFromCp() {
       var cp = String(cpInput.value || '').trim().replace(/\s+/g, '');
       if (cp.length < 2) return;
       fetch('/api/provincia-by-cp?cp=' + encodeURIComponent(cp), { headers: { Accept: 'application/json' } })
         .then(function (r) { return r.json(); })
         .then(function (json) {
-          if (json && json.ok && json.provinciaId && provSelect) {
-            var opt = provSelect.querySelector('option[value="' + String(json.provinciaId) + '"]');
-            if (opt) {
+          if (!json || !json.ok) return;
+          if (json.provinciaId && provSelect) {
+            var optProv = provSelect.querySelector('option[value="' + String(json.provinciaId) + '"]');
+            if (optProv) {
               provSelect.value = String(json.provinciaId);
-              if (typeof form.dispatchEvent === 'function') {
-                form.dispatchEvent(new Event('change', { bubbles: true }));
-              }
+            }
+          }
+          if (json.paisId && paisSelect) {
+            var optPais = paisSelect.querySelector('option[value="' + String(json.paisId) + '"]');
+            if (optPais) {
+              paisSelect.value = String(json.paisId);
+            }
+          }
+          if ((json.provinciaId && provSelect) || (json.paisId && paisSelect)) {
+            if (typeof form.dispatchEvent === 'function') {
+              form.dispatchEvent(new Event('change', { bubbles: true }));
             }
           }
         })
         .catch(function () {});
     }
-    cpInput.addEventListener('blur', tryProvinciaFromCp);
+    cpInput.addEventListener('blur', tryProvinciaPaisFromCp);
     cpInput.addEventListener('input', function () {
       if (cpTimeout) clearTimeout(cpTimeout);
-      cpTimeout = setTimeout(tryProvinciaFromCp, 600);
+      cpTimeout = setTimeout(tryProvinciaPaisFromCp, 600);
     });
   }
 

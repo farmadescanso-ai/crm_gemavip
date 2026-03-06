@@ -156,34 +156,44 @@ app.get('/api/debug-login', async (req, res) => {
   }
 });
 
-// Provincia por código postal (para auto-rellenar en formulario de clientes/comerciales)
+// Provincia y país por código postal (para auto-rellenar en formulario de clientes/comerciales)
 app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
   try {
     const cp = String(req.query?.cp ?? '').trim().replace(/\s+/g, '');
-    if (!cp || cp.length < 2) return res.json({ ok: true, provinciaId: null, provinciaNombre: null });
+    if (!cp || cp.length < 2) return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null });
     let provinciaId = null;
     let provinciaNombre = null;
+    let paisId = null;
+    let paisNombre = null;
     const codigosTable = await db._getCodigosPostalesTableName?.().catch(() => null);
     const provTable = await db._resolveTableNameCaseInsensitive?.('provincias').catch(() => 'provincias');
+    const paisesTable = await db._resolveTableNameCaseInsensitive?.('paises').catch(() => 'paises');
     const provCols = await db._getColumns?.(provTable).catch(() => []);
+    const paisesCols = await db._getColumns?.(paisesTable).catch(() => []);
     const provPk = db._pickCIFromColumns?.(provCols, ['prov_id', 'id', 'Id']) || 'prov_id';
     const provNombre = db._pickCIFromColumns?.(provCols, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
+    const provCodigoPais = db._pickCIFromColumns?.(provCols, ['prov_codigo_pais', 'prov_codpais', 'CodigoPais', 'codigo_pais']);
+    const paisPk = db._pickCIFromColumns?.(paisesCols, ['pais_id', 'id', 'Id']) || 'pais_id';
+    const paisCodigo = db._pickCIFromColumns?.(paisesCols, ['pais_codigo', 'Id_pais', 'id_pais', 'Codigo']) || 'pais_codigo';
+    const paisNombreCol = db._pickCIFromColumns?.(paisesCols, ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre']) || 'pais_nombre';
     if (codigosTable && provPk) {
       const cpCols = await db._getColumns?.(codigosTable).catch(() => []);
       const cpIdProv = db._pickCIFromColumns?.(cpCols, ['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
       const cpCodigo = db._pickCIFromColumns?.(cpCols, ['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
       const joinCond = `cp.\`${cpIdProv}\` = p.\`${provPk}\``;
-      const rows = await db.query(
-        `SELECT cp.\`${cpIdProv}\` AS Id_Provincia, p.\`${provPk}\` AS prov_pk, p.\`${provNombre}\` AS NombreProvincia
-         FROM \`${codigosTable}\` cp
-         LEFT JOIN \`${provTable}\` p ON ${joinCond}
-         WHERE TRIM(cp.\`${cpCodigo}\`) = ? LIMIT 1`,
-        [cp]
-      ).catch(() => []);
+      let sql = `SELECT cp.\`${cpIdProv}\` AS Id_Provincia, p.\`${provPk}\` AS prov_pk, p.\`${provNombre}\` AS NombreProvincia`;
+      const joinPais = paisesTable && provCodigoPais && paisCodigo
+        ? ` LEFT JOIN \`${paisesTable}\` pa ON (p.\`${provCodigoPais}\` = pa.\`${paisCodigo}\` OR UPPER(TRIM(p.\`${provCodigoPais}\`)) = UPPER(TRIM(pa.\`${paisCodigo}\`)))`
+        : '';
+      if (joinPais) sql += `, pa.\`${paisPk}\` AS pais_pk, pa.\`${paisNombreCol}\` AS NombrePais`;
+      sql += ` FROM \`${codigosTable}\` cp LEFT JOIN \`${provTable}\` p ON ${joinCond}${joinPais} WHERE TRIM(cp.\`${cpCodigo}\`) = ? LIMIT 1`;
+      const rows = await db.query(sql, [cp]).catch(() => []);
       const r = rows?.[0];
       if (r) {
         provinciaId = r.Id_Provincia ?? r.prov_pk ?? null;
         provinciaNombre = r.NombreProvincia ?? null;
+        paisId = r.pais_pk ?? null;
+        paisNombre = r.NombrePais ?? null;
       }
     }
     if (!provinciaId && cp.length >= 2) {
@@ -196,11 +206,19 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
       if (prov) {
         provinciaId = prov.id ?? prov.Id ?? prov.prov_id ?? null;
         provinciaNombre = prov.Nombre ?? prov.nombre ?? null;
+        const codPais = String(prov.CodigoPais ?? prov.prov_codigo_pais ?? prov.codigo_pais ?? 'ES').trim().toUpperCase();
+        if (codPais) {
+          const pais = await db.getPaisByCodigoISO?.(codPais).catch(() => null);
+          if (pais) {
+            paisId = pais.pais_id ?? pais.id ?? pais.Id ?? null;
+            paisNombre = pais.pais_nombre ?? pais.Nombre_pais ?? pais.Nombre ?? null;
+          }
+        }
       }
     }
-    return res.json({ ok: true, provinciaId, provinciaNombre });
+    return res.json({ ok: true, provinciaId, provinciaNombre, paisId, paisNombre });
   } catch (e) {
-    return res.json({ ok: true, provinciaId: null, provinciaNombre: null });
+    return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null });
   }
 });
 
