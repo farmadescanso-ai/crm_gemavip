@@ -1,9 +1,9 @@
 <%- include('partials/header', { title: 'Comerciales' }) %>
 
-<section class="card gv-agenda">
-  <div class="gv-contactos-hd">
+<section class="card gv-contactos">
+  <div class="card-hd gv-contactos-hd">
     <div class="gv-contactos-hd__title-row">
-      <h1 class="gv-contactos-hd__title">Comerciales</h1>
+      <h1 class="card-title gv-contactos-hd__title">Comerciales</h1>
       <button
         type="button"
         class="gv-contactos-hd__info"
@@ -19,7 +19,7 @@
     <div class="gv-contactos-hd__bar">
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <form method="get" action="/comerciales" class="gv-contactos-search" style="display:inline-flex; align-items:center; gap:8px;">
-          <input type="search" name="q" placeholder="Buscar por nombre, email, DNI, móvil..." value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" style="min-width: 260px;" />
+          <input type="search" name="q" placeholder="Buscar por nombre, email, móvil..." value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" style="min-width: 260px;" />
           <button class="btn secondary" type="submit">Buscar</button>
           <% if (typeof q !== 'undefined' && q) { %>
             <a class="btn secondary" href="/comerciales">Limpiar</a>
@@ -54,25 +54,21 @@
     <div class="table-wrap gv-contactos-table-wrap">
       <table class="gv-contactos-table">
         <colgroup>
-          <col style="width: 11%;" />
-          <col style="width: 16%;" />
-          <col style="width: 22%;" />
           <col style="width: 10%;" />
-          <col style="width: 10%;" />
-          <col style="width: 10%;" />
-          <col style="width: 10%;" />
-          <col style="width: 11%;" />
+          <col style="width: 24%;" />
+          <col style="width: 30%;" />
+          <col style="width: 12%;" />
+          <col style="width: 12%;" />
+          <col style="width: 12%;" />
         </colgroup>
         <thead>
           <tr>
             <th>Acciones</th>
-            <th>ID</th>
-            <th>Nombre</th>
+            <th class="gv-contactos-col-nombre">Nombre</th>
             <th>Email</th>
-            <th>DNI</th>
             <th>Móvil</th>
             <th>Provincia</th>
-            <th>Roles</th>
+            <th>Rol</th>
           </tr>
         </thead>
         <tbody>
@@ -80,19 +76,18 @@
             <%
               const id = c.id ?? c.Id;
               const email = c.Email ?? c.email ?? '';
-              let rolesTxt = '';
-              const rraw = c.Roll;
-              if (Array.isArray(rraw)) {
-                rolesTxt = rraw.join(', ');
-              } else if (typeof rraw === 'string') {
+              const abrevRol = (r) => { const x = String(r || '').toLowerCase(); if (x.includes('admin')) return 'A'; if (x.includes('comercial')) return 'C'; return (r || '').charAt(0).toUpperCase() || '—'; };
+              let rolesArr = [];
+              const rraw = c.Roll ?? c.com_roll;
+              if (Array.isArray(rraw)) rolesArr = rraw.map(String);
+              else if (typeof rraw === 'string') {
                 const s = rraw.trim();
                 if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('{') && s.endsWith('}'))) {
-                  try { const parsed = JSON.parse(s); if (Array.isArray(parsed)) rolesTxt = parsed.map(String).join(', '); } catch (_) {}
+                  try { const parsed = JSON.parse(s); if (Array.isArray(parsed)) rolesArr = parsed.map(String); } catch (_) {}
                 }
-                if (!rolesTxt) rolesTxt = s.includes(',') ? s.split(',').map((x) => x.trim()).filter(Boolean).join(', ') : s;
-              } else if (rraw) {
-                rolesTxt = String(rraw);
-              }
+                if (rolesArr.length === 0) rolesArr = s.includes(',') ? s.split(',').map((x) => x.trim()).filter(Boolean) : (s ? [s] : []);
+              } else if (rraw) rolesArr = [String(rraw)];
+              const rolesAbrev = [...new Set(rolesArr.map(abrevRol))].filter(Boolean).join(', ') || '—';
             %>
             <tr>
               <td>
@@ -122,18 +117,16 @@
                   </form>
                 </div>
               </td>
-              <td><%= id %></td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre ?? '' %></td>
               <td><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
-              <td><%= c.DNI ?? '' %></td>
               <td><%- include('partials/telefono-display', { telefono: c.Movil ?? '' }) %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
-              <td><%= rolesTxt || '—' %></td>
+              <td><%= rolesAbrev %></td>
             </tr>
           <% }) %>
           <% if (!items || items.length === 0) { %>
             <tr>
-              <td colspan="8" style="color: var(--gv-muted); font-weight:700;">No hay comerciales.</td>
+              <td colspan="6" style="color: var(--gv-muted); font-weight:700;">No hay comerciales.</td>
             </tr>
           <% } %>
         </tbody>

@@ -141,5 +141,40 @@
   </div>
 </section>
 
+<script>
+(function () {
+  var form = document.getElementById('gvComercialForm');
+  if (!form) return;
+  var cpInput = form.querySelector('input[name="CodigoPostal"]');
+  var provSelect = form.querySelector('select[name="Id_Provincia"]');
+  if (cpInput && provSelect) {
+    var cpTimeout = null;
+    function tryProvinciaFromCp() {
+      var cp = String(cpInput.value || '').trim().replace(/\s+/g, '');
+      if (cp.length < 2) return;
+      fetch('/api/provincia-by-cp?cp=' + encodeURIComponent(cp), { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+          if (json && json.ok && json.provinciaId && provSelect) {
+            var opt = provSelect.querySelector('option[value="' + String(json.provinciaId) + '"]');
+            if (opt) {
+              provSelect.value = String(json.provinciaId);
+              if (typeof form.dispatchEvent === 'function') {
+                form.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+          }
+        })
+        .catch(function () {});
+    }
+    cpInput.addEventListener('blur', tryProvinciaFromCp);
+    cpInput.addEventListener('input', function () {
+      if (cpTimeout) clearTimeout(cpTimeout);
+      cpTimeout = setTimeout(tryProvinciaFromCp, 600);
+    });
+  }
+})();
+</script>
+
 <%- include('partials/footer') %>
 

@@ -4,6 +4,7 @@ Portal CRM de GEMAVIP.
 
 ## Documentación
 
+- **[Resumen del CRM y login](docs/RESUMEN-CRM-Y-LOGIN.md)** — Visión general de la aplicación y explicación del sistema de autenticación (para revisión).
 - **[Recuperación y cambio de contraseña](docs/RECUPERACION-CONTRASENA.md)** — Variables de entorno para SMTP (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, etc.) y URL base (`APP_BASE_URL` / `VERCEL_URL`) para el enlace de restablecimiento.
 - [Roles y permisos](docs/ROLES.md)
 - [Email Hefame OAuth2](docs/HEFAME-EMAIL-OAUTH2.md)

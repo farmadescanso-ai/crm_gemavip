@@ -18,3 +18,9 @@ coverage/
 Thumbs.db
 
 .vercel
+
+# PDFs subidos (ventas Gemavip)
+uploads/
+
+# Salida importar clientes (generada por generar-sql-y-csv-clientes.py)
+scripts/salida-importar/
