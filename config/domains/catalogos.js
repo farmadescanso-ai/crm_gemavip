@@ -203,7 +203,7 @@ module.exports = {
     try {
       const t = await this._resolveTableNameCaseInsensitive('especialidades').catch(() => 'especialidades');
       const table = t || 'especialidades';
-      const rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY 1 ASC`);
+      const rows = await this.query(`SELECT esp_id, esp_nombre FROM \`${table}\` ORDER BY esp_id ASC`);
       const r0 = (rows || [])[0];
       const keys = r0 ? Object.keys(r0) : [];
       const pk = keys.find((k) => /esp_id|^id$|^Id$/i.test(k)) || keys[0];
