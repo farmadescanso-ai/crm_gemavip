@@ -160,26 +160,35 @@ module.exports = {
   },
 
   async getEstadosCliente() {
-    try {
-      const t = await this._resolveTableNameCaseInsensitive('estdoClientes').catch(() => 'estdoClientes');
-      const table = t || 'estdoClientes';
-      const rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY 1 ASC`);
-      const r0 = (rows || [])[0];
-      const keys = r0 ? Object.keys(r0) : [];
-      const pk = keys.find((k) => /estcli_id|^id$|^Id$/i.test(k)) || keys[0];
-      const nom = keys.find((k) => /estcli_nombre|^Nombre$|^nombre$|^Estado$/i.test(k)) || keys.find((k) => k !== pk) || pk;
-      return (rows || []).map((r) => ({
-        ...r,
-        estcli_id: r[pk] ?? r.estcli_id ?? r.id ?? r.Id,
-        estcli_nombre: r[nom] ?? r.estcli_nombre ?? r.Nombre ?? r.nombre ?? '',
-        id: r[pk] ?? r.estcli_id ?? r.id ?? r.Id,
-        Nombre: r[nom] ?? r.estcli_nombre ?? r.Nombre ?? r.nombre ?? '',
-        nombre: r[nom] ?? r.estcli_nombre ?? r.Nombre ?? r.nombre ?? ''
-      }));
-    } catch (error) {
-      console.error('❌ Error obteniendo estdoClientes:', error.message);
-      return [];
+    for (const tableKey of ['estdoClientes', 'estadoClientes']) {
+      try {
+        const t = await this._resolveTableNameCaseInsensitive(tableKey);
+        const table = t || tableKey;
+        const rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY 1 ASC`);
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+        const r0 = rows[0];
+        const keys = r0 ? Object.keys(r0) : [];
+        const pk = keys.find((k) => /estcli_id|^id$|^Id$/i.test(k)) || keys[0];
+        const nom = keys.find((k) => /estcli_nombre|^Nombre$|^nombre$|^Estado$/i.test(k)) || keys.find((k) => k !== pk) || pk;
+        return rows.map((r) => {
+          const val = r[nom] ?? r.estcli_nombre ?? r.Nombre ?? r.nombre ?? '';
+          const pkVal = r[pk] ?? r.estcli_id ?? r.id ?? r.Id;
+          return {
+            ...r,
+            estcli_id: pkVal,
+            estcli_nombre: val,
+            id: pkVal,
+            Nombre: val,
+            nombre: val,
+            Estado: val,
+            estado: val
+          };
+        });
+      } catch (error) {
+        continue;
+      }
     }
+    return [];
   },
 
   async getEspecialidades() {
@@ -191,13 +200,19 @@ module.exports = {
       const keys = r0 ? Object.keys(r0) : [];
       const pk = keys.find((k) => /esp_id|^id$|^Id$/i.test(k)) || keys[0];
       const nom = keys.find((k) => /esp_nombre|^Nombre$|^nombre$|^Especialidad$/i.test(k)) || keys.find((k) => k !== pk) || pk;
-      return (rows || []).map((r) => ({
-        ...r,
-        esp_id: r[pk] ?? r.esp_id ?? r.id ?? r.Id,
-        esp_nombre: r[nom] ?? r.esp_nombre ?? r.Nombre ?? r.nombre ?? '',
-        id: r[pk] ?? r.esp_id ?? r.id ?? r.Id,
-        Nombre: r[nom] ?? r.esp_nombre ?? r.Nombre ?? r.nombre ?? ''
-      }));
+      return (rows || []).map((r) => {
+        const val = r[nom] ?? r.esp_nombre ?? r.Nombre ?? r.nombre ?? '';
+        const pkVal = r[pk] ?? r.esp_id ?? r.id ?? r.Id;
+        return {
+          ...r,
+          esp_id: pkVal,
+          esp_nombre: val,
+          id: pkVal,
+          Nombre: val,
+          nombre: val,
+          Especialidad: val
+        };
+      });
     } catch (error) {
       console.error('❌ Error obteniendo especialidades:', error.message);
       return [];
