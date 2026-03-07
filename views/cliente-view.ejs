@@ -5,7 +5,7 @@
 <section class="card gv-cliente-form" style="max-width: 1080px; margin: 0 auto;">
   <div class="card-hd">
     <h1 class="card-title">Cliente #<%= cid %></h1>
-    <p class="card-subtitle"><%= item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? item?.Nombre ?? 'Detalle de cliente' %></p>
+    <p class="card-subtitle"><strong><%= item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? item?.Nombre ?? 'Detalle de cliente' %></strong></p>
   </div>
   <div class="card-bd">
     <% if (typeof solicitud !== 'undefined' && solicitud === 'ok') { %>
@@ -58,7 +58,7 @@
     </div>
 
     <%
-      const fieldAliases = { cli_com_id: ['Id_Cial', 'id_cial'], id_cial: ['cli_com_id', 'Id_Cial'], cli_idiom_id: ['Id_Idioma', 'id_idioma'], id_idioma: ['cli_idiom_id', 'Id_Idioma'], cli_mon_id: ['Id_Moneda', 'id_moneda'], id_moneda: ['cli_mon_id', 'Id_Moneda'], cli_formp_id: ['Id_FormaPago', 'id_formapago'], cli_tarcli_id: ['cli_tarifa_legacy', 'Tarifa'], cli_tarifa_legacy: ['cli_tarcli_id', 'Tarifa'], cli_esp_id: ['Id_Especialidad', 'id_especialidad'], id_especialidad: ['cli_esp_id', 'Id_Especialidad'] };
+      const fieldAliases = { cli_com_id: ['Id_Cial', 'id_cial'], id_cial: ['cli_com_id', 'Id_Cial'], cli_idiom_id: ['Id_Idioma', 'id_idioma'], id_idioma: ['cli_idiom_id', 'Id_Idioma'], cli_mon_id: ['Id_Moneda', 'id_moneda'], id_moneda: ['cli_mon_id', 'Id_Moneda'], cli_formp_id: ['Id_FormaPago', 'id_formapago'], cli_tarcli_id: ['cli_tarifa_legacy', 'Tarifa'], cli_tarifa_legacy: ['cli_tarcli_id', 'Tarifa'], cli_esp_id: ['Id_Especialidad', 'id_especialidad'], id_especialidad: ['cli_esp_id', 'Id_Especialidad'], cli_re: ['cli_RE'], cli_motivo_baja: ['cli_MotivoBaja', 'cli_motivobaja'], cli_motivobaja: ['cli_motivo_baja', 'cli_MotivoBaja'], cli_fecha_baja: ['cli_FechaBaja', 'cli_fechabaja'], cli_fechabaja: ['cli_fecha_baja', 'cli_FechaBaja'] };
       const pickVal = (name) => {
         if (!item) return '';
         const keys = [name, ...(fieldAliases[String(name).toLowerCase()] || [])];

@@ -424,6 +424,12 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     if ('cli_mon_id' in body || 'Id_Moneda' in body) {
       payload.cli_mon_id = coerceClienteValue('cli_mon_id', body.cli_mon_id ?? body.Id_Moneda);
     }
+    if ('cli_idiom_id' in body || 'Id_Idioma' in body) {
+      payload.cli_idiom_id = coerceClienteValue('cli_idiom_id', body.cli_idiom_id ?? body.Id_Idioma);
+    }
+    if ('cli_RE' in body || 'cli_re' in body) {
+      payload.cli_RE = coerceClienteValue('cli_RE', body.cli_RE ?? body.cli_re);
+    }
 
     normalizePayloadTelefonos(payload);
 
