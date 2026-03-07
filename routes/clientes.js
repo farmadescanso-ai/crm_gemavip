@@ -94,7 +94,9 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       { meta, paises, idiomas, monedas }
     );
     if (!isAdmin && res.locals.user?.id) {
-      baseItem.cli_com_id = baseItem.Id_Cial = Number(res.locals.user.id);
+      const comId = Number(res.locals.user.id);
+      const colCom = meta?.colComercial || 'cli_com_id';
+      baseItem[colCom] = baseItem.cli_com_id = baseItem.Id_Cial = comId;
     }
     const model = buildClienteFormModel({
       mode: 'create',
