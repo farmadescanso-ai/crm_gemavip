@@ -245,8 +245,13 @@
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'provincias') { %>
                     <% const curId = Number(_pickVal(name) || 0) || 0; %>
+                    <% const curProvEnLista = (provincias || []).some((p) => Number(p.prov_id ?? p.id ?? p.Id ?? p.ID ?? 0) === curId); %>
+                    <% const curProvLabel = (item && (item.ProvinciaNombre ?? item.Provincia ?? item.provincia)) ? String(item.ProvinciaNombre ?? item.Provincia ?? item.provincia).trim() : (curId ? 'Provincia ' + curId : ''); %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
+                      <% if (curId && !curProvEnLista && curProvLabel) { %>
+                        <option value="<%= curId %>" selected><%= curProvLabel %></option>
+                      <% } %>
                       <% (provincias || []).forEach((p) => { %>
                         <% const pid = Number(p.prov_id ?? p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
                         <% const plabel = p.prov_nombre ?? p.Nombre_provincia ?? p.Nombre ?? p.nombre ?? p.Provincia ?? ('Provincia ' + pid); %>
@@ -307,8 +312,13 @@
                   </select>
                 <% } else if (spec.kind === 'select' && spec.options === 'monedas') { %>
                   <% const curId = Number(_pickVal(name) || 0) || 0; %>
+                  <% const curMonEnLista = (monedas || []).some((r) => Number(r.mon_id ?? r.id ?? r.Id ?? r.ID ?? 0) === curId); %>
+                  <% const curMonLabel = (item && (item.MonedaNombre ?? item.Moneda ?? item.cli_Moneda)) ? String(item.MonedaNombre ?? item.Moneda ?? item.cli_Moneda).trim() : (curId ? 'Moneda ' + curId : ''); %>
                   <select id="<%= inputId %>" name="<%= name %>">
                     <option value="">—</option>
+                    <% if (curId && !curMonEnLista && curMonLabel) { %>
+                      <option value="<%= curId %>" selected><%= curMonLabel %></option>
+                    <% } %>
                     <% (monedas || []).forEach((r) => { %>
                       <% const rid = Number(r.mon_id ?? r.id ?? r.Id ?? r.ID ?? 0) || 0; %>
                       <% const code = (r.Codigo ?? r.codigo ?? r.ISO ?? r.Iso ?? r.mon_codigo ?? '').toString().trim().toUpperCase(); %>
