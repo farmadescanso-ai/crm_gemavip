@@ -74,7 +74,7 @@ router.get('/', requireLogin, async (req, res, next) => {
 router.get('/new', requireLogin, async (_req, res, next) => {
   try {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
-      db.getComerciales().catch(() => []),
+      db.getComercialesForSelect().catch(() => []),
       db.getTarifas().catch(() => []),
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
@@ -125,7 +125,7 @@ router.get('/new', requireLogin, async (_req, res, next) => {
 router.post('/new', requireLogin, async (req, res, next) => {
   try {
     const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
-      db.getComerciales().catch(() => []),
+      db.getComercialesForSelect().catch(() => []),
       db.getTarifas().catch(() => []),
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
@@ -255,7 +255,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
     const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
-      db.getComerciales().catch(() => []),
+      db.getComercialesForSelect().catch(() => []),
       db.getTarifas().catch(() => []),
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
@@ -325,7 +325,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
     const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
       db.getClienteById(id),
-      db.getComerciales().catch(() => []),
+      db.getComercialesForSelect().catch(() => []),
       db.getTarifas().catch(() => []),
       loadSimpleCatalogForSelect(db, 'provincias'),
       loadSimpleCatalogForSelect(db, 'paises'),
@@ -399,7 +399,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), [])
     ]);
     if (!item) return res.status(404).send('No encontrado');
-    const comerciales = await db.getComerciales().catch(() => []);
+    const comerciales = await db.getComercialesForSelect().catch(() => []);
     const tarifas = await db.getTarifas().catch(() => []);
     const body = req.body || {};
     const canChangeComercial = admin;
@@ -414,6 +414,9 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       if (String(real).toLowerCase() === String(pk).toLowerCase()) continue;
       if (!canChangeComercial && meta?.colComercial && String(real).toLowerCase() === String(meta.colComercial).toLowerCase()) continue;
       payload[real] = coerceClienteValue(real, v);
+    }
+    if (admin && 'cli_com_id' in body) {
+      payload.cli_com_id = coerceClienteValue('cli_com_id', body.cli_com_id);
     }
 
     normalizePayloadTelefonos(payload);

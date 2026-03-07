@@ -6,6 +6,22 @@
 'use strict';
 
 module.exports = {
+  /** Consulta ligera para selects: com_id, com_nombre, com_email. Sin JOIN. */
+  async getComercialesForSelect() {
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const rows = await this.query(`SELECT com_id, com_nombre, com_email FROM \`${t}\` ORDER BY com_nombre ASC`);
+      return (rows || []).map(r => ({
+        com_id: Number(r.com_id) || 0,
+        com_nombre: String(r.com_nombre || '').trim(),
+        com_email: String(r.com_email || '').trim()
+      }));
+    } catch (e) {
+      console.error('❌ getComercialesForSelect:', e?.message);
+      return [];
+    }
+  },
+
   async getComerciales() {
     try {
       const t = await this._resolveTableNameCaseInsensitive('comerciales');
@@ -41,7 +57,6 @@ module.exports = {
           ProvinciaNombre: r?.ProvinciaNombre ?? r?.Provincia ?? ''
         };
       });
-      console.log(`✅ Obtenidos ${normalized.length} comerciales`);
       return normalized;
     } catch (error) {
       console.error('❌ Error obteniendo comerciales:', error.message);

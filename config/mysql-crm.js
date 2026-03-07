@@ -690,6 +690,9 @@ class MySQLCRM {
   async getComerciales() {
     return domains.comerciales.getComerciales.apply(this, arguments);
   }
+  async getComercialesForSelect() {
+    return domains.comerciales.getComercialesForSelect.apply(this, arguments);
+  }
   async getComercialByEmail(email) {
     return domains.comerciales.getComercialByEmail.apply(this, arguments);
   }
