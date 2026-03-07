@@ -156,85 +156,6 @@ app.get('/api/debug-login', async (req, res) => {
   }
 });
 
-// Provincia y país por código postal (para auto-rellenar en formulario de clientes/comerciales)
-app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
-  try {
-    const cp = String(req.query?.cp ?? '').trim().replace(/\s+/g, '');
-    if (!cp || cp.length < 2) return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null, poblacion: null, paisCodigo: null });
-    let provinciaId = null;
-    let provinciaNombre = null;
-    let paisId = null;
-    let paisNombre = null;
-    let respPaisCodigo = null;
-    let poblacion = null;
-    const codigosTable = await db._getCodigosPostalesTableName?.().catch(() => null);
-    const provTable = await db._resolveTableNameCaseInsensitive?.('provincias').catch(() => 'provincias');
-    const paisesTable = await db._resolveTableNameCaseInsensitive?.('paises').catch(() => 'paises');
-    const provCols = await db._getColumns?.(provTable).catch(() => []);
-    const paisesCols = await db._getColumns?.(paisesTable).catch(() => []);
-    const provPk = db._pickCIFromColumns?.(provCols, ['prov_id', 'id', 'Id']) || 'prov_id';
-    const provNombre = db._pickCIFromColumns?.(provCols, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
-    const provCodigoPais = db._pickCIFromColumns?.(provCols, ['prov_codigo_pais', 'prov_codpais', 'CodigoPais', 'codigo_pais']);
-    const paisPk = db._pickCIFromColumns?.(paisesCols, ['pais_id', 'id', 'Id']) || 'pais_id';
-    const paisCodigo = db._pickCIFromColumns?.(paisesCols, ['pais_codigo', 'Id_pais', 'id_pais', 'Codigo']) || 'pais_codigo';
-    const paisNombreCol = db._pickCIFromColumns?.(paisesCols, ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre']) || 'pais_nombre';
-    if (codigosTable && provPk) {
-      const cpCols = await db._getColumns?.(codigosTable).catch(() => []);
-      const cpIdProv = db._pickCIFromColumns?.(cpCols, ['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
-      const cpCodigo = db._pickCIFromColumns?.(cpCols, ['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
-      const cpLocalidad = db._pickCIFromColumns?.(cpCols, ['codpos_Localidad', 'Localidad', 'localidad']) || 'codpos_Localidad';
-      const joinCond = `cp.\`${cpIdProv}\` = p.\`${provPk}\``;
-      let sql = `SELECT cp.\`${cpIdProv}\` AS Id_Provincia, cp.\`${cpLocalidad}\` AS Localidad, p.\`${provPk}\` AS prov_pk, p.\`${provNombre}\` AS NombreProvincia`;
-      const joinPais = paisesTable && provCodigoPais && paisCodigo
-        ? ` LEFT JOIN \`${paisesTable}\` pa ON (p.\`${provCodigoPais}\` = pa.\`${paisCodigo}\` OR UPPER(TRIM(p.\`${provCodigoPais}\`)) = UPPER(TRIM(pa.\`${paisCodigo}\`)))`
-        : '';
-      if (joinPais) sql += `, pa.\`${paisPk}\` AS pais_pk, pa.\`${paisNombreCol}\` AS NombrePais, pa.\`${paisCodigo}\` AS pais_codigo`;
-      sql += ` FROM \`${codigosTable}\` cp LEFT JOIN \`${provTable}\` p ON ${joinCond}${joinPais} WHERE TRIM(cp.\`${cpCodigo}\`) = ? LIMIT 1`;
-      const rows = await db.query(sql, [cp]).catch(() => []);
-      const r = rows?.[0];
-      if (r) {
-        provinciaId = r.Id_Provincia ?? r.prov_pk ?? null;
-        provinciaNombre = r.NombreProvincia ?? null;
-        paisId = r.pais_pk ?? null;
-        paisNombre = r.NombrePais ?? null;
-        respPaisCodigo = r.pais_codigo ? String(r.pais_codigo).trim().toUpperCase() : (paisId ? 'ES' : null);
-        const loc = r.Localidad;
-        poblacion = (loc != null && String(loc).trim()) ? String(loc).trim() : null;
-      }
-    }
-    // Fallback: CP español (5 dígitos) -> provincia por prefijo (03=Alicante, 28=Madrid, 30=Murcia...)
-    if (!provinciaId && /^[0-9]{5}$/.test(cp)) {
-      const prefix = cp.substring(0, 2);
-      const prefixNum = parseInt(prefix, 10);
-      const provincias = await db.getProvincias?.().catch(() => []);
-      const prov = (provincias || []).find((p) => {
-        const esEspana = String(p?.CodigoPais ?? p?.prov_codigo_pais ?? p?.codigo_pais ?? 'ES').trim().toUpperCase() === 'ES';
-        if (!esEspana) return false;
-        const cod = String(p?.Codigo ?? p?.codigo ?? p?.prov_codigo ?? '').trim();
-        const codNorm = cod ? String(cod).padStart(2, '0') : '';
-        const provId = p?.prov_id ?? p?.id ?? p?.Id;
-        return cod === prefix || codNorm === prefix || (provId != null && Number(provId) === prefixNum);
-      });
-      if (prov) {
-        provinciaId = prov.id ?? prov.Id ?? prov.prov_id ?? null;
-        provinciaNombre = prov.Nombre ?? prov.nombre ?? null;
-        const codPais = String(prov.CodigoPais ?? prov.prov_codigo_pais ?? prov.codigo_pais ?? 'ES').trim().toUpperCase();
-        respPaisCodigo = codPais || 'ES';
-        if (codPais) {
-          const pais = await db.getPaisByCodigoISO?.(codPais).catch(() => null);
-          if (pais) {
-            paisId = pais.pais_id ?? pais.id ?? pais.Id ?? null;
-            paisNombre = pais.pais_nombre ?? pais.Nombre_pais ?? pais.Nombre ?? null;
-          }
-        }
-      }
-    }
-    return res.json({ ok: true, provinciaId, provinciaNombre, paisId, paisNombre, poblacion, paisCodigo: respPaisCodigo || (paisId ? 'ES' : null) });
-  } catch (e) {
-    return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null, poblacion: null, paisCodigo: null });
-  }
-});
-
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.set('view cache', process.env.NODE_ENV === 'production');
@@ -404,6 +325,84 @@ app.use(async (req, res, next) => {
   res.locals.getTelefonoForHref = getTelefonoForHref;
 
   next();
+});
+
+// Provincia y país por código postal (debe ir DESPUÉS de session para que requireLogin funcione)
+app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
+  try {
+    const cp = String(req.query?.cp ?? '').trim().replace(/\s+/g, '');
+    if (!cp || cp.length < 2) return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null, poblacion: null, paisCodigo: null });
+    let provinciaId = null;
+    let provinciaNombre = null;
+    let paisId = null;
+    let paisNombre = null;
+    let respPaisCodigo = null;
+    let poblacion = null;
+    const codigosTable = await db._getCodigosPostalesTableName?.().catch(() => null);
+    const provTable = await db._resolveTableNameCaseInsensitive?.('provincias').catch(() => 'provincias');
+    const paisesTable = await db._resolveTableNameCaseInsensitive?.('paises').catch(() => 'paises');
+    const provCols = await db._getColumns?.(provTable).catch(() => []);
+    const paisesCols = await db._getColumns?.(paisesTable).catch(() => []);
+    const provPk = db._pickCIFromColumns?.(provCols, ['prov_id', 'id', 'Id']) || 'prov_id';
+    const provNombre = db._pickCIFromColumns?.(provCols, ['prov_nombre', 'Nombre', 'nombre']) || 'prov_nombre';
+    const provCodigoPais = db._pickCIFromColumns?.(provCols, ['prov_codigo_pais', 'prov_codpais', 'CodigoPais', 'codigo_pais']);
+    const paisPk = db._pickCIFromColumns?.(paisesCols, ['pais_id', 'id', 'Id']) || 'pais_id';
+    const paisCodigo = db._pickCIFromColumns?.(paisesCols, ['pais_codigo', 'Id_pais', 'id_pais', 'Codigo']) || 'pais_codigo';
+    const paisNombreCol = db._pickCIFromColumns?.(paisesCols, ['pais_nombre', 'Nombre_pais', 'Nombre', 'nombre']) || 'pais_nombre';
+    if (codigosTable && provPk) {
+      const cpCols = await db._getColumns?.(codigosTable).catch(() => []);
+      const cpIdProv = db._pickCIFromColumns?.(cpCols, ['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
+      const cpCodigo = db._pickCIFromColumns?.(cpCols, ['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
+      const cpLocalidad = db._pickCIFromColumns?.(cpCols, ['codpos_Localidad', 'Localidad', 'localidad']) || 'codpos_Localidad';
+      const joinCond = `cp.\`${cpIdProv}\` = p.\`${provPk}\``;
+      let sql = `SELECT cp.\`${cpIdProv}\` AS Id_Provincia, cp.\`${cpLocalidad}\` AS Localidad, p.\`${provPk}\` AS prov_pk, p.\`${provNombre}\` AS NombreProvincia`;
+      const joinPais = paisesTable && provCodigoPais && paisCodigo
+        ? ` LEFT JOIN \`${paisesTable}\` pa ON (p.\`${provCodigoPais}\` = pa.\`${paisCodigo}\` OR UPPER(TRIM(p.\`${provCodigoPais}\`)) = UPPER(TRIM(pa.\`${paisCodigo}\`)))`
+        : '';
+      if (joinPais) sql += `, pa.\`${paisPk}\` AS pais_pk, pa.\`${paisNombreCol}\` AS NombrePais, pa.\`${paisCodigo}\` AS pais_codigo`;
+      sql += ` FROM \`${codigosTable}\` cp LEFT JOIN \`${provTable}\` p ON ${joinCond}${joinPais} WHERE TRIM(cp.\`${cpCodigo}\`) = ? LIMIT 1`;
+      const rows = await db.query(sql, [cp]).catch(() => []);
+      const r = rows?.[0];
+      if (r) {
+        provinciaId = r.Id_Provincia ?? r.prov_pk ?? null;
+        provinciaNombre = r.NombreProvincia ?? null;
+        paisId = r.pais_pk ?? null;
+        paisNombre = r.NombrePais ?? null;
+        respPaisCodigo = r.pais_codigo ? String(r.pais_codigo).trim().toUpperCase() : (paisId ? 'ES' : null);
+        const loc = r.Localidad;
+        poblacion = (loc != null && String(loc).trim()) ? String(loc).trim() : null;
+      }
+    }
+    if (!provinciaId && /^[0-9]{5}$/.test(cp)) {
+      const prefix = cp.substring(0, 2);
+      const prefixNum = parseInt(prefix, 10);
+      const provincias = await db.getProvincias?.().catch(() => []);
+      const prov = (provincias || []).find((p) => {
+        const esEspana = String(p?.CodigoPais ?? p?.prov_codigo_pais ?? p?.codigo_pais ?? 'ES').trim().toUpperCase() === 'ES';
+        if (!esEspana) return false;
+        const cod = String(p?.Codigo ?? p?.codigo ?? p?.prov_codigo ?? '').trim();
+        const codNorm = cod ? String(cod).padStart(2, '0') : '';
+        const provId = p?.prov_id ?? p?.id ?? p?.Id;
+        return cod === prefix || codNorm === prefix || (provId != null && Number(provId) === prefixNum);
+      });
+      if (prov) {
+        provinciaId = prov.id ?? prov.Id ?? prov.prov_id ?? null;
+        provinciaNombre = prov.Nombre ?? prov.nombre ?? null;
+        const codPais = String(prov.CodigoPais ?? prov.prov_codigo_pais ?? prov.codigo_pais ?? 'ES').trim().toUpperCase();
+        respPaisCodigo = codPais || 'ES';
+        if (codPais) {
+          const pais = await db.getPaisByCodigoISO?.(codPais).catch(() => null);
+          if (pais) {
+            paisId = pais.pais_id ?? pais.id ?? pais.Id ?? null;
+            paisNombre = pais.pais_nombre ?? pais.Nombre_pais ?? pais.Nombre ?? null;
+          }
+        }
+      }
+    }
+    return res.json({ ok: true, provinciaId, provinciaNombre, paisId, paisNombre, poblacion, paisCodigo: respPaisCodigo || (paisId ? 'ES' : null) });
+  } catch (e) {
+    return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null, poblacion: null, paisCodigo: null });
+  }
 });
 
 // Favicon: redirigir al logo de Gemavip

@@ -522,8 +522,16 @@
     function tryProvinciaPaisFromCp() {
       var cp = String(cpInput.value || '').trim().replace(/\s+/g, '');
       if (cp.length < 2) return;
-      fetch('/api/provincia-by-cp?cp=' + encodeURIComponent(cp), { headers: { Accept: 'application/json' } })
-        .then(function (r) { return r.json(); })
+      fetch('/api/provincia-by-cp?cp=' + encodeURIComponent(cp), {
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
+      })
+        .then(function (r) {
+          if (!r.ok) return null;
+          var ct = (r.headers.get('Content-Type') || '').toLowerCase();
+          if (ct.indexOf('application/json') === -1) return null;
+          return r.json();
+        })
         .then(function (json) {
           if (!json || !json.ok) return;
           if (json.poblacion && poblacionInput) poblacionInput.value = json.poblacion;
