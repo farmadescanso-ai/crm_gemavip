@@ -93,6 +93,9 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       { OK_KO: 1, Tarifa: 0, Dto: 0 },
       { meta, paises, idiomas, monedas }
     );
+    if (!isAdmin && res.locals.user?.id) {
+      baseItem.cli_com_id = baseItem.Id_Cial = Number(res.locals.user.id);
+    }
     const model = buildClienteFormModel({
       mode: 'create',
       meta,
