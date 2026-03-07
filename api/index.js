@@ -202,12 +202,18 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
         poblacion = (loc != null && String(loc).trim()) ? String(loc).trim() : null;
       }
     }
-    if (!provinciaId && cp.length >= 2) {
+    // Fallback: CP español (5 dígitos) -> provincia por prefijo (03=Alicante, 28=Madrid, 30=Murcia...)
+    if (!provinciaId && /^[0-9]{5}$/.test(cp)) {
       const prefix = cp.substring(0, 2);
+      const prefixNum = parseInt(prefix, 10);
       const provincias = await db.getProvincias?.().catch(() => []);
       const prov = (provincias || []).find((p) => {
+        const esEspana = String(p?.CodigoPais ?? p?.prov_codigo_pais ?? p?.codigo_pais ?? 'ES').trim().toUpperCase() === 'ES';
+        if (!esEspana) return false;
         const cod = String(p?.Codigo ?? p?.codigo ?? p?.prov_codigo ?? '').trim();
-        return cod === prefix;
+        const codNorm = cod ? String(cod).padStart(2, '0') : '';
+        const provId = p?.prov_id ?? p?.id ?? p?.Id;
+        return cod === prefix || codNorm === prefix || (provId != null && Number(provId) === prefixNum);
       });
       if (prov) {
         provinciaId = prov.id ?? prov.Id ?? prov.prov_id ?? null;
