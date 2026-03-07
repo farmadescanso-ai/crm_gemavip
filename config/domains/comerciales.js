@@ -24,15 +24,23 @@ module.exports = {
       const rows = await this.query(sql);
       const colEmail = this._pickCIFromColumns(cols, ['com_email', 'Email', 'email']) || 'Email';
       const colMovil = this._pickCIFromColumns(cols, ['com_movil', 'Movil', 'movil']) || 'Movil';
-      const normalized = (rows || []).map(r => ({
-        ...r,
-        id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
-        Id: r?.[pk] ?? r?.id ?? r?.Id ?? null,
-        Nombre: r?.[colNombre] ?? r?.Nombre ?? r?.nombre ?? '',
-        Email: r?.[colEmail] ?? r?.Email ?? r?.email ?? '',
-        Movil: r?.[colMovil] ?? r?.Movil ?? r?.com_movil ?? '',
-        ProvinciaNombre: r?.ProvinciaNombre ?? r?.Provincia ?? ''
-      }));
+      const normalized = (rows || []).map(r => {
+        const idVal = r?.[pk] ?? r?.id ?? r?.Id ?? r?.com_id ?? null;
+        const nomVal = r?.[colNombre] ?? r?.Nombre ?? r?.nombre ?? r?.com_nombre ?? '';
+        const emailVal = r?.[colEmail] ?? r?.Email ?? r?.email ?? r?.com_email ?? '';
+        return {
+          ...r,
+          id: idVal,
+          Id: idVal,
+          com_id: idVal,
+          Nombre: nomVal,
+          com_nombre: nomVal,
+          Email: emailVal,
+          com_email: emailVal,
+          Movil: r?.[colMovil] ?? r?.Movil ?? r?.com_movil ?? '',
+          ProvinciaNombre: r?.ProvinciaNombre ?? r?.Provincia ?? ''
+        };
+      });
       console.log(`✅ Obtenidos ${normalized.length} comerciales`);
       return normalized;
     } catch (error) {

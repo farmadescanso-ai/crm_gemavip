@@ -116,7 +116,7 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       gruposCompras: Array.isArray(gruposCompras) ? gruposCompras : [],
       canChangeComercial: !!isAdmin
     });
-    res.render('cliente-form', { ...model, error: null });
+    res.render('cliente-form', { ...model, error: null, admin: isAdmin, canChangeComercial: !!isAdmin });
   } catch (e) {
     next(e);
   }
@@ -205,7 +205,9 @@ router.post('/new', requireLogin, async (req, res, next) => {
         ...model,
         error: 'Este contacto puede estar ya dado de alta. Revisa coincidencias y confirma si quieres continuar.',
         dupMatches: dup.matches || [],
-        dupOtherCount: Number(dup.otherCount || 0) || 0
+        dupOtherCount: Number(dup.otherCount || 0) || 0,
+        admin: isAdmin,
+        canChangeComercial: !!isAdmin
       });
     }
 
@@ -234,7 +236,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
         canChangeComercial: !!isAdmin,
         missingFields: missingFieldsNew
       });
-      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.' });
+      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin: isAdmin, canChangeComercial: !!isAdmin });
     }
 
     await db.createCliente(payload);
@@ -363,6 +365,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       ...model,
       error: null,
       admin,
+      canChangeComercial: admin,
       puedeSolicitarAsignacion,
       clienteId: id,
       contactoId: id,
@@ -438,7 +441,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
         canChangeComercial: !!admin,
         missingFields
       });
-      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false });
+      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, canChangeComercial: admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false });
     }
 
     await db.updateCliente(id, payload);

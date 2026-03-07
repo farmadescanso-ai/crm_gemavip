@@ -180,7 +180,8 @@
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'comerciales') { %>
                     <% const cur = Number(_pickVal(name) || 0) || 0; %>
-                    <% if (canChangeComercial) { %>
+                    <% const canEditDelegado = (typeof canChangeComercial !== 'undefined' && canChangeComercial === true) || (typeof admin !== 'undefined' && admin === true); %>
+                    <% if (canEditDelegado) { %>
                       <select id="<%= inputId %>" name="<%= name %>">
                         <option value="">(sin asignar)</option>
                         <% (comerciales || []).forEach((c) => { %>
