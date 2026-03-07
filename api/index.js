@@ -160,12 +160,13 @@ app.get('/api/debug-login', async (req, res) => {
 app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
   try {
     const cp = String(req.query?.cp ?? '').trim().replace(/\s+/g, '');
-    if (!cp || cp.length < 2) return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null });
+    if (!cp || cp.length < 2) return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null, poblacion: null, paisCodigo: null });
     let provinciaId = null;
     let provinciaNombre = null;
     let paisId = null;
     let paisNombre = null;
     let respPaisCodigo = null;
+    let poblacion = null;
     const codigosTable = await db._getCodigosPostalesTableName?.().catch(() => null);
     const provTable = await db._resolveTableNameCaseInsensitive?.('provincias').catch(() => 'provincias');
     const paisesTable = await db._resolveTableNameCaseInsensitive?.('paises').catch(() => 'paises');
@@ -181,8 +182,9 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
       const cpCols = await db._getColumns?.(codigosTable).catch(() => []);
       const cpIdProv = db._pickCIFromColumns?.(cpCols, ['codpos_Id_Provincia', 'Id_Provincia', 'id_Provincia']) || 'codpos_Id_Provincia';
       const cpCodigo = db._pickCIFromColumns?.(cpCols, ['codpos_CodigoPostal', 'CodigoPostal', 'codigo_postal']) || 'codpos_CodigoPostal';
+      const cpLocalidad = db._pickCIFromColumns?.(cpCols, ['codpos_Localidad', 'Localidad', 'localidad']) || 'codpos_Localidad';
       const joinCond = `cp.\`${cpIdProv}\` = p.\`${provPk}\``;
-      let sql = `SELECT cp.\`${cpIdProv}\` AS Id_Provincia, p.\`${provPk}\` AS prov_pk, p.\`${provNombre}\` AS NombreProvincia`;
+      let sql = `SELECT cp.\`${cpIdProv}\` AS Id_Provincia, cp.\`${cpLocalidad}\` AS Localidad, p.\`${provPk}\` AS prov_pk, p.\`${provNombre}\` AS NombreProvincia`;
       const joinPais = paisesTable && provCodigoPais && paisCodigo
         ? ` LEFT JOIN \`${paisesTable}\` pa ON (p.\`${provCodigoPais}\` = pa.\`${paisCodigo}\` OR UPPER(TRIM(p.\`${provCodigoPais}\`)) = UPPER(TRIM(pa.\`${paisCodigo}\`)))`
         : '';
@@ -196,6 +198,8 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
         paisId = r.pais_pk ?? null;
         paisNombre = r.NombrePais ?? null;
         respPaisCodigo = r.pais_codigo ? String(r.pais_codigo).trim().toUpperCase() : (paisId ? 'ES' : null);
+        const loc = r.Localidad;
+        poblacion = (loc != null && String(loc).trim()) ? String(loc).trim() : null;
       }
     }
     if (!provinciaId && cp.length >= 2) {
@@ -219,9 +223,9 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
         }
       }
     }
-    return res.json({ ok: true, provinciaId, provinciaNombre, paisId, paisNombre, paisCodigo: respPaisCodigo || (paisId ? 'ES' : null) });
+    return res.json({ ok: true, provinciaId, provinciaNombre, paisId, paisNombre, poblacion, paisCodigo: respPaisCodigo || (paisId ? 'ES' : null) });
   } catch (e) {
-    return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null });
+    return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null, poblacion: null, paisCodigo: null });
   }
 });
 

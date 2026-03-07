@@ -511,11 +511,13 @@
   if (formatNo) formatNo.addEventListener('click', function () { hideFormatModal(); if (nameInput) nameInput.focus(); });
   if (formatYes) formatYes.addEventListener('click', hideFormatModal);
 
-  // Auto-rellenar provincia y país al cambiar código postal (blur o input)
+  // Auto-rellenar Población, Provincia, Código País y País al blur en código postal (una sola declaración de elementos)
   var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');
+  var poblacionInput = form.querySelector('input[name="cli_poblacion"], input[name="Poblacion"], input[name="poblacion"]');
+  var codPaisInput = form.querySelector('input[name="cli_CodPais"], input[name="CodPais"], input[name="codigo_pais"]');
   var provSelect = form.querySelector('select[name="cli_prov_id"], select[name="Id_Provincia"], select[name="id_provincia"]');
   var paisSelect = form.querySelector('select[name="cli_pais_id"], select[name="Id_Pais"], select[name="id_pais"]');
-  if (cpInput && (provSelect || paisSelect)) {
+  if (cpInput) {
     var cpTimeout = null;
     function tryProvinciaPaisFromCp() {
       var cp = String(cpInput.value || '').trim().replace(/\s+/g, '');
@@ -524,6 +526,8 @@
         .then(function (r) { return r.json(); })
         .then(function (json) {
           if (!json || !json.ok) return;
+          if (json.poblacion && poblacionInput) poblacionInput.value = json.poblacion;
+          if (json.paisCodigo && codPaisInput) codPaisInput.value = json.paisCodigo;
           if (json.provinciaId && provSelect) {
             var optProv = provSelect.querySelector('option[value="' + String(json.provinciaId) + '"]');
             if (optProv) {
@@ -549,10 +553,8 @@
               paisSelect.value = String(json.paisId);
             }
           }
-          if ((json.provinciaId && provSelect) || (json.paisId && paisSelect)) {
-            if (typeof form.dispatchEvent === 'function') {
-              form.dispatchEvent(new Event('change', { bubbles: true }));
-            }
+          if ((json.poblacion && poblacionInput) || (json.paisCodigo && codPaisInput) || (json.provinciaId && provSelect) || (json.paisId && paisSelect)) {
+            if (typeof form.dispatchEvent === 'function') form.dispatchEvent(new Event('change', { bubbles: true }));
           }
         })
         .catch(function () {});
@@ -565,7 +567,6 @@
   }
 
   // Al seleccionar España: auto-rellenar idioma (Español) y moneda (Euro)
-  var paisSelect = form.querySelector('select[name="cli_pais_id"], select[name="Id_Pais"], select[name="id_pais"]');
   var idiomSelect = form.querySelector('select[name="cli_idiom_id"], select[name="Id_Idioma"], select[name="id_idioma"]');
   var monSelect = form.querySelector('select[name="cli_mon_id"], select[name="Id_Moneda"], select[name="id_moneda"]');
   if (paisSelect && (idiomSelect || monSelect)) {
@@ -591,8 +592,6 @@
   }
 
   // Validación CP España: 5 dígitos numéricos (los 2 primeros = provincia)
-  var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');
-  var paisSelect = form.querySelector('select[name="cli_pais_id"], select[name="Id_Pais"], select[name="id_pais"]');
   if (cpInput && paisSelect) {
     form.addEventListener('submit', function (e) {
       var cp = String(cpInput.value || '').trim().replace(/\s+/g, '');
