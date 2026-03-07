@@ -207,8 +207,13 @@
                     </select>
                   <% } else if (spec.kind === 'select' && spec.options === 'paises') { %>
                     <% const curId = Number(_pickVal(name) || 0) || 0; %>
+                    <% const curPaisEnLista = (paises || []).some((p) => Number(p.pais_id ?? p.id ?? p.Id ?? 0) === curId); %>
+                    <% const curPaisLabel = (item && (item.PaisNombre ?? item.Pais ?? item.cli_Pais)) ? String(item.PaisNombre ?? item.Pais ?? item.cli_Pais).trim() : (curId ? 'País ' + curId : ''); %>
                     <select id="<%= inputId %>" name="<%= name %>">
                       <option value="">—</option>
+                      <% if (curId && !curPaisEnLista && curPaisLabel) { %>
+                        <option value="<%= curId %>" selected><%= curPaisLabel %></option>
+                      <% } %>
                       <% (paises || []).forEach((p) => { %>
                         <% const pid = Number(p.pais_id ?? p.id ?? p.Id ?? p.ID ?? 0) || 0; %>
                         <% const plabel = p.pais_nombre ?? p.Nombre_pais ?? p.Nombre ?? p.nombre ?? p.Pais ?? ('País ' + pid); %>
@@ -506,7 +511,7 @@
   if (formatNo) formatNo.addEventListener('click', function () { hideFormatModal(); if (nameInput) nameInput.focus(); });
   if (formatYes) formatYes.addEventListener('click', hideFormatModal);
 
-  // Auto-rellenar provincia y país al cambiar código postal
+  // Auto-rellenar provincia y país al cambiar código postal (blur o input)
   var cpInput = form.querySelector('input[name="cli_codigo_postal"], input[name="CodigoPostal"], input[name="codigo_postal"]');
   var provSelect = form.querySelector('select[name="cli_prov_id"], select[name="Id_Provincia"], select[name="id_provincia"]');
   var paisSelect = form.querySelector('select[name="cli_pais_id"], select[name="Id_Pais"], select[name="id_pais"]');
@@ -523,11 +528,24 @@
             var optProv = provSelect.querySelector('option[value="' + String(json.provinciaId) + '"]');
             if (optProv) {
               provSelect.value = String(json.provinciaId);
+            } else if (json.provinciaNombre) {
+              var o = document.createElement('option');
+              o.value = String(json.provinciaId);
+              o.textContent = json.provinciaNombre;
+              provSelect.appendChild(o);
+              provSelect.value = String(json.provinciaId);
             }
           }
           if (json.paisId && paisSelect) {
             var optPais = paisSelect.querySelector('option[value="' + String(json.paisId) + '"]');
             if (optPais) {
+              paisSelect.value = String(json.paisId);
+            } else if (json.paisNombre) {
+              var o = document.createElement('option');
+              o.value = String(json.paisId);
+              o.textContent = json.paisNombre;
+              o.setAttribute('data-pais-codigo', String(json.paisCodigo || 'ES').trim().toUpperCase());
+              paisSelect.appendChild(o);
               paisSelect.value = String(json.paisId);
             }
           }
