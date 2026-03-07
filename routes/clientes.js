@@ -28,6 +28,13 @@ function normalizePayloadTelefonos(payload) {
   }
 }
 
+function normalizeRelacionRow(r) {
+  if (!r || typeof r !== 'object') return r;
+  const lower = {};
+  for (const k of Object.keys(r)) lower[k.toLowerCase()] = r[k];
+  return { ...r, ...lower };
+}
+
 let sendPushToAdmins = () => Promise.resolve();
 try {
   const wp = require('../lib/web-push');
@@ -277,7 +284,10 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       db.tieneRelaciones(id).catch(() => false),
       db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }))
     ]);
-    const relaciones = [...(relacionesData.comoOrigen || []), ...(relacionesData.comoRelacionado || [])];
+    const relaciones = [
+      ...(relacionesData.comoOrigen || []).map(normalizeRelacionRow),
+      ...(relacionesData.comoRelacionado || []).map(normalizeRelacionRow)
+    ];
     const model = buildClienteFormModel({
       mode: 'view',
       meta,
@@ -342,7 +352,10 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const relacionesData = await db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }));
-    const relaciones = [...(relacionesData.comoOrigen || []), ...(relacionesData.comoRelacionado || [])];
+    const relaciones = [
+      ...(relacionesData.comoOrigen || []).map(normalizeRelacionRow),
+      ...(relacionesData.comoRelacionado || []).map(normalizeRelacionRow)
+    ];
     const model = buildClienteFormModel({
       mode: 'edit',
       meta,

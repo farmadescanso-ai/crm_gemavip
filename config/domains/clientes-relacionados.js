@@ -19,7 +19,7 @@ module.exports = {
              c.cli_telefono AS relacionado_telefono,
              c.cli_movil AS relacionado_movil,
              c.cli_tipo_contacto AS relacionado_tipo,
-             c.NomContacto AS relacionado_nom_contacto,
+             c.cli_NomContacto AS relacionado_nom_contacto,
              c.cli_numero_farmacia AS relacionado_numero_farmacia,
              p.prov_nombre AS relacionado_provincia,
              ec.estcli_nombre AS relacionado_estado
@@ -44,7 +44,7 @@ module.exports = {
              c.cli_telefono AS origen_telefono,
              c.cli_movil AS origen_movil,
              c.cli_tipo_contacto AS origen_tipo,
-             c.NomContacto AS origen_nom_contacto,
+             c.cli_NomContacto AS origen_nom_contacto,
              p.prov_nombre AS origen_provincia,
              ec.estcli_nombre AS origen_estado
       FROM \`${t}\` r

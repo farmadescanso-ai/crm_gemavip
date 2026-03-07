@@ -789,10 +789,10 @@ module.exports = {
                 OR LOWER(IFNULL(c.cli_direccion,'')) LIKE ?
                 OR LOWER(IFNULL(c.cli_poblacion,'')) LIKE ?
                 OR LOWER(IFNULL(c.cli_codigo_postal,'')) LIKE ?
-                OR LOWER(IFNULL(c.NomContacto,'')) LIKE ?
-                OR LOWER(IFNULL(c.Observaciones,'')) LIKE ?
-                OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
-                OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_NomContacto,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_tags,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_IBAN,'')) LIKE ?
+                OR LOWER(IFNULL(c.cli_CuentaContable,'')) LIKE ?
               ${numericClause ? '))' : ')'}`);
               if (numericParams) params.push(...numericParams);
               params.push(like, like, like, like, like, like, like, like, like, like, like, like, like, like);
@@ -823,8 +823,8 @@ module.exports = {
               OR LOWER(IFNULL(c.\`${colCodigoPostal}\`,'')) LIKE ?
               ${colNomContacto ? `OR LOWER(IFNULL(c.\`${colNomContacto}\`,'')) LIKE ?` : ''}
               ${colObservaciones ? `OR LOWER(IFNULL(c.\`${colObservaciones}\`,'')) LIKE ?` : ''}
-              OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
-              OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+              OR LOWER(IFNULL(c.cli_IBAN,'')) LIKE ?
+              OR LOWER(IFNULL(c.cli_CuentaContable,'')) LIKE ?
             ${numericClause ? '))' : ')'}`);
             if (numericParams) params.push(...numericParams);
             const nLike = 6 + (colNumeroFarmacia ? 1 : 0) + 3 + (colNomContacto ? 1 : 0) + (colObservaciones ? 1 : 0) + 2;
@@ -1043,8 +1043,8 @@ module.exports = {
               OR LOWER(IFNULL(c.\`${colCodigoPostal}\`,'')) LIKE ?
               ${colNomContacto ? `OR LOWER(IFNULL(c.\`${colNomContacto}\`,'')) LIKE ?` : ''}
               ${colObservaciones ? `OR LOWER(IFNULL(c.\`${colObservaciones}\`,'')) LIKE ?` : ''}
-              OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
-              OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+              OR LOWER(IFNULL(c.cli_IBAN,'')) LIKE ?
+              OR LOWER(IFNULL(c.cli_CuentaContable,'')) LIKE ?
             ${numericClause ? '))' : ')'}`);
             if (numericParams) params.push(...numericParams);
             const nLikeFt = 6 + (colNumeroFarmacia ? 1 : 0) + 3 + (colNomContacto ? 1 : 0) + (colObservaciones ? 1 : 0) + 2;
@@ -1066,8 +1066,8 @@ module.exports = {
             OR LOWER(IFNULL(c.\`${colCodigoPostal}\`,'')) LIKE ?
             ${colNomContacto ? `OR LOWER(IFNULL(c.\`${colNomContacto}\`,'')) LIKE ?` : ''}
             ${colObservaciones ? `OR LOWER(IFNULL(c.\`${colObservaciones}\`,'')) LIKE ?` : ''}
-            OR LOWER(IFNULL(c.IBAN,'')) LIKE ?
-            OR LOWER(IFNULL(c.CuentaContable,'')) LIKE ?
+            OR LOWER(IFNULL(c.cli_IBAN,'')) LIKE ?
+            OR LOWER(IFNULL(c.cli_CuentaContable,'')) LIKE ?
           ${numericClause ? '))' : ')'}`);
           if (numericParams) params.push(...numericParams);
           const nLikeCount = 6 + (colNumeroFarmacia ? 1 : 0) + 3 + (colNomContacto ? 1 : 0) + (colObservaciones ? 1 : 0) + 2;
