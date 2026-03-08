@@ -13,11 +13,11 @@ module.exports = {
       await this.ensurePedidosSchema();
 
       const { tPedidos, pk, colCliente, colFecha, colNumPedido } = await this._ensurePedidosMeta();
-      const colSerie = pick(['ped_Serie', 'Serie', 'serie']);
       const cols = await this._getColumns(tPedidos).catch(() => []);
       const colsLower = new Map((cols || []).map((c) => [String(c).toLowerCase(), c]));
       const pick = (cands) => this._pickCIFromColumns(cols, cands);
 
+      const colSerie = pick(['ped_Serie', 'Serie', 'serie']);
       const colTarifaId = pick(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
       const colTarifaLegacy = pick(['Tarifa', 'tarifa']);
       const colDtoPedido = pick(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
