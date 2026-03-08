@@ -116,7 +116,8 @@ async function main() {
     const tippId = tippRows?.[0]?.tipp_id ?? 1;
 
     const artDefaultRows = await db.query('SELECT art_id FROM articulos ORDER BY art_id ASC LIMIT 1');
-    const artIdDefault = artDefaultRows?.[0]?.art_id ?? 1;
+    const artIdDefaultRaw = artDefaultRows?.[0]?.art_id;
+    const artIdDefault = (artIdDefaultRaw != null && Number(artIdDefaultRaw) > 0) ? Number(artIdDefaultRaw) : 1;
 
     // Fetch pedidos Holded
     const documents = await fetchHolded(apiKey, 'GET', '/documents/salesorder', {
@@ -260,8 +261,9 @@ async function main() {
         let artId = artIdDefault;
         if (sku) {
           const art = await db.query('SELECT art_id FROM articulos WHERE art_sku = ? LIMIT 1', [sku]);
-          if (art?.length) artId = art[0].art_id;
+          if (art?.length && art[0].art_id != null) artId = art[0].art_id;
         }
+        const artIdFinal = Math.max(1, Number(artId) || artIdDefault);
         const articuloTxt = p.name ? String(p.name).trim() : (p.sku ? String(p.sku) : 'Producto Holded');
         const cantidad = Number(p.units) || 1;
         const pvp = Number(p.price) || 0;
@@ -269,7 +271,7 @@ async function main() {
         await db.pool.execute(
           `INSERT INTO pedidos_articulos (pedart_ped_id, pedart_art_id, pedart_articulo_txt, pedart_numero, pedart_cantidad, pedart_pvp)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [pedidoId, artId, articuloTxt, i + 1, cantidad, pvp]
+          [pedidoId, artIdFinal, articuloTxt || 'Producto', i + 1, cantidad, pvp]
         );
       }
 
