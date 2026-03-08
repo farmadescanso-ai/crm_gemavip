@@ -14,9 +14,16 @@ const { _n, getStoredPasswordFromRow } = require('../lib/app-helpers');
 const router = express.Router();
 
 router.get('/login', (req, res) => {
-  if (req.session?.user) return res.redirect('/dashboard');
+  if (req.session?.user) {
+    const returnTo = req.query?.returnTo;
+    if (returnTo && typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.includes('//')) {
+      return res.redirect(returnTo);
+    }
+    return res.redirect('/dashboard');
+  }
   const restablecido = req.query?.restablecido === '1';
-  res.render('login', { title: 'Login', error: null, restablecido });
+  const returnTo = req.query?.returnTo;
+  res.render('login', { title: 'Login', error: null, restablecido, returnTo });
 });
 
 router.post('/login', async (req, res, next) => {
@@ -63,6 +70,10 @@ router.post('/login', async (req, res, next) => {
       roles: normalizeRoles(_n(comercial.com_roll, comercial.Roll || comercial.roll || comercial.Rol))
     };
 
+    const returnTo = req.body?.returnTo;
+    if (returnTo && typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.includes('//')) {
+      return res.redirect(returnTo);
+    }
     return res.redirect('/dashboard');
   } catch (e) {
     next(e);

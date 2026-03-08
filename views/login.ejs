@@ -30,6 +30,9 @@
     <% } %>
 
     <form method="post" action="/login" class="login-form">
+      <% if (typeof returnTo === 'string' && returnTo) { %>
+        <input type="hidden" name="returnTo" value="<%= returnTo %>" />
+      <% } %>
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Email</span>
         <input name="email" type="email" autocomplete="username" required />
