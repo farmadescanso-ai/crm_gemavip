@@ -532,19 +532,21 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
     let marcasList = [];
     if (admin) {
       try {
-        const [zonasRows] = await db.query(
+        const zonasRows = await db.query(
           'SELECT DISTINCT codpos_ComunidadAutonoma AS value FROM codigos_postales WHERE codpos_ComunidadAutonoma IS NOT NULL AND codpos_ComunidadAutonoma != "" ORDER BY codpos_ComunidadAutonoma'
         );
-        zonas = zonasRows || [];
+        zonas = Array.isArray(zonasRows) ? zonasRows : [];
       } catch (_) {}
       try {
-        comercialesList = await db.query(
+        const rows = await db.query(
           `SELECT \`${comercialesMeta?.pk || 'com_id'}\` AS id, \`${comercialesMeta?.colNombre || 'com_nombre'}\` AS nombre FROM \`${comercialesMeta?.table || 'comerciales'}\` ORDER BY \`${comercialesMeta?.colNombre || 'com_nombre'}\``
         );
+        comercialesList = Array.isArray(rows) ? rows : [];
       } catch (_) {}
     }
     try {
-      marcasList = await db.query('SELECT mar_id AS id, mar_nombre AS nombre FROM marcas ORDER BY mar_nombre');
+      const rows = await db.query('SELECT mar_id AS id, mar_nombre AS nombre FROM marcas ORDER BY mar_nombre');
+      marcasList = Array.isArray(rows) ? rows : [];
     } catch (_) {}
 
     res.render('dashboard', {

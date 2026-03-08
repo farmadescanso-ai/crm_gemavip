@@ -4,9 +4,9 @@
 <% const errs = typeof dashboardErrors !== 'undefined' ? (dashboardErrors || {}) : {}; %>
 <% const f = typeof filters !== 'undefined' ? filters : {}; %>
 <% const periodOpts = typeof periodOptions !== 'undefined' ? periodOptions : []; %>
-<% const zonasList = (typeof zonas !== 'undefined' && zonas) ? zonas : []; %>
-<% const comercialesListSafe = (typeof comercialesList !== 'undefined' && comercialesList) ? comercialesList : []; %>
-<% const marcasListSafe = (typeof marcasList !== 'undefined' && marcasList) ? marcasList : []; %>
+<% const zonasList = Array.isArray(zonas) ? zonas : []; %>
+<% const comercialesListSafe = Array.isArray(comercialesList) ? comercialesList : []; %>
+<% const marcasListSafe = Array.isArray(marcasList) ? marcasList : []; %>
 
 <% if (isAdmin && (errs.clientes || errs.pedidos || errs.rankingComerciales || errs.rankingZona || errs.rankingProductos)) { %>
   <section class="card" style="margin-bottom: 16px; border-color: #dc2626;">
