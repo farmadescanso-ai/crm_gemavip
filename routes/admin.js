@@ -19,17 +19,49 @@ const {
   SYSVAR_MAIL_FROM
 } = require('../lib/admin-helpers');
 const { getSmtpStatus, getGraphStatus } = require('../lib/mailer');
-const { runSyncHoldedPedidos, runMigrationPedIdHolded } = require('../lib/sync-holded-pedidos');
+const { runSyncHoldedPedidos, runMigrationPedIdHolded, getRelacionCodigosHoldedBd, getPreviewPedidosHolded, getRawHoldedJson } = require('../lib/sync-holded-pedidos');
 const { requireSystemAdmin } = require('../lib/auth');
 
 const router = express.Router();
 
 // ===========================
-// IMPORTAR PEDIDOS HOLDED (solo administrador del sistema: pedidos@farmadescanso.com)
-// Acceso exclusivo por URL directa, no aparece en menús.
+// IMPORTAR PEDIDOS HOLDED (solo administrador del sistema: info@farmadescanso.com)
+// Acceso exclusivo por URL directa. Tab "Relación códigos" vía ?tab=relacion-codigos (evita 404 en Vercel)
 // ===========================
 router.get('/importar-holded', requireSystemAdmin, async (req, res, next) => {
   try {
+    const tab = String(req.query.tab || '').trim();
+    if (tab === 'json-holded') {
+      const start = String(req.query.start || '2026-01-01').trim();
+      const end = String(req.query.end || '2026-12-31').trim();
+      const result = await getRawHoldedJson({ start, end });
+      if (req.headers['accept']?.includes('application/json')) {
+        return res.json(result);
+      }
+      const jsonRaw = result.raw ? JSON.stringify(result.raw, null, 2) : '{}';
+      return res.render('json-holded', { title: 'JSON Holded', ...result, start, end, jsonRaw });
+    }
+    if (tab === 'relacion-codigos') {
+      const start = String(req.query.start || '2026-01-01').trim();
+      const end = String(req.query.end || '2026-01-31').trim();
+      const result = await getRelacionCodigosHoldedBd({ start, end });
+      if (req.headers['accept']?.includes('application/json')) {
+        return res.json(result);
+      }
+      return res.render('relacion-codigos-holded', { title: 'Relación códigos Holded ↔ BD', ...result });
+    }
+    if (tab === 'preview') {
+      const start = String(req.query.start || '2026-01-01').trim();
+      const end = String(req.query.end || '2026-12-31').trim();
+      const result = await getPreviewPedidosHolded({ start, end, provincia: 'Murcia' });
+      const success = typeof req.query.success === 'string' ? req.query.success : null;
+      const error = typeof req.query.error === 'string' ? req.query.error : (result.error || null);
+      if (req.headers['accept']?.includes('application/json')) {
+        return res.json(result);
+      }
+      return res.render('preview-pedidos-holded', { title: 'Vista previa pedidos Holded', ...result, start, end, success, error });
+    }
+
     const hasApiKey = !!(process.env.HOLDED_API_KEY && process.env.HOLDED_API_KEY.trim());
     const error = typeof req.query.error === 'string' ? req.query.error : null;
     const success = typeof req.query.success === 'string' ? req.query.success : null;
@@ -69,6 +101,34 @@ router.post('/importar-holded/run-migration', requireSystemAdmin, async (req, re
     return res.redirect('/admin/importar-holded?error=' + encodeURIComponent(result.error || 'Error al ejecutar migración'));
   } catch (e) {
     return res.redirect('/admin/importar-holded?error=' + encodeURIComponent(e?.message || 'Error'));
+  }
+});
+
+router.post('/importar-holded/import-selected', requireSystemAdmin, async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.importarIds) ? req.body.importarIds : (req.body.importarIds ? [req.body.importarIds] : []);
+    const idsClean = ids.map(String).filter(Boolean);
+    const start = String(req.body.start || '2026-01-01').trim();
+    const end = String(req.body.end || '2026-12-31').trim();
+    if (!idsClean.length) {
+      if (req.headers['accept']?.includes('application/json')) {
+        return res.status(400).json({ ok: false, error: 'Selecciona al menos un pedido' });
+      }
+      return res.redirect(`/admin/importar-holded?tab=preview&start=${start}&end=${end}&error=${encodeURIComponent('Selecciona al menos un pedido')}`);
+    }
+    const result = await runSyncHoldedPedidos({ start, end, provincia: 'Murcia', dryRun: false, idsToImport: idsClean });
+    if (req.headers['accept']?.includes('application/json')) {
+      return res.json(result);
+    }
+    if (result.ok) {
+      return res.redirect(`/admin/importar-holded?tab=preview&start=${start}&end=${end}&success=${encodeURIComponent(result.inserted + ' pedidos importados')}`);
+    }
+    return res.redirect(`/admin/importar-holded?tab=preview&start=${start}&end=${end}&error=${encodeURIComponent(result.error || 'Error')}`);
+  } catch (e) {
+    if (req.headers['accept']?.includes('application/json')) {
+      return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+    return res.redirect(`/admin/importar-holded?tab=preview&error=${encodeURIComponent(e?.message || 'Error')}`);
   }
 });
 

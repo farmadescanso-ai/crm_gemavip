@@ -1,0 +1,129 @@
+<%- include('partials/header', { title: title || 'Vista previa pedidos Holded' }) %>
+<style>
+  .gv-holded-tab:hover{color:var(--gv-accent,#0d7377)!important;}
+  .gv-pedido-holded-card.gv-excluido{ display: none !important; }
+</style>
+
+<section class="card">
+  <div class="card-hd">
+    <nav class="gv-holded-tabs" role="tablist" style="display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--gv-border, #ddd);">
+      <a href="/admin/importar-holded" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">Importar</a>
+      <a href="/admin/importar-holded?tab=json-holded&start=<%= start || '2026-01-01' %>&end=<%= end || '2026-12-31' %>" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">JSON</a>
+      <a href="/admin/importar-holded?tab=preview&start=<%= start || '2026-01-01' %>&end=<%= end || '2026-12-31' %>" role="tab" class="gv-holded-tab gv-holded-tab--active" style="padding: 10px 16px; font-weight: 600; color: var(--gv-accent, #0d7377); border-bottom: 2px solid var(--gv-accent, #0d7377); margin-bottom: -1px; text-decoration: none;">Vista previa</a>
+      <a href="/admin/importar-holded?tab=relacion-codigos&start=2026-01-01&end=2026-01-31" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">Relación códigos</a>
+    </nav>
+    <h1 class="card-title">Vista previa pedidos Holded</h1>
+    <p class="card-subtitle">Período: <%= periodo || '2026-01-01 a 2026-12-31' %> — Misma estructura que pedidos del CRM. Excluye los que no quieras y guarda el resto.</p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert error" role="alert"><strong>Error</strong><p style="margin: 8px 0 0 0;"><%= error %></p></div>
+    <% } else { %>
+      <% if (typeof success === 'string' && success) { %>
+        <div class="gv-alert success" role="status" style="margin-bottom: 16px;"><strong>Completado</strong><p style="margin: 8px 0 0 0;"><%= success %></p></div>
+      <% } %>
+      <% if (typeof error === 'string' && error && !(typeof success === 'string' && success)) { %>
+        <div class="gv-alert error" role="alert" style="margin-bottom: 16px;"><strong>Error</strong><p style="margin: 8px 0 0 0;"><%= error %></p></div>
+      <% } %>
+      <form method="get" action="/admin/importar-holded" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap;">
+        <input type="hidden" name="tab" value="preview" />
+        <div class="form-group" style="margin: 0;">
+          <label for="preview-start">Fecha inicio</label>
+          <input type="date" id="preview-start" name="start" value="<%= start || '2026-01-01' %>" />
+        </div>
+        <div class="form-group" style="margin: 0;">
+          <label for="preview-end">Fecha fin</label>
+          <input type="date" id="preview-end" name="end" value="<%= end || '2026-12-31' %>" />
+        </div>
+        <button type="submit" class="btn primary">Actualizar</button>
+      </form>
+
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          A importar: <strong><%= (pedidos || []).filter(p => !p.yaExiste).length %></strong>
+        </div>
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Ya en BD: <strong><%= (pedidos || []).filter(p => p.yaExiste).length %></strong>
+        </div>
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Omitidos (otra provincia): <strong><%= skippedProvincia || 0 %></strong>
+        </div>
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Omitidos (sin contacto): <strong><%= skippedSinContacto || 0 %></strong>
+        </div>
+      </div>
+
+      <% if ((pedidos || []).length) { %>
+        <form id="gv-holded-import-form" method="post" action="/admin/importar-holded/import-selected">
+          <input type="hidden" name="start" value="<%= start || '2026-01-01' %>" />
+          <input type="hidden" name="end" value="<%= end || '2026-12-31' %>" />
+          <div id="gv-holded-cards">
+            <% (pedidos || []).forEach(function(p) { %>
+              <%- include('partials/pedido-holded-card', { pedido: p }) %>
+            <% }); %>
+          </div>
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gv-border,#ddd);">
+            <button type="submit" class="btn primary" id="gv-holded-save-btn">Guardar seleccionados en BD</button>
+            <span id="gv-holded-save-status" style="margin-left: 12px; font-weight: 600;"></span>
+          </div>
+        </form>
+      <% } else { %>
+        <p style="color: var(--gv-muted, #666);">No hay pedidos en Holded para el período seleccionado (o todos fueron omitidos por provincia/contacto).</p>
+      <% } %>
+
+      <script>
+        (() => {
+          const form = document.getElementById('gv-holded-import-form');
+          const btn = document.getElementById('gv-holded-save-btn');
+          const status = document.getElementById('gv-holded-save-status');
+          if (!form || !btn) return;
+
+          document.querySelectorAll('.gv-holded-delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const card = btn.closest('.gv-pedido-holded-card');
+              if (card) { card.classList.add('gv-excluido'); card.querySelectorAll('input[name=importarIds]').forEach(cb => cb.checked = false); }
+            });
+          });
+
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const checked = Array.from(form.querySelectorAll('input[name=importarIds]:checked')).map(cb => cb.value);
+            if (!checked.length) {
+              status.textContent = 'Selecciona al menos un pedido.';
+              status.style.color = 'var(--gv-error, #b91c1c)';
+              return;
+            }
+            btn.disabled = true;
+            status.textContent = 'Guardando...';
+            status.style.color = '';
+            try {
+              const fd = new FormData(form);
+              fd.delete('importarIds');
+              checked.forEach(id => fd.append('importarIds', id));
+              const r = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                body: new URLSearchParams(fd)
+              });
+              const data = await r.json();
+              if (data.ok) {
+                status.textContent = '✓ ' + data.inserted + ' pedidos importados';
+                status.style.color = 'var(--gv-success, green)';
+                setTimeout(() => window.location.reload(), 1500);
+              } else {
+                status.textContent = '✗ ' + (data.error || 'Error');
+                status.style.color = 'var(--gv-error, #b91c1c)';
+              }
+            } catch (err) {
+              status.textContent = '✗ ' + err.message;
+              status.style.color = 'var(--gv-error, #b91c1c)';
+            }
+            btn.disabled = false;
+          });
+        })();
+      </script>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

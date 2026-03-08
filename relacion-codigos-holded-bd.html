@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relación códigos Holded ↔ BD — Enero 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600&family=Fragment+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-body: 'Bricolage Grotesque', system-ui, sans-serif;
+      --font-mono: 'Fragment Mono', 'SF Mono', Consolas, monospace;
+      --bg: #faf8f5;
+      --surface: #ffffff;
+      --surface2: #f5f2ed;
+      --border: rgba(0, 0, 0, 0.08);
+      --text: #1a1a1a;
+      --text-dim: #6b6b6b;
+      --accent: #0d7377;
+      --accent-dim: rgba(13, 115, 119, 0.08);
+      --green: #2d6a4f;
+      --green-dim: rgba(45, 106, 79, 0.1);
+      --red: #9d0208;
+      --red-dim: rgba(157, 2, 8, 0.08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1d1e;
+        --surface: #242829;
+        --surface2: #2d3132;
+        --border: rgba(255,255,255,0.06);
+        --text: #e8e6e3;
+        --text-dim: #9a9a9a;
+        --accent: #14b8a6;
+        --accent-dim: rgba(20, 184, 166, 0.12);
+        --green: #34d399;
+        --green-dim: rgba(52, 211, 153, 0.1);
+        --red: #f87171;
+        --red-dim: rgba(248, 113, 113, 0.1);
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      padding: 2rem;
+      min-height: 100vh;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--text-dim); font-size: 0.95rem; margin-bottom: 1.5rem; }
+    .instructions {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    .instructions code { font-family: var(--font-mono); background: var(--surface); padding: 0.15em 0.4em; border-radius: 4px; }
+    .load-area {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .load-area input[type="file"] { display: none; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn--secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td { padding: 0.6rem 0.8rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th {
+      background: var(--surface2);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      white-space: nowrap;
+    }
+    tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+    @media (prefers-color-scheme: dark) { tr:nth-child(even) { background: rgba(255,255,255,0.02); } }
+    tr:hover { background: var(--accent-dim) !important; }
+    .badge {
+      display: inline-block;
+      padding: 0.2em 0.5em;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .badge--ok { background: var(--green-dim); color: var(--green); }
+    .badge--no { background: var(--red-dim); color: var(--red); }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--text-dim);
+    }
+    .kpi {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .kpi-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+    }
+    .kpi-item strong { color: var(--accent); }
+    .no-match-section {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: var(--red-dim);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+    }
+    .no-match-section h3 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--red); }
+    .no-match-section ul { margin-left: 1.25rem; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Relación códigos Holded ↔ BD</h1>
+    <p class="subtitle">Enero 2026 — Ajuste de SKU / Código Interno / EAN13</p>
+
+    <div class="instructions">
+      <strong>Para generar los datos:</strong> Ejecuta en la raíz del proyecto (con <code>HOLDED_API_KEY</code> en .env):
+      <br><code>node scripts/relacion-codigos-holded-bd.js</code>
+      <br>Se creará <code>relacion-codigos-holded-bd-enero2026.json</code>. Luego carga ese archivo aquí.
+    </div>
+
+    <div class="load-area">
+      <label class="btn" for="file-input">📂 Cargar JSON</label>
+      <input type="file" id="file-input" accept=".json">
+      <span id="file-name" style="color: var(--text-dim); font-size: 0.9rem;"></span>
+    </div>
+
+    <div id="content">
+      <div class="empty-state" id="empty-state">
+        Carga el archivo JSON generado por el script para ver la relación.
+      </div>
+      <div id="data-view" style="display: none;">
+        <div class="kpi" id="kpi"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Código Holded</th>
+                <th>Nombre Holded</th>
+                <th>Pedidos</th>
+                <th>art_sku BD</th>
+                <th>art_codigo_interno</th>
+                <th>art_nombre BD</th>
+                <th>Coincide</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="no-match-section" id="no-match-section" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('file-input');
+    const emptyState = document.getElementById('empty-state');
+    const dataView = document.getElementById('data-view');
+    const tbody = document.getElementById('tbody');
+    const kpi = document.getElementById('kpi');
+    const noMatchSection = document.getElementById('no-match-section');
+    const fileName = document.getElementById('file-name');
+
+    fileInput.addEventListener('change', (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      fileName.textContent = f.name;
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const data = JSON.parse(r.result);
+          render(data);
+        } catch (err) {
+          alert('Error al parsear JSON: ' + err.message);
+        }
+      };
+      r.readAsText(f);
+    });
+
+    function render(data) {
+      const rel = data.relacion || [];
+      if (!rel.length) {
+        emptyState.style.display = 'block';
+        dataView.style.display = 'none';
+        emptyState.textContent = 'No hay datos de relación en el JSON.';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      dataView.style.display = 'block';
+
+      const ok = rel.filter(r => r.coincide).length;
+      const no = rel.filter(r => !r.coincide).length;
+
+      kpi.innerHTML = `
+        <div class="kpi-item">Productos Holded: <strong>${rel.length}</strong></div>
+        <div class="kpi-item">Coinciden con BD: <strong>${ok}</strong></div>
+        <div class="kpi-item">Sin coincidencia: <strong>${no}</strong></div>
+      `;
+
+      tbody.innerHTML = rel.map(r => `
+        <tr>
+          <td><code>${escape(r.holded_codigo || '')}</code></td>
+          <td>${escape(r.holded_nombre || '')}</td>
+          <td>${escape(r.pedidos || '')}</td>
+          <td>${escape(r.bd_art_sku ?? '—')}</td>
+          <td>${escape(String(r.bd_art_codigo_interno ?? '—'))}</td>
+          <td>${escape(r.bd_art_nombre ?? '—')}</td>
+          <td><span class="badge badge--${r.coincide ? 'ok' : 'no'}">${r.coincide ? '✓ Sí' : '✗ No'}</span></td>
+        </tr>
+      `).join('');
+
+      const noMatch = rel.filter(r => !r.coincide);
+      if (noMatch.length) {
+        noMatchSection.style.display = 'block';
+        noMatchSection.innerHTML = `
+          <h3>Productos sin coincidencia (requieren ajuste)</h3>
+          <ul>
+            ${noMatch.map(r => `
+              <li><strong>${escape(r.holded_codigo)}</strong> — ${escape(r.holded_nombre)}
+                <br><small>Ajuste: añadir art_sku="${escape(r.holded_codigo)}" o art_codigo_interno en articulos, o corregir en Holded.</small>
+              </li>
+            `).join('')}
+          </ul>
+        `;
+      } else {
+        noMatchSection.style.display = 'none';
+      }
+    }
+
+    function escape(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+  </script>
+</body>
+</html>

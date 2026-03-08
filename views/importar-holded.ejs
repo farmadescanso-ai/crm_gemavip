@@ -1,7 +1,14 @@
 <%- include('partials/header', { title: title || 'Importar Holded' }) %>
+<style>.gv-holded-tab:hover{color:var(--gv-accent,#0d7377)!important;}</style>
 
 <section class="card">
   <div class="card-hd">
+    <nav class="gv-holded-tabs" role="tablist" style="display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--gv-border, #ddd);">
+      <a href="/admin/importar-holded" role="tab" aria-selected="true" class="gv-holded-tab gv-holded-tab--active" style="padding: 10px 16px; font-weight: 600; color: var(--gv-accent, #0d7377); border-bottom: 2px solid var(--gv-accent, #0d7377); margin-bottom: -1px; text-decoration: none;">Importar</a>
+      <a href="/admin/importar-holded?tab=json-holded&start=2026-01-01&end=2026-12-31" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">JSON</a>
+      <a href="/admin/importar-holded?tab=preview&start=2026-01-01&end=2026-12-31" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">Vista previa</a>
+      <a href="/admin/importar-holded?tab=relacion-codigos&start=2026-01-01&end=2026-01-31" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">Relación códigos</a>
+    </nav>
     <h1 class="card-title"><%= title || 'Importar pedidos Holded' %></h1>
     <% if (subtitle) { %>
       <p class="card-subtitle"><%= subtitle %></p>

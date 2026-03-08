@@ -1,0 +1,82 @@
+<%- include('partials/header', { title: title || 'Relación códigos Holded ↔ BD' }) %>
+<style>.gv-holded-tab:hover{color:var(--gv-accent,#0d7377)!important;}</style>
+
+<section class="card">
+  <div class="card-hd">
+    <nav class="gv-holded-tabs" role="tablist" style="display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--gv-border, #ddd);">
+      <a href="/admin/importar-holded" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">Importar</a>
+      <a href="/admin/importar-holded?tab=json-holded&start=2026-01-01&end=2026-12-31" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">JSON</a>
+      <a href="/admin/importar-holded?tab=preview&start=2026-01-01&end=2026-12-31" role="tab" class="gv-holded-tab" style="padding: 10px 16px; color: var(--gv-muted, #666); text-decoration: none;">Vista previa</a>
+      <a href="/admin/importar-holded?tab=relacion-codigos&start=2026-01-01&end=2026-01-31" role="tab" class="gv-holded-tab gv-holded-tab--active" style="padding: 10px 16px; font-weight: 600; color: var(--gv-accent, #0d7377); border-bottom: 2px solid var(--gv-accent, #0d7377); margin-bottom: -1px; text-decoration: none;">Relación códigos</a>
+    </nav>
+    <h1 class="card-title">Relación códigos Holded ↔ BD</h1>
+    <p class="card-subtitle">Período: <%= periodo || '2026-01' %> — Ajuste de SKU / Código Interno / EAN13</p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert error" role="alert">
+        <strong>Error</strong>
+        <p style="margin: 8px 0 0 0;"><%= error %></p>
+      </div>
+    <% } else { %>
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Productos Holded: <strong><%= (relacion || []).length %></strong>
+        </div>
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Coinciden con BD: <strong><%= (relacion || []).filter(r => r.coincide).length %></strong>
+        </div>
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Sin coincidencia: <strong><%= (relacion || []).filter(r => !r.coincide).length %></strong>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto; border: 1px solid var(--gv-border, #ddd); border-radius: 8px;">
+        <table class="gv-table" style="width: 100%; font-size: 14px;">
+          <thead>
+            <tr>
+              <th>Código Holded</th>
+              <th>Nombre Holded</th>
+              <th>Pedidos</th>
+              <th>art_sku BD</th>
+              <th>art_codigo_interno</th>
+              <th>art_nombre BD</th>
+              <th>Coincide</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (relacion || []).forEach(function(r) { %>
+              <tr>
+                <td><code><%= r.holded_codigo || '' %></code></td>
+                <td><%= r.holded_nombre || '' %></td>
+                <td><%= r.pedidos || '' %></td>
+                <td><%= r.bd_art_sku ?? '—' %></td>
+                <td><%= r.bd_art_codigo_interno ?? '—' %></td>
+                <td><%= r.bd_art_nombre ?? '—' %></td>
+                <td><%= r.coincide ? '✓ Sí' : '✗ No' %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+      <% const noMatch = (relacion || []).filter(r => !r.coincide); %>
+      <% if (noMatch.length > 0) { %>
+        <div class="gv-alert error" style="margin-top: 1.5rem;">
+          <strong>Productos sin coincidencia (requieren ajuste)</strong>
+          <ul style="margin: 12px 0 0 1.25rem;">
+            <% noMatch.forEach(function(r) { %>
+              <li style="margin-bottom: 8px;">
+                <strong><%= r.holded_codigo %></strong> — <%= r.holded_nombre %>
+                <br><small>Ajuste: añadir art_sku="<%= r.holded_codigo %>" o art_codigo_interno en articulos, o corregir en Holded.</small>
+              </li>
+            <% }); %>
+          </ul>
+        </div>
+      <% } %>
+    <% } %>
+
+  </div>
+</section>
+
+<%- include('partials/footer') %>

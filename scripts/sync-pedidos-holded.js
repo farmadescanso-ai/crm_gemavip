@@ -257,10 +257,16 @@ async function main() {
       const products = doc.products ?? [];
       for (let i = 0; i < products.length; i++) {
         const p = products[i];
-        const sku = p.sku ? String(p.sku).trim() : null;
+        const codigo = (p.sku ?? p.code ?? p.productId ?? '').toString().trim();
         let artId = artIdDefault;
-        if (sku) {
-          const art = await db.query('SELECT art_id FROM articulos WHERE art_sku = ? LIMIT 1', [sku]);
+        if (codigo) {
+          const codigoNum = /^\d+$/.test(codigo) ? parseInt(codigo, 10) : null;
+          const params = [codigo, codigo];
+          if (codigoNum != null) params.push(codigoNum);
+          const art = await db.query(
+            `SELECT art_id FROM articulos WHERE art_sku = ? OR art_codigo_interno = ? ${codigoNum != null ? 'OR art_ean13 = ?' : ''} LIMIT 1`,
+            params
+          );
           if (art?.length && art[0].art_id != null) artId = art[0].art_id;
         }
         const artIdFinal = Math.max(1, Number(artId) || artIdDefault);

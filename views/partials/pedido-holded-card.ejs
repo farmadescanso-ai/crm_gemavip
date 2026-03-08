@@ -1,0 +1,91 @@
+<%
+  const p = typeof pedido !== 'undefined' ? pedido : {};
+  const toNum = (v, d) => { const n = Number(String(v || '').replace(',','.')); return Number.isFinite(n) ? n : (d ?? 0); };
+  const fmtNumES = (x, dec = 2) => { const n = Number(x); if (!Number.isFinite(n)) return ''; const parts = n.toFixed(dec).split('.'); return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.') + (dec ? ',' + (parts[1]||'').padEnd(dec,'0') : ''); };
+  const fmtEur = (n) => { const x = Number(n); return Number.isFinite(x) ? fmtNumES(x,2) + '€' : ''; };
+  const lineas = p.lineas || p.productos || [];
+  let sumBase = 0, sumTotal = 0;
+  lineas.forEach(l => {
+    const qty = toNum(l.pedart_cantidad ?? l.cantidad, 0);
+    const pvl = toNum(l.pedart_pvp ?? l.precio, 0);
+    sumBase += qty * pvl;
+    sumTotal += qty * pvl;
+  });
+%>
+<div class="gv-pedido-holded-card" data-id-holded="<%= p.idHolded %>" style="border: 1px solid var(--gv-border,#ddd); border-radius: 8px; margin-bottom: 16px; overflow: hidden; background: var(--gv-surface,#fff);">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--gv-surface-2,#f5f5f5); border-bottom: 1px solid var(--gv-border,#ddd);">
+    <div>
+      <strong>Pedido #<%= p.docNumber %></strong>
+      <span style="margin-left: 12px; color: var(--gv-muted,#666);"><%= p.fecha %></span>
+      <% if (p.yaExiste) { %><span class="badge warn" style="margin-left: 8px;">Ya en BD</span><% } %>
+      <% if (p.estado) { %><span class="badge info" style="margin-left: 8px;"><%= p.estado %></span><% } %>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <% if (!p.yaExiste) { %>
+        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+          <input type="checkbox" name="importarIds" value="<%= p.idHolded %>" class="gv-holded-import-check" />
+          Incluir
+        </label>
+      <% } %>
+      <button type="button" class="btn secondary gv-holded-delete-btn" data-id="<%= p.idHolded %>" title="Excluir de la lista">Excluir</button>
+    </div>
+  </div>
+  <div class="gv-doc-page" style="padding: 16px; box-shadow: none; border: none;">
+    <div class="gv-doc-parties" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+      <div class="gv-doc-box">
+        <h3>Cliente</h3>
+        <div class="gv-doc-lines">
+          <div><%= p.cliente || '—' %></div>
+          <% if (p.cif) { %><small><%= p.cif %></small><% } %>
+          <% if (p.direccion) { %><small><%= p.direccion %></small><% } %>
+          <% if (p.codigoPostal || p.poblacion) { %><small><%= [p.codigoPostal, p.poblacion].filter(Boolean).join(' ') %></small><% } %>
+          <% if (p.email || p.telefono) { %><small><%= [p.email, p.telefono].filter(Boolean).join(' · ') %></small><% } %>
+        </div>
+      </div>
+      <div class="gv-doc-box">
+        <h3>Condiciones</h3>
+        <div class="gv-doc-kv">
+          <div><span>Subtotal</span><b><%= fmtEur(p.subtotal) %></b></div>
+          <div><span>IVA</span><b><%= fmtEur(p.tax) %></b></div>
+          <div><span>Total</span><b><%= fmtEur(p.total) %></b></div>
+        </div>
+      </div>
+    </div>
+    <div class="gv-doc-table-wrap">
+      <table class="gv-doc-table">
+        <thead>
+          <tr>
+            <th>CÓDIGO</th>
+            <th>CONCEPTO</th>
+            <th class="is-right">PVL</th>
+            <th class="is-right">UNDS</th>
+            <th class="is-right">SUBTOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% lineas.forEach(function(l) {
+            const codigo = l.art_sku ?? l.sku ?? '—';
+            const concepto = l.pedart_articulo_txt ?? l.nombre ?? '—';
+            const qty = toNum(l.pedart_cantidad ?? l.cantidad, 0);
+            const pvl = toNum(l.pedart_pvp ?? l.precio, 0);
+            const subtotal = qty * pvl;
+          %>
+            <tr>
+              <td><code><%= codigo %></code></td>
+              <td class="is-wrap"><%= concepto %></td>
+              <td class="is-right"><%= fmtEur(pvl) %></td>
+              <td class="is-right"><%= qty %></td>
+              <td class="is-right"><%= fmtEur(subtotal) %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <div class="gv-doc-summary" style="margin-top: 12px;">
+      <table>
+        <tr><td>BASE</td><td class="is-right"><%= fmtEur(p.subtotal || sumBase) %></td></tr>
+        <tr><td>TOTAL</td><td class="is-right"><strong><%= fmtEur(p.total || sumTotal) %></strong></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
