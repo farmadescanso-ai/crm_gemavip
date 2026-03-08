@@ -43,6 +43,7 @@ router.get('/', requireLogin, async (req, res, next) => {
     }
 
     const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
+    const articuloMsg = String(req.query.articulo || '').trim();
 
     res.render('articulos', {
       items: items || [],
@@ -55,7 +56,8 @@ router.get('/', requireLogin, async (req, res, next) => {
       page,
       totalPages,
       total: total ?? 0,
-      limit
+      limit,
+      articuloMsg
     });
   } catch (e) {
     next(e);
@@ -177,8 +179,17 @@ router.post('/:id/delete', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    await db.deleteArticulo(id);
-    return res.redirect('/dashboard');
+    try {
+      await db.deleteArticulo(id);
+      return res.redirect('/dashboard?articulo=deleted');
+    } catch (e) {
+      const isFkError = e?.code === 'ER_ROW_IS_REFERENCED_2' || e?.errno === 1451 || /foreign key constraint fails/i.test(String(e?.message || ''));
+      if (isFkError) {
+        await db.toggleArticuloOkKo(id, 0);
+        return res.redirect('/articulos?articulo=deactivated');
+      }
+      throw e;
+    }
   } catch (e) {
     next(e);
   }

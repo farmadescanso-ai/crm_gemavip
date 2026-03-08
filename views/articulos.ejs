@@ -5,6 +5,9 @@
     <p style="color: var(--gv-danger, #c00); font-weight: 700;">Error al cargar artículos: <%= loadError %></p>
   </div>
 <% } %>
+<% if (articuloMsg === 'deactivated') { %>
+  <div class="gv-alert gv-alert--success" style="margin-bottom: 1rem;">El artículo está en pedidos; se ha desactivado en lugar de eliminarlo.</div>
+<% } %>
 <section class="card">
   <div class="card-hd">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; flex-wrap:wrap;">
