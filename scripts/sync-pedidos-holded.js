@@ -115,6 +115,9 @@ async function main() {
     const tippRows = await db.query('SELECT tipp_id FROM tipos_pedidos ORDER BY tipp_id ASC LIMIT 1');
     const tippId = tippRows?.[0]?.tipp_id ?? 1;
 
+    const artDefaultRows = await db.query('SELECT art_id FROM articulos ORDER BY art_id ASC LIMIT 1');
+    const artIdDefault = artDefaultRows?.[0]?.art_id ?? 1;
+
     // Fetch pedidos Holded
     const documents = await fetchHolded(apiKey, 'GET', '/documents/salesorder', {
       starttmp: startTs,
@@ -254,12 +257,12 @@ async function main() {
       for (let i = 0; i < products.length; i++) {
         const p = products[i];
         const sku = p.sku ? String(p.sku).trim() : null;
-        let artId = null;
+        let artId = artIdDefault;
         if (sku) {
           const art = await db.query('SELECT art_id FROM articulos WHERE art_sku = ? LIMIT 1', [sku]);
           if (art?.length) artId = art[0].art_id;
         }
-        const articuloTxt = p.name ? String(p.name).trim() : null;
+        const articuloTxt = p.name ? String(p.name).trim() : (p.sku ? String(p.sku) : 'Producto Holded');
         const cantidad = Number(p.units) || 1;
         const pvp = Number(p.price) || 0;
 
