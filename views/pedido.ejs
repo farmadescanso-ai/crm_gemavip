@@ -82,7 +82,7 @@
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>/transfer-imprimir" target="_blank" rel="noopener">Imprimir Transfer</a>
     <% } else { %>
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>.xlsx">Excel</a>
-    <button class="btn secondary" type="button" id="gv-btn-imprimir-pedido" title="Imprimir o guardar como PDF" onclick="window.print()">Imprimir</button>
+    <a class="btn secondary" href="/pedidos/<%= pedidoId %>?print=1" target="_blank" rel="noopener" title="Imprimir o guardar como PDF">Imprimir</a>
     <% } %>
     <% if (canShowHefame) { %>
     <span class="gv-hefame-wrap">
@@ -401,6 +401,18 @@
   });
   var hash = String(window.location.hash || '').replace('#', '').trim().toLowerCase();
   if (hash === 'cabecera' || hash === 'envio' || hash === 'lineas') setTab(hash);
+
+  // Abrir diálogo de impresión cuando se carga con ?print=1
+  if (window.location.search.indexOf('print=1') !== -1) {
+    function doPrint() {
+      try { window.print(); } catch (e) { alert('No se pudo abrir el cuadro de impresión. Prueba Ctrl+P.'); }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', doPrint);
+    } else {
+      setTimeout(doPrint, 300);
+    }
+  }
 })();
 </script>
 
