@@ -20,6 +20,7 @@ const {
 } = require('../lib/admin-helpers');
 const { getSmtpStatus, getGraphStatus } = require('../lib/mailer');
 const { runSyncHoldedPedidos, runMigrationPedIdHolded, getRelacionCodigosHoldedBd, getPreviewPedidosHolded, getRawHoldedJson } = require('../lib/sync-holded-pedidos');
+const { runNormalizarTelefonosClientes } = require('../lib/normalizar-telefonos-clientes');
 const { requireSystemAdmin } = require('../lib/auth');
 
 const router = express.Router();
@@ -157,6 +158,38 @@ router.post('/importar-holded/sync', requireSystemAdmin, async (req, res, next) 
       return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }
     return res.redirect(`/admin/importar-holded?error=${encodeURIComponent(e?.message || 'Error al sincronizar')}`);
+  }
+});
+
+// ===========================
+// NORMALIZAR TELÉFONOS CLIENTES
+// ===========================
+router.get('/normalizar-telefonos-clientes', requireAdmin, async (req, res, next) => {
+  try {
+    const success = typeof req.query.success === 'string' ? req.query.success : null;
+    const result = await runNormalizarTelefonosClientes({ dryRun: true });
+    if (!result.ok) {
+      return res.render('admin-normalizar-telefonos', { error: result.error || 'Error al verificar teléfonos' });
+    }
+    res.render('admin-normalizar-telefonos', { result: { ...result, applied: false }, success });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/normalizar-telefonos-clientes', requireAdmin, async (req, res, next) => {
+  try {
+    const apply = String(req.body?.apply || '').trim() === '1';
+    const result = await runNormalizarTelefonosClientes({ dryRun: !apply });
+    if (!result.ok) {
+      return res.render('admin-normalizar-telefonos', { error: result.error || 'Error al normalizar' });
+    }
+    if (apply && result.updated > 0) {
+      return res.redirect('/admin/normalizar-telefonos-clientes?success=' + encodeURIComponent('Normalizados ' + result.updated + ' cliente(s).'));
+    }
+    res.render('admin-normalizar-telefonos', { result: { ...result, applied: apply }, success: apply ? 'Normalización aplicada.' : null });
+  } catch (e) {
+    next(e);
   }
 });
 

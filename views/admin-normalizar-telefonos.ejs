@@ -1,0 +1,55 @@
+<%- include('partials/header', { title: 'Normalizar teléfonos' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title">Normalizar teléfonos de clientes</h1>
+    <p class="card-subtitle">
+      Guarda los teléfonos sin espacios: <code>+34610721369</code>. La vista los muestra formateados: <code>+34 610 721 369</code>.
+      España (+34), Portugal (+351) y otros prefijos.
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="gv-alert gv-alert--error" style="margin-bottom: 16px;"><%= error %></div>
+    <% } %>
+    <% if (typeof success !== 'undefined' && success) { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom: 16px;"><%= success %></div>
+    <% } %>
+
+    <% if (typeof result !== 'undefined' && result) { %>
+      <% if (result.updates && result.updates.length > 0) { %>
+        <p><strong><%= result.updates.length %></strong> cliente(s) con teléfonos a normalizar:</p>
+        <div class="table-wrap" style="margin: 16px 0;">
+          <table class="dash-table">
+            <thead><tr><th>ID</th><th>Teléfono (antes → después)</th><th>Móvil (antes → después)</th></tr></thead>
+            <tbody>
+              <% result.updates.forEach((u) => { %>
+                <tr>
+                  <td><%= u.id %></td>
+                  <td><% if (u.telBefore !== u.telAfter) { %><%= u.telBefore %> → <strong><%= u.telAfter %></strong><% } else { %>—<% } %></td>
+                  <td><% if (u.movBefore !== u.movAfter) { %><%= u.movBefore %> → <strong><%= u.movAfter %></strong><% } else { %>—<% } %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% if (!result.applied) { %>
+          <form method="post" action="/admin/normalizar-telefonos-clientes" style="margin-top: 16px;">
+            <input type="hidden" name="apply" value="1" />
+            <button type="submit" class="btn" onclick="return confirm('¿Aplicar la normalización a <%= result.updates.length %> cliente(s)?');">Aplicar normalización</button>
+          </form>
+        <% } %>
+      <% } else { %>
+        <p>✓ No hay teléfonos que normalizar. Todos están en formato correcto.</p>
+      <% } %>
+    <% } %>
+
+    <form method="get" action="/admin/normalizar-telefonos-clientes" style="margin-top: 16px;">
+      <button type="submit" class="btn secondary">Vista previa (dry-run)</button>
+    </form>
+
+    <p style="margin-top: 24px;"><a href="/clientes">← Volver a Contactos</a></p>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
