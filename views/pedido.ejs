@@ -82,7 +82,7 @@
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>/transfer-imprimir" target="_blank" rel="noopener">Imprimir Transfer</a>
     <% } else { %>
     <a class="btn secondary" href="/pedidos/<%= pedidoId %>.xlsx">Excel</a>
-    <button class="btn secondary" type="button" onclick="window.print()">Imprimir</button>
+    <button class="btn secondary" type="button" id="gv-btn-imprimir-pedido" title="Imprimir o guardar como PDF" onclick="window.print()">Imprimir</button>
     <% } %>
     <% if (canShowHefame) { %>
     <span class="gv-hefame-wrap">
