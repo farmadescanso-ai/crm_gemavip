@@ -356,6 +356,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         }
         if (rpWhere.length === 0) rpWhere.push('1=1');
 
+        rpWhere.push('(COALESCE(a.art_activo, 1) = 1)');
         rankingProductos = await db.query(
           `SELECT a.art_id AS ArtId, a.art_nombre AS Producto,
             COALESCE(SUM(COALESCE(pa.\`${colPaCantidad}\`, 0) * COALESCE(pa.\`${colPaPvp}\`, 0)), 0) AS Ventas,
@@ -502,6 +503,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           rpWhere.push('a.art_mar_id = ?');
           rpParams.push(filters.marca);
         }
+        rpWhere.push('(COALESCE(a.art_activo, 1) = 1)');
 
         rankingProductos = await db.query(
           `SELECT a.art_nombre AS Producto, COALESCE(SUM(pa.\`${colPaCantidad}\` * pa.\`${colPaPvp}\`), 0) AS Ventas, COALESCE(SUM(pa.\`${colPaCantidad}\`), 0) AS Unidades

@@ -178,7 +178,7 @@ router.post('/:id/delete', requireAdmin, async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     await db.deleteArticulo(id);
-    return res.redirect('/articulos');
+    return res.redirect('/dashboard');
   } catch (e) {
     next(e);
   }
