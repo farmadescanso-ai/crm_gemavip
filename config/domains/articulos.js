@@ -213,6 +213,7 @@ module.exports = {
       const colMap = {
         Nombre: pick(['art_nombre', 'Nombre', 'nombre']),
         SKU: pick(['art_sku', 'SKU', 'sku']),
+        Codigo_Interno: pick(['art_codigo_interno', 'Codigo_Interno', 'codigo_interno']),
         Presentacion: pick(['art_presentacion', 'Presentacion', 'presentacion']),
         Unidades_Caja: pick(['art_unidades_caja', 'Unidades_Caja', 'unidades_caja']),
         Largo_Unidad: pick(['art_largo_undidad', 'Largo_Unidad', 'largo_unidad']),
@@ -282,6 +283,7 @@ module.exports = {
       const aPk = pick(['art_id', 'id', 'Id']) || 'art_id';
       const formToDb = {
         SKU: pick(['art_sku', 'SKU', 'sku']),
+        Codigo_Interno: pick(['art_codigo_interno', 'Codigo_Interno', 'codigo_interno']),
         Nombre: pick(['art_nombre', 'Nombre', 'nombre']),
         Presentacion: pick(['art_presentacion', 'Presentacion', 'presentacion']),
         Unidades_Caja: pick(['art_unidades_caja', 'Unidades_Caja', 'unidades_caja']),

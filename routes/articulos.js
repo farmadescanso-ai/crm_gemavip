@@ -68,7 +68,7 @@ router.get('/new', requireAdmin, async (_req, res, next) => {
     res.render('articulo-form', {
       mode: 'create',
       marcas,
-      item: { SKU: '', Nombre: '', Presentacion: '', Unidades_Caja: 1, PVL: 0, IVA: 21, Imagen: '', Id_Marca: null, EAN13: '', Activo: 1 },
+      item: { SKU: '', Codigo_Interno: '', Nombre: '', Presentacion: '', Unidades_Caja: 1, PVL: 0, IVA: 21, Imagen: '', Id_Marca: null, EAN13: '', Activo: 1 },
       error: null
     });
   } catch (e) {
@@ -82,6 +82,7 @@ router.post('/new', requireAdmin, async (req, res, next) => {
     const body = req.body || {};
     const payload = {
       SKU: String(body.SKU || '').trim(),
+      Codigo_Interno: body.Codigo_Interno ? String(body.Codigo_Interno).trim() : null,
       Nombre: String(body.Nombre || '').trim(),
       Presentacion: String(body.Presentacion || '').trim(),
       Unidades_Caja: Number(body.Unidades_Caja || 0) || 0,
@@ -135,6 +136,7 @@ router.post('/:id/edit', requireAdmin, async (req, res, next) => {
 
     const payload = {
       SKU: body.SKU !== undefined ? String(body.SKU || '').trim() : undefined,
+      Codigo_Interno: body.Codigo_Interno !== undefined ? (body.Codigo_Interno ? String(body.Codigo_Interno).trim() : null) : undefined,
       Nombre: body.Nombre !== undefined ? String(body.Nombre || '').trim() : undefined,
       Presentacion: body.Presentacion !== undefined ? String(body.Presentacion || '').trim() : undefined,
       Unidades_Caja: body.Unidades_Caja !== undefined ? (Number(body.Unidades_Caja || 0) || 0) : undefined,
