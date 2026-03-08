@@ -109,6 +109,9 @@ async function main() {
     const paisRows = await db.query('SELECT pais_id FROM paises WHERE pais_codigo = ? LIMIT 1', [codPais]);
     const paisId = paisRows?.[0]?.pais_id ?? 1;
 
+    const formpRows = await db.query('SELECT formp_id FROM formas_pago ORDER BY formp_id ASC LIMIT 1');
+    const formpId = formpRows?.[0]?.formp_id ?? 1;
+
     // Fetch pedidos Holded
     const documents = await fetchHolded(apiKey, 'GET', '/documents/salesorder', {
       starttmp: startTs,
@@ -222,12 +225,13 @@ async function main() {
 
       const [pedResult] = await db.pool.execute(
         `INSERT INTO pedidos (
-          ped_com_id, ped_cli_id, ped_Serie, ped_numero, ped_fecha, ped_estado_txt,
+          ped_com_id, ped_cli_id, ped_formp_id, ped_Serie, ped_numero, ped_fecha, ped_estado_txt,
           ped_total, ped_base, ped_iva, ped_id_holded
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           1,
           clienteId,
+          formpId,
           'A',
           pedNumero,
           pedFecha,
