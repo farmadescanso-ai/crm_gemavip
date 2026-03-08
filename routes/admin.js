@@ -19,8 +19,59 @@ const {
   SYSVAR_MAIL_FROM
 } = require('../lib/admin-helpers');
 const { getSmtpStatus, getGraphStatus } = require('../lib/mailer');
+const { runSyncHoldedPedidos } = require('../lib/sync-holded-pedidos');
+const { requireSystemAdmin } = require('../lib/auth');
 
 const router = express.Router();
+
+// ===========================
+// IMPORTAR PEDIDOS HOLDED (solo administrador del sistema: pedidos@farmadescanso.com)
+// Acceso exclusivo por URL directa, no aparece en menús.
+// ===========================
+router.get('/importar-holded', requireSystemAdmin, async (req, res, next) => {
+  try {
+    const hasApiKey = !!(process.env.HOLDED_API_KEY && process.env.HOLDED_API_KEY.trim());
+    const error = typeof req.query.error === 'string' ? req.query.error : null;
+    const success = typeof req.query.success === 'string' ? req.query.success : null;
+    return res.render('importar-holded', {
+      title: 'Importar pedidos Holded',
+      subtitle: 'Sincroniza pedidos de venta desde Holded al CRM. Solo se importan pedidos de clientes en la Provincia de Murcia.',
+      hasApiKey,
+      error,
+      success
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/importar-holded/sync', requireSystemAdmin, async (req, res, next) => {
+  try {
+    const start = String(req.body?.start || '2026-01-01').trim();
+    const end = String(req.body?.end || '2026-12-31').trim();
+    const dryRun = String(req.body?.dryRun || '').trim() === '1';
+
+    const result = await runSyncHoldedPedidos({ start, end, provincia: 'Murcia', dryRun });
+
+    if (req.headers['accept']?.includes('application/json')) {
+      return res.json(result);
+    }
+
+    if (result.ok) {
+      const msg = dryRun
+        ? `Simulación: ${result.inserted} pedidos se importarían. Omitidos: ${result.skippedProvincia} (otra provincia), ${result.skippedDuplicado} (duplicados), ${result.skippedSinContacto} (sin contacto).`
+        : `Importados ${result.inserted} pedidos. Omitidos: ${result.skippedProvincia} (otra provincia), ${result.skippedDuplicado} (duplicados), ${result.skippedSinContacto} (sin contacto).`;
+      return res.redirect(`/admin/importar-holded?success=${encodeURIComponent(msg)}`);
+    }
+
+    return res.redirect(`/admin/importar-holded?error=${encodeURIComponent(result.error || 'Error desconocido')}`);
+  } catch (e) {
+    if (req.headers['accept']?.includes('application/json')) {
+      return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+    return res.redirect(`/admin/importar-holded?error=${encodeURIComponent(e?.message || 'Error al sincronizar')}`);
+  }
+});
 
 // ===========================
 // DESCUENTOS PEDIDO

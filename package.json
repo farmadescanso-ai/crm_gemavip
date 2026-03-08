@@ -15,6 +15,7 @@
     "copy-tarifa-mirafarma-to-pvl": "node tools/copy-tarifa-mirafarma-to-pvl.js",
     "fix-login": "node tools/fix-login-password.js",
     "normalizar-clientes-espana": "node scripts/normalizar-clientes-espana.js",
+    "sync:holded-pedidos": "node scripts/sync-pedidos-holded.js",
     "normalizar-clientes-espana:dry": "node scripts/normalizar-clientes-espana.js --dry-run",
     "test": "jest",
     "test:watch": "jest --watch"
