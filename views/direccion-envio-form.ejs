@@ -1,0 +1,94 @@
+<%- include('partials/header', { title: 'Añadir dirección de envío' }) %>
+
+<section class="card" style="max-width: 640px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Añadir dirección de envío</h1>
+    <p class="card-subtitle">Cliente: <%= clienteNombre || '—' %></p>
+  </div>
+  <div class="card-bd">
+    <% if (error) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= error %></div>
+    <% } %>
+
+    <form method="post" action="/clientes/<%= clienteId %>/direcciones/new" style="display:grid; gap: 12px;">
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Alias</span>
+        <input type="text" name="Alias" value="<%= item.Alias || '' %>" placeholder="Ej: Almacén, Sucursal centro" maxlength="120" />
+      </label>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Nombre destinatario</span>
+        <input type="text" name="Nombre_Destinatario" value="<%= item.Nombre_Destinatario || '' %>" maxlength="255" />
+      </label>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Dirección</span>
+        <input type="text" name="Direccion" value="<%= item.Direccion || '' %>" maxlength="255" />
+      </label>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Dirección 2</span>
+        <input type="text" name="Direccion2" value="<%= item.Direccion2 || '' %>" maxlength="255" />
+      </label>
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Código postal</span>
+          <input type="text" name="CodigoPostal" value="<%= item.CodigoPostal || '' %>" maxlength="12" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Población</span>
+          <input type="text" name="Poblacion" value="<%= item.Poblacion || '' %>" maxlength="255" />
+        </label>
+      </div>
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Provincia</span>
+          <select name="Id_Provincia">
+            <option value="">—</option>
+            <% (provincias || []).forEach((p) => { %>
+              <% const pid = Number(p.prov_id ?? p.id ?? p.Id ?? 0) || 0; %>
+              <% const plabel = p.prov_nombre ?? p.Nombre ?? p.nombre ?? ('Provincia ' + pid); %>
+              <option value="<%= pid %>" <%= (item.Id_Provincia ?? item.direnv_prov_id) == pid ? 'selected' : '' %>><%= plabel %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>País</span>
+          <select name="Id_Pais">
+            <option value="">—</option>
+            <% (paises || []).forEach((p) => { %>
+              <% const pid = Number(p.pais_id ?? p.id ?? p.Id ?? 0) || 0; %>
+              <% const plabel = p.pais_nombre ?? p.Nombre ?? p.nombre ?? ('País ' + pid); %>
+              <option value="<%= pid %>" <%= (item.Id_Pais ?? item.direnv_pais_id) == pid ? 'selected' : '' %>><%= plabel %></option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+      <div class="grid cols-2" style="gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Teléfono</span>
+          <input type="tel" name="Telefono" value="<%= item.Telefono || '' %>" maxlength="20" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Móvil</span>
+          <input type="tel" name="Movil" value="<%= item.Movil || '' %>" maxlength="20" />
+        </label>
+      </div>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Email</span>
+        <input type="email" name="Email" value="<%= item.Email || '' %>" maxlength="255" />
+      </label>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Observaciones</span>
+        <textarea name="Observaciones" rows="3"><%= item.Observaciones || '' %></textarea>
+      </label>
+      <label style="display:flex; align-items:center; gap:10px; font-weight:700;">
+        <input type="checkbox" name="Es_Principal" value="1" <%= (item.Es_Principal ?? item.direnv_es_principal ?? 0) == 1 ? 'checked' : '' %> />
+        <span>Marcar como dirección principal</span>
+      </label>
+      <div style="display:flex; gap:10px; margin-top: 8px;">
+        <button class="btn" type="submit">Guardar dirección</button>
+        <a class="btn secondary" href="/clientes/<%= clienteId %>/edit">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

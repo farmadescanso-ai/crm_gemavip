@@ -73,6 +73,16 @@
 
       <% (tabs || []).forEach((t, idx) => { %>
         <section id="tab_<%= t.id %>" class="gv-tabpanel <%= idx === 0 ? 'is-active' : '' %>" role="tabpanel" data-tabpanel="<%= t.id %>">
+          <% if (t.id === 'direccion') { %>
+            <div class="gv-direccion-tab-hd" style="margin-bottom: 14px;">
+              <% if (mode === 'edit' && cid) { %>
+                <a class="btn gv-relaciones-add" href="/clientes/<%= cid %>/direcciones/new">Añadir dirección de envío</a>
+                <p class="gv-relaciones-tab__sub" style="margin: 8px 0 0 0; font-size: 13px; color: var(--gv-muted);">Si el cliente tiene más de una dirección de envío, añádelas aquí.</p>
+              <% } else { %>
+                <p style="font-size: 13px; color: var(--gv-muted);">Guarda primero el cliente para poder añadir direcciones de envío adicionales.</p>
+              <% } %>
+            </div>
+          <% } %>
           <% if (t.id === 'relaciones' && mode === 'edit' && cid) { %>
             <div class="gv-relaciones-tab">
               <div class="gv-relaciones-tab__hd">
@@ -469,8 +479,10 @@
     });
   });
   var hashTab = (window.location.hash || '').replace('#tab_', '');
-  if (hashTab && tabButtons.some(function(b){ return b.getAttribute('data-tab') === hashTab; })) {
-    setTab(hashTab);
+  var qsTab = (function(){ var m = (window.location.search || '').match(/[?&]tab=([^&]+)/); return m ? m[1] : ''; })();
+  var tabToOpen = hashTab || qsTab;
+  if (tabToOpen && tabButtons.some(function(b){ return b.getAttribute('data-tab') === tabToOpen; })) {
+    setTab(tabToOpen);
   }
 
   // Barra de nombre del cliente (encima de pestañas)

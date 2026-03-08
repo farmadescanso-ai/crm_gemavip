@@ -332,6 +332,48 @@ router.get(
  *         description: No encontrado
  */
 
+// Crear dirección de envío.
+router.post(
+  '/:id/direcciones-envio',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const id = toInt(req.params.id, 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    if (sessionUser && !isAdmin) {
+      const c = await db.getClienteById(id);
+      if (!c) return res.status(404).json({ ok: false, error: 'No encontrado' });
+      const cial = toInt(c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial, 0) ?? 0;
+      const selfId = toInt(sessionUser.id, 0) ?? 0;
+      if (cial && cial !== 1 && cial !== selfId) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    const body = req.body || {};
+    const payload = {
+      Id_Cliente: id,
+      Alias: body.Alias ? String(body.Alias).trim() : null,
+      Nombre_Destinatario: body.Nombre_Destinatario ? String(body.Nombre_Destinatario).trim() : null,
+      Direccion: body.Direccion ? String(body.Direccion).trim() : null,
+      Direccion2: body.Direccion2 ? String(body.Direccion2).trim() : null,
+      Poblacion: body.Poblacion ? String(body.Poblacion).trim() : null,
+      CodigoPostal: body.CodigoPostal ? String(body.CodigoPostal).trim() : null,
+      Id_Provincia: body.Id_Provincia ? toInt(body.Id_Provincia, 0) || null : null,
+      Id_Pais: body.Id_Pais ? toInt(body.Id_Pais, 0) || null : null,
+      Pais: body.Pais ? String(body.Pais).trim() : null,
+      Telefono: body.Telefono ? String(body.Telefono).trim() : null,
+      Movil: body.Movil ? String(body.Movil).trim() : null,
+      Email: body.Email ? String(body.Email).trim() : null,
+      Observaciones: body.Observaciones ? String(body.Observaciones).trim() : null,
+      Es_Principal: toInt(body.Es_Principal, 0) === 1 ? 1 : 0,
+      Activa: body.Activa === undefined || body.Activa === null ? 1 : (toInt(body.Activa, 1) === 1 ? 1 : 0)
+    };
+
+    const result = await db.createDireccionEnvio(payload);
+    res.status(201).json({ ok: true, insertId: result?.insertId });
+  })
+);
+
 // Crear 1 dirección de envío desde fiscal si no hay ninguna (best-effort).
 router.post(
   '/:id/direcciones-envio/ensure-fiscal',
