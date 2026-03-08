@@ -474,7 +474,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
             const curStr = cur === null || cur === undefined ? '' : String(cur).trim();
             if (!curStr) {
               const nombre =
-                (articulo && (articulo.Nombre ?? articulo.nombre ?? articulo.Descripcion ?? articulo.descripcion ?? articulo.SKU ?? articulo.sku)) ??
+                (articulo && (articulo.Nombre ?? articulo.nombre ?? articulo.art_nombre ?? articulo.Descripcion ?? articulo.descripcion ?? articulo.SKU ?? articulo.sku ?? articulo.art_sku)) ??
                 null;
               if (nombre && String(nombre).trim()) mysqlData[colArticuloTxt] = String(nombre).trim();
               else if (artId) mysqlData[colArticuloTxt] = String(artId);
