@@ -1102,12 +1102,18 @@ module.exports = {
         }
         return null;
       };
-      const datosPapelera = {
-        id: cliente.id ?? cliente.Id ?? cliente.cli_id ?? clienteId,
+      const clienteIdVal = cliente.id ?? cliente.Id ?? cliente.cli_id ?? clienteId;
+      const datosPapeleraRaw = {
+        id: clienteIdVal,
+        cli_id: clienteIdVal,
         Id_Cial: pick(cliente, 'Id_Cial', 'id_Cial', 'cli_com_id'),
+        cli_com_id: pick(cliente, 'Id_Cial', 'id_Cial', 'cli_com_id'),
         DNI_CIF: pick(cliente, 'DNI_CIF', 'cli_dni_cif'),
+        cli_dni_cif: pick(cliente, 'DNI_CIF', 'cli_dni_cif'),
         Nombre_Razon_Social: pick(cliente, 'Nombre_Razon_Social', 'Nombre', 'cli_nombre_razon_social'),
+        cli_nombre_razon_social: pick(cliente, 'Nombre_Razon_Social', 'Nombre', 'cli_nombre_razon_social'),
         Nombre_Cial: pick(cliente, 'Nombre_Cial', 'cli_nombre_cial'),
+        cli_nombre_cial: pick(cliente, 'Nombre_Cial', 'cli_nombre_cial'),
         NumeroFarmacia: pick(cliente, 'NumeroFarmacia', 'cli_numero_farmacia'),
         Direccion: pick(cliente, 'Direccion', 'cli_direccion'),
         Poblacion: pick(cliente, 'Poblacion', 'cli_poblacion'),
@@ -1139,25 +1145,40 @@ module.exports = {
         EliminadoPor: eliminadoPor ?? 'admin'
       };
 
-      const campos = Object.keys(datosPapelera).map(key => `\`${key}\``).join(', ');
-      const placeholders = Object.keys(datosPapelera).map(() => '?').join(', ');
-      const valores = Object.values(datosPapelera).map(v => (v === undefined ? null : v));
-
       const meta = await this._ensureClientesMeta().catch(() => null);
       const pk = meta?.pk || 'cli_id';
       const sqlDelete = `DELETE FROM clientes WHERE \`${pk}\` = ?`;
 
-      const sqlInsert = `INSERT INTO \`Papelera-Clientes\` (${campos}) VALUES (${placeholders})`;
-      try {
-        debug('📝 [PAPELERA] Insertando cliente en papelera:', clienteId, eliminadoPor);
-        await this.query(sqlInsert, valores);
-      } catch (errPapelera) {
-        const isNoTable = errPapelera?.code === 'ER_NO_SUCH_TABLE' || /doesn't exist/i.test(String(errPapelera?.message || ''));
-        if (isNoTable) {
-          debug('⚠️ Tabla Papelera-Clientes no existe, eliminando directamente. Ejecuta scripts/create-papelera-clientes.sql para habilitar backup.');
-        } else {
-          throw errPapelera;
+      const papeleraCols = await this._getColumns('Papelera-Clientes').catch(() => []);
+      const rawByLower = new Map(Object.entries(datosPapeleraRaw).map(([k, v]) => [String(k).toLowerCase(), v]));
+      const datosPapelera = {};
+      for (const col of papeleraCols || []) {
+        const colLower = String(col).toLowerCase();
+        if (rawByLower.has(colLower)) {
+          datosPapelera[col] = rawByLower.get(colLower);
         }
+      }
+      if (Object.keys(datosPapelera).length > 0) {
+        const campos = Object.keys(datosPapelera).map((k) => `\`${k}\``).join(', ');
+        const placeholders = Object.keys(datosPapelera).map(() => '?').join(', ');
+        const valores = Object.values(datosPapelera).map((v) => (v === undefined ? null : v));
+        const sqlInsert = `INSERT INTO \`Papelera-Clientes\` (${campos}) VALUES (${placeholders})`;
+        try {
+          debug('📝 [PAPELERA] Insertando cliente en papelera:', clienteId, eliminadoPor);
+          await this.query(sqlInsert, valores);
+        } catch (errPapelera) {
+          const isNoTable = errPapelera?.code === 'ER_NO_SUCH_TABLE' || /doesn't exist/i.test(String(errPapelera?.message || ''));
+          const isBadField = errPapelera?.code === 'ER_BAD_FIELD_ERROR';
+          if (isNoTable) {
+            debug('⚠️ Tabla Papelera-Clientes no existe, eliminando directamente.');
+          } else if (isBadField) {
+            debug('⚠️ Papelera-Clientes: columnas no coinciden, eliminando directamente:', errPapelera?.message);
+          } else {
+            throw errPapelera;
+          }
+        }
+      } else {
+        debug('⚠️ No se encontraron columnas compatibles en Papelera-Clientes, eliminando directamente.');
       }
 
       await this.query(sqlDelete, [clienteId]);
