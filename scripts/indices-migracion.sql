@@ -79,8 +79,14 @@ CALL _add_index_if_not_exists('direccionesEnvio', 'idx_direnv_cliente_activa', '
 CALL _add_index_if_not_exists('direccionesEnvio', 'idx_direnv_cliente_activa_principal', '`direnv_cli_id`,`direnv_activa`,`direnv_es_principal`', 'BTREE');
 
 -- CÓDIGOS POSTALES (búsqueda por CP para auto-rellenar provincia/país en formularios)
--- Usar CodigoPostal o codpos_CodigoPostal según tu esquema (descomenta el que aplique)
-CALL _add_index_if_not_exists('codigos_postales', 'idx_codpos_codigo', '`CodigoPostal`', 'BTREE');
--- CALL _add_index_if_not_exists('codigos_postales', 'idx_codpos_codigo', '`codpos_CodigoPostal`', 'BTREE');
+-- Esquema con prefijos: codpos_CodigoPostal (ver config/schema-bd.json)
+CALL _add_index_if_not_exists('codigos_postales', 'idx_codpos_codigo', '`codpos_CodigoPostal`', 'BTREE');
+CALL _add_index_if_not_exists('codigos_postales', 'idx_codpos_comunidad', '`codpos_ComunidadAutonoma`', 'BTREE');
+
+-- ARTÍCULOS (filtro por marca en dashboard Ranking Productos)
+CALL _add_index_if_not_exists('articulos', 'idx_articulos_marca', '`art_mar_id`', 'BTREE');
+
+-- CLIENTES (Contactos Nuevos: filtro por fecha creación)
+CALL _add_index_if_not_exists('clientes', 'idx_clientes_creado_holded', '`cli_creado_holded`', 'BTREE');
 
 DROP PROCEDURE IF EXISTS _add_index_if_not_exists;

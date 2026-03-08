@@ -1,11 +1,18 @@
 /**
- * Ruta del dashboard.
+ * Ruta del dashboard CRM.
+ * Vista Admin: 5 filtros, 7 KPIs, Ranking Comerciales/Zona, Ranking Productos.
+ * Vista Comercial: 3 filtros, 6 KPIs, Mis Clientes, Pedidos Recientes, Ranking Productos, Próximas Visitas.
  */
 
 const express = require('express');
 const db = require('../config/mysql-crm');
 const { _n } = require('../lib/app-helpers');
 const { isAdminUser, requireLogin } = require('../lib/auth');
+const {
+  PERIOD_OPTIONS,
+  parseDashboardFilters,
+  getSqlDateRange
+} = require('../lib/dashboard-utils');
 
 const router = express.Router();
 
@@ -14,379 +21,546 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
     const MIN_YEAR = 2025;
     const now = new Date();
     const currentYear = now.getFullYear();
-    // A partir del 01/09 del año en curso, habilitamos seleccionar el año siguiente.
-    // Ej.: desde 01/09/2026 aparecen 2025, 2026 y 2027.
-    const switchDate = new Date(currentYear, 8, 1, 0, 0, 0, 0); // 1 Sep (mes 8)
+    const switchDate = new Date(currentYear, 8, 1, 0, 0, 0, 0);
     const maxYear = now >= switchDate ? currentYear + 1 : currentYear;
     const years = [];
     for (let y = MIN_YEAR; y <= maxYear; y += 1) years.push(y);
-    const selectedYearRaw = String(req.query?.year || '').trim().toLowerCase();
-    const selectedYearParsed = Number(selectedYearRaw);
-    const selectedYear =
-      selectedYearRaw === 'all' || selectedYearRaw === 'todos'
-        ? 'all'
-        : (Number.isFinite(selectedYearParsed) && selectedYearParsed >= MIN_YEAR && selectedYearParsed <= maxYear
-            ? selectedYearParsed
-            : currentYear);
-    const yearFrom = selectedYear === 'all' ? null : `${selectedYear}-01-01`;
-    const yearTo = selectedYear === 'all' ? null : `${selectedYear}-12-31`;
-
-    const safeCount = async (table) => {
-      try {
-        const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${table}\``);
-        return Number(_n(rows && rows[0] && rows[0].n, 0));
-      } catch (_) {
-        return null;
-      }
-    };
 
     const admin = isAdminUser(res.locals.user);
-    const metaVisitas = await db._ensureVisitasMeta().catch(() => null);
-    const visitasTable = metaVisitas?.table ? metaVisitas.table : 'visitas';
-
     const userId = Number(res.locals.user?.id);
     const hasUserId = Number.isFinite(userId) && userId > 0;
 
-    const countPedidosWithYear = async () => {
-      // Best-effort: si no hay columna fecha, contamos todos
-      try {
-        const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
-        const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
-        const colFecha = pedidosMeta?.colFecha || null;
-        if (selectedYear === 'all' || !colFecha) return await safeCount(tPedidos);
-        const rows = await db.query(
-          `SELECT COUNT(*) AS n FROM \`${tPedidos}\` WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?`,
-          [yearFrom, yearTo]
-        );
-        return Number(_n(rows && rows[0] && rows[0].n, 0));
-      } catch (_) {
-        return null;
+    const filters = parseDashboardFilters(req.query, admin);
+    const yearRaw = String(req.query?.year || '').trim().toLowerCase();
+    const yearParsed = Number(yearRaw);
+    const selectedYear =
+      yearRaw === 'all' || yearRaw === 'todos'
+        ? 'all'
+        : (Number.isFinite(yearParsed) && yearParsed >= MIN_YEAR && yearParsed <= maxYear
+            ? yearParsed
+            : currentYear);
+    filters.year = selectedYear;
+
+    const { from: dateFrom, to: dateTo } = getSqlDateRange(filters);
+    const hasDateFilter = dateFrom && dateTo;
+
+    const metaVisitas = await db._ensureVisitasMeta().catch(() => null);
+    const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
+    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
+    const comercialesMeta = await db._ensureComercialesMeta().catch(() => null);
+
+    const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
+    const tClientes = clientesMeta?.tClientes || 'clientes';
+    const pkClientes = clientesMeta?.pk || 'cli_id';
+    const colPedComercial = pedidosMeta?.colComercial || 'ped_com_id';
+    const colPedCliente = pedidosMeta?.colCliente || 'ped_cli_id';
+    const colPedFecha = pedidosMeta?.colFecha || 'ped_fecha';
+    const colPedNum = pedidosMeta?.colNumPedido || 'ped_numero';
+    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+
+    const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
+    const colPedTotal = db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal']) || 'ped_total';
+    const colPedEstado = db._pickCIFromColumns(pedidosCols, ['ped_estado_txt', 'EstadoPedido', 'Estado', 'estado']) || 'ped_estado_txt';
+
+    const buildPedidosBaseWhere = (comercialId = null) => {
+      const where = [];
+      const params = [];
+      if (admin && filters.comercial) {
+        where.push(`p.\`${colPedComercial}\` = ?`);
+        params.push(filters.comercial);
+      } else if (!admin && hasUserId) {
+        where.push(`p.\`${colPedComercial}\` = ?`);
+        params.push(userId);
       }
+      if (hasDateFilter && colPedFecha) {
+        where.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+        params.push(dateFrom, dateTo);
+      }
+      return { where, params };
     };
 
-    const countVisitasWithYear = async () => {
-      try {
-        if (!metaVisitas?.table) return await safeCount(visitasTable);
-        if (selectedYear === 'all' || !metaVisitas.colFecha) return await safeCount(metaVisitas.table);
-        const rows = await db.query(
-          `SELECT COUNT(*) AS n FROM \`${metaVisitas.table}\` WHERE DATE(\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`,
-          [yearFrom, yearTo]
-        );
-        return Number(_n(rows && rows[0] && rows[0].n, 0));
-      } catch (_) {
-        return null;
-      }
-    };
+    const ccaaJoin = `LEFT JOIN codigos_postales cp ON (cp.codpos_id = c.cli_codp_id OR (c.cli_codp_id IS NULL AND cp.codpos_CodigoPostal = c.cli_codigo_postal))`;
+    const zoneCondition = admin && filters.zone ? `AND cp.codpos_ComunidadAutonoma = ?` : '';
+    const zoneParams = admin && filters.zone ? [filters.zone] : [];
 
-    const [clientes, pedidos, visitasTotal, comerciales] = await Promise.all([
-      admin
-        ? safeCount('clientes')
-        : (hasUserId ? db.countClientesOptimizado({ comercial: userId }) : 0),
-      admin
-        ? countPedidosWithYear()
-        : (hasUserId
-            ? (selectedYear === 'all' ? db.countPedidos({ comercialId: userId }) : db.countPedidos({ comercialId: userId, from: yearFrom, to: yearTo }))
-            : 0),
-      countVisitasWithYear(),
-      admin ? safeCount('comerciales') : null
-    ]);
+    let ventas = 0;
+    let numPedidos = 0;
+    let numVisitas = 0;
+    let contactosNuevos = null;
+    let farmaciasActivas = null;
+    let coberturaCCAA = null;
+    let clientesActivos = null;
+    let ticketMedio = null;
 
-    let visitas = visitasTotal;
-    if (!admin) {
-      try {
-        const meta = await db._ensureVisitasMeta();
-        const owner = db._buildVisitasOwnerWhere(meta, res.locals.user, 'v');
-        if (owner.clause) {
-          const where = [owner.clause];
-          const params = [...(owner.params || [])];
-          if (selectedYear !== 'all' && meta.colFecha) {
-            where.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
-            params.push(yearFrom, yearTo);
-          }
-          const rows = await db.query(`SELECT COUNT(*) AS n FROM \`${meta.table}\` v WHERE ${where.join(' AND ')}`, params);
-          visitas = Number(_n(rows && rows[0] && rows[0].n, 0));
-        } else {
-          visitas = 0;
-        }
-      } catch (_) {
-        visitas = 0;
-      }
+    const pedWhere = buildPedidosBaseWhere();
+    const pedWhereClause = pedWhere.where.length ? `WHERE ${pedWhere.where.join(' AND ')}` : '';
+    const pedWhereParams = pedWhere.params;
+
+    const pedidosWithZone = admin && filters.zone;
+    let ventasSql = `SELECT COALESCE(SUM(COALESCE(p.\`${colPedTotal}\`, 0)), 0) AS total, COUNT(*) AS n FROM \`${tPedidos}\` p`;
+    let ventasParams = [];
+
+    if (pedidosWithZone) {
+      ventasSql += ` INNER JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\` ${ccaaJoin} ${pedWhereClause} ${zoneCondition}`;
+      ventasParams = [...pedWhereParams, ...zoneParams];
+    } else {
+      ventasSql += ` ${pedWhereClause}`;
+      ventasParams = pedWhereParams;
     }
 
-    const stats = { clientes, pedidos, visitas, comerciales };
-
-    // Ventas (suma de importes de pedidos)
-    // - Comercial: solo sus ventas acumuladas
-    // - Admin: total de ventas de todos los comerciales
-    let ventas = null;
     try {
-      const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
-      const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
-      const colComercial = pedidosMeta?.colComercial || null;
-      const colFecha = pedidosMeta?.colFecha || null;
-      const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
-      const colTotal =
-        db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || null;
+      const [ventasRow] = await db.query(ventasSql, ventasParams);
+      ventas = Number(_n(ventasRow?.total, 0));
+      numPedidos = Number(_n(ventasRow?.n, 0));
+    } catch (_) {}
 
-      if (colTotal) {
-        if (admin) {
-          const where = [];
-          const params = [];
-          if (selectedYear !== 'all' && colFecha) {
-            where.push(`DATE(\`${colFecha}\`) BETWEEN ? AND ?`);
-            params.push(yearFrom, yearTo);
-          }
-          const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
-          const rows = await db.query(`SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\`${whereSql}`, params);
-          ventas = Number(_n(rows && rows[0] && rows[0].total, 0)) || 0;
-        } else if (hasUserId) {
-          if (colComercial) {
-            const where = [`\`${colComercial}\` = ?`];
-            const params = [userId];
-            if (selectedYear !== 'all' && colFecha) {
-              where.push(`DATE(\`${colFecha}\`) BETWEEN ? AND ?`);
-              params.push(yearFrom, yearTo);
-            }
-            const rows = await db.query(
-              `SELECT COALESCE(SUM(COALESCE(\`${colTotal}\`, 0)), 0) AS total FROM \`${tPedidos}\` WHERE ${where.join(' AND ')}`,
-              params
-            );
-            ventas = Number(_n(rows && rows[0] && rows[0].total, 0)) || 0;
-          } else {
-            // Fallback legacy: usar el método existente (puede ser más costoso, pero evita "Unknown column")
-            const rows = await db.getPedidosByComercial(userId).catch(() => []);
-            ventas = (Array.isArray(rows) ? rows : []).reduce((acc, r) => {
-              const v = Number(_n(_n(_n(_n(_n(r && r[colTotal], r && r.ped_total), r && r.TotalPedido), r && r.Total), r && r.ImporteTotal), 0));
-              // Si tenemos fecha en el row, filtramos por año en memoria
-              if (selectedYear !== 'all' && colFecha) {
-                const fv = r?.[colFecha];
-                const year = fv ? Number(String(fv).slice(0, 4)) : NaN;
-                if (Number.isFinite(year) && year !== selectedYear) return acc;
-              }
-              return acc + (Number.isFinite(v) ? v : 0);
-            }, 0);
-          }
-        } else {
-          ventas = 0;
-        }
+    ticketMedio = numPedidos > 0 ? Math.round((ventas / numPedidos) * 100) / 100 : null;
+
+    if (metaVisitas?.table) {
+      const visWhere = [];
+      const visParams = [];
+      if (admin && filters.comercial) {
+        visWhere.push(`\`${metaVisitas.colComercial}\` = ?`);
+        visParams.push(filters.comercial);
+      } else if (!admin && hasUserId) {
+        visWhere.push(`\`${metaVisitas.colComercial}\` = ?`);
+        visParams.push(userId);
       }
-    } catch (_) {
-      ventas = null;
+      if (hasDateFilter && metaVisitas.colFecha) {
+        visWhere.push(`DATE(\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
+        visParams.push(dateFrom, dateTo);
+      }
+      const visWhereSql = visWhere.length ? `WHERE ${visWhere.join(' AND ')}` : '';
+      try {
+        const [visRow] = await db.query(`SELECT COUNT(*) AS n FROM \`${metaVisitas.table}\` ${visWhereSql}`, visParams);
+        numVisitas = Number(_n(visRow?.n, 0));
+      } catch (_) {}
     }
-    stats.ventas = ventas;
 
-    const latest = { clientes: [], pedidos: [], visitas: [] };
-    const limitLatest = 8;
+    const clientesCols = await db._getColumns(tClientes).catch(() => []);
+    const hasCreadoHolded = clientesCols.some((c) => /creado_holded/i.test(c));
+    if (hasCreadoHolded && hasDateFilter) {
+      try {
+        const cliWhere = [];
+        const cliParams = [];
+        if (admin && filters.comercial) {
+          cliWhere.push(`c.\`${clientesMeta?.colComercial || 'cli_com_id'}\` = ?`);
+          cliParams.push(filters.comercial);
+        } else if (!admin && hasUserId) {
+          cliWhere.push(`c.\`${clientesMeta?.colComercial || 'cli_com_id'}\` = ?`);
+          cliParams.push(userId);
+        }
+        cliWhere.push(`DATE(c.cli_creado_holded) BETWEEN ? AND ?`);
+        cliParams.push(dateFrom, dateTo);
+        if (filters.zone) {
+          cliWhere.push('cp.codpos_ComunidadAutonoma = ?');
+          cliParams.push(filters.zone);
+        }
+        const joinPart = filters.zone ? ccaaJoin : '';
+        const [cnRow] = await db.query(
+          `SELECT COUNT(*) AS n FROM \`${tClientes}\` c ${joinPart} WHERE ${cliWhere.join(' AND ')}`,
+          cliParams
+        );
+        contactosNuevos = Number(_n(cnRow?.n, 0));
+      } catch (_) {
+        contactosNuevos = null;
+      }
+    }
+
+    if (admin && hasDateFilter) {
+      try {
+        const faWhere = []; const faParams = [];
+        if (filters.comercial) {
+          faWhere.push(`p.\`${colPedComercial}\` = ?`);
+          faParams.push(filters.comercial);
+        }
+        faWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+        faParams.push(dateFrom, dateTo);
+        const faJoin = filters.zone ? `INNER JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\` ${ccaaJoin} ${zoneCondition}` : '';
+        const [faRow] = await db.query(
+          `SELECT COUNT(DISTINCT p.\`${colPedCliente}\`) AS n FROM \`${tPedidos}\` p ${faJoin} WHERE ${faWhere.join(' AND ')}`,
+          filters.zone ? [...faParams, ...zoneParams] : faParams
+        );
+        farmaciasActivas = Number(_n(faRow?.n, 0));
+      } catch (_) {}
+
+      try {
+        const ccJoin = buildClienteCCAAJoin();
+        const ccWhere = []; const ccParams = [];
+        if (filters.comercial) {
+          ccWhere.push(`p.\`${colPedComercial}\` = ?`);
+          ccParams.push(filters.comercial);
+        }
+        ccWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+        ccParams.push(dateFrom, dateTo);
+        const [ccRow] = await db.query(
+          `SELECT COUNT(DISTINCT COALESCE(cp.codpos_ComunidadAutonoma, 'Sin CCAA')) AS n
+           FROM \`${tPedidos}\` p INNER JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\`
+           ${ccJoin} WHERE ${ccWhere.join(' AND ')}`,
+          ccParams
+        );
+        coberturaCCAA = Number(_n(ccRow?.n, 0));
+      } catch (_) {}
+    }
+
+    if (!admin && hasUserId) {
+      try {
+        const caWhere = []; const caParams = [userId];
+        if (hasDateFilter) {
+          caWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          caParams.push(dateFrom, dateTo);
+        }
+        const caWhereSql = caWhere.length ? `AND ${caWhere.join(' AND ')}` : '';
+        const [caRow] = await db.query(
+          `SELECT COUNT(DISTINCT p.\`${colPedCliente}\`) AS n FROM \`${tPedidos}\` p
+           WHERE p.\`${colPedComercial}\` = ? ${caWhereSql}`,
+          caParams
+        );
+        clientesActivos = Number(_n(caRow?.n, 0));
+      } catch (_) {}
+    }
+
+    let numClientes = 0;
+    if (admin) {
+      try {
+        const cliWhere = []; const cliParams = [];
+        if (filters.comercial) {
+          cliWhere.push(`\`${clientesMeta?.colComercial || 'cli_com_id'}\` = ?`);
+          cliParams.push(filters.comercial);
+        }
+        if (filters.zone) {
+          cliWhere.push(`EXISTS (SELECT 1 FROM codigos_postales cp WHERE (cp.codpos_id = \`${tClientes}\`.cli_codp_id OR cp.codpos_CodigoPostal = \`${tClientes}\`.cli_codigo_postal) AND cp.codpos_ComunidadAutonoma = ?)`);
+          cliParams.push(filters.zone);
+        }
+        const cliWhereSql = cliWhere.length ? `WHERE ${cliWhere.join(' AND ')}` : '';
+        const [cliRow] = await db.query(`SELECT COUNT(*) AS n FROM \`${tClientes}\` ${cliWhereSql}`, cliParams);
+        numClientes = Number(_n(cliRow?.n, 0));
+      } catch (_) {}
+    } else if (hasUserId) {
+      numClientes = await db.countClientesOptimizado({ comercial: userId }).catch(() => 0);
+    }
+
+    let numComerciales = null;
+    if (admin) {
+      try {
+        const [comRow] = await db.query('SELECT COUNT(*) AS n FROM comerciales');
+        numComerciales = Number(_n(comRow?.n, 0));
+      } catch (_) {}
+    }
+
+    const stats = {
+      ventas,
+      pedidos: numPedidos,
+      visitas: numVisitas,
+      clientes: numClientes,
+      comerciales: numComerciales,
+      ticketMedio,
+      contactosNuevos,
+      farmaciasActivas,
+      coberturaCCAA,
+      clientesActivos
+    };
+
     const limitAdmin = 10;
-    let dashboardErrors = {}; // para mostrar errores a admin si fallan las consultas
+    const limitComercial = 8;
+    const latest = { clientes: [], pedidos: [], visitas: [], proximasVisitas: [] };
+    let rankingComerciales = [];
+    let rankingZona = [];
+    let rankingProductos = [];
+    let dashboardErrors = {};
+
+    const colClientePedido = pedidosMeta?.colCliente || 'ped_cli_id';
+    const colPoblacion = db._pickCIFromColumns(clientesCols, ['cli_poblacion', 'Poblacion']) || 'cli_poblacion';
+    const colCodigoPostal = db._pickCIFromColumns(clientesCols, ['cli_codigo_postal', 'CodigoPostal']) || 'cli_codigo_postal';
+    const colOK_KO = db._pickCIFromColumns(clientesCols, ['cli_ok_ko', 'OK_KO']) || 'cli_ok_ko';
 
     if (admin) {
-      // Admin: 10 clientes con más facturación (SUM de total pedidos); 10 últimos pedidos.
+      if (filters.zone) {
+        try {
+          const rzWhere = ['cp.codpos_ComunidadAutonoma = ?']; const rzParams = [filters.zone];
+          if (hasDateFilter) {
+            rzWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+            rzParams.push(dateFrom, dateTo);
+          }
+          if (filters.comercial) {
+            rzWhere.push(`p.\`${colPedComercial}\` = ?`);
+            rzParams.push(filters.comercial);
+          }
+          rankingZona = await db.query(
+            `SELECT cp.codpos_ComunidadAutonoma AS Zona,
+              COALESCE(SUM(COALESCE(p.\`${colPedTotal}\`, 0)), 0) AS Ventas,
+              COUNT(*) AS Pedidos,
+              COALESCE(SUM(COALESCE(p.\`${colPedTotal}\`, 0)), 0) / NULLIF(COUNT(*), 0) AS TicketMedio
+             FROM \`${tPedidos}\` p INNER JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\`
+             ${ccaaJoin} WHERE ${rzWhere.join(' AND ')}
+             GROUP BY cp.codpos_ComunidadAutonoma ORDER BY Ventas DESC LIMIT 10`,
+            rzParams
+          );
+        } catch (e) {
+          dashboardErrors.rankingZona = e?.message;
+        }
+      } else {
+        try {
+          const rcWhere = []; const rcParams = [];
+          if (hasDateFilter) {
+            rcWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+            rcParams.push(dateFrom, dateTo);
+          } else {
+            rcWhere.push('1=1');
+          }
+          if (filters.comercial) {
+            rcWhere.push(`p.\`${colPedComercial}\` = ?`);
+            rcParams.push(filters.comercial);
+          }
+          const provJoin = comercialesMeta?.table ? `LEFT JOIN provincias prov ON prov.prov_id = co.com_prov_id` : '';
+          rankingComerciales = await db.query(
+            `SELECT co.\`${comercialesMeta?.pk || 'com_id'}\` AS ComercialId, co.\`${comercialesMeta?.colNombre || 'com_nombre'}\` AS Comercial,
+              prov.prov_nombre AS Zona,
+              COALESCE(SUM(COALESCE(p.\`${colPedTotal}\`, 0)), 0) AS Ventas,
+              COUNT(*) AS Pedidos,
+              COALESCE(SUM(COALESCE(p.\`${colPedTotal}\`, 0)), 0) / NULLIF(COUNT(*), 0) AS TicketMedio
+             FROM \`${tPedidos}\` p
+             INNER JOIN \`${comercialesMeta?.table || 'comerciales'}\` co ON co.\`${comercialesMeta?.pk || 'com_id'}\` = p.\`${colPedComercial}\`
+             ${provJoin}
+             WHERE ${rcWhere.join(' AND ')}
+             GROUP BY co.\`${comercialesMeta?.pk || 'com_id'}\`, co.\`${comercialesMeta?.colNombre || 'com_nombre'}\`, prov.prov_nombre
+             ORDER BY Ventas DESC LIMIT 10`,
+            rcParams
+          );
+        } catch (e) {
+          dashboardErrors.rankingComerciales = e?.message;
+        }
+      }
+
       try {
-        const clientesMeta = await db._ensureClientesMeta().catch(() => null);
-        const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
-        const tClientes = clientesMeta?.tClientes || 'clientes';
-        const pkClientes = clientesMeta?.pk || 'Id';
-        const colClientePedido = pedidosMeta?.colCliente || 'Id_Cliente';
-        const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
-        const colFecha = pedidosMeta?.colFecha || null;
-        const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
-        const colTotal = db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'ped_total';
-        const clientesCols = await db._getColumns(tClientes).catch(() => []);
-        const colNombreRazon = db._pickCIFromColumns(clientesCols, ['cli_nombre_razon_social', 'Nombre_Razon_Social', 'nombre_razon_social']) || 'cli_nombre_razon_social';
-        const colPoblacion = db._pickCIFromColumns(clientesCols, ['cli_poblacion', 'Poblacion', 'poblacion']) || 'cli_poblacion';
-        const colCodigoPostal = db._pickCIFromColumns(clientesCols, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
-        const colOK_KO = db._pickCIFromColumns(clientesCols, ['cli_ok_ko', 'OK_KO', 'ok_ko']) || 'cli_ok_ko';
-        const yearWhere = (selectedYear !== 'all' && colFecha) ? `WHERE DATE(p.\`${colFecha}\`) BETWEEN ? AND ?` : '';
-        const yearParams = (selectedYear !== 'all' && colFecha) ? [yearFrom, yearTo] : [];
+        const paMeta = await db._ensurePedidosArticulosMeta().catch(() => null);
+        const tPA = paMeta?.table || 'pedidos_articulos';
+        const colPaPedId = paMeta?.colPedidoId || 'pedart_ped_id';
+        const colPaArtId = paMeta?.colArticulo || 'pedart_art_id';
+        const paCols = await db._getColumns(tPA).catch(() => []);
+        const colPaCantidad = db._pickCIFromColumns(paCols, ['pedart_cantidad', 'Cantidad']) || 'pedart_cantidad';
+        const colPaPvp = db._pickCIFromColumns(paCols, ['pedart_pvp', 'PVP', 'pvp']) || 'pedart_pvp';
+
+        const rpWhere = []; const rpParams = [];
+        if (hasDateFilter) {
+          rpWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          rpParams.push(dateFrom, dateTo);
+        }
+        if (filters.comercial) {
+          rpWhere.push(`p.\`${colPedComercial}\` = ?`);
+          rpParams.push(filters.comercial);
+        }
+        if (filters.marca) {
+          rpWhere.push('a.art_mar_id = ?');
+          rpParams.push(filters.marca);
+        }
+        if (rpWhere.length === 0) rpWhere.push('1=1');
+
+        rankingProductos = await db.query(
+          `SELECT a.art_id AS ArtId, a.art_nombre AS Producto,
+            COALESCE(SUM(COALESCE(pa.\`${colPaCantidad}\`, 0) * COALESCE(pa.\`${colPaPvp}\`, 0)), 0) AS Ventas,
+            COALESCE(SUM(COALESCE(pa.\`${colPaCantidad}\`, 0)), 0) AS Unidades
+           FROM \`${tPedidos}\` p
+           INNER JOIN \`${tPA}\` pa ON pa.\`${colPaPedId}\` = p.ped_id
+           INNER JOIN articulos a ON a.art_id = pa.\`${colPaArtId}\`
+           WHERE ${rpWhere.join(' AND ')}
+           GROUP BY a.art_id, a.art_nombre ORDER BY Ventas DESC LIMIT 15`,
+          rpParams
+        );
+
+        const totalVentasProd = rankingProductos.reduce((s, r) => s + Number(r.Ventas || 0), 0);
+        rankingProductos = rankingProductos.map((r) => ({
+          ...r,
+          PctTotal: totalVentasProd > 0 ? Math.round((Number(r.Ventas || 0) / totalVentasProd) * 100) : 0
+        }));
+      } catch (e) {
+        dashboardErrors.rankingProductos = e?.message;
+      }
+
+      try {
+        const adminCliWhere = [];
+        const adminCliParams = [];
+        if (filters.zone) adminCliParams.push(filters.zone);
+        if (hasDateFilter && colPedFecha) {
+          adminCliWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          adminCliParams.push(dateFrom, dateTo);
+        }
+        if (filters.comercial) {
+          adminCliWhere.push(`p.\`${colPedComercial}\` = ?`);
+          adminCliParams.push(filters.comercial);
+        }
+        const adminCliWhereSql = adminCliWhere.length ? `WHERE ${adminCliWhere.join(' AND ')}` : '';
         latest.clientes = await db.query(
           `SELECT c.\`${pkClientes}\` AS Id, c.\`${colNombreRazon}\` AS Nombre_Razon_Social, c.\`${colPoblacion}\` AS Poblacion, c.\`${colCodigoPostal}\` AS CodigoPostal, c.\`${colOK_KO}\` AS OK_KO,
-            COALESCE(SUM(COALESCE(p.\`${colTotal}\`, 0)), 0) AS TotalFacturado
+            COALESCE(SUM(COALESCE(p.\`${colPedTotal}\`, 0)), 0) AS TotalFacturado
            FROM \`${tClientes}\` c
            INNER JOIN \`${tPedidos}\` p ON p.\`${colClientePedido}\` = c.\`${pkClientes}\`
-           ${yearWhere}
+           ${filters.zone ? `INNER JOIN codigos_postales cp ON (cp.codpos_id = c.cli_codp_id OR (c.cli_codp_id IS NULL AND cp.codpos_CodigoPostal = c.cli_codigo_postal)) AND cp.codpos_ComunidadAutonoma = ?` : ''}
+           ${adminCliWhereSql}
            GROUP BY c.\`${pkClientes}\`, c.\`${colNombreRazon}\`, c.\`${colPoblacion}\`, c.\`${colCodigoPostal}\`, c.\`${colOK_KO}\`
-           ORDER BY TotalFacturado DESC
-           LIMIT ${Number(limitAdmin) || 10}`
-          , yearParams
+           ORDER BY TotalFacturado DESC LIMIT ${limitAdmin}`,
+          adminCliParams
         );
-        if (!Array.isArray(latest.clientes)) latest.clientes = [];
       } catch (e) {
-        console.error('Dashboard [admin] error clientes:', e?.message || e);
         latest.clientes = [];
-        dashboardErrors.clientes = e?.message || String(e);
+        dashboardErrors.clientes = e?.message;
       }
+
+      const pedWhereAdmin = buildPedidosBaseWhere();
+      const pedWhereAdminClause = pedWhereAdmin.where.length ? `WHERE ${pedWhereAdmin.where.join(' AND ')}` : '';
       try {
-        const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
-        const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
-        const pk = pedidosMeta?.pk || 'id';
-        const colNum = pedidosMeta?.colNumPedido || 'NumPedido';
-        const colFecha = pedidosMeta?.colFecha || 'FechaPedido';
-        const pedidosCols = await db._getColumns(tPedidos).catch(() => []);
-        const colTotal = db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'total']) || 'ped_total';
-        const colEstado = db._pickCIFromColumns(pedidosCols, ['ped_estado_txt', 'EstadoPedido', 'estado_pedido', 'Estado', 'estado']) || 'ped_estado_txt';
-        const where = (selectedYear !== 'all' && colFecha) ? `WHERE DATE(\`${colFecha}\`) BETWEEN ? AND ?` : '';
-        const params = (selectedYear !== 'all' && colFecha) ? [yearFrom, yearTo] : [];
         latest.pedidos = await db.query(
-          `SELECT \`${pk}\` AS Id, \`${colNum}\` AS NumPedido, \`${colFecha}\` AS FechaPedido, \`${colTotal}\` AS TotalPedido, \`${colEstado}\` AS EstadoPedido FROM \`${tPedidos}\` ${where} ORDER BY \`${pk}\` DESC LIMIT ${Number(limitAdmin) || 10}`,
-          params
+          `SELECT p.ped_id AS Id, p.\`${colPedNum}\` AS NumPedido, p.\`${colPedFecha}\` AS FechaPedido, p.\`${colPedTotal}\` AS TotalPedido, p.\`${colPedEstado}\` AS EstadoPedido
+           FROM \`${tPedidos}\` p ${pedWhereAdminClause} ORDER BY p.ped_id DESC LIMIT ${limitAdmin}`,
+          pedWhereAdmin.params
         );
-        if (!Array.isArray(latest.pedidos)) latest.pedidos = [];
       } catch (e) {
-        console.error('Dashboard [admin] error pedidos:', e?.message || e);
         latest.pedidos = [];
-        dashboardErrors.pedidos = e?.message || String(e);
+        dashboardErrors.pedidos = e?.message;
+      }
+
+      if (metaVisitas?.table) {
+        const visWhere = []; const visParams = [];
+        if (hasDateFilter && metaVisitas.colFecha) {
+          visWhere.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
+          visParams.push(dateFrom, dateTo);
+        }
+        if (filters.comercial) {
+          visWhere.push(`v.\`${metaVisitas.colComercial}\` = ?`);
+          visParams.push(filters.comercial);
+        }
+        const visWhereSql = visWhere.length ? `WHERE ${visWhere.join(' AND ')}` : '';
+        try {
+          const tClientesQ = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
+          const tComercialesQ = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
+          latest.visitas = await db.query(
+            `SELECT v.\`${metaVisitas.pk}\` AS Id, v.\`${metaVisitas.colFecha}\` AS Fecha, v.\`${metaVisitas.colTipo}\` AS TipoVisita, v.\`${metaVisitas.colEstado}\` AS Estado,
+              c.\`${colNombreRazon}\` AS ClienteNombre, co.\`${comercialesMeta?.colNombre || 'com_nombre'}\` AS ComercialNombre
+             FROM \`${metaVisitas.table}\` v
+             LEFT JOIN ${tClientesQ} c ON c.\`${pkClientes}\` = v.\`${metaVisitas.colCliente}\`
+             LEFT JOIN ${tComercialesQ} co ON co.\`${comercialesMeta?.pk || 'com_id'}\` = v.\`${metaVisitas.colComercial}\`
+             ${visWhereSql} ORDER BY v.\`${metaVisitas.pk}\` DESC LIMIT 10`,
+            visParams
+          );
+        } catch (_) {}
       }
     } else {
-      // Comercial: solo sus últimos clientes y sus últimos pedidos.
       try {
-        const list = await db.getClientesOptimizadoPaged(
-          { comercial: userId },
-          { limit: limitLatest, offset: 0, order: 'desc', compact: true }
+        const mcParams = [userId];
+        if (hasDateFilter) mcParams.push(dateFrom, dateTo);
+        latest.clientes = await db.query(
+          `SELECT c.\`${pkClientes}\` AS Id, c.\`${colNombreRazon}\` AS Nombre_Razon_Social,
+            COALESCE(SUM(p.\`${colPedTotal}\`), 0) AS TotalFacturado,
+            COUNT(p.ped_id) AS NumPedidos,
+            (SELECT MAX(v.\`${metaVisitas?.colFecha}\`) FROM \`${metaVisitas?.table}\` v WHERE v.\`${metaVisitas?.colCliente}\` = c.\`${pkClientes}\` AND v.\`${metaVisitas?.colComercial}\` = ?) AS UltimaVisita,
+            MAX(p.\`${colPedFecha}\`) AS UltimoPedido
+           FROM \`${tClientes}\` c
+           LEFT JOIN \`${tPedidos}\` p ON p.\`${colPedCliente}\` = c.\`${pkClientes}\` AND p.\`${colPedComercial}\` = ? ${hasDateFilter ? `AND DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?` : ''}
+           WHERE c.\`${clientesMeta?.colComercial || 'cli_com_id'}\` = ?
+           GROUP BY c.\`${pkClientes}\`, c.\`${colNombreRazon}\`
+           ORDER BY TotalFacturado DESC LIMIT ${limitComercial}`,
+          hasDateFilter ? [userId, userId, dateFrom, dateTo, userId] : [userId, userId, userId]
         );
-        latest.clientes = Array.isArray(list) ? list : [];
-      } catch (_) {
+        if (!Array.isArray(latest.clientes)) latest.clientes = [];
+        latest.clientes.forEach((c) => {
+          c.TicketMedio = c.NumPedidos > 0 ? Math.round((Number(c.TotalFacturado || 0) / c.NumPedidos) * 100) / 100 : null;
+        });
+      } catch (e) {
         latest.clientes = [];
       }
+
+      const pedEstadoFilter = filters.pedidoEstado !== 'todos' ? `AND p.\`${colPedEstado}\` LIKE ?` : '';
+      const pedEstadoParam = filters.pedidoEstado !== 'todos' ? [`%${filters.pedidoEstado}%`] : [];
       try {
-        if (hasUserId) {
-          const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
-          const tPedidos = pedidosMeta?.tPedidos || 'pedidos';
-          const pk = pedidosMeta?.pk || 'id';
-          const colComercial = pedidosMeta?.colComercial || null;
-          const colFecha = pedidosMeta?.colFecha || null;
-          if (colComercial && colFecha) {
-            const pedCols = await db._getColumns(tPedidos).catch(() => []);
-            const pedColList = pedCols.length ? pedCols.map((c) => `\`${c}\``).join(', ') : '*';
-            const sql =
-              selectedYear === 'all'
-                ? `SELECT ${pedColList} FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`
-                : `SELECT ${pedColList} FROM \`${tPedidos}\` WHERE \`${colComercial}\` = ? AND DATE(\`${colFecha}\`) BETWEEN ? AND ? ORDER BY \`${pk}\` DESC LIMIT ${Number(limitLatest) || 8}`;
-            const params = selectedYear === 'all' ? [userId] : [userId, yearFrom, yearTo];
-            const rows = await db.query(sql, params);
-            latest.pedidos = Array.isArray(rows) ? rows : [];
-          } else {
-            const rows = await db.getPedidosByComercial(userId).catch(() => []);
-            const filtered = (Array.isArray(rows) ? rows : []).filter((r) => {
-              if (selectedYear === 'all') return true;
-              const fv = _n(_n(r && r.FechaPedido, r && r.Fecha), null);
-              const y = fv ? Number(String(fv).slice(0, 4)) : NaN;
-              return !Number.isFinite(y) ? true : y === selectedYear;
-            });
-            latest.pedidos = filtered.slice(0, limitLatest);
-          }
-        } else {
-          latest.pedidos = [];
-        }
+        latest.pedidos = await db.query(
+          `SELECT p.ped_id AS Id, p.\`${colPedNum}\` AS NumPedido, p.\`${colPedFecha}\` AS FechaPedido, p.\`${colPedTotal}\` AS TotalPedido, p.\`${colPedEstado}\` AS EstadoPedido,
+            c.\`${colNombreRazon}\` AS ClienteNombre
+           FROM \`${tPedidos}\` p LEFT JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\`
+           WHERE p.\`${colPedComercial}\` = ? ${hasDateFilter ? `AND DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?` : ''} ${pedEstadoFilter}
+           ORDER BY p.ped_id DESC LIMIT ${limitComercial}`,
+          [userId, ...(hasDateFilter ? [dateFrom, dateTo] : []), ...pedEstadoParam]
+        );
       } catch (_) {
         latest.pedidos = [];
       }
-      // Visitas del comercial (mostrar abajo de clientes y pedidos)
+
       try {
-        if (!metaVisitas?.table) throw new Error('Sin meta visitas');
-        const clientesMeta = await db._ensureClientesMeta().catch(() => null);
-        const comercialesMeta = await db._ensureComercialesMeta().catch(() => null);
-        const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
-        const pkClientes = clientesMeta?.pk || 'Id';
-        const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
-        const pkComerciales = comercialesMeta?.pk || 'id';
-        const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
-        const colComercialNombre = comercialesMeta?.colNombre || 'com_nombre';
-        const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
-        const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
-        const selectClienteNombre = metaVisitas.colCliente ? `c.\`${colNombreRazon}\` as ClienteNombre` : 'NULL as ClienteNombre';
-        const selectComercialNombre = metaVisitas.colComercial ? `co.\`${colComercialNombre}\` as ComercialNombre` : 'NULL as ComercialNombre';
-        const where = [];
-        const params = [];
-        if (metaVisitas.colComercial && Number.isFinite(userId) && userId > 0) {
-          where.push(`v.\`${metaVisitas.colComercial}\` = ?`);
-          params.push(userId);
+        const paMeta = await db._ensurePedidosArticulosMeta().catch(() => null);
+        const tPA = paMeta?.table || 'pedidos_articulos';
+        const colPaPedId = paMeta?.colPedidoId || 'pedart_ped_id';
+        const colPaArtId = paMeta?.colArticulo || 'pedart_art_id';
+        const paCols = await db._getColumns(tPA).catch(() => []);
+        const colPaCantidad = db._pickCIFromColumns(paCols, ['pedart_cantidad', 'Cantidad']) || 'pedart_cantidad';
+        const colPaPvp = db._pickCIFromColumns(paCols, ['pedart_pvp', 'PVP']) || 'pedart_pvp';
+
+        const rpWhere = ['p.\`' + colPedComercial + '\` = ?']; const rpParams = [userId];
+        if (hasDateFilter) {
+          rpWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          rpParams.push(dateFrom, dateTo);
         }
-        if (selectedYear !== 'all' && metaVisitas.colFecha) {
-          where.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
-          params.push(yearFrom, yearTo);
+        if (filters.marca) {
+          rpWhere.push('a.art_mar_id = ?');
+          rpParams.push(filters.marca);
         }
-        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-        latest.visitas = await db.query(
-          `
-          SELECT
-            v.\`${metaVisitas.pk}\` as Id,
-            ${metaVisitas.colFecha ? `v.\`${metaVisitas.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
-            ${metaVisitas.colTipo ? `v.\`${metaVisitas.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
-            ${metaVisitas.colEstado ? `v.\`${metaVisitas.colEstado}\` as Estado,` : "'' as Estado,"}
-            ${metaVisitas.colCliente ? `v.\`${metaVisitas.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
-            ${metaVisitas.colComercial ? `v.\`${metaVisitas.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
-            ${selectClienteNombre},
-            ${selectComercialNombre}
-          FROM \`${metaVisitas.table}\` v
-          ${joinCliente}
-          ${joinComercial}
-          ${whereSql}
-          ORDER BY v.\`${metaVisitas.pk}\` DESC
-          LIMIT 10
-        `,
-          params
+
+        rankingProductos = await db.query(
+          `SELECT a.art_nombre AS Producto, COALESCE(SUM(pa.\`${colPaCantidad}\` * pa.\`${colPaPvp}\`), 0) AS Ventas, COALESCE(SUM(pa.\`${colPaCantidad}\`), 0) AS Unidades
+           FROM \`${tPedidos}\` p INNER JOIN \`${tPA}\` pa ON pa.\`${colPaPedId}\` = p.ped_id INNER JOIN articulos a ON a.art_id = pa.\`${colPaArtId}\`
+           WHERE ${rpWhere.join(' AND ')} GROUP BY a.art_id, a.art_nombre ORDER BY Ventas DESC LIMIT 10`,
+          rpParams
         );
-      } catch (_) {
-        latest.visitas = [];
+      } catch (_) {}
+
+      if (metaVisitas?.table) {
+        try {
+          const hoy = now.toISOString().slice(0, 10);
+          latest.proximasVisitas = await db.query(
+            `SELECT v.\`${metaVisitas.pk}\` AS Id, v.\`${metaVisitas.colFecha}\` AS Fecha, v.\`${metaVisitas.colTipo}\` AS TipoVisita, v.\`${metaVisitas.colEstado}\` AS Estado,
+              c.\`${colNombreRazon}\` AS ClienteNombre
+             FROM \`${metaVisitas.table}\` v
+             LEFT JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = v.\`${metaVisitas.colCliente}\`
+             WHERE v.\`${metaVisitas.colComercial}\` = ? AND DATE(v.\`${metaVisitas.colFecha}\`) >= ?
+             ORDER BY v.\`${metaVisitas.colFecha}\` ASC LIMIT 10`,
+            [userId, hoy]
+          );
+        } catch (_) {}
       }
     }
+
+    let zonas = [];
+    let comercialesList = [];
+    let marcasList = [];
     if (admin) {
       try {
-        if (!metaVisitas?.table) throw new Error('Sin meta visitas');
-
-        const clientesMeta = await db._ensureClientesMeta().catch(() => null);
-        const comercialesMeta = await db._ensureComercialesMeta().catch(() => null);
-        const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
-        const pkClientes = clientesMeta?.pk || 'Id';
-        const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
-        const pkComerciales = comercialesMeta?.pk || 'id';
-
-        const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
-        const colComercialNombre = comercialesMeta?.colNombre || 'com_nombre';
-        const joinCliente = metaVisitas.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${metaVisitas.colCliente}\` = c.\`${pkClientes}\`` : '';
-        const joinComercial = metaVisitas.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${metaVisitas.colComercial}\` = co.\`${pkComerciales}\`` : '';
-        const selectClienteNombre = metaVisitas.colCliente ? `c.\`${colNombreRazon}\` as ClienteNombre` : 'NULL as ClienteNombre';
-        const selectComercialNombre = metaVisitas.colComercial ? `co.\`${colComercialNombre}\` as ComercialNombre` : 'NULL as ComercialNombre';
-
-        const where = [];
-        const params = [];
-        if (selectedYear !== 'all' && metaVisitas.colFecha) {
-          where.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
-          params.push(yearFrom, yearTo);
-        }
-        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-        latest.visitas = await db.query(
-          `
-          SELECT
-            v.\`${metaVisitas.pk}\` as Id,
-            ${metaVisitas.colFecha ? `v.\`${metaVisitas.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
-            ${metaVisitas.colTipo ? `v.\`${metaVisitas.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
-            ${metaVisitas.colEstado ? `v.\`${metaVisitas.colEstado}\` as Estado,` : "'' as Estado,"}
-            ${metaVisitas.colCliente ? `v.\`${metaVisitas.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
-            ${metaVisitas.colComercial ? `v.\`${metaVisitas.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
-            ${selectClienteNombre},
-            ${selectComercialNombre}
-          FROM \`${metaVisitas.table}\` v
-          ${joinCliente}
-          ${joinComercial}
-          ${whereSql}
-          ORDER BY v.\`${metaVisitas.pk}\` DESC
-          LIMIT 10
-        `,
-          params
+        const [zonasRows] = await db.query(
+          'SELECT DISTINCT codpos_ComunidadAutonoma AS value FROM codigos_postales WHERE codpos_ComunidadAutonoma IS NOT NULL AND codpos_ComunidadAutonoma != "" ORDER BY codpos_ComunidadAutonoma'
         );
-      } catch (_) {
-        latest.visitas = [];
-      }
+        zonas = zonasRows || [];
+      } catch (_) {}
+      try {
+        comercialesList = await db.query(
+          `SELECT \`${comercialesMeta?.pk || 'com_id'}\` AS id, \`${comercialesMeta?.colNombre || 'com_nombre'}\` AS nombre FROM \`${comercialesMeta?.table || 'comerciales'}\` ORDER BY \`${comercialesMeta?.colNombre || 'com_nombre'}\``
+        );
+      } catch (_) {}
     }
+    try {
+      marcasList = await db.query('SELECT mar_id AS id, mar_nombre AS nombre FROM marcas ORDER BY mar_nombre');
+    } catch (_) {}
 
     res.render('dashboard', {
       stats,
       latest,
+      rankingComerciales,
+      rankingZona,
+      rankingProductos,
       dashboardErrors: dashboardErrors || {},
       years,
-      selectedYear
+      selectedYear,
+      filters,
+      periodOptions: PERIOD_OPTIONS,
+      zonas,
+      comercialesList,
+      marcasList
     });
   } catch (e) {
     next(e);
