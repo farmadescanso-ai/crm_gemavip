@@ -31,7 +31,17 @@
       </div>
     <% } %>
 
-    <% if (hasApiKey) { %>
+    <% if (hasApiKey && needsMigration) { %>
+      <div class="gv-alert warn" role="alert" style="margin-bottom: 16px;">
+        <strong>Migración pendiente</strong>
+        <p style="margin: 8px 0 12px 0;">Es necesario ejecutar la migración para añadir la columna <code>ped_id_holded</code> en la tabla pedidos.</p>
+        <form method="post" action="/admin/importar-holded/run-migration" style="display: inline;">
+          <button type="submit" class="btn primary">Ejecutar migración</button>
+        </form>
+      </div>
+    <% } %>
+
+    <% if (hasApiKey && !needsMigration) { %>
       <form id="gv-holded-sync-form" method="post" action="/admin/importar-holded/sync" style="max-width: 480px;">
         <div class="form-group" style="margin-bottom: 16px;">
           <label for="gv-holded-start">Fecha inicio</label>
@@ -54,10 +64,6 @@
           <span id="gv-holded-status" style="align-self: center; font-weight: 600;"></span>
         </div>
       </form>
-
-      <p style="margin-top: 20px; color: var(--gv-muted, #666); font-size: 14px;">
-        Solo se importan pedidos de clientes en la <strong>Provincia de Murcia</strong>. Los clientes que no existan se crearán automáticamente.
-      </p>
 
       <script>
         (() => {
@@ -102,6 +108,9 @@
           });
         })();
       </script>
+      <p style="margin-top: 20px; color: var(--gv-muted, #666); font-size: 14px;">
+        Solo se importan pedidos de clientes en la <strong>Provincia de Murcia</strong>. Los clientes que no existan se crearán automáticamente.
+      </p>
     <% } %>
   </div>
 </section>

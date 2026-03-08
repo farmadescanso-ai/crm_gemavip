@@ -19,7 +19,7 @@ const {
   SYSVAR_MAIL_FROM
 } = require('../lib/admin-helpers');
 const { getSmtpStatus, getGraphStatus } = require('../lib/mailer');
-const { runSyncHoldedPedidos } = require('../lib/sync-holded-pedidos');
+const { runSyncHoldedPedidos, runMigrationPedIdHolded } = require('../lib/sync-holded-pedidos');
 const { requireSystemAdmin } = require('../lib/auth');
 
 const router = express.Router();
@@ -33,15 +33,42 @@ router.get('/importar-holded', requireSystemAdmin, async (req, res, next) => {
     const hasApiKey = !!(process.env.HOLDED_API_KEY && process.env.HOLDED_API_KEY.trim());
     const error = typeof req.query.error === 'string' ? req.query.error : null;
     const success = typeof req.query.success === 'string' ? req.query.success : null;
+
+    let needsMigration = false;
+    if (hasApiKey) {
+      try {
+        if (!db.connected && !db.pool) await db.connect();
+        const cols = await db.query(
+          "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pedidos' AND COLUMN_NAME = 'ped_id_holded'"
+        );
+        needsMigration = !cols?.length;
+      } catch (_) {
+        needsMigration = true;
+      }
+    }
+
     return res.render('importar-holded', {
       title: 'Importar pedidos Holded',
       subtitle: 'Sincroniza pedidos de venta desde Holded al CRM. Solo se importan pedidos de clientes en la Provincia de Murcia.',
       hasApiKey,
+      needsMigration,
       error,
       success
     });
   } catch (e) {
     next(e);
+  }
+});
+
+router.post('/importar-holded/run-migration', requireSystemAdmin, async (req, res, next) => {
+  try {
+    const result = await runMigrationPedIdHolded();
+    if (result.ok) {
+      return res.redirect('/admin/importar-holded?success=' + encodeURIComponent('Migración ejecutada correctamente. Ya puedes importar pedidos.'));
+    }
+    return res.redirect('/admin/importar-holded?error=' + encodeURIComponent(result.error || 'Error al ejecutar migración'));
+  } catch (e) {
+    return res.redirect('/admin/importar-holded?error=' + encodeURIComponent(e?.message || 'Error'));
   }
 });
 
