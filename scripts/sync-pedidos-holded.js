@@ -112,6 +112,9 @@ async function main() {
     const formpRows = await db.query('SELECT formp_id FROM formas_pago ORDER BY formp_id ASC LIMIT 1');
     const formpId = formpRows?.[0]?.formp_id ?? 1;
 
+    const tippRows = await db.query('SELECT tipp_id FROM tipos_pedidos ORDER BY tipp_id ASC LIMIT 1');
+    const tippId = tippRows?.[0]?.tipp_id ?? 1;
+
     // Fetch pedidos Holded
     const documents = await fetchHolded(apiKey, 'GET', '/documents/salesorder', {
       starttmp: startTs,
@@ -225,13 +228,14 @@ async function main() {
 
       const [pedResult] = await db.pool.execute(
         `INSERT INTO pedidos (
-          ped_com_id, ped_cli_id, ped_formp_id, ped_Serie, ped_numero, ped_fecha, ped_estado_txt,
+          ped_com_id, ped_cli_id, ped_formp_id, ped_tipp_id, ped_Serie, ped_numero, ped_fecha, ped_estado_txt,
           ped_total, ped_base, ped_iva, ped_id_holded
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           1,
           clienteId,
           formpId,
+          tippId,
           'A',
           pedNumero,
           pedFecha,
