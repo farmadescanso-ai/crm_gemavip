@@ -219,6 +219,17 @@ app.use(
   })
 );
 
+// Fix FK notificaciones (una sola vez si FIX_NOTIF_FK_ON_STARTUP=1)
+let fixNotifFkDone = false;
+if (process.env.FIX_NOTIF_FK_ON_STARTUP === '1') {
+  db.fixNotifFkCliente()
+    .then((r) => {
+      fixNotifFkDone = true;
+      console.log('[FIX] notif FK:', r.dropped ? 'fk_notif_ag eliminada' : '', r.added ? 'fk_notif_cli añadida' : '');
+    })
+    .catch((e) => console.warn('[FIX] notif FK:', e?.message));
+}
+
 // Request ID estándar (útil para soporte)
 app.use((req, res, next) => {
   req.requestId = makeRequestId();
