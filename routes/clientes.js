@@ -43,6 +43,15 @@ try {
 
 const router = express.Router();
 
+router.get('/duplicados', requireLogin, requireAdmin, async (req, res, next) => {
+  try {
+    const grupos = await db.getClientesDuplicados({});
+    res.render('clientes-duplicados', { grupos: grupos || [], admin: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/', requireLogin, async (req, res, next) => {
   try {
     const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });

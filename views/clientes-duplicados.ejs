@@ -1,0 +1,65 @@
+<%- include('partials/header', { title: 'Clientes duplicados' }) %>
+
+<section class="card gv-contactos">
+  <div class="card-hd gv-contactos-hd">
+    <div class="gv-contactos-hd__title-row">
+      <h1 class="card-title gv-contactos-hd__title">Clientes duplicados</h1>
+      <a class="btn secondary" href="/clientes">← Volver a Contactos</a>
+    </div>
+    <p class="gv-contactos-hd__sub">
+      Grupos de contactos con mismo nombre, DNI/CIF, email y teléfono. Se consideran duplicados para fusionar o depurar.
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (!grupos || grupos.length === 0) { %>
+      <div class="gv-alert gv-alert--success">
+        No se han encontrado clientes duplicados. Todos los contactos tienen claves únicas.
+      </div>
+    <% } else { %>
+      <p><strong><%= grupos.length %></strong> grupo(s) de duplicados encontrado(s).</p>
+      <% grupos.forEach((grupo, idx) => { %>
+        <div class="gv-duplicados-grupo" style="margin: 24px 0; padding: 16px; border: 1px solid var(--gv-border, #ddd); border-radius: 8px; background: var(--gv-bg-subtle, #f9f9f9);">
+          <h3 style="margin: 0 0 12px 0; font-size: 1rem; color: var(--gv-muted, #666);">
+            Grupo <%= idx + 1 %> · <%= grupo.length %> registro(s) duplicado(s)
+          </h3>
+          <div class="table-wrap">
+            <table class="gv-contactos-table dash-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre / Razón Social</th>
+                  <th>Tipo</th>
+                  <th>Teléfono</th>
+                  <th>Email</th>
+                  <th>Provincia</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% grupo.forEach((c) => { %>
+                  <% const cid = c.id ?? c.Id ?? c.cli_id; %>
+                  <tr>
+                    <td><%= cid %></td>
+                    <td><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
+                    <td><span class="gv-badge gv-badge--<%= ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa') ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona') ? 'persona' : 'otros' %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
+                    <td><% const tel = String(c.Telefono ?? c.cli_telefono ?? c.Movil ?? c.cli_movil ?? '').trim(); %><%- include('partials/telefono-display', { telefono: tel }) %></td>
+                    <td><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
+                    <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>
+                    <td><% const estVal = c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? ''; %><%= (estVal === 'OK' || estVal === 'ok') ? 'Activo' : estVal %></td>
+                    <td>
+                      <a class="btn secondary icon" href="/clientes/<%= cid %>" title="Ver">Ver</a>
+                      <a class="btn secondary icon" href="/clientes/<%= cid %>/edit" title="Editar">Editar</a>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% }) %>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

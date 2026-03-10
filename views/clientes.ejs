@@ -12,6 +12,7 @@
     <div class="gv-contactos-hd__bar">
       <nav class="gv-contactos-tabs" aria-label="Filtrar por tipo">
         <a class="gv-contactos-tab <%= (typeof tipoContacto === 'undefined' || tipoContacto === '') ? 'is-active' : '' %>" href="/clientes?<%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %>">Todos</a>
+        <% if (typeof admin !== 'undefined' && admin) { %><a class="gv-contactos-tab" href="/clientes/duplicados" title="Ver grupos de contactos duplicados">Duplicados</a><% } %>
         <a class="gv-contactos-tab <%= tipoContacto === 'Empresa' ? 'is-active' : '' %>" href="/clientes?tipo=Empresa&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Empresas</a>
         <a class="gv-contactos-tab <%= tipoContacto === 'Persona' ? 'is-active' : '' %>" href="/clientes?tipo=Persona&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Personas</a>
         <a class="gv-contactos-tab <%= tipoContacto === 'Otros' ? 'is-active' : '' %>" href="/clientes?tipo=Otros&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Otros</a>

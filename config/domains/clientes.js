@@ -21,20 +21,21 @@ function normalizePhoneForDedup(raw) {
   return digits;
 }
 
+function getBusinessKey(r) {
+  const n = String(r.cli_nombre_razon_social ?? r.Nombre_Razon_Social ?? r.Nombre ?? '').trim().toLowerCase();
+  const d = String(r.cli_dni_cif ?? r.DNI_CIF ?? r.DniCif ?? '').trim().toLowerCase();
+  const e = String(r.cli_email ?? r.Email ?? r.email ?? '').trim().toLowerCase();
+  const telRaw = r.cli_telefono ?? r.Telefono ?? r.telefono ?? r.cli_movil ?? r.Movil ?? '';
+  const t = normalizePhoneForDedup(telRaw);
+  return `${n}|${d}|${e}|${t}`;
+}
+
 function deduplicateClientesByBusinessKey(rows, pk = 'cli_id') {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
   const seen = new Map();
   const getId = (r) => Number(r[pk] ?? r.Id ?? r.id ?? r.cli_id ?? 0) || 0;
-  const getKey = (r) => {
-    const n = String(r.cli_nombre_razon_social ?? r.Nombre_Razon_Social ?? r.Nombre ?? '').trim().toLowerCase();
-    const d = String(r.cli_dni_cif ?? r.DNI_CIF ?? r.DniCif ?? '').trim().toLowerCase();
-    const e = String(r.cli_email ?? r.Email ?? r.email ?? '').trim().toLowerCase();
-    const telRaw = r.cli_telefono ?? r.Telefono ?? r.telefono ?? r.cli_movil ?? r.Movil ?? '';
-    const t = normalizePhoneForDedup(telRaw);
-    return `${n}|${d}|${e}|${t}`;
-  };
   for (const r of rows) {
-    const key = getKey(r);
+    const key = getBusinessKey(r);
     const id = getId(r);
     const existing = seen.get(key);
     if (!existing || id < getId(existing)) {
@@ -42,6 +43,17 @@ function deduplicateClientesByBusinessKey(rows, pk = 'cli_id') {
     }
   }
   return Array.from(seen.values());
+}
+
+function groupClientesDuplicados(rows, pk = 'cli_id') {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const groups = new Map();
+  for (const r of rows) {
+    const key = getBusinessKey(r);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  return Array.from(groups.values()).filter((g) => g.length > 1);
 }
 
 module.exports = {
@@ -884,13 +896,18 @@ module.exports = {
       }
 
       const rows = await this.query(sql, params);
-      // Deduplicar por clave de negocio: mismo nombre + DNI/CIF + email + teléfono = mismo cliente
+      if (options.skipDedup === true || options.skipDedup === '1') return rows;
       return deduplicateClientesByBusinessKey(rows, pk);
     } catch (error) {
       console.error('❌ Error obteniendo clientes paginados:', error.message);
       console.error('❌ SQL (paged):', sql);
       throw error;
     }
+  },
+
+  async getClientesDuplicados(filters = {}) {
+    const rows = await this.getClientesOptimizado(filters);
+    return groupClientesDuplicados(rows || [], (await this._ensureClientesMeta()).pk || 'cli_id');
   },
 
   async countClientesOptimizado(filters = {}) {

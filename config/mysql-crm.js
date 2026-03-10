@@ -762,6 +762,10 @@ class MySQLCRM {
     return domains.clientes.getClientesOptimizadoPaged.apply(this, arguments);
   }
 
+  async getClientesDuplicados(filters = {}) {
+    return domains.clientes.getClientesDuplicados.apply(this, arguments);
+  }
+
   /**
    * Conteo para paginación con los mismos filtros que getClientesOptimizadoPaged.
    */
