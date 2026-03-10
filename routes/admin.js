@@ -443,14 +443,6 @@ router.get('/webhooks', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.get('/configuracion-whatsapp', requireAdmin, async (req, res, next) => {
-  try {
-    return res.render('configuracion-whatsapp');
-  } catch (e) {
-    next(e);
-  }
-});
-
 router.get('/configuracion-email', requireAdmin, async (req, res, next) => {
   try {
     let itemsRaw = await loadVariablesSistemaRaw();

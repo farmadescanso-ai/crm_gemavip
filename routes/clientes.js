@@ -35,10 +35,10 @@ function normalizeRelacionRow(r) {
   return { ...r, ...lower };
 }
 
-let notifyOnNewNotification = () => Promise.resolve();
+let sendPushToAdmins = () => Promise.resolve();
 try {
-  const notify = require('../lib/notify');
-  if (notify && typeof notify.notifyOnNewNotification === 'function') notifyOnNewNotification = notify.notifyOnNewNotification;
+  const wp = require('../lib/web-push');
+  if (wp && typeof wp.sendPushToAdmins === 'function') sendPushToAdmins = wp.sendPushToAdmins;
 } catch (_) {}
 
 const router = express.Router();
@@ -584,7 +584,7 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
     if (!(await db.isContactoAsignadoAPoolOSinAsignar(id))) return res.status(400).send('Este contacto ya está asignado a otro comercial.');
     await db.createSolicitudAsignacion(id, userId);
     const clienteNombre = item?.Nombre_Razon_Social ?? item?.Nombre ?? ('Cliente ' + id);
-    notifyOnNewNotification({ title: 'Nueva solicitud de asignación', body: `${res.locals.user?.nombre || 'Comercial'} solicita: ${clienteNombre}`, url: '/notificaciones' }).catch(() => {});
+    sendPushToAdmins({ title: 'Nueva solicitud de asignación', body: `${res.locals.user?.nombre || 'Comercial'} solicita: ${clienteNombre}`, url: '/notificaciones' }).catch(() => {});
     return res.redirect(`/clientes/${id}?solicitud=ok`);
   } catch (e) {
     next(e);
