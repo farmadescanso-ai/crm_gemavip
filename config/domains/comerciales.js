@@ -138,7 +138,7 @@ module.exports = {
   /**
    * ID del "pool" de clientes pendientes de asignar (cli_com_id = 26).
    * Los comerciales ven sus clientes + los del pool para poder asignárselos.
-   * Prioridad: COMERCIAL_POOL_ID (ej. 26) > búsqueda por COMERCIAL_POOL_NAME.
+   * Prioridad: COMERCIAL_POOL_ID > búsqueda por COMERCIAL_POOL_NAME > fallback 26.
    */
   async getComercialIdPool() {
     const poolIdEnv = process.env.COMERCIAL_POOL_ID;
@@ -146,20 +146,21 @@ module.exports = {
       const id = Number(poolIdEnv);
       if (id > 0) return id;
     }
-    const name = (process.env.COMERCIAL_POOL_NAME || 'Paco Lara').trim();
-    if (!name) return null;
-    try {
-      const t = await this._resolveTableNameCaseInsensitive('comerciales');
-      const cols = await this._getColumns(t).catch(() => []);
-      const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'com_id';
-      const colNombre = this._pickCIFromColumns(cols, ['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
-      const sql = `SELECT \`${pk}\` AS id FROM \`${t}\` WHERE TRIM(\`${colNombre}\`) = ? LIMIT 1`;
-      const rows = await this.query(sql, [name]);
-      const row = rows?.[0];
-      return row ? (row.id ?? row[pk] ?? null) : null;
-    } catch (_) {
-      return null;
+    const name = (process.env.COMERCIAL_POOL_NAME || '').trim();
+    if (name) {
+      try {
+        const t = await this._resolveTableNameCaseInsensitive('comerciales');
+        const cols = await this._getColumns(t).catch(() => []);
+        const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'com_id';
+        const colNombre = this._pickCIFromColumns(cols, ['com_nombre', 'Nombre', 'nombre']) || 'Nombre';
+        const sql = `SELECT \`${pk}\` AS id FROM \`${t}\` WHERE TRIM(\`${colNombre}\`) = ? LIMIT 1`;
+        const rows = await this.query(sql, [name]);
+        const row = rows?.[0];
+        if (row) return row.id ?? row[pk] ?? null;
+      } catch (_) { /* fallback */ }
     }
+    // Fallback: 26 = pendiente de asignar comercial (CRM Gemavip)
+    return 26;
   },
 
   async createComercial(payload) {
