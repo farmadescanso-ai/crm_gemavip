@@ -84,15 +84,23 @@
       fetch(form.action, {
         method: 'POST',
         body: new FormData(form),
-        redirect: 'follow'
+        redirect: 'follow',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
       }).then(function(r) {
         if (r.redirected) {
           window.location.href = r.url;
-        } else if (r.ok) {
-          window.location.reload();
-        } else {
-          return r.text().then(function(t) { throw new Error(t || 'Error ' + r.status); });
+          return;
         }
+        if (r.ok) {
+          return r.json().then(function(json) {
+            if (json.redirect) window.location.href = json.redirect;
+            else window.location.reload();
+          });
+        }
+        return r.json().catch(function() { return {}; }).then(function(json) {
+          throw new Error(json.error || 'Error ' + r.status);
+        });
       }).catch(function(err) {
         alert('Error al unificar: ' + (err.message || 'No se pudo completar'));
         btn.disabled = false;

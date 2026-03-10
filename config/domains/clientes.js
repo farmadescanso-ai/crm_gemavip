@@ -1004,6 +1004,22 @@ module.exports = {
       }
     }
 
+    const tCoop = await this._resolveTableNameCaseInsensitive('clientes_cooperativas').catch(() => null);
+    const colCoopCli = tCoop ? (await this._getColumns(tCoop).then((cc) => this._pickCIFromColumns(cc, ['clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'cliente_id']))) : null;
+    if (tCoop && colCoopCli) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${tCoop}\` SET \`${colCoopCli}\` = ? WHERE \`${colCoopCli}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
+    const tGrupos = await this._resolveTableNameCaseInsensitive('clientes_gruposCompras').catch(() => null);
+    const colGruposCli = tGrupos ? (await this._getColumns(tGrupos).then((cc) => this._pickCIFromColumns(cc, ['Id_Cliente', 'id_cliente', 'cliente_id']))) : null;
+    if (tGrupos && colGruposCli) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${tGrupos}\` SET \`${colGruposCli}\` = ? WHERE \`${colGruposCli}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
     for (const dupId of toDelete) {
       await this.query(`DELETE FROM \`${tClientes}\` WHERE \`${pkCol}\` = ?`, [dupId]);
     }
