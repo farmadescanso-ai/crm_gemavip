@@ -37,27 +37,36 @@ async function main() {
       process.exit(1);
     }
 
-    if (result.updates.length === 0) {
+    if (result.updates.length === 0 && (!result.failed || result.failed.length === 0)) {
       console.log('✓ No hay teléfonos que normalizar.');
       process.exit(0);
     }
 
-    console.log(`Encontrados ${result.updates.length} cliente(s) con teléfonos a normalizar.\n`);
-
-    for (const u of result.updates) {
-      console.log(`  cli_id ${u.id}:`);
-      if (u.telBefore !== u.telAfter) {
-        console.log(`    Teléfono: "${u.telBefore}" → "${u.telAfter}"`);
+    if (result.updates.length > 0) {
+      console.log(`Encontrados ${result.updates.length} cliente(s) con teléfonos a normalizar.\n`);
+      for (const u of result.updates) {
+        console.log(`  cli_id ${u.id}:`);
+        if (u.telBefore !== u.telAfter) {
+          console.log(`    Teléfono: "${u.telBefore}" → "${u.telAfter}"`);
+        }
+        if (u.movBefore !== u.movAfter) {
+          console.log(`    Móvil:    "${u.movBefore}" → "${u.movAfter}"`);
+        }
       }
-      if (u.movBefore !== u.movAfter) {
-        console.log(`    Móvil:    "${u.movBefore}" → "${u.movAfter}"`);
+      if (APPLY) {
+        console.log(`\n✓ Actualizados ${result.updated} cliente(s).`);
+      } else {
+        console.log('\nModo --dry-run: no se aplicaron cambios. Usa --apply para ejecutar.');
       }
     }
 
-    if (APPLY) {
-      console.log(`\n✓ Actualizados ${result.updated} cliente(s).`);
-    } else {
-      console.log('\nModo --dry-run: no se aplicaron cambios. Usa --apply para ejecutar.');
+    if (result.failed && result.failed.length > 0) {
+      console.log('\n--- INFORME: Registros no normalizables ---');
+      console.log('ID\tNombre\tTeléfono\tMóvil');
+      for (const f of result.failed) {
+        console.log(`${f.id}\t${(f.nombre || '').replace(/\t/g, ' ')}\t${f.telefono || ''}\t${f.movil || ''}`);
+      }
+      console.log(`\nTotal: ${result.failed.length} registro(s) con teléfonos que no se pudieron normalizar.`);
     }
 
     process.exit(0);

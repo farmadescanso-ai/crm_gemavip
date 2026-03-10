@@ -101,7 +101,8 @@ module.exports = {
     const ids = {
       potencial: map.get('potencial') || 1,
       activo: map.get('activo') || 2,
-      inactivo: map.get('inactivo') || 3
+      inactivo: map.get('inactivo') || 3,
+      lead: map.get('lead') || map.get('potencial') || 1
     };
     this._metaCache.estadoClienteIds = ids;
     return ids;

@@ -42,6 +42,27 @@
       <% } else { %>
         <p>✓ No hay teléfonos que normalizar. Todos están en formato correcto.</p>
       <% } %>
+
+      <% if (result.failed && result.failed.length > 0) { %>
+        <div class="gv-alert gv-alert--warning" style="margin-top: 24px;">
+          <strong>Registros no normalizables</strong> (teléfonos con formato inválido, ej. solo letras):
+        </div>
+        <div class="table-wrap" style="margin: 16px 0;">
+          <table class="dash-table">
+            <thead><tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Móvil</th></tr></thead>
+            <tbody>
+              <% result.failed.forEach((f) => { %>
+                <tr>
+                  <td><%= f.id %></td>
+                  <td><%= (f.nombre || '').replace(/</g, '&lt;') %></td>
+                  <td><%= (f.telefono || '').replace(/</g, '&lt;') %></td>
+                  <td><%= (f.movil || '').replace(/</g, '&lt;') %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
     <% } %>
 
     <form method="get" action="/admin/normalizar-telefonos-clientes" style="margin-top: 16px;">

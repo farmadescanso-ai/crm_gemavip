@@ -74,6 +74,7 @@
       <table class="gv-contactos-table">
         <colgroup>
           <col class="gv-contactos-col-acciones" />
+          <col class="gv-contactos-col-id" />
           <col class="gv-contactos-col-nombre" />
           <col class="gv-contactos-col-tipo" />
           <col class="gv-contactos-col-relaciones" />
@@ -86,6 +87,7 @@
         <thead>
           <tr>
             <th>Acciones</th>
+            <th class="gv-contactos-col-id" title="Identificador único">ID</th>
             <th class="gv-contactos-col-nombre">Nombre / Razón Social</th>
             <th>Tipo</th>
             <th class="gv-contactos-col-relaciones" title="Contactos relacionados">Rel.</th>
@@ -166,6 +168,7 @@
                   <% } %>
                 </div>
               </td>
+              <td class="gv-contactos-col-id"><%= cid %></td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
               <td><% const tipoClase = ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa') ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona') ? 'persona' : 'otros'; %><span class="gv-badge gv-badge--<%= tipoClase %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
               <td class="gv-contactos-col-relaciones"><% if (relCount > 0) { %><a href="/clientes/<%= cid %>/edit#tab_relaciones" class="gv-relaciones-badge" title="<%= relCount %> contacto(s) relacionado(s)"><%= relCount %></a><% } else { %>—<% } %></td>
@@ -173,7 +176,7 @@
               <td class="gv-contactos-col-email"><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
               <td class="gv-contactos-col-contacto"><%= (c.NomContacto || c.cli_nom_contacto || c.Nombre_Contacto) || '—' %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>
-              <td class="gv-contactos-col-estado"><%= c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? '' %></td>
+              <td class="gv-contactos-col-estado"><% const estVal = c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? ''; %><%= (estVal === 'OK' || estVal === 'ok') ? 'Activo' : estVal %></td>
             </tr>
           <% }) %>
         </tbody>
@@ -244,6 +247,7 @@
 .gv-contactos .gv-contactos-table-wrap { margin: 0 2px; }
 .gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 6px 0; font-size: 0.8125rem; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 13%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-id { width: 4%; min-width: 3em; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 19%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 8%; }
 .gv-contactos .gv-contactos-table col.gv-contactos-col-relaciones { width: 4%; text-align: center; }

@@ -1,10 +1,20 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
 const { asyncHandler, toBool, toInt, parsePagination } = require('./_utils');
+const { normalizeTelefonoForDB } = require('../../lib/telefono-utils');
 
 const router = express.Router();
 
 const { isAdminUser } = require('../../lib/auth');
+
+function normalizePayloadTelefonos(payload) {
+  for (const col of ['Telefono', 'Movil', 'cli_telefono', 'cli_movil']) {
+    if (payload[col] != null && String(payload[col]).trim()) {
+      const norm = normalizeTelefonoForDB(payload[col]);
+      payload[col] = norm;
+    }
+  }
+}
 
 /**
  * @openapi
@@ -381,6 +391,7 @@ router.post(
       Es_Principal: toInt(body.Es_Principal, 0) === 1 ? 1 : 0,
       Activa: body.Activa === undefined || body.Activa === null ? 1 : (toInt(body.Activa, 1) === 1 ? 1 : 0)
     };
+    normalizePayloadTelefonos(payload);
 
     const result = await db.createDireccionEnvio(payload);
     res.status(201).json({ ok: true, insertId: result?.insertId });

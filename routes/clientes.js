@@ -309,6 +309,7 @@ router.post('/:id(\\d+)/direcciones/new', requireLogin, async (req, res, next) =
       Es_Principal: body.Es_Principal === '1' ? 1 : 0,
       Activa: 1
     };
+    normalizePayloadTelefonos(payload);
     await db.createDireccionEnvio(payload);
     return res.redirect('/clientes/' + id + '/edit#tab_direccion');
   } catch (e) {

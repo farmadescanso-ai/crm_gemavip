@@ -848,12 +848,59 @@ module.exports = {
       }
 
       const rows = await this.query(sql, params);
-      return rows;
+      // Deduplicar por clave de negocio: mismo nombre + DNI/CIF + email + teléfono = mismo cliente
+      const deduped = this._deduplicateClientesByBusinessKey(rows, pk);
+      return deduped;
     } catch (error) {
       console.error('❌ Error obteniendo clientes paginados:', error.message);
       console.error('❌ SQL (paged):', sql);
       throw error;
     }
+  },
+
+  /**
+   * Normaliza teléfono para comparación en deduplicación: extrae dígitos y unifica
+   * formatos españoles (ej. "+34 696 82 2913" y "+6968229139" → 696822913).
+   */
+  _normalizePhoneForDedup(raw) {
+    if (raw == null || typeof raw !== 'string') return '';
+    const digits = String(raw).replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length === 11 && digits.startsWith('34') && /^34[6789]\d{8}$/.test(digits)) {
+      return digits.slice(2);
+    }
+    if (digits.length === 10 && /^[6789]\d{9}$/.test(digits)) {
+      return digits.slice(0, 9);
+    }
+    return digits;
+  },
+
+  /**
+   * Elimina duplicados de clientes que comparten la misma clave de negocio
+   * (nombre, DNI/CIF, email, teléfono normalizado). Se conserva el registro con menor ID.
+   * El teléfono se normaliza para que formatos como "+34 696 82 2913" y "+6968229139" coincidan.
+   */
+  _deduplicateClientesByBusinessKey(rows, pk = 'cli_id') {
+    if (!Array.isArray(rows) || rows.length === 0) return rows;
+    const seen = new Map();
+    const getId = (r) => Number(r[pk] ?? r.Id ?? r.id ?? r.cli_id ?? 0) || 0;
+    const getKey = (r) => {
+      const n = String(r.cli_nombre_razon_social ?? r.Nombre_Razon_Social ?? r.Nombre ?? '').trim().toLowerCase();
+      const d = String(r.cli_dni_cif ?? r.DNI_CIF ?? r.DniCif ?? '').trim().toLowerCase();
+      const e = String(r.cli_email ?? r.Email ?? r.email ?? '').trim().toLowerCase();
+      const telRaw = r.cli_telefono ?? r.Telefono ?? r.telefono ?? r.cli_movil ?? r.Movil ?? '';
+      const t = this._normalizePhoneForDedup(telRaw);
+      return `${n}|${d}|${e}|${t}`;
+    };
+    for (const r of rows) {
+      const key = getKey(r);
+      const id = getId(r);
+      const existing = seen.get(key);
+      if (!existing || id < getId(existing)) {
+        seen.set(key, r);
+      }
+    }
+    return Array.from(seen.values());
   },
 
   async countClientesOptimizado(filters = {}) {

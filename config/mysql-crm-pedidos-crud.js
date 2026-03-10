@@ -186,6 +186,34 @@ module.exports = {
       }
 
       debug('✅ [CREATE PEDIDO] Pedido creado con ID:', insertId);
+
+      try {
+        const clienteId = colCliente ? Number(mysqlData[colCliente] ?? input[colCliente] ?? input.ped_cli_id ?? input.Id_Cliente ?? input.ClienteId) : NaN;
+        if (colCliente && Number.isFinite(clienteId) && clienteId > 0) {
+          const countRows = await this.query(
+            `SELECT COUNT(*) as n FROM \`${tPedidos}\` WHERE \`${colCliente}\` = ?`,
+            [clienteId]
+          );
+          const count = Number(countRows?.[0]?.n ?? countRows?.[0]?.N ?? 0) || 0;
+          if (count === 1) {
+            const cliente = await this.getClienteById(clienteId);
+            const metaCli = await this._ensureClientesMeta().catch(() => null);
+            const colEstadoCli = metaCli?.colEstadoCliente || 'cli_estcli_id';
+            const estcliId = Number(cliente?.[colEstadoCli] ?? cliente?.cli_estcli_id ?? cliente?.Id_EstdoCliente ?? 0) || 0;
+            const ids = await this._getEstadoClienteIds().catch(() => ({ activo: 2, lead: 1 }));
+            if (estcliId !== ids.activo && ids.activo) {
+              await this.query(
+                `UPDATE \`${metaCli?.tClientes || 'clientes'}\` SET \`${colEstadoCli}\` = ? WHERE \`${metaCli?.pk || 'cli_id'}\` = ?`,
+                [ids.activo, clienteId]
+              );
+              debug('✅ [CREATE PEDIDO] Cliente', clienteId, 'pasado de Lead a Activo (primer pedido)');
+            }
+          }
+        }
+      } catch (e) {
+        debug('⚠️ [CREATE PEDIDO] No se pudo actualizar estado cliente:', e?.message);
+      }
+
       return { Id: insertId, id: insertId, insertId: insertId };
     } catch (error) {
       console.error('❌ [CREATE PEDIDO] Error creando pedido:', error.message);
