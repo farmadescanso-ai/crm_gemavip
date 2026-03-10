@@ -796,7 +796,17 @@ class MySQLCRM {
 
   // NOTIFICACIONES (delegado a domains/notificaciones.js)
   async _ensureNotificacionesMeta() { return domains.notificaciones._ensureNotificacionesMeta.apply(this); }
-  async createSolicitudAsignacion(idContacto, idComercialSolicitante) { return domains.notificaciones.createSolicitudAsignacion.apply(this, arguments); }
+  async createSolicitudAsignacion(idContacto, idComercialSolicitante) {
+    try {
+      return await domains.notificaciones.createSolicitudAsignacion.apply(this, arguments);
+    } catch (e) {
+      if (e.code === 'ER_NO_REFERENCED_ROW_2' && e.message?.includes('fk_notif_ag')) {
+        await this.fixNotifFkCliente();
+        return await domains.notificaciones.createSolicitudAsignacion.apply(this, arguments);
+      }
+      throw e;
+    }
+  }
   async getNotificacionesPendientesCount() { return domains.notificaciones.getNotificacionesPendientesCount.apply(this, arguments); }
   async getNotificaciones(limit, offset) { return domains.notificaciones.getNotificaciones.apply(this, arguments); }
   async getNotificacionesForComercial(idComercial, limit, offset) { return domains.notificaciones.getNotificacionesForComercial.apply(this, arguments); }
