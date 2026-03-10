@@ -50,5 +50,17 @@ router.post(
   })
 );
 
+/**
+ * POST /api/db/fix-notif-fk
+ * Corrige FK notif_ag_id: de agenda → clientes (notif_ag_id almacena id de cliente).
+ */
+router.post(
+  '/fix-notif-fk',
+  asyncHandler(async (_req, res) => {
+    const result = await db.fixNotifFkCliente();
+    res.json({ ok: true, ...result });
+  })
+);
+
 module.exports = router;
 

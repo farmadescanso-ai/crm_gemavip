@@ -803,6 +803,25 @@ class MySQLCRM {
   async getNotificacionesForComercialCount(idComercial) { return domains.notificaciones.getNotificacionesForComercialCount.apply(this, arguments); }
   async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) { return domains.notificaciones.resolverSolicitudAsignacion.apply(this, arguments); }
 
+  async fixNotifFkCliente() {
+    const result = { dropped: false, added: false };
+    await this.query('SET FOREIGN_KEY_CHECKS = 0');
+    try {
+      await this.query('ALTER TABLE `notificaciones` DROP FOREIGN KEY `fk_notif_ag`');
+      result.dropped = true;
+    } catch (e) {
+      if (e.code !== 'ER_CANT_DROP_FIELD_OR_KEY' && !e.message?.includes('check that it exists')) throw e;
+    }
+    try {
+      await this.query('ALTER TABLE `notificaciones` ADD CONSTRAINT `fk_notif_cli` FOREIGN KEY (`notif_ag_id`) REFERENCES `clientes`(`cli_id`) ON DELETE CASCADE ON UPDATE CASCADE');
+      result.added = true;
+    } catch (e) {
+      if (e.code !== 'ER_DUP_KEYNAME' && !e.message?.includes('Duplicate')) throw e;
+    }
+    await this.query('SET FOREIGN_KEY_CHECKS = 1');
+    return result;
+  }
+
   async moverClienteAPapelera(clienteId, eliminadoPor) {
     return domains.clientes.moverClienteAPapelera.apply(this, arguments);
   }
