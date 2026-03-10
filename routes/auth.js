@@ -63,8 +63,17 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).render('login', { title: 'Login', error: 'Credenciales incorrectas' });
     }
 
+    const comId = Number(_n(comercial.com_id, comercial.id, comercial.Id)) || 0;
+    const poolId = await db.getComercialIdPool();
+    if (poolId != null && comId === Number(poolId)) {
+      return res.status(403).render('login', {
+        title: 'Login',
+        error: 'Esta cuenta es de uso interno (pool). No se puede iniciar sesión.'
+      });
+    }
+
     req.session.user = {
-      id: _n(_n(comercial.com_id, comercial.id), comercial.Id),
+      id: comId,
       nombre: _n(comercial.com_nombre, comercial.Nombre || null),
       email: _n(_n(comercial.com_email, comercial.Email), comercial.email || email),
       roles: normalizeRoles(_n(comercial.com_roll, comercial.Roll || comercial.roll || comercial.Rol))

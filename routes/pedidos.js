@@ -454,10 +454,15 @@ router.get('/new', requireLogin, async (_req, res, next) => {
     if (formaPagoTransfer && _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null && !(formasPago || []).some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))) formasPago.push(formaPagoTransfer);
     // Nota: artículos puede ser grande; lo usamos para selector simple (mejorable con búsqueda más adelante).
     const articulos = await db.getArticulos({}).catch(() => []);
-    const clientesRecent = await db
-      .getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' })
-      .catch(() => []);
     const admin = isAdminUser(res.locals.user);
+    const clientesFilters = { comercial: res.locals.user?.id };
+    if (!admin && res.locals.user?.id) {
+      const poolId = await db.getComercialIdPool();
+      if (poolId) clientesFilters.comercialPoolId = poolId;
+    }
+    const clientesRecent = await db
+      .getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' })
+      .catch(() => []);
     res.render('pedido-form', {
       mode: 'create',
       admin,
@@ -502,6 +507,11 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const articulos = await db.getArticulos({}).catch(() => []);
     const body = req.body || {};
     const admin = isAdminUser(res.locals.user);
+    const clientesFilters = { comercial: res.locals.user?.id };
+    if (!admin && res.locals.user?.id) {
+      const poolId = await db.getComercialIdPool();
+      if (poolId) clientesFilters.comercialPoolId = poolId;
+    }
     const esEspecial = body.EsEspecial === '1' || body.EsEspecial === 1 || body.EsEspecial === true || String(body.EsEspecial || '').toLowerCase() === 'on';
     const tarifaIn = Number(body.Id_Tarifa);
     const tarifaId = Number.isFinite(tarifaIn) ? tarifaIn : NaN;
@@ -581,7 +591,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
         articulos,
         item: pedidoPayload,
         lineas,
-        clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
+        clientes: await db.getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
         canEdit: true,
         error: 'No se pueden crear pedidos para un cliente sin DNI/CIF. Indica el DNI/CIF del cliente y asígnalo como activo.'
       });
@@ -599,7 +609,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
         articulos,
         item: pedidoPayload,
         lineas,
-        clientes: await db.getClientesOptimizadoPaged({ comercial: res.locals.user?.id }, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
+        clientes: await db.getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
         canEdit: true,
         error: 'No se pueden crear pedidos para un cliente inactivo. Activa el cliente en Contactos.'
       });
@@ -1323,8 +1333,14 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
         })()
       : '';
     const articulos = await db.getArticulos({}).catch(() => []);
+    const comercialEdit = _n(item && (item.Id_Cial ?? item.ped_com_id), res.locals.user && res.locals.user.id);
+    const clientesFiltersEdit = { comercial: comercialEdit };
+    if (!admin && res.locals.user?.id) {
+      const poolId = await db.getComercialIdPool();
+      if (poolId) clientesFiltersEdit.comercialPoolId = poolId;
+    }
     const clientesRecent = await db
-      .getClientesOptimizadoPaged({ comercial: _n(item && (item.Id_Cial ?? item.ped_com_id), res.locals.user && res.locals.user.id) }, { limit: 10, offset: 0, compact: true, order: 'desc' })
+      .getClientesOptimizadoPaged(clientesFiltersEdit, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
     const lineasRaw = await db.getArticulosByPedido(id).catch(() => []);
 

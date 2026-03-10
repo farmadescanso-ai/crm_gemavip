@@ -54,7 +54,7 @@ router.get(
     const filters = {
       tipoCliente: req.query.tipoCliente ?? req.query.tipoClienteId,
       provincia: req.query.provincia ?? req.query.provinciaId,
-      // Seguridad/alcance: si hay usuario en sesión y no es admin, solo sus clientes asignados.
+      // Seguridad/alcance: si hay usuario en sesión y no es admin, solo sus clientes + pool (cli_com_id=26).
       comercial: sessionUser && !isAdmin ? sessionUser.id : (req.query.comercial ?? req.query.comercialId),
       comercialIncludePool: toBool(req.query.comercialIncludePool, false),
       conVentas: toBool(req.query.conVentas, false),
@@ -64,6 +64,10 @@ router.get(
       // compat: admitir q o search (la implementación usa filters.q)
       q
     };
+    if (!isAdmin && sessionUser?.id) {
+      const poolId = await db.getComercialIdPool();
+      if (poolId) filters.comercialPoolId = poolId;
+    }
 
     const [items, total] = await Promise.all([
       db.getClientesOptimizadoPaged(filters, { limit, offset }),
@@ -129,6 +133,10 @@ router.get(
       q: qq,
       comercial: (sessionUser && !isAdmin && !allowAll) ? sessionUser.id : undefined
     };
+    if (!allowAll && sessionUser && !isAdmin && sessionUser.id) {
+      const poolId = await db.getComercialIdPool();
+      if (poolId) filters.comercialPoolId = poolId;
+    }
 
     const items = await db.getClientesOptimizadoPaged(filters, {
       limit,
@@ -165,6 +173,10 @@ router.get(
       exclude: exclude > 0 ? exclude : undefined,
       comercial: (sessionUser && !isAdmin && !allowAll) ? sessionUser.id : undefined
     };
+    if (!allowAll && sessionUser && !isAdmin && sessionUser.id) {
+      const poolId = await db.getComercialIdPool();
+      if (poolId) filters.comercialPoolId = poolId;
+    }
 
     const items = await db.getClientesOptimizadoPaged(filters, {
       limit,

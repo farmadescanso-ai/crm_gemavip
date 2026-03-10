@@ -135,7 +135,17 @@ module.exports = {
     return c ? (c.com_id ?? c.id ?? c.Id ?? null) : null;
   },
 
+  /**
+   * ID del "pool" de clientes pendientes de asignar (cli_com_id = 26).
+   * Los comerciales ven sus clientes + los del pool para poder asignárselos.
+   * Prioridad: COMERCIAL_POOL_ID (ej. 26) > búsqueda por COMERCIAL_POOL_NAME.
+   */
   async getComercialIdPool() {
+    const poolIdEnv = process.env.COMERCIAL_POOL_ID;
+    if (poolIdEnv != null && poolIdEnv !== '' && !isNaN(Number(poolIdEnv))) {
+      const id = Number(poolIdEnv);
+      if (id > 0) return id;
+    }
     const name = (process.env.COMERCIAL_POOL_NAME || 'Paco Lara').trim();
     if (!name) return null;
     try {
