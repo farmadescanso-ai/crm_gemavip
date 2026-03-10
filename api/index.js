@@ -454,6 +454,37 @@ app.get('/api/email-test', requireAdmin, async (req, res) => {
   }
 });
 
+// Diagnóstico WhatsApp (solo admin): comprobar si Twilio está configurado
+app.get('/api/whatsapp-status', requireAdmin, async (req, res) => {
+  try {
+    const { resolveWhatsAppConfig } = require('../lib/whatsapp');
+    const cfg = await resolveWhatsAppConfig();
+    return res.json({
+      configured: cfg.configured,
+      hasAccountSid: Boolean(cfg.accountSid),
+      hasAuthToken: Boolean(cfg.authToken),
+      hasFrom: Boolean(cfg.from),
+      hasTo: Boolean(cfg.to),
+      from: cfg.from ? 'whatsapp:+***' : '',
+      to: cfg.to ? 'whatsapp:+***' : ''
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e?.message });
+  }
+});
+
+// Prueba de envío WhatsApp (solo admin)
+app.get('/api/whatsapp-test', requireAdmin, async (req, res) => {
+  try {
+    const { sendWhatsAppNotification } = require('../lib/whatsapp');
+    const msg = 'Mensaje de prueba · CRM Gemavip. Si recibes esto, las notificaciones funcionan.';
+    const result = await sendWhatsAppNotification(msg);
+    return res.json(result);
+  } catch (e) {
+    return res.status(500).json({ sent: false, error: e?.message });
+  }
+});
+
 // Service Worker (Web Push): debe estar en raíz para scope /
 app.get('/sw.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
