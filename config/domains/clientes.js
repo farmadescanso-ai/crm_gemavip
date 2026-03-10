@@ -910,6 +910,107 @@ module.exports = {
     return groupClientesDuplicados(rows || [], (await this._ensureClientesMeta()).pk || 'cli_id');
   },
 
+  async mergeClientesDuplicados(ids) {
+    const arr = Array.isArray(ids) ? ids : (typeof ids === 'string' ? ids.split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n > 0) : []);
+    if (arr.length < 2) throw new Error('Se necesitan al menos 2 IDs para unificar');
+    const uniqueIds = [...new Set(arr)].sort((a, b) => a - b);
+    const primaryId = uniqueIds[0];
+    const toDelete = uniqueIds.slice(1);
+
+    const meta = await this._ensureClientesMeta();
+    const { pk, tClientes, cols } = meta;
+    const colsList = Array.isArray(cols) ? cols : (await this._getColumns(tClientes)) || [];
+    const pkCol = colsList.find((c) => c.toLowerCase() === pk.toLowerCase()) || pk;
+
+    const clientes = [];
+    for (const id of uniqueIds) {
+      const c = await this.getClienteById(id);
+      if (!c) throw new Error(`Cliente ${id} no encontrado`);
+      clientes.push(c);
+    }
+
+    const merged = {};
+    const skipCols = new Set([pkCol, 'cli_id', 'Id', 'id'].map((x) => x.toLowerCase()));
+    for (const col of colsList) {
+      if (skipCols.has(col.toLowerCase())) continue;
+      for (const c of clientes) {
+        const val = c[col];
+        if (val !== undefined && val !== null && (typeof val !== 'string' || String(val).trim() !== '')) {
+          merged[col] = val;
+          break;
+        }
+      }
+    }
+
+    const { normalizeTelefonoForDB } = require('../../lib/telefono-utils');
+    for (const col of ['cli_telefono', 'cli_movil']) {
+      if (merged[col]) merged[col] = normalizeTelefonoForDB(merged[col]) || merged[col];
+    }
+
+    await this.updateCliente(primaryId, merged);
+
+    const pedidosMeta = await this._ensurePedidosMeta().catch(() => null);
+    const colPedCli = pedidosMeta?.colCliente;
+    const tPedidos = pedidosMeta?.tPedidos;
+    if (tPedidos && colPedCli) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${tPedidos}\` SET \`${colPedCli}\` = ? WHERE \`${colPedCli}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
+    const direnvMeta = await this._ensureDireccionesEnvioMeta?.().catch(() => null);
+    if (direnvMeta?.table && direnvMeta?.colCliente) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${direnvMeta.table}\` SET \`${direnvMeta.colCliente}\` = ? WHERE \`${direnvMeta.colCliente}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
+    const visMeta = await this._ensureVisitasMeta?.().catch(() => null);
+    if (visMeta?.table && visMeta?.colCliente) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${visMeta.table}\` SET \`${visMeta.colCliente}\` = ? WHERE \`${visMeta.colCliente}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
+    const tRel = await this._resolveTableNameCaseInsensitive('clientes_relacionados').catch(() => null);
+    if (tRel) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${tRel}\` SET clirel_cli_origen_id = ? WHERE clirel_cli_origen_id = ?`, [primaryId, dupId]);
+        await this.query(`UPDATE \`${tRel}\` SET clirel_cli_relacionado_id = ? WHERE clirel_cli_relacionado_id = ?`, [primaryId, dupId]);
+      }
+      await this.query(`DELETE FROM \`${tRel}\` WHERE clirel_cli_origen_id = clirel_cli_relacionado_id`);
+    }
+
+    const tCont = await this._resolveTableNameCaseInsensitive('clientes_contactos').catch(() => null);
+    const colContCli = tCont ? (await this._getColumns(tCont).then((cc) => this._pickCIFromColumns(cc, ['clicont_cli_id', 'Id_Cliente', 'cliente_id']))) : null;
+    if (tCont && colContCli) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${tCont}\` SET \`${colContCli}\` = ? WHERE \`${colContCli}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
+    const colCliRel = this._pickCIFromColumns(colsList, ['cli_Id_cliente_relacionado', 'cli_id_cliente_relacionado']);
+    if (colCliRel) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${tClientes}\` SET \`${colCliRel}\` = ? WHERE \`${colCliRel}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
+    const tNotif = await this._resolveTableNameCaseInsensitive('notificaciones').catch(() => null);
+    const colNotifCli = tNotif ? (await this._getColumns(tNotif).then((cc) => this._pickCIFromColumns(cc, ['notif_ag_id', 'notif_cli_id', 'id_contacto']))) : null;
+    if (tNotif && colNotifCli) {
+      for (const dupId of toDelete) {
+        await this.query(`UPDATE \`${tNotif}\` SET \`${colNotifCli}\` = ? WHERE \`${colNotifCli}\` = ?`, [primaryId, dupId]);
+      }
+    }
+
+    for (const dupId of toDelete) {
+      await this.query(`DELETE FROM \`${tClientes}\` WHERE \`${pkCol}\` = ?`, [dupId]);
+    }
+
+    return { primaryId, mergedCount: toDelete.length };
+  },
+
   async countClientesOptimizado(filters = {}) {
     let sql = '';
     try {

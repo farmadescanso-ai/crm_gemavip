@@ -56,6 +56,13 @@
               </tbody>
             </table>
           </div>
+          <p class="gv-duplicados-motivo" style="margin: 12px 0 0 0; font-size: 0.875rem; color: var(--gv-muted, #666);">
+            <strong>Motivo:</strong> Mismo nombre, DNI/CIF, email y teléfono (clave de negocio idéntica).
+          </p>
+          <form method="post" action="/clientes/unificar" style="margin-top: 12px;" onsubmit="return confirm('¿Unificar estos <%= grupo.length %> registros en uno solo? Se conservará el de menor ID y se fusionarán los datos. Los pedidos, direcciones y visitas de los demás pasarán al registro unificado.');">
+            <input type="hidden" name="ids" value="<%= grupo.map(c => c.id ?? c.Id ?? c.cli_id).join(',') %>" />
+            <button type="submit" class="btn">Unificar en un solo contacto</button>
+          </form>
         </div>
       <% }) %>
     <% } %>

@@ -52,6 +52,23 @@ router.get('/duplicados', requireLogin, requireAdmin, async (req, res, next) => 
   }
 });
 
+router.post('/unificar', requireLogin, requireAdmin, async (req, res, next) => {
+  try {
+    const raw = req.body.ids;
+    const ids = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(',').map((x) => parseInt(String(x).trim(), 10)).filter((n) => Number.isFinite(n) && n > 0) : []);
+    if (ids.length < 2) {
+      req.flash?.('error', 'Se necesitan al menos 2 IDs para unificar.');
+      return res.redirect('/clientes/duplicados');
+    }
+    const { primaryId } = await db.mergeClientesDuplicados(ids);
+    req.flash?.('success', `Clientes unificados correctamente en el registro #${primaryId}.`);
+    return res.redirect(`/clientes/${primaryId}`);
+  } catch (e) {
+    req.flash?.('error', e.message || 'Error al unificar clientes.');
+    return res.redirect('/clientes/duplicados');
+  }
+});
+
 router.get('/', requireLogin, async (req, res, next) => {
   try {
     const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
