@@ -51,7 +51,8 @@ router.get('/', requireLogin, async (req, res, next) => {
     const order = String(req.query.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
     const admin = isAdminUser(res.locals.user);
     const baseFilters = admin ? {} : { comercial: res.locals.user?.id };
-    if (!admin && res.locals.user?.id) {
+    // Pool (26) solo al buscar: listado normal = solo asignados; búsqueda = asignados + pendientes para poder asignarlos
+    if (!admin && res.locals.user?.id && q) {
       const poolId = await db.getComercialIdPool();
       if (poolId) baseFilters.comercialPoolId = poolId;
     }

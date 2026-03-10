@@ -455,11 +455,8 @@ router.get('/new', requireLogin, async (_req, res, next) => {
     // Nota: artículos puede ser grande; lo usamos para selector simple (mejorable con búsqueda más adelante).
     const articulos = await db.getArticulos({}).catch(() => []);
     const admin = isAdminUser(res.locals.user);
+    // Lista reciente: solo asignados (pool solo al buscar en Contactos)
     const clientesFilters = { comercial: res.locals.user?.id };
-    if (!admin && res.locals.user?.id) {
-      const poolId = await db.getComercialIdPool();
-      if (poolId) clientesFilters.comercialPoolId = poolId;
-    }
     const clientesRecent = await db
       .getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
@@ -508,10 +505,6 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const body = req.body || {};
     const admin = isAdminUser(res.locals.user);
     const clientesFilters = { comercial: res.locals.user?.id };
-    if (!admin && res.locals.user?.id) {
-      const poolId = await db.getComercialIdPool();
-      if (poolId) clientesFilters.comercialPoolId = poolId;
-    }
     const esEspecial = body.EsEspecial === '1' || body.EsEspecial === 1 || body.EsEspecial === true || String(body.EsEspecial || '').toLowerCase() === 'on';
     const tarifaIn = Number(body.Id_Tarifa);
     const tarifaId = Number.isFinite(tarifaIn) ? tarifaIn : NaN;
@@ -1335,10 +1328,6 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
     const articulos = await db.getArticulos({}).catch(() => []);
     const comercialEdit = _n(item && (item.Id_Cial ?? item.ped_com_id), res.locals.user && res.locals.user.id);
     const clientesFiltersEdit = { comercial: comercialEdit };
-    if (!admin && res.locals.user?.id) {
-      const poolId = await db.getComercialIdPool();
-      if (poolId) clientesFiltersEdit.comercialPoolId = poolId;
-    }
     const clientesRecent = await db
       .getClientesOptimizadoPaged(clientesFiltersEdit, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);

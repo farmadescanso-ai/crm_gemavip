@@ -64,7 +64,8 @@ router.get(
       // compat: admitir q o search (la implementación usa filters.q)
       q
     };
-    if (!isAdmin && sessionUser?.id) {
+    // Pool (26) solo al buscar: listado = solo asignados; búsqueda = asignados + pendientes
+    if (!isAdmin && sessionUser?.id && filters.q && String(filters.q).trim()) {
       const poolId = await db.getComercialIdPool();
       if (poolId) filters.comercialPoolId = poolId;
     }
