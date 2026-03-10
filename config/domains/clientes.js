@@ -981,44 +981,35 @@ module.exports = {
       await this.query(`DELETE FROM \`${tRel}\` WHERE clirel_cli_origen_id = clirel_cli_relacionado_id`);
     }
 
-    const tCont = await this._resolveTableNameCaseInsensitive('clientes_contactos').catch(() => null);
-    const colContCli = tCont ? (await this._getColumns(tCont).then((cc) => this._pickCIFromColumns(cc, ['clicont_cli_id', 'Id_Cliente', 'cliente_id']))) : null;
-    if (tCont && colContCli) {
+    const runFkUpdate = async (table, colCliente) => {
+      if (!table || !colCliente) return;
       for (const dupId of toDelete) {
-        await this.query(`UPDATE \`${tCont}\` SET \`${colContCli}\` = ? WHERE \`${colContCli}\` = ?`, [primaryId, dupId]);
+        await this.query(`UPDATE \`${table}\` SET \`${colCliente}\` = ? WHERE \`${colCliente}\` = ?`, [primaryId, dupId]);
       }
-    }
+    };
+    const tryFkUpdate = async (tableName, cands, label) => {
+      try {
+        const t = await this._resolveTableNameCaseInsensitive(tableName).catch(() => null);
+        if (!t) return;
+        const cols = await this.query(`SHOW COLUMNS FROM \`${t}\``).catch(() => []);
+        const colNames = (cols || []).map((r) => String(r.Field || r.field || '').trim()).filter(Boolean);
+        const colCli = this._pickCIFromColumns(colNames, cands);
+        if (colCli) await runFkUpdate(t, colCli);
+      } catch (e) {
+        debug(`[MERGE] Omitiendo ${label}: ${e.message}`);
+      }
+    };
 
+    await tryFkUpdate('clientes_contactos', ['clicont_cli_id', 'Id_Cliente', 'cliente_id'], 'clientes_contactos');
     const colCliRel = this._pickCIFromColumns(colsList, ['cli_Id_cliente_relacionado', 'cli_id_cliente_relacionado']);
     if (colCliRel) {
       for (const dupId of toDelete) {
         await this.query(`UPDATE \`${tClientes}\` SET \`${colCliRel}\` = ? WHERE \`${colCliRel}\` = ?`, [primaryId, dupId]);
       }
     }
-
-    const tNotif = await this._resolveTableNameCaseInsensitive('notificaciones').catch(() => null);
-    const colNotifCli = tNotif ? (await this._getColumns(tNotif).then((cc) => this._pickCIFromColumns(cc, ['notif_ag_id', 'notif_cli_id', 'id_contacto']))) : null;
-    if (tNotif && colNotifCli) {
-      for (const dupId of toDelete) {
-        await this.query(`UPDATE \`${tNotif}\` SET \`${colNotifCli}\` = ? WHERE \`${colNotifCli}\` = ?`, [primaryId, dupId]);
-      }
-    }
-
-    const tCoop = await this._resolveTableNameCaseInsensitive('clientes_cooperativas').catch(() => null);
-    const colCoopCli = tCoop ? (await this._getColumns(tCoop).then((cc) => this._pickCIFromColumns(cc, ['clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'cliente_id']))) : null;
-    if (tCoop && colCoopCli) {
-      for (const dupId of toDelete) {
-        await this.query(`UPDATE \`${tCoop}\` SET \`${colCoopCli}\` = ? WHERE \`${colCoopCli}\` = ?`, [primaryId, dupId]);
-      }
-    }
-
-    const tGrupos = await this._resolveTableNameCaseInsensitive('clientes_gruposCompras').catch(() => null);
-    const colGruposCli = tGrupos ? (await this._getColumns(tGrupos).then((cc) => this._pickCIFromColumns(cc, ['Id_Cliente', 'id_cliente', 'cliente_id']))) : null;
-    if (tGrupos && colGruposCli) {
-      for (const dupId of toDelete) {
-        await this.query(`UPDATE \`${tGrupos}\` SET \`${colGruposCli}\` = ? WHERE \`${colGruposCli}\` = ?`, [primaryId, dupId]);
-      }
-    }
+    await tryFkUpdate('notificaciones', ['notif_ag_id', 'notif_cli_id', 'id_contacto'], 'notificaciones');
+    await tryFkUpdate('clientes_cooperativas', ['clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'cliente_id'], 'clientes_cooperativas');
+    await tryFkUpdate('clientes_gruposCompras', ['detgru_cli_id', 'Id_Cliente', 'id_cliente', 'cliente_id'], 'clientes_gruposCompras');
 
     for (const dupId of toDelete) {
       await this.query(`DELETE FROM \`${tClientes}\` WHERE \`${pkCol}\` = ?`, [dupId]);
