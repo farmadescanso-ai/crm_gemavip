@@ -795,6 +795,7 @@ class MySQLCRM {
   }
 
   // NOTIFICACIONES (delegado a domains/notificaciones.js)
+  async _ensureNotificacionesMeta() { return domains.notificaciones._ensureNotificacionesMeta.apply(this); }
   async createSolicitudAsignacion(idContacto, idComercialSolicitante) { return domains.notificaciones.createSolicitudAsignacion.apply(this, arguments); }
   async getNotificacionesPendientesCount() { return domains.notificaciones.getNotificacionesPendientesCount.apply(this, arguments); }
   async getNotificaciones(limit, offset) { return domains.notificaciones.getNotificaciones.apply(this, arguments); }

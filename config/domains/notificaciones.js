@@ -1,10 +1,31 @@
 /**
  * Dominio: Notificaciones (solicitudes de asignación de contactos, pedidos especiales)
  * Se invoca con db como contexto (this) para acceder a query, _getColumns, etc.
+ * Compatible con esquema legacy (tipo, id_contacto...) y migrado (notif_tipo, notif_ag_id...).
  */
 'use strict';
 
 module.exports = {
+  async _ensureNotificacionesMeta() {
+    if (this.__notifMeta) return this.__notifMeta;
+    const cols = await this._getColumns('notificaciones').catch(() => []);
+    const pick = (cands) => this._pickCIFromColumns(cols, cands);
+    const meta = {
+      pk: pick(['notif_id', 'id']) || 'id',
+      colTipo: pick(['notif_tipo', 'tipo']) || 'tipo',
+      colContacto: pick(['notif_ag_id', 'notif_cli_id', 'id_contacto']) || 'id_contacto',
+      colComercial: pick(['notif_com_id', 'id_comercial_solicitante']) || 'id_comercial_solicitante',
+      colAdmin: pick(['notif_com_admin_id', 'id_admin_resolvio']) || 'id_admin_resolvio',
+      colPedido: pick(['notif_ped_id', 'id_pedido']) || 'id_pedido',
+      colEstado: pick(['notif_estado', 'estado']) || 'estado',
+      colFechaCreacion: pick(['notif_fecha_creacion', 'fecha_creacion']) || 'fecha_creacion',
+      colFechaResolucion: pick(['notif_fecha_resolucion', 'fecha_resolucion']) || 'fecha_resolucion',
+      colNotas: pick(['notif_notas', 'notas']) || 'notas'
+    };
+    this.__notifMeta = meta;
+    return meta;
+  },
+
   async _ensureNotificacionesTable() {
     try {
       await this.query(`
@@ -47,15 +68,20 @@ module.exports = {
 
   async createSolicitudAsignacion(idContacto, idComercialSolicitante) {
     await this._ensureNotificacionesTable();
+    const m = await this._ensureNotificacionesMeta();
+    const cols = [m.colTipo, m.colContacto, m.colPedido, m.colComercial, m.colEstado];
+    const colList = cols.map((c) => `\`${c}\``).join(', ');
     try {
       const r = await this.query(
-        'INSERT INTO `notificaciones` (tipo, id_contacto, id_pedido, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?, ?)',
+        `INSERT INTO \`notificaciones\` (${colList}) VALUES (?, ?, ?, ?, ?)`,
         ['asignacion_contacto', idContacto, null, idComercialSolicitante, 'pendiente']
       );
       return r?.insertId ?? r?.affectedRows ?? null;
     } catch (_e) {
+      const colsAlt = [m.colTipo, m.colContacto, m.colComercial, m.colEstado];
+      const colListAlt = colsAlt.map((c) => `\`${c}\``).join(', ');
       const r = await this.query(
-        'INSERT INTO `notificaciones` (tipo, id_contacto, id_comercial_solicitante, estado) VALUES (?, ?, ?, ?)',
+        `INSERT INTO \`notificaciones\` (${colListAlt}) VALUES (?, ?, ?, ?)`,
         ['asignacion_contacto', idContacto, idComercialSolicitante, 'pendiente']
       );
       return r?.insertId ?? r?.affectedRows ?? null;
@@ -65,7 +91,8 @@ module.exports = {
   async getNotificacionesPendientesCount() {
     try {
       await this._ensureNotificacionesTable();
-      const rows = await this.query('SELECT COUNT(*) AS n FROM `notificaciones` WHERE estado = \'pendiente\'');
+      const m = await this._ensureNotificacionesMeta();
+      const rows = await this.query(`SELECT COUNT(*) AS n FROM \`notificaciones\` WHERE \`${m.colEstado}\` = 'pendiente'`);
       if (!rows) return 0;
       const first = Array.isArray(rows) ? rows[0] : rows;
       const n = first?.n ?? first?.N ?? (Array.isArray(first) ? first[0] : 0);
@@ -80,10 +107,8 @@ module.exports = {
     const o = Math.max(0, Number(offset));
     await this._ensureNotificacionesTable();
     try {
-      const cols = await this._getColumns('notificaciones').catch(() => []);
-      const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
-      const hasPedido = colsLower.has('id_pedido');
-      const sql = `SELECT id, tipo, id_contacto, ${hasPedido ? 'id_pedido' : 'NULL AS id_pedido'}, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM \`notificaciones\` ORDER BY fecha_creacion DESC LIMIT ${l} OFFSET ${o}`;
+      const m = await this._ensureNotificacionesMeta();
+      const sql = `SELECT \`${m.pk}\` as id, \`${m.colTipo}\` as tipo, \`${m.colContacto}\` as id_contacto, \`${m.colPedido}\` as id_pedido, \`${m.colComercial}\` as id_comercial_solicitante, \`${m.colEstado}\` as estado, \`${m.colAdmin}\` as id_admin_resolvio, \`${m.colFechaCreacion}\` as fecha_creacion, \`${m.colFechaResolucion}\` as fecha_resolucion, \`${m.colNotas}\` as notas FROM \`notificaciones\` ORDER BY \`${m.colFechaCreacion}\` DESC LIMIT ${l} OFFSET ${o}`;
       const rows = await this.query(sql);
       const list = Array.isArray(rows) ? rows : (rows && typeof rows === 'object' && !rows.insertId ? [rows] : []);
       const items = list.map((n) => ({
@@ -135,13 +160,11 @@ module.exports = {
     const o = Math.max(0, Number(offset));
     await this._ensureNotificacionesTable();
     try {
-      const cols = await this._getColumns('notificaciones').catch(() => []);
-      const colsLower = new Set((cols || []).map((c) => String(c).toLowerCase()));
-      const hasPedido = colsLower.has('id_pedido');
-      const sql = `SELECT id, tipo, id_contacto, ${hasPedido ? 'id_pedido' : 'NULL AS id_pedido'}, id_comercial_solicitante, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas
+      const m = await this._ensureNotificacionesMeta();
+      const sql = `SELECT \`${m.pk}\` as id, \`${m.colTipo}\` as tipo, \`${m.colContacto}\` as id_contacto, \`${m.colPedido}\` as id_pedido, \`${m.colComercial}\` as id_comercial_solicitante, \`${m.colEstado}\` as estado, \`${m.colAdmin}\` as id_admin_resolvio, \`${m.colFechaCreacion}\` as fecha_creacion, \`${m.colFechaResolucion}\` as fecha_resolucion, \`${m.colNotas}\` as notas
         FROM \`notificaciones\`
-        WHERE id_comercial_solicitante = ?
-        ORDER BY fecha_creacion DESC
+        WHERE \`${m.colComercial}\` = ?
+        ORDER BY \`${m.colFechaCreacion}\` DESC
         LIMIT ${l} OFFSET ${o}`;
       const rows = await this.query(sql, [cid]);
       const list = Array.isArray(rows) ? rows : [];
@@ -188,7 +211,8 @@ module.exports = {
     if (!Number.isFinite(cid) || cid <= 0) return 0;
     await this._ensureNotificacionesTable();
     try {
-      const rows = await this.query('SELECT COUNT(*) AS n FROM `notificaciones` WHERE id_comercial_solicitante = ?', [cid]);
+      const m = await this._ensureNotificacionesMeta();
+      const rows = await this.query(`SELECT COUNT(*) AS n FROM \`notificaciones\` WHERE \`${m.colComercial}\` = ?`, [cid]);
       const first = Array.isArray(rows) ? rows[0] : rows;
       return Number(first?.n ?? 0) || 0;
     } catch (_) {
@@ -198,12 +222,13 @@ module.exports = {
 
   async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) {
     await this._ensureNotificacionesTable();
-    const rows = await this.query('SELECT id, tipo, id_contacto, id_comercial_solicitante, id_pedido, estado, id_admin_resolvio, fecha_creacion, fecha_resolucion, notas FROM `notificaciones` WHERE id = ? AND estado = ?', [idNotif, 'pendiente']);
+    const m = await this._ensureNotificacionesMeta();
+    const rows = await this.query(`SELECT \`${m.pk}\` as id, \`${m.colTipo}\` as tipo, \`${m.colContacto}\` as id_contacto, \`${m.colComercial}\` as id_comercial_solicitante, \`${m.colPedido}\` as id_pedido, \`${m.colEstado}\` as estado, \`${m.colAdmin}\` as id_admin_resolvio, \`${m.colFechaCreacion}\` as fecha_creacion, \`${m.colFechaResolucion}\` as fecha_resolucion, \`${m.colNotas}\` as notas FROM \`notificaciones\` WHERE \`${m.pk}\` = ? AND \`${m.colEstado}\` = ?`, [idNotif, 'pendiente']);
     if (!rows?.length) return { ok: false, message: 'Notificación no encontrada o ya resuelta' };
     const notif = rows[0];
     const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await this.query(
-      'UPDATE `notificaciones` SET estado = ?, id_admin_resolvio = ?, fecha_resolucion = ? WHERE id = ?',
+      `UPDATE \`notificaciones\` SET \`${m.colEstado}\` = ?, \`${m.colAdmin}\` = ?, \`${m.colFechaResolucion}\` = ? WHERE \`${m.pk}\` = ?`,
       [aprobar ? 'aprobada' : 'rechazada', idAdmin, ahora, idNotif]
     );
     if (String(notif.tipo || '').toLowerCase() === 'pedido_especial') {

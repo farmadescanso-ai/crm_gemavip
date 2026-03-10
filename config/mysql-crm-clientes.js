@@ -183,6 +183,7 @@ module.exports = {
 
   async ensureNotificacionPedidoEspecial(pedidoId, clienteId, idComercialSolicitante, notas = null) {
     await this._ensureNotificacionesTable();
+    const m = await this._ensureNotificacionesMeta();
     const pid = Number.parseInt(String(pedidoId ?? '').trim(), 10);
     const cid = Number.parseInt(String(clienteId ?? '').trim(), 10);
     const sid = Number.parseInt(String(idComercialSolicitante ?? '').trim(), 10);
@@ -191,22 +192,26 @@ module.exports = {
     if (!Number.isFinite(sid) || sid <= 0) return null;
     try {
       const existing = await this.query(
-        'SELECT id FROM `notificaciones` WHERE tipo = ? AND estado = ? AND id_pedido = ? LIMIT 1',
+        `SELECT \`${m.pk}\` FROM \`notificaciones\` WHERE \`${m.colTipo}\` = ? AND \`${m.colEstado}\` = ? AND \`${m.colPedido}\` = ? LIMIT 1`,
         ['pedido_especial', 'pendiente', pid]
       );
-      if (Array.isArray(existing) && existing.length) return existing[0]?.id ?? null;
+      if (Array.isArray(existing) && existing.length) return existing[0]?.[m.pk] ?? existing[0]?.id ?? null;
     } catch (_) {}
     try {
+      const cols = [m.colTipo, m.colContacto, m.colPedido, m.colComercial, m.colEstado, m.colNotas];
+      const colList = cols.map((c) => `\`${c}\``).join(', ');
       const r = await this.query(
-        'INSERT INTO `notificaciones` (tipo, id_contacto, id_pedido, id_comercial_solicitante, estado, notas) VALUES (?, ?, ?, ?, ?, ?)',
+        `INSERT INTO \`notificaciones\` (${colList}) VALUES (?, ?, ?, ?, ?, ?)`,
         ['pedido_especial', cid, pid, sid, 'pendiente', notas ? String(notas).slice(0, 500) : null]
       );
       return r?.insertId ?? r?.affectedRows ?? null;
     } catch (_e) {
       const safeNotes = (notas ? String(notas) : '').trim();
       const fallbackNotes = `${safeNotes ? (safeNotes + ' · ') : ''}pedidoId=${pid}`.slice(0, 500);
+      const colsAlt = [m.colTipo, m.colContacto, m.colComercial, m.colEstado, m.colNotas];
+      const colListAlt = colsAlt.map((c) => `\`${c}\``).join(', ');
       const r = await this.query(
-        'INSERT INTO `notificaciones` (tipo, id_contacto, id_comercial_solicitante, estado, notas) VALUES (?, ?, ?, ?, ?)',
+        `INSERT INTO \`notificaciones\` (${colListAlt}) VALUES (?, ?, ?, ?, ?)`,
         ['pedido_especial', cid, sid, 'pendiente', fallbackNotes]
       );
       return r?.insertId ?? r?.affectedRows ?? null;
