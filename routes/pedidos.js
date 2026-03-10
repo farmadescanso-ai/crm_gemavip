@@ -19,6 +19,12 @@ const { sendPedidoEmail, sendTransferExcelEmail, getSmtpStatus, getGraphStatus, 
 const { escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { loadMarcasForSelect } = require('../lib/articulo-helpers');
 const { SYSVAR_PEDIDOS_MAIL_TO } = require('../lib/admin-helpers');
+
+let notifyOnNewNotification = () => Promise.resolve();
+try {
+  const notify = require('../lib/notify');
+  if (notify && typeof notify.notifyOnNewNotification === 'function') notifyOnNewNotification = notify.notifyOnNewNotification;
+} catch (_) {}
 const {
   tokenizeSmartQuery,
   parseLineasFromBody,
@@ -643,6 +649,9 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const result = await db.updatePedidoWithLineas(pedidoId, {}, lineas);
     if (esEspecial && !admin) {
       await db.ensureNotificacionPedidoEspecial(pedidoId, finalPayload.Id_Cliente, finalPayload.Id_Cial).catch(() => null);
+      const cli = await db.getClienteById(finalPayload.Id_Cliente).catch(() => null);
+      const clienteNombre = (cli?.cli_nombre_razon_social ?? cli?.Nombre_Razon_Social ?? cli?.Nombre ?? '').trim() || `Cliente ${finalPayload.Id_Cliente}`;
+      notifyOnNewNotification({ title: 'Nuevo pedido especial', body: `Pedido #${pedidoId} - ${clienteNombre}. Pendiente de aprobación.`, url: '/notificaciones' }).catch(() => {});
     }
     return res.redirect(`/pedidos/${pedidoId}`);
   } catch (e) {
@@ -1474,6 +1483,9 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
     await db.updatePedidoWithLineas(id, finalPayload, lineas);
     if (esEspecial && !admin) {
       await db.ensureNotificacionPedidoEspecial(id, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
+      const cli = await db.getClienteById(pedidoPayload.Id_Cliente).catch(() => null);
+      const clienteNombre = (cli?.cli_nombre_razon_social ?? cli?.Nombre_Razon_Social ?? cli?.Nombre ?? '').trim() || `Cliente ${pedidoPayload.Id_Cliente}`;
+      notifyOnNewNotification({ title: 'Nuevo pedido especial', body: `Pedido #${id} - ${clienteNombre}. Pendiente de aprobación.`, url: '/notificaciones' }).catch(() => {});
     }
     return res.redirect(`/pedidos/${id}`);
   } catch (e) {
