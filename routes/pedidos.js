@@ -19,6 +19,11 @@ const { sendPedidoEmail, sendTransferExcelEmail, getSmtpStatus, getGraphStatus, 
 const { escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { loadMarcasForSelect } = require('../lib/articulo-helpers');
 const { SYSVAR_PEDIDOS_MAIL_TO } = require('../lib/admin-helpers');
+let sendPushToAdmins = () => Promise.resolve();
+try {
+  const wp = require('../lib/web-push');
+  if (wp && typeof wp.sendPushToAdmins === 'function') sendPushToAdmins = wp.sendPushToAdmins;
+} catch (_) {}
 const {
   tokenizeSmartQuery,
   parseLineasFromBody,
@@ -643,6 +648,22 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const result = await db.updatePedidoWithLineas(pedidoId, {}, lineas);
     if (esEspecial && !admin) {
       await db.ensureNotificacionPedidoEspecial(pedidoId, finalPayload.Id_Cliente, finalPayload.Id_Cial).catch(() => null);
+      const cliente = await db.getClienteById(finalPayload.Id_Cliente).catch(() => null);
+      const clienteNombre = cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? ('Cliente ' + finalPayload.Id_Cliente);
+      sendPushToAdmins({
+        title: 'Nuevo pedido especial',
+        body: `${res.locals.user?.nombre || 'Comercial'} solicita pedido especial: ${clienteNombre}`,
+        url: '/notificaciones',
+        tipo: 'pedido_especial',
+        pedidoId,
+        clienteId: finalPayload.Id_Cliente,
+        clienteNombre,
+        cliente,
+        userId: res.locals.user?.id,
+        userName: res.locals.user?.nombre,
+        userEmail: res.locals.user?.email,
+        lineas
+      }).catch(() => {});
     }
     return res.redirect(`/pedidos/${pedidoId}`);
   } catch (e) {
@@ -1474,6 +1495,22 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
     await db.updatePedidoWithLineas(id, finalPayload, lineas);
     if (esEspecial && !admin) {
       await db.ensureNotificacionPedidoEspecial(id, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
+      const cliente = await db.getClienteById(pedidoPayload.Id_Cliente).catch(() => null);
+      const clienteNombre = cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? ('Cliente ' + pedidoPayload.Id_Cliente);
+      sendPushToAdmins({
+        title: 'Nuevo pedido especial',
+        body: `${res.locals.user?.nombre || 'Comercial'} solicita pedido especial: ${clienteNombre}`,
+        url: '/notificaciones',
+        tipo: 'pedido_especial',
+        pedidoId: id,
+        clienteId: pedidoPayload.Id_Cliente,
+        clienteNombre,
+        cliente,
+        userId: res.locals.user?.id,
+        userName: res.locals.user?.nombre,
+        userEmail: res.locals.user?.email,
+        lineas
+      }).catch(() => {});
     }
     return res.redirect(`/pedidos/${id}`);
   } catch (e) {
