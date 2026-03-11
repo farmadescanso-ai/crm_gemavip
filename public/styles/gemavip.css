@@ -1995,7 +1995,7 @@ table.calendar td.is-empty{
 }
 .gv-contactos-table-wrap .gv-contactos-table tbody tr:hover { background: rgba(0,139,210,.04); }
 .gv-contactos-table-wrap .gv-contactos-table .gv-contactos-col-nombre {
-  padding-left: 28px;
+  padding-left: 5px;
   padding-right: 28px;
 }
 
