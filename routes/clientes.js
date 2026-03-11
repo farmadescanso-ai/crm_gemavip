@@ -583,19 +583,41 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
     if (!item) return res.status(404).send('No encontrado');
     if (!(await db.isContactoAsignadoAPoolOSinAsignar(id))) return res.status(400).send('Este contacto ya está asignado a otro comercial.');
     await db.createSolicitudAsignacion(id, userId);
-    const clienteNombre = item?.Nombre_Razon_Social ?? item?.Nombre ?? ('Cliente ' + id);
-    await sendPushToAdmins({
+    const clienteNombre = item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? item?.Nombre ?? ('Cliente ' + id);
+    const userName = res.locals.user?.nombre || 'Comercial';
+    const webhookPayload = {
       title: 'Nueva solicitud de asignación',
-      body: `${res.locals.user?.nombre || 'Comercial'} solicita: ${clienteNombre}`,
+      body: `${userName} solicita: ${clienteNombre}`,
       url: '/notificaciones',
       tipo: 'solicitud_asignacion',
       clienteId: id,
       clienteNombre,
-      cliente: item,
+      cli_id: id,
+      cli_dni_cif: item?.cli_dni_cif ?? item?.DNI_CIF ?? null,
+      cli_nombre_razon_social: item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? null,
+      cli_numero_farmacia: item?.cli_numero_farmacia ?? null,
+      cli_direccion: item?.cli_direccion ?? item?.Direccion ?? null,
+      cli_poblacion: item?.cli_poblacion ?? item?.Poblacion ?? null,
+      cli_codigo_postal: item?.cli_codigo_postal ?? item?.CodigoPostal ?? null,
+      cli_movil: item?.cli_movil ?? item?.Movil ?? null,
+      cli_email: item?.cli_email ?? item?.Email ?? null,
+      cli_tipo_cliente_txt: item?.cli_tipo_cliente_txt ?? item?.TipoCliente ?? null,
+      cli_tipc_id: item?.cli_tipc_id ?? item?.Id_TipoCliente ?? null,
+      cli_tipc_id_nombre: item?.TipoClienteNombre ?? null,
+      cli_prov_id: item?.cli_prov_id ?? item?.Id_Provincia ?? null,
+      cli_prov_id_nombre: item?.ProvinciaNombre ?? null,
+      cli_telefono: item?.cli_telefono ?? item?.Telefono ?? null,
+      cli_pais_id: item?.cli_pais_id ?? item?.Id_Pais ?? null,
+      cli_pais_id_nombre: item?.PaisNombre ?? null,
+      cli_ok_ko: item?.cli_ok_ko ?? item?.OK_KO ?? null,
+      cli_estcli_id: item?.cli_estcli_id ?? item?.Id_EstdoCliente ?? null,
+      cli_estcli_id_nombre: item?.EstadoClienteNombre ?? null,
+      cli_activo: item?.cli_activo ?? item?.Activo ?? null,
       userId,
-      userName: res.locals.user?.nombre,
+      userName,
       userEmail: res.locals.user?.email
-    }).catch(() => {});
+    };
+    await sendPushToAdmins(webhookPayload).catch(() => {});
     return res.redirect(`/clientes/${id}?solicitud=ok`);
   } catch (e) {
     next(e);
