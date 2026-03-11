@@ -46,6 +46,35 @@ function normalizePayloadCodigoPostal(payload) {
   }
 }
 
+/** Convierte valor fecha/hora a formato MySQL DATETIME (YYYY-MM-DD HH:MM:SS). */
+function toMysqlDatetime(val) {
+  if (val == null || val === '') return null;
+  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(val.trim())) {
+    const m = val.trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
+    if (m) return `${m[1]} ${m[2].length === 5 ? m[2] + ':00' : m[2].padEnd(8, '0').slice(0, 8)}`;
+  }
+  const d = val instanceof Date ? val : new Date(val);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${day} ${h}:${min}:${s}`;
+}
+
+const DATETIME_COLS = ['cli_creado_holded', 'cli_FechaBaja', 'FechaBaja', 'cli_fechabaja'];
+
+function normalizePayloadDatetimes(payload) {
+  for (const col of DATETIME_COLS) {
+    if (payload[col] != null && payload[col] !== '') {
+      const norm = toMysqlDatetime(payload[col]);
+      payload[col] = norm;
+    }
+  }
+}
+
 async function aplicarNormalizacionEspanaCliente(db, payload, { clienteActual, provincias }) {
   const cp = String(payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal ?? clienteActual?.cli_codigo_postal ?? clienteActual?.CodigoPostal ?? '').trim();
   const provId = payload.cli_prov_id ?? payload.Id_Provincia ?? payload.id_provincia ?? clienteActual?.cli_prov_id ?? clienteActual?.Id_Provincia;
@@ -117,6 +146,7 @@ module.exports = {
     try {
       normalizePayloadTelefonos(payload);
       normalizePayloadCodigoPostal(payload);
+      normalizePayloadDatetimes(payload);
 
       if (payload.Tarifa !== undefined) {
         const raw = payload.Tarifa;
@@ -421,6 +451,7 @@ module.exports = {
     try {
       normalizePayloadTelefonos(payload);
       normalizePayloadCodigoPostal(payload);
+      normalizePayloadDatetimes(payload);
 
       if (payload.Tarifa === undefined || payload.Tarifa === null || (typeof payload.Tarifa === 'string' && payload.Tarifa.trim() === '')) {
         payload.Tarifa = 0;
