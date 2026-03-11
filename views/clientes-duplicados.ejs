@@ -26,6 +26,7 @@
             <table class="gv-contactos-table dash-table">
               <thead>
                 <tr>
+                  <th>Acciones</th>
                   <th>ID</th>
                   <th>Nombre / Razón Social</th>
                   <th>Tipo</th>
@@ -33,13 +34,16 @@
                   <th>Email</th>
                   <th>Provincia</th>
                   <th>Estado</th>
-                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 <% grupo.forEach((c) => { %>
                   <% const cid = c.id ?? c.Id ?? c.cli_id; %>
                   <tr>
+                    <td>
+                      <a class="btn secondary icon" href="/clientes/<%= cid %>" title="Ver">Ver</a>
+                      <a class="btn secondary icon" href="/clientes/<%= cid %>/edit" title="Editar">Editar</a>
+                    </td>
                     <td><%= cid %></td>
                     <td><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
                     <td><span class="gv-badge gv-badge--<%= ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa') ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona') ? 'persona' : 'otros' %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
@@ -47,10 +51,6 @@
                     <td><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
                     <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>
                     <td><% const estVal = c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? ''; %><%= (estVal === 'OK' || estVal === 'ok') ? 'Activo' : estVal %></td>
-                    <td>
-                      <a class="btn secondary icon" href="/clientes/<%= cid %>" title="Ver">Ver</a>
-                      <a class="btn secondary icon" href="/clientes/<%= cid %>/edit" title="Editar">Editar</a>
-                    </td>
                   </tr>
                 <% }) %>
               </tbody>
