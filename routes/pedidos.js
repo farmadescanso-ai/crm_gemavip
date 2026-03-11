@@ -650,7 +650,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
       await db.ensureNotificacionPedidoEspecial(pedidoId, finalPayload.Id_Cliente, finalPayload.Id_Cial).catch(() => null);
       const cliente = await db.getClienteById(finalPayload.Id_Cliente).catch(() => null);
       const clienteNombre = cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? ('Cliente ' + finalPayload.Id_Cliente);
-      sendPushToAdmins({
+      await sendPushToAdmins({
         title: 'Nuevo pedido especial',
         body: `${res.locals.user?.nombre || 'Comercial'} solicita pedido especial: ${clienteNombre}`,
         url: '/notificaciones',
@@ -1497,7 +1497,7 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
       await db.ensureNotificacionPedidoEspecial(id, pedidoPayload.Id_Cliente, pedidoPayload.Id_Cial).catch(() => null);
       const cliente = await db.getClienteById(pedidoPayload.Id_Cliente).catch(() => null);
       const clienteNombre = cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? ('Cliente ' + pedidoPayload.Id_Cliente);
-      sendPushToAdmins({
+      await sendPushToAdmins({
         title: 'Nuevo pedido especial',
         body: `${res.locals.user?.nombre || 'Comercial'} solicita pedido especial: ${clienteNombre}`,
         url: '/notificaciones',
