@@ -202,7 +202,7 @@ module.exports = {
         const colEstadoCliente = meta?.colEstadoCliente || null;
         if (colEstadoCliente) {
           const ids = await this._getEstadoClienteIds().catch(() => ({ potencial: 1, activo: 2, inactivo: 3 }));
-          const dniToCheck = (payload.DNI_CIF !== undefined) ? payload.DNI_CIF : (clienteActual?.DNI_CIF);
+          const dniToCheck = payload.DNI_CIF ?? payload.cli_dni_cif ?? clienteActual?.DNI_CIF ?? clienteActual?.cli_dni_cif;
           const dniValido = this._isValidDniCif(dniToCheck);
           const estadoFromPayload = payload.Id_EstdoCliente ?? payload[colEstadoCliente] ?? null;
           const estadoReq = (estadoFromPayload !== undefined && estadoFromPayload !== null && String(estadoFromPayload).trim() !== '')
@@ -462,7 +462,7 @@ module.exports = {
       const colEstadoCliente = meta?.colEstadoCliente || null;
       if (colEstadoCliente) {
         const ids = await this._getEstadoClienteIds().catch(() => ({ potencial: 1, activo: 2, inactivo: 3 }));
-        const dniToCheck = payload.DNI_CIF;
+        const dniToCheck = payload.DNI_CIF ?? payload.cli_dni_cif;
         const dniValido = this._isValidDniCif(dniToCheck);
         const okKo = payload.OK_KO;
         const esInactivo = (okKo === 0 || okKo === '0' || okKo === false);
