@@ -18,6 +18,7 @@ router.get('/', (_req, res) => {
 });
 
 router.use('/comerciales', require('./comerciales'));
+router.use('/webhook', require('./webhook-asignacion'));
 router.use('/clientes', require('./clientes'));
 router.use('/db', require('./db'));
 router.use('/notificaciones', require('./notificaciones'));

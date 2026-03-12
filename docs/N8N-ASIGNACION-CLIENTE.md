@@ -1,0 +1,44 @@
+# Workflow n8n: Asignación de cliente según aprobación
+
+## Descripción
+
+El workflow `n8n-workflow-notificaciones-gemavip.json` gestiona la solicitud de asignación de un cliente a un comercial. Cuando el responsable (j.deaza@gemavip.com) aprueba o deniega el email, se:
+
+- **Aprobado**: Actualiza `cli_com_id` en el CRM y envía email de confirmación al comercial
+- **Denegado**: Envía email de denegación al comercial
+
+## Configuración en n8n
+
+### Variables de entorno
+
+| Variable | Descripción |
+|----------|-------------|
+| `CRM_BASE_URL` | URL base del CRM (ej. `https://crm-gemavip.vercel.app`) |
+| `API_KEY` | Clave API del CRM (debe coincidir con `API_KEY` en el CRM) |
+
+### Credenciales
+
+- **SMTP**: Configurar credenciales "CRM GEMAVIP" para el envío de emails
+- Los nodos "Send Email" usan las mismas credenciales que "Send message and wait for response"
+
+### Endpoint del CRM
+
+El workflow llama a:
+
+```
+POST {{CRM_BASE_URL}}/api/webhook/asignacion-cliente
+Header: X-API-Key: {{API_KEY}}
+Body: { "clienteId": number, "userEmail": string, "aprobado": boolean }
+```
+
+## Configuración en el CRM
+
+1. **API_KEY**: Definir en `.env` o Vercel para proteger la API
+2. El endpoint `/api/webhook/asignacion-cliente` usa la misma autenticación que el resto de la API
+
+## Importar el workflow
+
+1. En n8n: Workflows → Import from File
+2. Seleccionar `n8n-workflow-notificaciones-gemavip.json`
+3. Configurar variables de entorno y credenciales SMTP
+4. Ajustar la URL del CRM en el nodo "HTTP: Asignar cliente en CRM" si no usas `CRM_BASE_URL`

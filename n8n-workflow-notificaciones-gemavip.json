@@ -1,0 +1,324 @@
+{
+  "name": "Notificaciones Gemavip",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "76e48302-8d17-42fc-bb9e-37865d180728",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-960, -256],
+      "id": "c82860a6-0cc1-443c-a4fe-7bdd2c5d7227",
+      "name": "Webhook",
+      "webhookId": "76e48302-8d17-42fc-bb9e-37865d180728"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "78d35890-7280-4174-b85a-859266b67dc7", "name": "body.title", "value": "={{ $json.body.title }}", "type": "string" },
+            { "id": "088b43f2-7264-4757-8aa2-8c0f16ae0955", "name": "body.body", "value": "={{ $json.body.body }}", "type": "string" },
+            { "id": "498a8f0d-50be-45ba-90e8-20f4c068f279", "name": "body.clienteId", "value": "={{ $json.body.clienteId }}", "type": "number" },
+            { "id": "595d1f6e-85d3-4f20-bd89-ec0507149231", "name": "body.clienteNombre", "value": "={{ $json.body.clienteNombre }}", "type": "string" },
+            { "id": "88890b18-27e1-4729-a996-da35d11450f9", "name": "body.cli_dni_cif", "value": "={{ $json.body.cli_dni_cif }}", "type": "string" },
+            { "id": "0b7c3d3e-f330-481e-b446-232c1965d420", "name": "body.cli_direccion", "value": "={{ $json.body.cli_direccion }}", "type": "string" },
+            { "id": "f47ff71b-1c64-4c38-b69c-d8be77e83355", "name": "body.cli_codigo_postal", "value": "={{ $json.body.cli_codigo_postal }}", "type": "string" },
+            { "id": "477f60f1-2d8e-4a57-863e-a296015feb44", "name": "body.cli_poblacion", "value": "={{ $json.body.cli_poblacion }}", "type": "string" },
+            { "id": "18e0b1a6-8129-488b-aed1-a50ede900577", "name": "body.cli_prov_id_nombre", "value": "={{ $json.body.cli_prov_id_nombre }}", "type": "string" },
+            { "id": "59910826-cb82-4e54-a9e1-860e5c4fd958", "name": "body.cli_tipc_id_nombre", "value": "={{ $json.body.cli_tipc_id_nombre }}", "type": "string" },
+            { "id": "657f8114-c963-4e46-951c-ebde56f18739", "name": "body.cli_telefono", "value": "={{ $json.body.cli_telefono }}", "type": "string" },
+            { "id": "f92b6699-14c0-4c4c-916e-6e38f04fc3f3", "name": "body.cli_estcli_id_nombre", "value": "={{ $json.body.cli_estcli_id_nombre }}", "type": "string" },
+            { "id": "5b402ddc-389e-4a81-9664-666f452c0123", "name": "body.userEmail", "value": "={{ $json.body.userEmail }}", "type": "string" },
+            { "id": "6674fd48-ccc3-42f8-b4e3-9a6e0c060663", "name": "body.source", "value": "={{ $json.body.source }}", "type": "string" },
+            { "id": "b7afdb0e-47be-4164-a90d-45202d7034c0", "name": "body.timestamp", "value": "={{ $json.body.timestamp }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-736, -256],
+      "id": "498c6f13-124b-4414-b73d-aa1a815a6b9d",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nconst {\n  title = 'Nueva solicitud de asignación',\n  body: textoSolicitud = '',\n  clienteId = '',\n  clienteNombre = '',\n  cli_dni_cif = '',\n  cli_direccion = '',\n  cli_codigo_postal = '',\n  cli_poblacion = '',\n  cli_prov_id_nombre = '',\n  cli_tipc_id_nombre = '',\n  cli_telefono = '',\n  cli_estcli_id_nombre = '',\n  userEmail = '',\n  source = 'crm_gemavip',\n  timestamp = ''\n} = body;\n\nconst fechaFormateada = timestamp\n  ? new Date(timestamp).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })\n  : '';\n\nconst html = `\n<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${title}</title>\n</head>\n<body style=\"margin: 0; padding: 0; font-family: Poppins, Catamaran, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f8f8; color: #1f2a44; line-height: 1.6;\">\n  <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background: linear-gradient(180deg, rgba(0,139,210,0.06) 0%, transparent 120px);\">\n    <tr>\n      <td style=\"padding: 40px 20px;\">\n        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 14px; box-shadow: 0 10px 30px rgba(12,20,58,0.10); border: 1px solid #e5e5e5;\">\n          <tr>\n            <td style=\"padding: 0;\">\n              <div style=\"height: 4px; background: linear-gradient(90deg, #008bd2, #2ea3f2, #ffba00, #8fae1b); border-radius: 14px 14px 0 0;\"></div>\n              <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">\n                <tr>\n                  <td style=\"padding: 28px 32px 20px;\">\n                    <p style=\"margin: 0 0 6px 0; font-size: 12px; color: #5b667a; text-transform: uppercase; letter-spacing: 0.5px;\">CRM Gemavip</p>\n                    <h1 style=\"margin: 0; font-size: 22px; font-weight: 700; color: #0c143a;\">${title}</h1>\n                    <p style=\"margin: 10px 0 0 0; font-size: 13px; color: #5b667a;\">${fechaFormateada}</p>\n                  </td>\n                </tr>\n                <tr>\n                  <td style=\"padding: 0 32px 24px;\">\n                    <p style=\"margin: 0 0 20px 0; font-size: 15px; color: #1f2a44;\">\n                      Con este mensaje se solicita la autorización para asignar o no un cliente a un Comercial dentro del CRM.\n                    </p>\n                    ${textoSolicitud ? `<p style=\"margin: 0 0 24px 0; font-size: 14px; color: #5b667a; font-style: italic; padding: 16px; background-color: #f8f8f8; border-left: 4px solid #008bd2; border-radius: 0 8px 8px 0;\">\"${textoSolicitud}\"</p>` : ''}\n                    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border: 1px solid #e5e5e5; border-radius: 14px; overflow: hidden;\">\n                      <tr>\n                        <td style=\"padding: 20px 24px; background: linear-gradient(135deg, rgba(0,139,210,0.08) 0%, rgba(23,66,139,0.04) 100%);\">\n                          <h2 style=\"margin: 0 0 16px 0; font-size: 17px; font-weight: 600; color: #0c143a;\">${clienteNombre}</h2>\n                          <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"font-size: 14px; color: #1f2a44;\">\n                            <tr><td style=\"padding: 6px 0; width: 140px; color: #5b667a;\">CIF/NIF</td><td style=\"padding: 6px 0;\">${cli_dni_cif || '—'}</td></tr>\n                            <tr><td style=\"padding: 6px 0; color: #5b667a;\">Dirección</td><td style=\"padding: 6px 0;\">${cli_direccion || '—'}</td></tr>\n                            <tr><td style=\"padding: 6px 0; color: #5b667a;\">CP / Población</td><td style=\"padding: 6px 0;\">${cli_codigo_postal || ''} ${cli_poblacion || '—'}</td></tr>\n                            <tr><td style=\"padding: 6px 0; color: #5b667a;\">Provincia</td><td style=\"padding: 6px 0;\">${cli_prov_id_nombre || '—'}</td></tr>\n                            <tr><td style=\"padding: 6px 0; color: #5b667a;\">Tipo</td><td style=\"padding: 6px 0;\">${cli_tipc_id_nombre || '—'}</td></tr>\n                            <tr><td style=\"padding: 6px 0; color: #5b667a;\">Teléfono</td><td style=\"padding: 6px 0;\">${cli_telefono || '—'}</td></tr>\n                            <tr><td style=\"padding: 6px 0; color: #5b667a;\">Estado</td><td style=\"padding: 6px 0;\">${cli_estcli_id_nombre || '—'}</td></tr>\n                          </table>\n                        </td>\n                      </tr>\n                    </table>\n                    <p style=\"margin: 24px 0 0 0; font-size: 12px; color: #5b667a;\">\n                      Solicitado por: <strong style=\"color: #008bd2;\">${userEmail || '—'}</strong>\n                    </p>\n                  </td>\n                </tr>\n                <tr>\n                  <td style=\"padding: 20px 32px 28px; border-top: 1px solid #e5e5e5;\">\n                    <p style=\"margin: 0; font-size: 11px; color: #5b667a;\">\n                      Correo generado automáticamente por CRM Gemavip · ${source}\n                    </p>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    subject: title,\n    to: 'j.deaza@gemavip.com',\n    bcc: 'p.lara@gemavip.com',\n    from: 'crm-gemavip@farmadescanso.com (CRM Gemavip)',\n    html,\n    body\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-512, -256],
+      "id": "bc021856-4da1-42b1-b998-e37746f25b16",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "fromEmail": "=crm-gemavip@farmadescanso.com",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [-288, -256],
+      "id": "c7839a99-1577-406f-a0e9-4388af48d004",
+      "name": "Send message and wait for response",
+      "webhookId": "438de03e-021f-406d-9eeb-9b2aae948c2f",
+      "credentials": {
+        "smtp": {
+          "id": "r7KoPuklI2NZlT2L",
+          "name": "CRM GEMAVIP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [-80, -256],
+      "id": "a1b2c3d4-merge-001",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "777f30e7-87c1-4264-885d-8f34c6bfd788",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [120, -256],
+      "id": "b872822d-ae3c-42fb-89a9-783a6fc67850",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\nconst approved = item.data?.approved === true;\n\nconst {\n  clienteNombre = '',\n  cli_dni_cif = '',\n  cli_direccion = '',\n  cli_codigo_postal = '',\n  cli_poblacion = '',\n  cli_prov_id_nombre = '',\n  cli_tipc_id_nombre = '',\n  cli_telefono = '',\n  cli_estcli_id_nombre = '',\n  userEmail = '',\n  clienteId = ''\n} = body;\n\nconst titulo = '✓ Asignación aprobada';\nconst mensaje = 'Se ha aprobado tu solicitud de asignación del siguiente cliente. Ya puedes gestionarlo en el CRM.';\nconst colorBorde = '#16a34a';\n\nconst html = `\n<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${titulo}</title>\n</head>\n<body style=\"margin: 0; padding: 0; font-family: Poppins, Catamaran, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f8f8; color: #1f2a44; line-height: 1.6;\">\n  <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 14px; box-shadow: 0 10px 30px rgba(12,20,58,0.10); border: 1px solid #e5e5e5;\">\n    <tr>\n      <td style=\"padding: 32px 40px;\">\n        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border-left: 4px solid ${colorBorde}; margin-bottom: 24px;\">\n          <tr>\n            <td style=\"padding-left: 16px;\">\n              <h1 style=\"margin: 0; font-size: 20px; font-weight: 600; color: #0c143a;\">${titulo}</h1>\n              <p style=\"margin: 8px 0 0 0; font-size: 14px; color: #5b667a;\">CRM Gemavip</p>\n            </td>\n          </tr>\n        </table>\n        <p style=\"margin: 0 0 24px 0; font-size: 15px; color: #1f2a44;\">${mensaje}</p>\n        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border: 1px solid #e5e5e5; border-radius: 14px; margin-bottom: 24px;\">\n          <tr>\n            <td style=\"padding: 20px; background: linear-gradient(135deg, rgba(143,174,27,0.08) 0%, rgba(122,208,58,0.04) 100%);\">\n              <h2 style=\"margin: 0 0 16px 0; font-size: 17px; font-weight: 600; color: #0c143a;\">${clienteNombre}</h2>\n              <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"font-size: 14px; color: #1f2a44;\">\n                <tr><td style=\"padding: 6px 0; width: 140px; color: #5b667a;\">CIF/NIF</td><td style=\"padding: 6px 0;\">${cli_dni_cif || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Dirección</td><td style=\"padding: 6px 0;\">${cli_direccion || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">CP / Población</td><td style=\"padding: 6px 0;\">${cli_codigo_postal || ''} ${cli_poblacion || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Provincia</td><td style=\"padding: 6px 0;\">${cli_prov_id_nombre || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Tipo</td><td style=\"padding: 6px 0;\">${cli_tipc_id_nombre || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Teléfono</td><td style=\"padding: 6px 0;\">${cli_telefono || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Estado</td><td style=\"padding: 6px 0;\">${cli_estcli_id_nombre || '—'}</td></tr>\n              </table>\n            </td>\n          </tr>\n        </table>\n        <p style=\"margin: 0; font-size: 12px; color: #5b667a;\">Correo generado automáticamente por CRM Gemavip.</p>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    html,\n    subject: titulo,\n    to: userEmail,\n    clienteId,\n    userEmail,\n    aprobado: true\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, -400],
+      "id": "c1d2e3f4-code-aprobado",
+      "name": "Code: Email aprobación"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CRM_BASE_URL || 'https://crm-gemavip.vercel.app' }}/api/webhook/asignacion-cliente",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"clienteId\": {{ $json.clienteId }},\n  \"userEmail\": \"{{ $json.userEmail }}\",\n  \"aprobado\": true\n}",
+        "options": {
+          "timeout": 10000
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.API_KEY }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, -400],
+      "id": "e2f3f4a5-http-asignacion",
+      "name": "HTTP: Asignar cliente en CRM"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "html", "value": "={{ $('Code: Email aprobación').item.json.html }}", "type": "string" },
+            { "id": "a2", "name": "subject", "value": "={{ $('Code: Email aprobación').item.json.subject }}", "type": "string" },
+            { "id": "a3", "name": "to", "value": "={{ $('Code: Email aprobación').item.json.to }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [780, -400],
+      "id": "f3a4b5c6-set-email-aprob",
+      "name": "Set email aprobación"
+    },
+    {
+      "parameters": {
+        "fromEmail": "crm-gemavip@farmadescanso.com",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1000, -400],
+      "id": "a4b5c6d7-email-aprob",
+      "name": "Send Email: aprobación",
+      "credentials": {
+        "smtp": {
+          "id": "r7KoPuklI2NZlT2L",
+          "name": "CRM GEMAVIP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nconst {\n  clienteNombre = '',\n  cli_dni_cif = '',\n  cli_direccion = '',\n  cli_codigo_postal = '',\n  cli_poblacion = '',\n  cli_prov_id_nombre = '',\n  cli_tipc_id_nombre = '',\n  cli_telefono = '',\n  cli_estcli_id_nombre = '',\n  userEmail = ''\n} = body;\n\nconst titulo = '✗ Asignación denegada';\nconst mensaje = 'Se ha denegado tu solicitud de asignación del siguiente cliente.';\nconst colorBorde = '#dc2626';\n\nconst html = `\n<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${titulo}</title>\n</head>\n<body style=\"margin: 0; padding: 0; font-family: Poppins, Catamaran, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f8f8; color: #1f2a44; line-height: 1.6;\">\n  <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 14px; box-shadow: 0 10px 30px rgba(12,20,58,0.10); border: 1px solid #e5e5e5;\">\n    <tr>\n      <td style=\"padding: 32px 40px;\">\n        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border-left: 4px solid ${colorBorde}; margin-bottom: 24px;\">\n          <tr>\n            <td style=\"padding-left: 16px;\">\n              <h1 style=\"margin: 0; font-size: 20px; font-weight: 600; color: #0c143a;\">${titulo}</h1>\n              <p style=\"margin: 8px 0 0 0; font-size: 14px; color: #5b667a;\">CRM Gemavip</p>\n            </td>\n          </tr>\n        </table>\n        <p style=\"margin: 0 0 24px 0; font-size: 15px; color: #1f2a44;\">${mensaje}</p>\n        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border: 1px solid #e5e5e5; border-radius: 14px; margin-bottom: 24px;\">\n          <tr>\n            <td style=\"padding: 20px; background: linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(220,38,38,0.04) 100%);\">\n              <h2 style=\"margin: 0 0 16px 0; font-size: 17px; font-weight: 600; color: #0c143a;\">${clienteNombre}</h2>\n              <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"font-size: 14px; color: #1f2a44;\">\n                <tr><td style=\"padding: 6px 0; width: 140px; color: #5b667a;\">CIF/NIF</td><td style=\"padding: 6px 0;\">${cli_dni_cif || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Dirección</td><td style=\"padding: 6px 0;\">${cli_direccion || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">CP / Población</td><td style=\"padding: 6px 0;\">${cli_codigo_postal || ''} ${cli_poblacion || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Provincia</td><td style=\"padding: 6px 0;\">${cli_prov_id_nombre || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Tipo</td><td style=\"padding: 6px 0;\">${cli_tipc_id_nombre || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Teléfono</td><td style=\"padding: 6px 0;\">${cli_telefono || '—'}</td></tr>\n                <tr><td style=\"padding: 6px 0; color: #5b667a;\">Estado</td><td style=\"padding: 6px 0;\">${cli_estcli_id_nombre || '—'}</td></tr>\n              </table>\n            </td>\n          </tr>\n        </table>\n        <p style=\"margin: 0; font-size: 12px; color: #5b667a;\">Correo generado automáticamente por CRM Gemavip.</p>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    html,\n    subject: titulo,\n    to: userEmail\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [340, -120],
+      "id": "b5c6d7e8-code-denegado",
+      "name": "Code: Email denegación"
+    },
+    {
+      "parameters": {
+        "fromEmail": "crm-gemavip@farmadescanso.com",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [560, -120],
+      "id": "c6d7e8f9-email-deneg",
+      "name": "Send Email: denegación",
+      "credentials": {
+        "smtp": {
+          "id": "r7KoPuklI2NZlT2L",
+          "name": "CRM GEMAVIP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "https://farmadescanso-n8n.6f4r35.easypanel.host/webhook/76e48302-8d17-42fc-bb9e-37865d180728",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Aprobado", "value": "true" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1220, -400],
+      "id": "38167d6b-6a8f-40ef-a522-eb7fc5586b9c",
+      "name": "Aprobado"
+    },
+    {
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "https://farmadescanso-n8n.6f4r35.easypanel.host/webhook/76e48302-8d17-42fc-bb9e-37865d180728",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Aprobado", "value": "False" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [780, -120],
+      "id": "f7ed8bae-f3dd-4d75-8779-2abf7f830077",
+      "name": "No Aprobado"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Edit Fields", "type": "main", "index": 0 }]]
+    },
+    "Edit Fields": {
+      "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]]
+    },
+    "Code in JavaScript": {
+      "main": [[
+        { "node": "Merge", "type": "main", "index": 0 },
+        { "node": "Send message and wait for response", "type": "main", "index": 0 }
+      ]]
+    },
+    "Send message and wait for response": {
+      "main": [[{ "node": "Merge", "type": "main", "index": 1 }]]
+    },
+    "Merge": {
+      "main": [[{ "node": "If", "type": "main", "index": 0 }]]
+    },
+    "If": {
+      "main": [
+        [{ "node": "Code: Email aprobación", "type": "main", "index": 0 }],
+        [{ "node": "Code: Email denegación", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Email aprobación": {
+      "main": [[{ "node": "HTTP: Asignar cliente en CRM", "type": "main", "index": 0 }]]
+    },
+    "HTTP: Asignar cliente en CRM": {
+      "main": [[{ "node": "Set email aprobación", "type": "main", "index": 0 }]]
+    },
+    "Set email aprobación": {
+      "main": [[{ "node": "Send Email: aprobación", "type": "main", "index": 0 }]]
+    },
+    "Send Email: aprobación": {
+      "main": [[{ "node": "Aprobado", "type": "main", "index": 0 }]]
+    },
+    "Code: Email denegación": {
+      "main": [[{ "node": "Send Email: denegación", "type": "main", "index": 0 }]]
+    },
+    "Send Email: denegación": {
+      "main": [[{ "node": "No Aprobado", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "629ef38a-6747-4710-9b91-aca58983a9fb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "184e6619f406d4c35630cd89b7ea965bdbc7177a58386f845dd81b7e8515e6d9"
+  },
+  "id": "Df6ySR9EehKc01Pv",
+  "tags": []
+}
