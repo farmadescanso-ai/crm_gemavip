@@ -5,6 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "76e48302-8d17-42fc-bb9e-37865d180728",
+        "responseMode": "onReceived",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
@@ -223,44 +224,6 @@
           "name": "CRM GEMAVIP"
         }
       }
-    },
-    {
-      "parameters": {
-        "respondWith": "redirect",
-        "redirectURL": "https://farmadescanso-n8n.6f4r35.easypanel.host/webhook/76e48302-8d17-42fc-bb9e-37865d180728",
-        "options": {
-          "responseCode": 200,
-          "responseHeaders": {
-            "entries": [
-              { "name": "Aprobado", "value": "true" }
-            ]
-          }
-        }
-      },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
-      "position": [1220, -400],
-      "id": "38167d6b-6a8f-40ef-a522-eb7fc5586b9c",
-      "name": "Aprobado"
-    },
-    {
-      "parameters": {
-        "respondWith": "redirect",
-        "redirectURL": "https://farmadescanso-n8n.6f4r35.easypanel.host/webhook/76e48302-8d17-42fc-bb9e-37865d180728",
-        "options": {
-          "responseCode": 200,
-          "responseHeaders": {
-            "entries": [
-              { "name": "Aprobado", "value": "False" }
-            ]
-          }
-        }
-      },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
-      "position": [780, -120],
-      "id": "f7ed8bae-f3dd-4d75-8779-2abf7f830077",
-      "name": "No Aprobado"
     }
   ],
   "pinData": {},
@@ -299,13 +262,13 @@
       "main": [[{ "node": "Send Email: aprobación", "type": "main", "index": 0 }]]
     },
     "Send Email: aprobación": {
-      "main": [[{ "node": "Aprobado", "type": "main", "index": 0 }]]
+      "main": [[]]
     },
     "Code: Email denegación": {
       "main": [[{ "node": "Send Email: denegación", "type": "main", "index": 0 }]]
     },
     "Send Email: denegación": {
-      "main": [[{ "node": "No Aprobado", "type": "main", "index": 0 }]]
+      "main": [[]]
     }
   },
   "active": true,

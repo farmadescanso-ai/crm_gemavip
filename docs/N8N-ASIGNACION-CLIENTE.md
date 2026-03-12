@@ -4,6 +4,8 @@
 
 El workflow `n8n-workflow-notificaciones-gemavip.json` gestiona la solicitud de asignación de un cliente a un comercial. Cuando el responsable (j.deaza@gemavip.com) aprueba o deniega el email, se:
 
+**Nota:** El Webhook está configurado con `responseMode: "onReceived"` para responder inmediatamente al POST inicial y evitar el error "Unused Respond to Webhook node" (al usar "Send and Wait", los nodos Respond to Webhook no son alcanzables en la misma ejecución).
+
 - **Aprobado**: Actualiza `cli_com_id` en el CRM y envía email de confirmación al comercial
 - **Denegado**: Envía email de denegación al comercial
 
