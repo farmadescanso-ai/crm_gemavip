@@ -9,6 +9,38 @@ El workflow `n8n-workflow-notificaciones-gemavip.json` gestiona la solicitud de 
 - **Aprobado**: Actualiza `cli_com_id` en el CRM y envía email de confirmación al comercial
 - **Denegado**: Envía email de denegación al comercial
 
+## URL del Webhook
+
+Para enviar solicitudes de asignación desde el CRM:
+
+```
+POST https://farmadescanso-n8n.6f4r35.easypanel.host/webhook/76e48302-8d17-42fc-bb9e-37865d180728
+```
+
+**Body esperado** (JSON):
+
+```json
+{
+  "body": {
+    "title": "Nueva solicitud de asignación",
+    "body": "Lara Buitrago, Paco solicita: Batfarna SL",
+    "clienteId": 50,
+    "clienteNombre": "Batfarna SL",
+    "cli_dni_cif": "B30922512",
+    "cli_direccion": "Av. Nueva Cartagena 9",
+    "cli_codigo_postal": "30310",
+    "cli_poblacion": "Cartagena",
+    "cli_prov_id_nombre": "Murcia",
+    "cli_tipc_id_nombre": "Farmacia",
+    "cli_telefono": "+34968316242",
+    "cli_estcli_id_nombre": "Activo",
+    "userEmail": "p.lara@gemavip.com",
+    "source": "crm_gemavip",
+    "timestamp": "2026-03-11T15:45:55.655Z"
+  }
+}
+```
+
 ## Configuración en n8n
 
 ### Variables de entorno
