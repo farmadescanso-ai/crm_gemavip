@@ -9,6 +9,10 @@ El workflow `n8n-workflow-notificaciones-gemavip.json` gestiona la solicitud de 
 - **Aprobado**: Actualiza `cli_com_id` en el CRM y envía email de confirmación al comercial
 - **Denegado**: Envía email de denegación al comercial
 
+**Flujo de destinatarios:**
+- **j.deaza@gemavip.com** recibe el email con botones Aprobar/Rechazar (es quien decide).
+- **p.lara@gemavip.com** (comercial que solicitó) recibe la notificación del resultado (aprobada o denegada).
+
 ## URL del Webhook
 
 Para enviar solicitudes de asignación desde el CRM:

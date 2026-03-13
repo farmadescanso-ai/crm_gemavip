@@ -180,7 +180,8 @@
         "fromEmail": "crm-gemavip@farmadescanso.com",
         "toEmail": "={{ $json.to }}",
         "subject": "={{ $json.subject }}",
-        "message": "={{ $json.html }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
@@ -210,7 +211,8 @@
         "fromEmail": "crm-gemavip@farmadescanso.com",
         "toEmail": "={{ $json.to }}",
         "subject": "={{ $json.subject }}",
-        "message": "={{ $json.html }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
