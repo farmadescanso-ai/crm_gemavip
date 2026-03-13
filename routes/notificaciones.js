@@ -15,11 +15,20 @@ const NOTIF_EMAILS_ENABLED =
 
 const router = express.Router();
 
+router.post('/notificaciones/borrar-historial', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await db.deleteAllNotificaciones();
+    return res.redirect('/notificaciones?borrado=' + (result?.deleted ?? 0));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/notificaciones', requireAdmin, async (req, res, next) => {
   try {
     const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
     const [items, total] = await Promise.all([db.getNotificaciones(limit, offset), db.getNotificacionesPendientesCount()]);
-    res.render('notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, resuelto: req.query.resuelto || undefined });
+    res.render('notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, resuelto: req.query.resuelto || undefined, borrado: req.query.borrado });
   } catch (e) {
     next(e);
   }

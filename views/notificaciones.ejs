@@ -11,8 +11,16 @@
         <%= resuelto === 'aprobada' ? 'Solicitud aprobada.' : 'Solicitud rechazada.' %>
       </p>
     <% } %>
+    <% if (typeof borrado !== 'undefined' && borrado !== '' && borrado !== null) { %>
+      <p class="notice" style="margin-bottom:12px; padding:10px; background: rgba(13,110,253,.1); border-radius:8px; color:#0d6efd;">
+        Historial borrado: <strong><%= borrado %></strong> notificaciones eliminadas.
+      </p>
+    <% } %>
     <p style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
       <span aria-hidden="true">🔔</span> Solicitudes pendientes: <strong><%= typeof paging !== 'undefined' ? paging.total : 0 %></strong>
+      <form method="post" action="/notificaciones/borrar-historial" style="display:inline-block; margin-left:16px;">
+        <button type="submit" class="btn secondary" onclick="return confirm('¿Borrar todo el historial de notificaciones? Esta acción no se puede deshacer.');">Borrar historial</button>
+      </form>
     </p>
     <div class="table-wrap">
       <table>

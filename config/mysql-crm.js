@@ -820,6 +820,7 @@ class MySQLCRM {
   async getNotificacionesForComercial(idComercial, limit, offset) { return domains.notificaciones.getNotificacionesForComercial.apply(this, arguments); }
   async getNotificacionesForComercialCount(idComercial) { return domains.notificaciones.getNotificacionesForComercialCount.apply(this, arguments); }
   async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) { return domains.notificaciones.resolverSolicitudAsignacion.apply(this, arguments); }
+  async deleteAllNotificaciones() { return domains.notificaciones.deleteAllNotificaciones.apply(this, arguments); }
 
   async fixNotifFkCliente() {
     const result = { dropped: false, added: false };

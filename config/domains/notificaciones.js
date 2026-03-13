@@ -323,5 +323,21 @@ module.exports = {
       }
     }
     return { ok: true };
+  },
+
+  /**
+   * Borra todo el historial de notificaciones (solo admin).
+   * @returns {{ ok: boolean, deleted: number }}
+   */
+  async deleteAllNotificaciones() {
+    await this._ensureNotificacionesTable();
+    try {
+      const result = await this.query('DELETE FROM `notificaciones`');
+      const deleted = result?.affectedRows ?? result ?? 0;
+      return { ok: true, deleted: Number(deleted) };
+    } catch (e) {
+      console.error('❌ Error borrando historial de notificaciones:', e?.message);
+      throw e;
+    }
   }
 };
