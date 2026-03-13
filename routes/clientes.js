@@ -89,10 +89,13 @@ router.get('/', requireLogin, async (req, res, next) => {
     const filters = { ...baseFilters };
     if (q) filters.q = q;
     if (tipoContacto && ['Empresa', 'Persona', 'Otros'].includes(tipoContacto)) filters.tipoContacto = tipoContacto;
-    const [items, total, comerciales] = await Promise.all([
+    const uid = res.locals.user?.id;
+    const [items, total, comerciales, solicitudPendienteIds, solicitudRechazadaIds] = await Promise.all([
       db.getClientesOptimizadoPaged(filters, { limit, offset, sortBy: 'nombre', order }),
       db.countClientesOptimizado(filters),
-      db.getComerciales().catch(() => [])
+      db.getComerciales().catch(() => []),
+      !admin && uid ? db.getClienteIdsSolicitudPendienteComercial(uid) : Promise.resolve(new Set()),
+      !admin && uid ? db.getClienteIdsSolicitudRechazadaComercial(uid) : Promise.resolve(new Set())
     ]);
     const poolId = admin ? null : await db.getComercialIdPool();
     const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
@@ -103,7 +106,7 @@ router.get('/', requireLogin, async (req, res, next) => {
       if (tipoContacto) redirectQs.set('tipo', tipoContacto);
       return res.redirect('/clientes?' + redirectQs.toString());
     }
-    res.render('clientes', { items: items || [], comerciales: comerciales || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page: pageClamped, limit, total: total || 0, totalPages }, poolId: poolId || null });
+    res.render('clientes', { items: items || [], comerciales: comerciales || [], q, admin, tipoContacto: tipoContacto || undefined, orderNombre: order, paging: { page: pageClamped, limit, total: total || 0, totalPages }, poolId: poolId || null, solicitudPendienteClienteIds: solicitudPendienteIds || new Set(), solicitudRechazadaClienteIds: solicitudRechazadaIds || new Set(), uid: uid || null });
   } catch (e) {
     next(e);
   }
@@ -582,43 +585,72 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
     const item = await db.getClienteById(id);
     if (!item) return res.status(404).send('No encontrado');
     if (!(await db.isContactoAsignadoAPoolOSinAsignar(id))) return res.status(400).send('Este contacto ya está asignado a otro comercial.');
-    await db.createSolicitudAsignacion(id, userId);
+
+    const notifId = await db.createSolicitudAsignacion(id, userId);
     const clienteNombre = item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? item?.Nombre ?? ('Cliente ' + id);
     const userName = res.locals.user?.nombre || 'Comercial';
+    const userEmail = res.locals.user?.email;
+
+    const crypto = require('crypto');
+    const APP_BASE_URL = process.env.APP_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const APROBACION_SECRET = (process.env.APROBACION_SECRET || process.env.API_KEY || 'crm-gemavip-aprobacion').trim();
+
+    const sign = (n, a) => crypto.createHmac('sha256', APROBACION_SECRET).update(`notifId=${n}&approved=${a}`).digest('hex');
+    const approvalUrlApprove = notifId
+      ? `${APP_BASE_URL}/webhook/aprobar-asignacion?notifId=${notifId}&approved=1&sig=${sign(notifId, true)}`
+      : null;
+    const approvalUrlDecline = notifId
+      ? `${APP_BASE_URL}/webhook/aprobar-asignacion?notifId=${notifId}&approved=0&sig=${sign(notifId, false)}`
+      : null;
+
     const webhookPayload = {
+      body: {
+        title: 'Nueva solicitud de asignación',
+        body: `${userName} solicita: ${clienteNombre}`,
+        url: '/notificaciones',
+        tipo: 'solicitud_asignacion',
+        clienteId: id,
+        clienteNombre,
+        cli_id: id,
+        cli_dni_cif: item?.cli_dni_cif ?? item?.DNI_CIF ?? null,
+        cli_nombre_razon_social: item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? null,
+        cli_numero_farmacia: item?.cli_numero_farmacia ?? null,
+        cli_direccion: item?.cli_direccion ?? item?.Direccion ?? null,
+        cli_poblacion: item?.cli_poblacion ?? item?.Poblacion ?? null,
+        cli_codigo_postal: item?.cli_codigo_postal ?? item?.CodigoPostal ?? null,
+        cli_movil: item?.cli_movil ?? item?.Movil ?? null,
+        cli_email: item?.cli_email ?? item?.Email ?? null,
+        cli_tipo_cliente_txt: item?.cli_tipo_cliente_txt ?? item?.TipoCliente ?? null,
+        cli_tipc_id: item?.cli_tipc_id ?? item?.Id_TipoCliente ?? null,
+        cli_tipc_id_nombre: item?.TipoClienteNombre ?? null,
+        cli_prov_id: item?.cli_prov_id ?? item?.Id_Provincia ?? null,
+        cli_prov_id_nombre: item?.ProvinciaNombre ?? null,
+        cli_telefono: item?.cli_telefono ?? item?.Telefono ?? null,
+        cli_pais_id: item?.cli_pais_id ?? item?.Id_Pais ?? null,
+        cli_pais_id_nombre: item?.PaisNombre ?? null,
+        cli_ok_ko: item?.cli_ok_ko ?? item?.OK_KO ?? null,
+        cli_estcli_id: item?.cli_estcli_id ?? item?.Id_EstdoCliente ?? null,
+        cli_estcli_id_nombre: item?.EstadoClienteNombre ?? null,
+        cli_activo: item?.cli_activo ?? item?.Activo ?? null,
+        userId,
+        userName,
+        userEmail,
+        approvalUrlApprove,
+        approvalUrlDecline
+      },
       title: 'Nueva solicitud de asignación',
       body: `${userName} solicita: ${clienteNombre}`,
       url: '/notificaciones',
       tipo: 'solicitud_asignacion',
       clienteId: id,
       clienteNombre,
-      cli_id: id,
-      cli_dni_cif: item?.cli_dni_cif ?? item?.DNI_CIF ?? null,
-      cli_nombre_razon_social: item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? null,
-      cli_numero_farmacia: item?.cli_numero_farmacia ?? null,
-      cli_direccion: item?.cli_direccion ?? item?.Direccion ?? null,
-      cli_poblacion: item?.cli_poblacion ?? item?.Poblacion ?? null,
-      cli_codigo_postal: item?.cli_codigo_postal ?? item?.CodigoPostal ?? null,
-      cli_movil: item?.cli_movil ?? item?.Movil ?? null,
-      cli_email: item?.cli_email ?? item?.Email ?? null,
-      cli_tipo_cliente_txt: item?.cli_tipo_cliente_txt ?? item?.TipoCliente ?? null,
-      cli_tipc_id: item?.cli_tipc_id ?? item?.Id_TipoCliente ?? null,
-      cli_tipc_id_nombre: item?.TipoClienteNombre ?? null,
-      cli_prov_id: item?.cli_prov_id ?? item?.Id_Provincia ?? null,
-      cli_prov_id_nombre: item?.ProvinciaNombre ?? null,
-      cli_telefono: item?.cli_telefono ?? item?.Telefono ?? null,
-      cli_pais_id: item?.cli_pais_id ?? item?.Id_Pais ?? null,
-      cli_pais_id_nombre: item?.PaisNombre ?? null,
-      cli_ok_ko: item?.cli_ok_ko ?? item?.OK_KO ?? null,
-      cli_estcli_id: item?.cli_estcli_id ?? item?.Id_EstdoCliente ?? null,
-      cli_estcli_id_nombre: item?.EstadoClienteNombre ?? null,
-      cli_activo: item?.cli_activo ?? item?.Activo ?? null,
       userId,
       userName,
-      userEmail: res.locals.user?.email
+      userEmail
     };
     await sendPushToAdmins(webhookPayload).catch(() => {});
-    return res.redirect(`/clientes/${id}?solicitud=ok`);
+
+    return res.redirect('/mis-notificaciones?solicitud=ok');
   } catch (e) {
     next(e);
   }

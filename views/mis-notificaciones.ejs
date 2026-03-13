@@ -6,6 +6,11 @@
     <p class="card-subtitle">Solicitudes y respuestas (pedidos especiales, asignaciones, etc.).</p>
   </div>
   <div class="card-bd">
+    <% if (typeof solicitudOk !== 'undefined' && solicitudOk) { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom:16px;">
+        Solicitud enviada. Un administrador la revisará y te asignará el contacto si la aprueba.
+      </div>
+    <% } %>
     <p style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
       <span aria-hidden="true">🔔</span> Total: <strong><%= typeof paging !== 'undefined' ? paging.total : 0 %></strong>
     </p>

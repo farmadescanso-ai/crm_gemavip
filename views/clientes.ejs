@@ -128,13 +128,15 @@
                       </svg>
                     </button>
                   <% } %>
-                  <% const puedeSolicitar = !admin && uid && (cial === 0 || (poolId && cial === Number(poolId))); %>
+                  <% const solicRechazada = typeof solicitudRechazadaClienteIds !== 'undefined' && solicitudRechazadaClienteIds && solicitudRechazadaClienteIds.has && solicitudRechazadaClienteIds.has(cid); %>
+                  <% const solicPendiente = typeof solicitudPendienteClienteIds !== 'undefined' && solicitudPendienteClienteIds && solicitudPendienteClienteIds.has && solicitudPendienteClienteIds.has(cid); %>
+                  <% const puedeSolicitar = !admin && uid && !solicRechazada && (cial === 0 || (poolId && cial === Number(poolId))); %>
                   <% if (puedeSolicitar) { %>
                     <form method="post" action="/clientes/<%= cid %>/solicitar-asignacion" style="display:inline; margin:0;" class="gv-solicitar-asignacion-form" data-cid="<%= cid %>">
-                      <button class="btn icon" type="submit" title="Solicitar asignación (el admin aprobará o denegará)" aria-label="Solicitar que me asignen este cliente">
+                      <button class="btn icon" type="submit" title="<%= solicPendiente ? 'Solicitud pendiente de aprobación' : 'Solicitar asignación (el admin aprobará o denegará)' %>" aria-label="Solicitar que me asignen este cliente">
                         <span class="gv-btn-loading">
                           <span class="gv-spinner gv-solicitar-spinner" style="display:none;" aria-hidden="true"></span>
-                          <svg class="gv-solicitar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <svg class="gv-solicitar-icon <%= solicPendiente ? 'gv-solicitar-icon--pendiente' : '' %>" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                             <circle cx="8.5" cy="7" r="4"></circle>
                             <line x1="20" y1="8" x2="20" y2="14"></line>
@@ -319,6 +321,7 @@
 }
 .gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { white-space: normal; overflow-wrap: break-word; }
 .gv-contactos .gv-contactos-table td { white-space: normal; }
+.gv-solicitar-icon--pendiente { color: #ea580c !important; }
 </style>
 
 <script>

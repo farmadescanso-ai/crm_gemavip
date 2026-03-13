@@ -82,7 +82,8 @@ router.get('/mis-notificaciones', requireLogin, async (req, res, next) => {
     const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
     const items = await db.getNotificacionesForComercial(userId, limit, offset).catch(() => []);
     const total = await db.getNotificacionesForComercialCount(userId).catch(() => (items?.length || 0));
-    res.render('mis-notificaciones', { items: items || [], paging: { page, limit, total: total || 0 } });
+    const solicitudOk = req.query.solicitud === 'ok';
+    res.render('mis-notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, solicitudOk });
   } catch (e) {
     next(e);
   }

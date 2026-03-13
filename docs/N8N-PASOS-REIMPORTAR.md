@@ -7,7 +7,8 @@
 3. Menú (⋮) del workflow → **Delete** (o desactívalo primero)
 4. **Add workflow** → **Import from File** (o arrastra el archivo)
 5. Selecciona: `c:\Users\pacol\CURSOR\CRM_Gemavip\n8n-workflow-notificaciones-gemavip.json`
-6. **Save** y activa el workflow (toggle en la esquina superior derecha)
+6. **Edita el nodo "HTTP: Asignar cliente en CRM"** y sustituye `REPLACE_CON_TU_API_KEY` por tu API key real (si n8n da "access to env vars denied", este paso es obligatorio)
+7. **Save** y activa el workflow (toggle en la esquina superior derecha)
 
 ## Paso 2: Verificar el correo de j.deaza (aprobación)
 
@@ -33,3 +34,9 @@
    - Sin el texto genérico "This email was sent automatically with n8n" como único contenido
 
 3. Si se aprobó: el CRM debe haber actualizado `cli_com_id` del cliente al comercial.
+
+## Si Aprobar no asigna el cliente
+
+Si ves "Got it, thanks" al hacer clic en Aprobar pero el cliente no se asigna, consulta la sección **Troubleshooting** en `docs/N8N-ASIGNACION-CLIENTE.md`. Verifica:
+- Variables `CRM_BASE_URL` y `API_KEY` en n8n
+- Que la ejecución en n8n pase por la rama "true" del If y que el HTTP Request devuelva 200

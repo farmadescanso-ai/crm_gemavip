@@ -461,6 +461,9 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'sw.js'));
 });
 
+// Webhook público aprobación asignaciones (enlaces desde email, sin login)
+app.use('/webhook', require('../routes/webhook-aprobacion'));
+
 // Vistas y endpoints públicos (no requieren login)
 app.use('/', publicRouter);
 app.use('/', ventasGemavipRouter);

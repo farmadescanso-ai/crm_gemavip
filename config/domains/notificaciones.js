@@ -220,6 +220,42 @@ module.exports = {
     }
   },
 
+  /** IDs de contactos con solicitud PENDIENTE del comercial (para icono naranja) */
+  async getClienteIdsSolicitudPendienteComercial(idComercial) {
+    const cid = Number.parseInt(String(idComercial ?? '').trim(), 10);
+    if (!Number.isFinite(cid) || cid <= 0) return new Set();
+    await this._ensureNotificacionesTable();
+    try {
+      const m = await this._ensureNotificacionesMeta();
+      const rows = await this.query(
+        `SELECT \`${m.colContacto}\` AS id_contacto FROM \`notificaciones\` WHERE \`${m.colComercial}\` = ? AND \`${m.colEstado}\` = 'pendiente' AND \`${m.colTipo}\` = 'asignacion_contacto'`,
+        [cid]
+      );
+      const list = Array.isArray(rows) ? rows : [];
+      return new Set(list.map((r) => Number(r.id_contacto ?? r.Id_Contacto ?? 0)).filter((n) => Number.isFinite(n) && n > 0));
+    } catch (_) {
+      return new Set();
+    }
+  },
+
+  /** IDs de contactos con solicitud RECHAZADA del comercial (ocultar icono) */
+  async getClienteIdsSolicitudRechazadaComercial(idComercial) {
+    const cid = Number.parseInt(String(idComercial ?? '').trim(), 10);
+    if (!Number.isFinite(cid) || cid <= 0) return new Set();
+    await this._ensureNotificacionesTable();
+    try {
+      const m = await this._ensureNotificacionesMeta();
+      const rows = await this.query(
+        `SELECT \`${m.colContacto}\` AS id_contacto FROM \`notificaciones\` WHERE \`${m.colComercial}\` = ? AND \`${m.colEstado}\` = 'rechazada' AND \`${m.colTipo}\` = 'asignacion_contacto'`,
+        [cid]
+      );
+      const list = Array.isArray(rows) ? rows : [];
+      return new Set(list.map((r) => Number(r.id_contacto ?? r.Id_Contacto ?? 0)).filter((n) => Number.isFinite(n) && n > 0));
+    } catch (_) {
+      return new Set();
+    }
+  },
+
   async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) {
     await this._ensureNotificacionesTable();
     const m = await this._ensureNotificacionesMeta();
@@ -322,7 +358,12 @@ module.exports = {
         await this.query(`UPDATE \`${tClientes}\` SET \`${colComercial}\` = ? WHERE \`${pk}\` = ?`, [notif.id_comercial_solicitante, notif.id_contacto]);
       }
     }
-    return { ok: true };
+    return {
+      ok: true,
+      tipo: 'asignacion_contacto',
+      id_contacto: notif.id_contacto,
+      id_comercial_solicitante: notif.id_comercial_solicitante
+    };
   },
 
   /**
