@@ -604,10 +604,20 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
       : null;
 
     const toEmail = (process.env.NOTIF_EMAIL_DESTINO || process.env.SYSTEM_ADMIN_EMAILS || 'info@farmadescanso.com').split(',')[0].trim();
+    const notifBody = `${userName} solicita: ${clienteNombre}`;
     const webhookPayload = {
+      title: 'Nueva solicitud de asignación',
+      body: notifBody,
+      url: '/notificaciones',
+      tipo: 'solicitud_asignacion',
+      clienteId: id,
+      clienteNombre,
+      userId,
+      userName,
+      userEmail,
       body: {
         title: 'Nueva solicitud de asignación',
-        body: `${userName} solicita: ${clienteNombre}`,
+        body: notifBody,
         toEmail,
         url: '/notificaciones',
         tipo: 'solicitud_asignacion',
@@ -639,16 +649,7 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
         userEmail,
         approvalUrlApprove,
         approvalUrlDecline
-      },
-      title: 'Nueva solicitud de asignación',
-      body: `${userName} solicita: ${clienteNombre}`,
-      url: '/notificaciones',
-      tipo: 'solicitud_asignacion',
-      clienteId: id,
-      clienteNombre,
-      userId,
-      userName,
-      userEmail
+      }
     };
     await sendPushToAdmins(webhookPayload).catch(() => {});
 
