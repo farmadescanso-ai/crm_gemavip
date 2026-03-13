@@ -165,12 +165,18 @@ module.exports = {
     await this._ensureNotificacionesTable();
     try {
       const m = await this._ensureNotificacionesMeta();
-      const sql = `SELECT \`${m.pk}\` as id, \`${m.colTipo}\` as tipo, \`${m.colContacto}\` as id_contacto, \`${m.colPedido}\` as id_pedido, \`${m.colComercial}\` as id_comercial_solicitante, \`${m.colEstado}\` as estado, \`${m.colAdmin}\` as id_admin_resolvio, \`${m.colFechaCreacion}\` as fecha_creacion, \`${m.colFechaResolucion}\` as fecha_resolucion, \`${m.colNotas}\` as notas
-        FROM \`notificaciones\`
-        WHERE \`${m.colComercial}\` = ?
-        ORDER BY \`${m.colFechaCreacion}\` DESC
+      const sql = `SELECT n.\`${m.pk}\` as id, n.\`${m.colTipo}\` as tipo, n.\`${m.colContacto}\` as id_contacto, n.\`${m.colPedido}\` as id_pedido, n.\`${m.colComercial}\` as id_comercial_solicitante, n.\`${m.colEstado}\` as estado, n.\`${m.colAdmin}\` as id_admin_resolvio, n.\`${m.colFechaCreacion}\` as fecha_creacion, n.\`${m.colFechaResolucion}\` as fecha_resolucion, n.\`${m.colNotas}\` as notas
+        FROM \`notificaciones\` n
+        INNER JOIN (
+          SELECT \`${m.colContacto}\` AS cid, \`${m.colPedido}\` AS pid, \`${m.colTipo}\` AS tipo, MAX(\`${m.pk}\`) AS max_id
+          FROM \`notificaciones\`
+          WHERE \`${m.colComercial}\` = ?
+          GROUP BY \`${m.colContacto}\`, \`${m.colPedido}\`, \`${m.colTipo}\`
+        ) latest ON n.\`${m.colContacto}\` = latest.cid AND (n.\`${m.colPedido}\` <=> latest.pid) AND n.\`${m.colTipo}\` = latest.tipo AND n.\`${m.pk}\` = latest.max_id
+        WHERE n.\`${m.colComercial}\` = ?
+        ORDER BY n.\`${m.colFechaCreacion}\` DESC
         LIMIT ${l} OFFSET ${o}`;
-      const rows = await this.query(sql, [cid]);
+      const rows = await this.query(sql, [cid, cid]);
       const list = Array.isArray(rows) ? rows : [];
       const items = list.map((n) => ({
         id: n.id,
@@ -216,7 +222,14 @@ module.exports = {
     await this._ensureNotificacionesTable();
     try {
       const m = await this._ensureNotificacionesMeta();
-      const rows = await this.query(`SELECT COUNT(*) AS n FROM \`notificaciones\` WHERE \`${m.colComercial}\` = ?`, [cid]);
+      const rows = await this.query(
+        `SELECT COUNT(*) AS n FROM (
+          SELECT 1 FROM \`notificaciones\`
+          WHERE \`${m.colComercial}\` = ?
+          GROUP BY \`${m.colContacto}\`, \`${m.colPedido}\`, \`${m.colTipo}\`
+        ) AS dedup`,
+        [cid]
+      );
       const first = Array.isArray(rows) ? rows[0] : rows;
       return Number(first?.n ?? 0) || 0;
     } catch (_) {
