@@ -615,6 +615,8 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
       userId,
       userName,
       userEmail,
+      approvalUrlApprove,
+      approvalUrlDecline,
       body: {
         title: 'Nueva solicitud de asignación',
         body: notifBody,
