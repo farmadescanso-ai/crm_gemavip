@@ -61,12 +61,16 @@
         "toEmail": "={{ $json.to }}",
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.html }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
         "approvalOptions": {
           "values": {
             "approvalType": "double"
           }
         },
-        "options": {}
+        "options": {
+          "appendAttribution": false
+        }
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
@@ -182,7 +186,9 @@
         "subject": "={{ $json.subject }}",
         "emailFormat": "html",
         "html": "={{ $json.html }}",
-        "options": {}
+        "options": {
+          "appendAttribution": false
+        }
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
@@ -213,7 +219,9 @@
         "subject": "={{ $json.subject }}",
         "emailFormat": "html",
         "html": "={{ $json.html }}",
-        "options": {}
+        "options": {
+          "appendAttribution": false
+        }
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
