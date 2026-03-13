@@ -8,7 +8,7 @@ const { requireAdmin } = require('../lib/app-helpers');
 const { requireLogin } = require('../lib/auth');
 const { isAdminUser } = require('../lib/auth');
 const { parsePagination } = require('../lib/pagination');
-const { sendPedidoEspecialDecisionEmail, APP_BASE_URL } = require('../lib/mailer');
+const { sendPedidoEspecialDecisionEmail, sendAsignacionResultadoEmail, APP_BASE_URL } = require('../lib/mailer');
 
 const NOTIF_EMAILS_ENABLED =
   process.env.NOTIF_EMAILS_ENABLED === '1' || String(process.env.NOTIF_EMAILS_ENABLED || '').toLowerCase() === 'true';
@@ -39,7 +39,17 @@ router.post('/notificaciones/:id/aprobar', requireAdmin, async (req, res, next) 
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const resolved = await db.resolverSolicitudAsignacion(id, res.locals.user?.id, true);
-    if (NOTIF_EMAILS_ENABLED && resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
+    if (resolved?.ok && resolved?.tipo === 'asignacion_contacto') {
+      try {
+        const comercial = await db.getComercialById(resolved.id_comercial_solicitante).catch(() => null);
+        const cliente = resolved.id_contacto ? await db.getClienteById(resolved.id_contacto).catch(() => null) : null;
+        const comercialEmail = comercial?.Email ?? comercial?.email ?? null;
+        const clienteNombre = cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? 'Cliente';
+        if (comercialEmail) {
+          await sendAsignacionResultadoEmail(comercialEmail, { aprobado: true, clienteNombre, clienteId: resolved.id_contacto }).catch(() => null);
+        }
+      } catch (_) {}
+    } else if (NOTIF_EMAILS_ENABLED && resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
       const pedidoUrl = resolved?.id_pedido ? `${APP_BASE_URL}/pedidos/${resolved.id_pedido}` : '';
       await sendPedidoEspecialDecisionEmail(String(resolved.comercial_email), {
         decision: 'aprobado',
@@ -59,7 +69,17 @@ router.post('/notificaciones/:id/rechazar', requireAdmin, async (req, res, next)
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const resolved = await db.resolverSolicitudAsignacion(id, res.locals.user?.id, false);
-    if (NOTIF_EMAILS_ENABLED && resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
+    if (resolved?.ok && resolved?.tipo === 'asignacion_contacto') {
+      try {
+        const comercial = await db.getComercialById(resolved.id_comercial_solicitante).catch(() => null);
+        const cliente = resolved.id_contacto ? await db.getClienteById(resolved.id_contacto).catch(() => null) : null;
+        const comercialEmail = comercial?.Email ?? comercial?.email ?? null;
+        const clienteNombre = cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? 'Cliente';
+        if (comercialEmail) {
+          await sendAsignacionResultadoEmail(comercialEmail, { aprobado: false, clienteNombre, clienteId: resolved.id_contacto }).catch(() => null);
+        }
+      } catch (_) {}
+    } else if (NOTIF_EMAILS_ENABLED && resolved?.ok && resolved?.tipo === 'pedido_especial' && resolved?.comercial_email) {
       const pedidoUrl = resolved?.id_pedido ? `${APP_BASE_URL}/pedidos/${resolved.id_pedido}` : '';
       await sendPedidoEspecialDecisionEmail(String(resolved.comercial_email), {
         decision: 'rechazado',

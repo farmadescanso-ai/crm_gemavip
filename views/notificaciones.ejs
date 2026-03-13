@@ -32,13 +32,14 @@
             <th>Comercial solicitante</th>
             <th>Estado</th>
             <th>Fecha resolución</th>
+            <th>Resuelto por</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="notif-tbody">
           <% if (!items || items.length === 0) { %>
             <tr id="notif-empty-row">
-              <td colspan="7" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay notificaciones.</td>
+              <td colspan="8" style="text-align:center; color: var(--gv-muted); padding: 24px;">No hay notificaciones.</td>
             </tr>
           <% } else { %>
             <% items.forEach((n) => { %>
@@ -65,6 +66,7 @@
                   </span>
                 </td>
                 <td><%= (n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion ? (typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion) : '—' %></td>
+                <td><%= (n.estado || '').toLowerCase() !== 'pendiente' ? (n.admin_nombre || 'Enlace email') : '—' %></td>
                 <td>
                   <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
                     <div class="gv-actions">
@@ -130,7 +132,8 @@
           ? '<div class="gv-actions"><form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form></div>'
           : '—';
         var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
-        tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td>' + tipoLabel + '</td><td>' + ref + '</td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + acc + '</td>';
+        var adminNombre = (estado !== 'pendiente') ? (n.admin_nombre || 'Enlace email') : '—';
+        tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td>' + tipoLabel + '</td><td>' + ref + '</td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + adminNombre + '</td><td>' + acc + '</td>';
         tbody.appendChild(tr);
       });
     })

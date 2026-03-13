@@ -124,25 +124,29 @@ module.exports = {
         fecha_resolucion: n.fecha_resolucion,
         notas: n.notas,
         contacto_nombre: null,
-        comercial_nombre: null
+        comercial_nombre: null,
+        admin_nombre: null
       }));
       if (items.length === 0) return items;
       const contactIds = items.map((x) => x.id_contacto).filter(Boolean);
       const comercialIds = items.map((x) => x.id_comercial_solicitante).filter(Boolean);
+      const adminIds = items.map((x) => x.id_admin_resolvio).filter(Boolean);
       const pedidoIds = items
         .map((x) => x.id_pedido)
         .filter(Boolean)
         .map((v) => Number.parseInt(String(v).trim(), 10))
         .filter((n) => Number.isFinite(n) && n > 0);
 
-      const [nombresContactos, nombresComerciales, numsPedido] = await Promise.all([
+      const [nombresContactos, nombresComerciales, nombresAdmins, numsPedido] = await Promise.all([
         this._getClientesNombresByIds(contactIds),
         this._getComercialesNombresByIds(comercialIds),
+        this._getComercialesNombresByIds(adminIds),
         this._getPedidosNumsByIds(pedidoIds)
       ]);
       items.forEach((n) => {
         n.contacto_nombre = nombresContactos[Number(n.id_contacto)] ?? null;
         n.comercial_nombre = nombresComerciales[Number(n.id_comercial_solicitante)] ?? null;
+        n.admin_nombre = nombresAdmins[Number(n.id_admin_resolvio)] ?? null;
         const pid = Number.parseInt(String(n.id_pedido ?? '').trim(), 10);
         n.pedido_num = Number.isFinite(pid) && pid > 0 ? (numsPedido[pid] ?? null) : null;
       });

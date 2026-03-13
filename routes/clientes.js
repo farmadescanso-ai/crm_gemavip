@@ -603,10 +603,12 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
       ? `${APP_BASE_URL}/webhook/aprobar-asignacion?notifId=${notifId}&approved=0&sig=${sign(notifId, false)}`
       : null;
 
+    const toEmail = (process.env.NOTIF_EMAIL_DESTINO || process.env.SYSTEM_ADMIN_EMAILS || 'info@farmadescanso.com').split(',')[0].trim();
     const webhookPayload = {
       body: {
         title: 'Nueva solicitud de asignación',
         body: `${userName} solicita: ${clienteNombre}`,
+        toEmail,
         url: '/notificaciones',
         tipo: 'solicitud_asignacion',
         clienteId: id,

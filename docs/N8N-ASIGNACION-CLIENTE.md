@@ -8,7 +8,7 @@ El workflow `n8n-workflow-notificaciones-gemavip.json` gestiona la solicitud de 
 - **Denegado**: El admin hace clic en "Rechazar" → va al CRM → se actualiza el estado y se envía email al comercial.
 
 **Flujo de destinatarios:**
-- **j.deaza@gemavip.com** recibe el email con botones Aprobar/Rechazar (enlaces al CRM).
+- **Admin** (NOTIF_EMAIL_DESTINO o primer email de SYSTEM_ADMIN_EMAILS; por defecto info@farmadescanso.com) recibe el email con botones Aprobar/Rechazar.
 - **Comercial** (quien solicitó) recibe la notificación del resultado vía email y en "Mis notificaciones".
 
 ## URL del Webhook
@@ -60,8 +60,9 @@ Los botones Aprobar/Rechazar del email enlazan a `/webhook/aprobar-asignacion`. 
 
 ## Configuración en el CRM
 
-1. **APROBACION_SECRET** (opcional): Si se define, se usa para firmar los enlaces. Por defecto se usa `API_KEY`.
-2. El endpoint `/webhook/aprobar-asignacion` es público (no requiere login).
+1. **NOTIF_EMAIL_DESTINO** (opcional): Email que recibe la solicitud de aprobación. Por defecto: primer email de SYSTEM_ADMIN_EMAILS o info@farmadescanso.com.
+2. **APROBACION_SECRET** (opcional): Si se define, se usa para firmar los enlaces. Por defecto se usa `API_KEY`.
+3. El endpoint `/webhook/aprobar-asignacion` es público (no requiere login).
 
 ## Importar el workflow
 
