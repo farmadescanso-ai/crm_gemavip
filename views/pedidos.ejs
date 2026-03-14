@@ -734,16 +734,29 @@
         <div id="gv-comercial-confirm-backdrop" class="gv-modal-backdrop" hidden></div>
         <div id="gv-comercial-confirm-modal" class="gv-modal" hidden role="dialog" aria-modal="true">
           <div class="gv-modal-card">
-            <div class="gv-modal-hd">
-              <div class="gv-modal-title">Pasar a Revisando</div>
-              <div class="gv-modal-subtitle">¿Seguro que quieres pasar el pedido <b id="gv-comercial-confirm-num">—</b> a <b>Revisando</b>?<br><small style="color:var(--gv-muted);">Una vez cambiado, ya no podrás editar este pedido.</small></div>
+            <div style="padding: 24px 24px 0; text-align: center;">
+              <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); margin-bottom:16px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <div class="gv-modal-title" style="font-size:18px; margin-bottom:8px;">Enviar pedido a revisión</div>
+              <div style="color:var(--gv-ink); font-size:14px; line-height:1.5;">
+                Vas a pasar el pedido <b id="gv-comercial-confirm-num" style="color:var(--gv-brand, #1a73e8);">—</b> al estado <span class="badge info" style="font-size:12px; vertical-align:middle;">Revisando</span>
+              </div>
             </div>
-            <div class="gv-modal-actions">
+            <div style="margin: 16px 24px; padding: 12px 14px; background: #fff8e1; border-left: 4px solid #f9a825; border-radius: 8px; font-size: 13px; color: #5d4037; line-height: 1.5;">
+              <b>Esta acción no se puede deshacer.</b><br>
+              Una vez confirmado, ya no podrás editar ni modificar este pedido.
+            </div>
+            <div class="gv-modal-actions" style="padding: 16px 24px;">
               <button type="button" class="btn secondary" id="gv-comercial-cancel">Cancelar</button>
-              <button type="button" class="btn" id="gv-comercial-accept">
+              <button type="button" class="btn" id="gv-comercial-accept" style="background: linear-gradient(135deg, #e65100 0%, #f57c00 100%); border:none;">
                 <span class="gv-btn-loading">
                   <span class="gv-spinner" id="gv-comercial-spinner" style="display:none;" aria-hidden="true"></span>
-                  <span id="gv-comercial-accept-label">Confirmar</span>
+                  <span id="gv-comercial-accept-label">Sí, enviar a revisión</span>
                 </span>
               </button>
             </div>
@@ -772,7 +785,7 @@
             cAccept.disabled = saving;
             cCancel.disabled = saving;
             if (cSpinner) cSpinner.style.display = saving ? 'inline-block' : 'none';
-            if (cLabel) cLabel.textContent = saving ? 'Guardando...' : 'Confirmar';
+            if (cLabel) cLabel.textContent = saving ? 'Enviando...' : 'Sí, enviar a revisión';
           }
 
           cCancel.addEventListener('click', function () { if (!saving) { cModal.hidden = true; cBackdrop.hidden = true; activeBadge = null; } });
