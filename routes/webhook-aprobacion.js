@@ -18,30 +18,91 @@ function computeSig(notifId, approved) {
 }
 
 /**
- * Página HTML mínima que cierra la ventana si se abrió como popup.
+ * Página landing atractiva tras aprobar/rechazar. Cierra la ventana si se abrió como popup.
+ * @param {boolean} approved - true si aprobado, false si rechazado
+ * @param {string} [clienteNombre] - Nombre del cliente (opcional)
  */
-function paginaListoHtml() {
+function paginaListoHtml(approved, clienteNombre = '') {
+  const isAprobado = approved === true;
+  const titulo = isAprobado ? 'Solicitud aprobada' : 'Solicitud rechazada';
+  const mensaje = isAprobado
+    ? (clienteNombre ? `El cliente <strong>${escapeHtml(clienteNombre)}</strong> ha sido asignado al comercial.` : 'La asignación ha sido aprobada correctamente.')
+    : (clienteNombre ? `La solicitud para <strong>${escapeHtml(clienteNombre)}</strong> ha sido rechazada.` : 'La solicitud ha sido rechazada.');
+  const icono = isAprobado ? '✓' : '✕';
+  const colorPrincipal = isAprobado ? '#198754' : '#dc3545';
+
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Listo</title>
+  <title>${titulo} · CRM Gemavip</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Outfit:wght@500;600&display=swap" rel="stylesheet">
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f8f8f8; color: #1f2a44; }
-    .box { padding: 24px; text-align: center; }
-    h1 { font-size: 18px; margin: 0 0 8px; }
-    p { font-size: 13px; color: #5b667a; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; min-height: 100vh; background: linear-gradient(160deg, #f0f7ff 0%, #f8f8f8 50%, #fff5f0 100%); color: #1f2a44; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { max-width: 420px; width: 100%; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(12,20,58,0.12); overflow: hidden; border: 1px solid rgba(0,0,0,0.06); }
+    .card-bar { height: 4px; background: linear-gradient(90deg, #008bd2, #2ea3f2, #ffba00, #8fae1b); }
+    .card-body { padding: 40px 32px; text-align: center; }
+    .icon-wrap { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #fff; background: ${colorPrincipal}; box-shadow: 0 8px 24px ${colorPrincipal}40; }
+    .card-body h1 { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 600; margin: 0 0 12px; color: #0c143a; }
+    .card-body p { font-size: 15px; line-height: 1.6; color: #5b667a; margin: 0 0 24px; }
+    .card-body p strong { color: #1f2a44; }
+    .hint { font-size: 13px; color: #8b95a5; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+    .btn-close { display: inline-block; padding: 12px 28px; background: #1f2a44; color: #fff !important; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px; transition: transform 0.2s, box-shadow 0.2s; }
+    .btn-close:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(31,42,68,0.25); }
+    .brand { font-size: 11px; color: #8b95a5; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>Listo</h1>
-    <p>Esta ventana se puede cerrar.</p>
+  <div class="card">
+    <div class="card-bar"></div>
+    <div class="card-body">
+      <p class="brand">CRM Gemavip</p>
+      <div class="icon-wrap">${icono}</div>
+      <h1>${titulo}</h1>
+      <p>${mensaje}</p>
+      <a href="#" class="btn-close" onclick="window.close(); return false;">Cerrar ventana</a>
+      <p class="hint">Puedes cerrar esta pestaña o ventana.</p>
+    </div>
   </div>
   <script>
-    try { if (window.opener) window.close(); } catch(e) {}
+    try { if (window.opener) setTimeout(function(){ window.close(); }, 1500); } catch(e) {}
   </script>
+</body>
+</html>`;
+}
+
+function escapeHtml(s) {
+  if (!s || typeof s !== 'string') return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Página de error con formato consistente.
+ */
+function paginaErrorHtml(titulo, mensaje) {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(titulo)} · CRM Gemavip</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&family=Outfit:wght@600&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; min-height: 100vh; background: linear-gradient(160deg, #fff5f5 0%, #f8f8f8 100%); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { max-width: 400px; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.08); padding: 40px; text-align: center; border-left: 4px solid #dc3545; }
+    h1 { font-family: 'Outfit', sans-serif; font-size: 20px; color: #0c143a; margin: 0 0 12px; }
+    p { font-size: 15px; color: #5b667a; margin: 0; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>${escapeHtml(titulo)}</h1>
+    <p>${escapeHtml(mensaje)}</p>
+  </div>
 </body>
 </html>`;
 }
@@ -53,23 +114,27 @@ router.get('/aprobar-asignacion', async (req, res) => {
     const sig = String(req.query.sig || '').trim();
 
     if (!Number.isFinite(notifId) || notifId <= 0) {
-      res.status(400).send('<h1>Enlace inválido</h1><p>Faltan parámetros.</p>');
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.status(400).send(paginaErrorHtml('Enlace inválido', 'Faltan parámetros.'));
       return;
     }
 
     const approved = approvedRaw === '1' || approvedRaw === 'true' || approvedRaw === true;
     const expectedSig = computeSig(notifId, approved);
     if (sig !== expectedSig) {
-      res.status(400).send('<h1>Enlace inválido</h1><p>Firma incorrecta.</p>');
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.status(400).send(paginaErrorHtml('Enlace inválido', 'Firma incorrecta.'));
       return;
     }
 
     const result = await db.resolverSolicitudAsignacion(notifId, null, approved);
     if (!result?.ok) {
-      res.status(404).send('<h1>Acción no válida</h1><p>' + (result?.message || 'La solicitud ya fue resuelta.') + '</p>');
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.status(404).send(paginaErrorHtml('Acción no válida', result?.message || 'La solicitud ya fue resuelta.'));
       return;
     }
 
+    let clienteNombreParaPagina = '';
     if (result.tipo === 'asignacion_contacto' || !result.tipo) {
       const contactoId = result.id_contacto;
       const comercialId = result.id_comercial_solicitante;
@@ -83,6 +148,7 @@ router.get('/aprobar-asignacion', async (req, res) => {
         comercialEmail = comercial?.Email ?? comercial?.email ?? null;
         clienteNombre = cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? 'Cliente';
       } catch (_) {}
+      clienteNombreParaPagina = clienteNombre || '';
 
       if (comercialEmail) {
         await sendAsignacionResultadoEmail(comercialEmail, {
@@ -92,6 +158,7 @@ router.get('/aprobar-asignacion', async (req, res) => {
         }).catch((e) => console.warn('[APROBACION] Error enviando email:', e?.message));
       }
     } else if (result.tipo === 'pedido_especial') {
+      clienteNombreParaPagina = result.cliente_nombre || '';
       const comercialEmail = result.comercial_email;
       if (comercialEmail) {
         const { sendPedidoEspecialDecisionEmail } = require('../lib/mailer');
@@ -105,10 +172,11 @@ router.get('/aprobar-asignacion', async (req, res) => {
     }
 
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(paginaListoHtml());
+    res.send(paginaListoHtml(approved, clienteNombreParaPagina));
   } catch (e) {
     console.error('[APROBACION] Error:', e?.message);
-    res.status(500).send('<h1>Error</h1><p>No se pudo procesar la solicitud.</p>');
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.status(500).send(paginaErrorHtml('Error', 'No se pudo procesar la solicitud.'));
   }
 });
 
