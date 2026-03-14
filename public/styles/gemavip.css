@@ -779,13 +779,9 @@ main.container{
   overflow: visible;
   padding-right: 5px;
 }
-/* Fecha, Tipo, Referencia: padding izquierdo reducido */
+/* Fecha: padding izquierdo 5px */
 .gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-fecha,
-.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-fecha,
-.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-tipo,
-.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-tipo,
-.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-referencia,
-.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-referencia {
+.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-fecha {
   padding-left: 5px;
 }
 /* Referencia: -40% ancho (≈15% del total), texto en varias líneas */
