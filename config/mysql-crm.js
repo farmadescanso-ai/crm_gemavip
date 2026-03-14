@@ -1136,10 +1136,25 @@ class MySQLCRM {
     const mod = require(path.join(__dirname, 'mysql-crm-pedidos.js'));
     return mod.getDescuentosPedidoActivos.apply(this, arguments);
   }
+  async ensureEstadosPedidoTable() {
+    if (typeof ensureModule === 'function') ensureModule('pedidos');
+    const mod = require(path.join(__dirname, 'mysql-crm-pedidos.js'));
+    return mod.ensureEstadosPedidoTable.apply(this, arguments);
+  }
+  async _ensureEstadosPedidoMeta() {
+    if (typeof ensureModule === 'function') ensureModule('pedidos');
+    const mod = require(path.join(__dirname, 'mysql-crm-pedidos.js'));
+    return mod._ensureEstadosPedidoMeta.apply(this, arguments);
+  }
   async getEstadosPedidoActivos() {
     if (typeof ensureModule === 'function') ensureModule('pedidos');
     const mod = require(path.join(__dirname, 'mysql-crm-pedidos.js'));
     return mod.getEstadosPedidoActivos.apply(this, arguments);
+  }
+  async getEstadoPedidoById(id) {
+    if (typeof ensureModule === 'function') ensureModule('pedidos');
+    const mod = require(path.join(__dirname, 'mysql-crm-pedidos.js'));
+    return mod.getEstadoPedidoById.apply(this, arguments);
   }
   async getEstadoPedidoIdByCodigo(codigo) {
     if (typeof ensureModule === 'function') ensureModule('pedidos');
