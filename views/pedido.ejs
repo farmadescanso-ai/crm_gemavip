@@ -329,36 +329,36 @@
 
       <div class="gv-doc-summary">
         <%
-          const subtotalConIva = round2(sumTotal);
-          const importeDtoPedido = dtoPedidoPct ? round2(subtotalConIva * dtoPedidoPct / 100) : 0;
-          const totalCalculado = round2(subtotalConIva - importeDtoPedido);
+          const importeDtoPedido = dtoPedidoPct ? round2(round2(sumBase) * dtoPedidoPct / 100) : 0;
+          const baseAfterDto = round2(round2(sumBase) - importeDtoPedido);
+          const factorDto = dtoPedidoPct ? (1 - dtoPedidoPct / 100) : 1;
+          const ivaAfterDto = round2(round2(sumIva) * factorDto);
+          const totalCalculado = round2(baseAfterDto + ivaAfterDto);
           const totalGuardado = toNum(item.ped_total ?? item.TotalPedido ?? item.Total ?? NaN, NaN);
           const totalAntesRetenciones = (Number.isFinite(totalGuardado) && totalGuardado > 0)
             ? round2(totalGuardado)
             : totalCalculado;
         %>
         <table>
+          <tr>
+            <td>SUBTOTAL</td>
+            <td class="is-right"><%= fmtEur(round2(sumBase)) %></td>
+          </tr>
           <% if (dtoPedidoPct) { %>
             <tr>
-              <td>DTO PEDIDO</td>
-              <td class="is-right"><%= `${fmtNumES(dtoPedidoPct, 2)}%` %></td>
-            </tr>
-            <% if (importeDtoPedido > 0) { %>
-            <tr>
-              <td>Dto pedido (importe)</td>
+              <td>DTO PEDIDO (<%= fmtNumES(dtoPedidoPct, 2) %>%)</td>
               <td class="is-right">−<%= fmtEur(importeDtoPedido) %></td>
             </tr>
-            <% } %>
           <% } %>
           <tr>
             <td>BASE IMPONIBLE</td>
-            <td class="is-right"><%= fmtEur(round2(sumBase)) %></td>
+            <td class="is-right"><%= fmtEur(baseAfterDto) %></td>
           </tr>
           <% Object.keys(ivaByPct || {}).sort((a, b) => Number(a) - Number(b)).forEach((key) => { %>
             <% const iva = ivaByPct[key]; if (iva && iva.sum) { %>
               <tr>
                 <td>IMPUESTO (<%= fmtNumES(iva.pct, 2) %>%)</td>
-                <td class="is-right"><%= fmtEur(round2(iva.sum)) %></td>
+                <td class="is-right"><%= fmtEur(round2(round2(iva.sum) * factorDto)) %></td>
               </tr>
             <% } %>
           <% }) %>
@@ -367,13 +367,13 @@
             const importeRetencion = toNum(item.ImporteRetencion ?? item.importe_retencion ?? NaN, NaN);
             const retenciones = [];
             if (retencionPct > 0) {
-              const imp = Number.isFinite(importeRetencion) ? round2(importeRetencion) : round2(sumBase * retencionPct / 100);
+              const imp = Number.isFinite(importeRetencion) ? round2(importeRetencion) : round2(baseAfterDto * retencionPct / 100);
               retenciones.push({ pct: retencionPct, importe: imp });
             }
             if (cliente && Array.isArray(cliente.Retenciones) && cliente.Retenciones.length) {
               cliente.Retenciones.forEach((r) => {
                 const p = toNum(r.porcentaje ?? r.Porcentaje ?? r.pct ?? 0, 0);
-                if (p > 0) retenciones.push({ pct: p, importe: round2((r.importe != null ? toNum(r.importe, NaN) : sumBase * p / 100)) });
+                if (p > 0) retenciones.push({ pct: p, importe: round2((r.importe != null ? toNum(r.importe, NaN) : baseAfterDto * p / 100)) });
               });
             }
           %>

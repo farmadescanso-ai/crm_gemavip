@@ -221,7 +221,7 @@
                 <th class="gv-lineas-col-num">PVL</th>
                 <th class="gv-lineas-col-num">Cantidad</th>
                 <th class="gv-lineas-col-num">Dto (%)</th>
-                <th class="gv-lineas-col-total">Total línea</th>
+                <th class="gv-lineas-col-total">Base línea</th>
                 <th class="gv-lineas-col-btn"></th>
               </tr>
             </thead>
@@ -277,6 +277,11 @@
                   />
                 </td>
                 <td style="text-align:right; font-weight:700;" id="dtoPedidoAmountCell">—</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colspan="4" style="text-align:right; font-weight:700;">IVA</td>
+                <td style="text-align:right; font-weight:700;" id="ivaCell">—</td>
                 <td></td>
               </tr>
               <tr>
@@ -1017,6 +1022,7 @@
 
     function recalcTotals(){
       var subtotal = 0;
+      var sumIva = 0;
       table.querySelectorAll('tbody tr').forEach(function(tr){
         var sel = tr.querySelector('select[name*=\"[Id_Articulo]\"]');
         var pvlEl = tr.querySelector('input.gv-line-pvl');
@@ -1031,21 +1037,20 @@
         if (!isFinite(qty)) qty = 0;
         if (!isFinite(dto)) dto = 0;
         dto = Math.max(0, Math.min(100, dto));
-        // Total línea = base (sin dto pedido) + IVA; el dto pedido se aplica sobre el Subtotal
         var base = qty * pvl * (1 - dto / 100);
+        base = Math.round((base + Number.EPSILON) * 100) / 100;
         var ivaPct = getIvaPctForSelect(sel);
-        var totalLinea = base + (base * ivaPct / 100);
-        totalLinea = Math.round((totalLinea + Number.EPSILON) * 100) / 100;
+        var ivaLinea = Math.round((base * ivaPct / 100 + Number.EPSILON) * 100) / 100;
         if (qty <= 0 || pvl <= 0) out.textContent = '—';
-        else out.textContent = fmtEurES(totalLinea);
-        if (isFinite(totalLinea)) subtotal += totalLinea;
+        else out.textContent = fmtEurES(base);
+        if (isFinite(base)) subtotal += base;
+        if (isFinite(ivaLinea)) sumIva += ivaLinea;
       });
       subtotal = Math.round((subtotal + Number.EPSILON) * 100) / 100;
+      sumIva = Math.round((sumIva + Number.EPSILON) * 100) / 100;
 
-      // Aplicar dto pedido auto según tabla (sobre subtotal)
       var dtoPedido = getDtoPedidoAuto(subtotal);
       if (dtoPedidoEl && !isPedidoEspecial()) {
-        // Evitar NaN/formatos: input number usa "."
         dtoPedidoEl.value = String(dtoPedido);
       }
 
@@ -1053,10 +1058,14 @@
       if (subCell) subCell.textContent = subtotal ? fmtEurES(subtotal) : '—';
       var importeDto = subtotal * (dtoPedido / 100);
       importeDto = Math.round((importeDto + Number.EPSILON) * 100) / 100;
-      var totalFinal = subtotal - importeDto;
-      totalFinal = Math.round((totalFinal + Number.EPSILON) * 100) / 100;
+      var baseAfterDto = Math.round((subtotal - importeDto + Number.EPSILON) * 100) / 100;
+      var factorDto = dtoPedido ? (1 - dtoPedido / 100) : 1;
+      var ivaAfterDto = Math.round((sumIva * factorDto + Number.EPSILON) * 100) / 100;
+      var totalFinal = Math.round((baseAfterDto + ivaAfterDto + Number.EPSILON) * 100) / 100;
       var dtoAmountCell = document.getElementById('dtoPedidoAmountCell');
       if (dtoAmountCell) dtoAmountCell.textContent = (dtoPedido && importeDto > 0) ? ('−' + fmtEurES(importeDto)) : '—';
+      var ivaCell = document.getElementById('ivaCell');
+      if (ivaCell) ivaCell.textContent = ivaAfterDto ? fmtEurES(ivaAfterDto) : '—';
       var tg = document.getElementById('totalGeneralCell');
       if (tg) tg.textContent = (subtotal || dtoPedido) ? fmtEurES(totalFinal) : '—';
     }

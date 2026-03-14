@@ -561,7 +561,8 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           if (insRes?.insertId) insertedIds.push(insRes.insertId);
         }
 
-        // 4) DTO pedido (manual si especial, automático por tramos si normal) y totales del pedido (sobre Subtotal)
+        // 4) DTO pedido (manual si especial, automático por tramos si normal)
+        //    El dto se aplica sobre la base (sin IVA), luego se calcula el IVA sobre la base neta.
         let pedidoDtoPct = 0;
         if (isTransfer) {
           pedidoDtoPct = 0;
@@ -571,25 +572,25 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
             : (pedidoInput.Dto ?? pedidoInput.dto ?? 0);
           pedidoDtoPct = clampPct(getNum(dtoManualRaw, 0));
         } else {
-          // Si el formulario envía Dto explícito, usarlo; si no, calcular por tabla de tramos
           const dtoManual = colDtoPedido
             ? (Object.prototype.hasOwnProperty.call(filteredPedido, colDtoPedido) ? filteredPedido[colDtoPedido] : null)
             : (pedidoInput.Dto ?? pedidoInput.dto ?? null);
           if (dtoManual != null && String(dtoManual).trim() !== '') {
             pedidoDtoPct = clampPct(getNum(dtoManual, 0));
           } else {
-            const dtoFromTable = await this.getDtoPedidoPctForSubtotal(sumTotal, conn).catch(() => 0);
+            const dtoFromTable = await this.getDtoPedidoPctForSubtotal(sumBase, conn).catch(() => 0);
             pedidoDtoPct = clampPct(getNum(dtoFromTable, 0));
           }
         }
-        const descuentoPedido = round2(sumTotal * (pedidoDtoPct / 100));
-        const totalFinal = round2(sumTotal - descuentoPedido);
+        const descuentoPedido = round2(sumBase * (pedidoDtoPct / 100));
+        const baseAfterDto = round2(sumBase - descuentoPedido);
+        const ivaAfterDto = round2(sumIva * (1 - pedidoDtoPct / 100));
+        const totalFinal = round2(baseAfterDto + ivaAfterDto);
 
-        // Totales best-effort, sólo columnas existentes.
         const totalsUpdate = {};
         if (colTotalPedido) totalsUpdate[colTotalPedido] = totalFinal;
-        if (colBasePedido) totalsUpdate[colBasePedido] = round2(sumBase);
-        if (colIvaPedido) totalsUpdate[colIvaPedido] = round2(sumIva);
+        if (colBasePedido) totalsUpdate[colBasePedido] = baseAfterDto;
+        if (colIvaPedido) totalsUpdate[colIvaPedido] = ivaAfterDto;
         if (colDescuentoPedido) totalsUpdate[colDescuentoPedido] = round2(sumDescuento + descuentoPedido);
         if (colDtoPedido) totalsUpdate[colDtoPedido] = pedidoDtoPct;
         const totalKeys = Object.keys(totalsUpdate);
@@ -607,7 +608,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           insertedLineas: insertedIds.length,
           insertedIds,
           numPedido: finalNumPedido,
-          totals: { base: round2(sumBase), iva: round2(sumIva), subtotal: round2(sumTotal), dtoPct: pedidoDtoPct, descuentoPedido: descuentoPedido, total: totalFinal, descuentoLineas: round2(sumDescuento), descuentoTotal: round2(sumDescuento + descuentoPedido) },
+          totals: { base: baseAfterDto, iva: ivaAfterDto, subtotal: round2(sumBase), dtoPct: pedidoDtoPct, descuentoPedido, total: totalFinal, descuentoLineas: round2(sumDescuento), descuentoTotal: round2(sumDescuento + descuentoPedido) },
           tarifa: { Id_Tarifa: effectiveTarifaId, info: tarifaInfo || null }
         };
       } catch (e) {
