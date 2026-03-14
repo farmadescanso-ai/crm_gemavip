@@ -23,7 +23,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
       const pickPedidoCol = (cands) => this._pickCIFromColumns(pedidosCols, cands);
       const colTarifaId = pickPedidoCol(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']);
       const colTarifaLegacy = pickPedidoCol(['Tarifa', 'tarifa']);
-      const colDtoPedido = pickPedidoCol(['Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
+      const colDtoPedido = pickPedidoCol(['ped_dto', 'Dto', 'DTO', 'Descuento', 'DescuentoPedido', 'PorcentajeDescuento', 'porcentaje_descuento']);
       const colEstadoTxt = pickPedidoCol(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
       const colEstadoId = pickPedidoCol(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
       const colEsEspecial = pickPedidoCol(['EsEspecial', 'es_especial', 'PedidoEspecial', 'pedido_especial']);
@@ -43,10 +43,10 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
       ]);
       const colTipoPedido = pickPedidoCol(['Id_TipoPedido', 'id_tipo_pedido', 'TipoPedidoId']);
 
-      const colTotalPedido = pickPedidoCol(['TotalPedido', 'Total_Pedido', 'total_pedido', 'Total', 'total', 'ImporteTotal', 'importe_total', 'Importe', 'importe']);
-      const colBasePedido = pickPedidoCol(['BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Neto', 'neto', 'ImporteNeto', 'importe_neto']);
-      const colIvaPedido = pickPedidoCol(['TotalIva', 'total_iva', 'TotalIVA', 'IvaTotal', 'iva_total', 'ImporteIVA', 'importe_iva']);
-      const colDescuentoPedido = pickPedidoCol(['TotalDescuento', 'total_descuento', 'DescuentoTotal', 'descuento_total', 'ImporteDescuento', 'importe_descuento']);
+      const colTotalPedido = pickPedidoCol(['ped_total', 'TotalPedido', 'Total_Pedido', 'total_pedido', 'Total', 'total', 'ImporteTotal', 'importe_total', 'Importe', 'importe']);
+      const colBasePedido = pickPedidoCol(['ped_base', 'BaseImponible', 'base_imponible', 'Subtotal', 'subtotal', 'Neto', 'neto', 'ImporteNeto', 'importe_neto']);
+      const colIvaPedido = pickPedidoCol(['ped_iva', 'TotalIva', 'total_iva', 'TotalIVA', 'IvaTotal', 'iva_total', 'ImporteIVA', 'importe_iva']);
+      const colDescuentoPedido = pickPedidoCol(['ped_descuento', 'TotalDescuento', 'total_descuento', 'DescuentoTotal', 'descuento_total', 'ImporteDescuento', 'importe_descuento']);
 
       const paCols = await this._getColumns(paMeta.table).catch(() => []);
       const paColsLower = new Map((paCols || []).map((c) => [String(c).toLowerCase(), c]));

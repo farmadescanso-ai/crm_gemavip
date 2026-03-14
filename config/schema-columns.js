@@ -28,7 +28,7 @@ const SCHEMA_COLUMNS = {
   marcas: ['mar_id', 'mar_nombre', 'mar_activo'],
   notificaciones: ['notif_id', 'notif_tipo', 'notif_ag_id', 'notif_com_id', 'notif_estado', 'notif_com_admin_id', 'notif_fecha_creacion', 'notif_fecha_resolucion', 'notif_notas', 'notif_ped_id', 'notif_id_pedido'],
   paises: ['pais_id', 'pais_codigo', 'pais_nombre'],
-  pedidos: ['ped_id', 'ped_com_id', 'ped_cli_id', 'ped_direnv_id', 'ped_formp_id', 'ped_tipp_id', 'ped_tarcli_id', 'ped_Serie', 'ped_numero', 'ped_fecha', 'ped_FechaEntrega', 'ped_estado_txt', 'ped_estped_id', 'ped_Id_EstadoPedido', 'ped_total', 'ped_base', 'ped_iva', 'ped_id_holded'],
+  pedidos: ['ped_id', 'ped_com_id', 'ped_cli_id', 'ped_direnv_id', 'ped_formp_id', 'ped_tipp_id', 'ped_tarcli_id', 'ped_Serie', 'ped_numero', 'ped_fecha', 'ped_FechaEntrega', 'ped_estado_txt', 'ped_estped_id', 'ped_Id_EstadoPedido', 'ped_total', 'ped_base', 'ped_iva', 'ped_dto', 'ped_descuento', 'ped_id_holded'],
   pedidos_articulos: ['pedart_id', 'pedart_ped_id', 'pedart_art_id', 'pedart_articulo_txt', 'pedart_numero', 'pedart_cantidad', 'pedart_pvp'],
   provincias: ['prov_id', 'prov_nombre', 'prov_codigo', 'prov_pais', 'prov_codigo_pais'],
   tarifasClientes: ['tarcli_id', 'tarcli_nombre', 'tarcli_activo'],
