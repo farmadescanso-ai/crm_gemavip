@@ -2385,12 +2385,12 @@ table.calendar td.is-empty{
   font: inherit;
 }
 button.gv-telefono-btn {
-  background: transparent;
   appearance: none;
   -webkit-appearance: none;
 }
 .gv-telefono-btn:hover { opacity: 0.9; transform: scale(1.05); }
-.gv-telefono-btn--call {
+.gv-telefono-btn--call,
+button.gv-telefono-btn--call {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
 }
