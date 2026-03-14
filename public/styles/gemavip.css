@@ -736,6 +736,53 @@ main.container{
   background: rgba(0,139,210,.04);
 }
 
+/* ===========================
+   Tabla Notificaciones (estilo Gemavip)
+   Referencia: -40% ancho, texto en varias líneas
+   =========================== */
+.gv-notificaciones-table-wrap { margin: 0; width: 100%; }
+.gv-notificaciones-table-wrap .gv-notificaciones-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table thead th {
+  background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
+  color: var(--gv-ink);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gv-border);
+  padding: 12px 14px;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table th,
+.gv-notificaciones-table-wrap .gv-notificaciones-table td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table tbody tr:hover td {
+  background: rgba(0,139,210,.04);
+}
+/* Referencia: -40% ancho (≈15% del total), texto en varias líneas */
+.gv-notificaciones-table-wrap .gv-notificaciones-table .gv-notif-col-referencia {
+  width: 15%;
+  max-width: 15%;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.35;
+  vertical-align: top;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table .gv-notif-col-acciones {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .table-wrap{ overflow:auto; border-radius: 14px; border:1px solid var(--gv-border); }
 table{
   width: 100%;

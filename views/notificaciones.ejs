@@ -1,40 +1,34 @@
 <%- include('partials/header', { title: 'Notificaciones' }) %>
 
-<section class="card">
-  <div class="card-hd">
-    <h1 class="card-title">Notificaciones</h1>
-    <p class="card-subtitle">Solicitudes pendientes (asignación de clientes y pedidos especiales). Puedes aprobar o rechazar.</p>
+<section class="card gv-notificaciones">
+  <div class="card-hd gv-contactos-hd">
+    <h1 class="card-title gv-contactos-hd__title">Notificaciones</h1>
+    <p class="card-subtitle gv-contactos-hd__sub">Solicitudes pendientes (asignación de clientes y pedidos especiales). Puedes aprobar o rechazar.</p>
   </div>
   <div class="card-bd">
     <% if (typeof resuelto !== 'undefined' && resuelto) { %>
-      <p class="notice" style="margin-bottom:12px; padding:10px; background: rgba(25,135,84,.1); border-radius:8px; color:#198754;">
-        <%= resuelto === 'aprobada' ? 'Solicitud aprobada.' : 'Solicitud rechazada.' %>
-      </p>
+      <div class="gv-alert gv-alert--success" style="margin-bottom:12px;"><%= resuelto === 'aprobada' ? 'Solicitud aprobada.' : 'Solicitud rechazada.' %></div>
     <% } %>
     <% if (typeof borrado !== 'undefined' && borrado !== '' && borrado !== null) { %>
-      <p class="notice" style="margin-bottom:12px; padding:10px; background: rgba(13,110,253,.1); border-radius:8px; color:#0d6efd;">
-        Historial borrado: <strong><%= borrado %></strong> notificaciones eliminadas.
-      </p>
+      <div class="gv-alert gv-alert--info" style="margin-bottom:12px;">Historial borrado: <strong><%= borrado %></strong> notificaciones eliminadas.</div>
     <% } %>
     <% if (typeof eliminada !== 'undefined' && eliminada) { %>
-      <p class="notice" style="margin-bottom:12px; padding:10px; background: rgba(25,135,84,.1); border-radius:8px; color:#198754;">
-        Notificación eliminada.
-      </p>
+      <div class="gv-alert gv-alert--success" style="margin-bottom:12px;">Notificación eliminada.</div>
     <% } %>
-    <p style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
+    <p class="gv-contactos-hd__sub" style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
       <span aria-hidden="true">🔔</span> Solicitudes pendientes: <strong><%= typeof paging !== 'undefined' ? paging.total : 0 %></strong>
       <form method="post" action="/notificaciones/borrar-historial" style="display:inline-block; margin-left:16px;">
         <button type="submit" class="btn secondary" onclick="return confirm('¿Borrar todo el historial de notificaciones? Esta acción no se puede deshacer.');">Borrar historial</button>
       </form>
     </p>
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap gv-notificaciones-table-wrap">
+      <table class="gv-notificaciones-table">
         <thead>
           <tr>
-            <th>Acciones</th>
+            <th class="gv-notif-col-acciones">Acciones</th>
             <th>Fecha</th>
             <th>Tipo</th>
-            <th>Referencia</th>
+            <th class="gv-notif-col-referencia">Referencia</th>
             <th>Comercial solicitante</th>
             <th>Estado</th>
             <th>Fecha resolución</th>
@@ -74,7 +68,7 @@
                 <td>
                   <%= (n.tipo || '').toLowerCase() === 'pedido_especial' ? 'Pedido especial' : 'Asignación cliente' %>
                 </td>
-                <td>
+                <td class="gv-notif-col-referencia">
                   <% const tipoN = (n.tipo || '').toLowerCase(); %>
                   <% const pidFromNotas = (() => { const m = String(n.notas || '').match(/pedidoId\s*=\s*(\d+)/i); return m && m[1] ? Number(m[1]) : null; })(); %>
                   <% const pid = (n.id_pedido != null ? Number(n.id_pedido) : null) || pidFromNotas; %>
@@ -143,7 +137,7 @@
         acc += '<form method="post" action="/notificaciones/' + n.id + '/eliminar" style="display:inline;"><button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm(\'¿Eliminar esta notificación?\');" style="color:#6c757d;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></form></div>';
         var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
         var adminNombre = (estado !== 'pendiente') ? (n.admin_nombre || 'Enlace email') : '—';
-        tr.innerHTML = '<td>' + acc + '</td><td>' + fmtDate(n.fecha_creacion) + '</td><td>' + tipoLabel + '</td><td>' + ref + '</td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + adminNombre + '</td>';
+        tr.innerHTML = '<td class="gv-notif-col-acciones">' + acc + '</td><td>' + fmtDate(n.fecha_creacion) + '</td><td>' + tipoLabel + '</td><td class="gv-notif-col-referencia">' + ref + '</td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + adminNombre + '</td>';
         tbody.appendChild(tr);
       });
     })
