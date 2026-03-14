@@ -747,10 +747,15 @@ main.container{
   border-collapse: collapse;
   font-size: 0.9rem;
 }
+/* Todas las columnas: padding-left 5px entre cada una */
 .gv-notificaciones-table-wrap .gv-notificaciones-table thead th,
 .gv-notificaciones-table-wrap .gv-notificaciones-table tbody td {
-  padding: 12px 14px;
+  padding: 12px 0 12px 5px;
   box-sizing: border-box;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table thead th:last-child,
+.gv-notificaciones-table-wrap .gv-notificaciones-table tbody td:last-child {
+  padding-right: 5px;
 }
 .gv-notificaciones-table-wrap .gv-notificaciones-table thead th {
   background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
@@ -777,12 +782,6 @@ main.container{
   width: 120px;
   white-space: nowrap;
   overflow: visible;
-  padding-right: 5px;
-}
-/* Fecha: padding izquierdo 1px */
-.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-fecha,
-.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-fecha {
-  padding-left: 1px;
 }
 /* Referencia: -40% ancho (≈15% del total), texto en varias líneas */
 .gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-referencia {
