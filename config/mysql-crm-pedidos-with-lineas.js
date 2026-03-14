@@ -316,9 +316,9 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
             const tTP = await this._resolveTableNameCaseInsensitive('tarifasClientes_precios');
             const tpCols = await this._getColumns(tTP).catch(() => []);
             const pickTP = (cands) => this._pickCIFromColumns(tpCols, cands);
-            const cTar = pickTP(['Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']) || 'Id_Tarifa';
-            const cArt = pickTP(['Id_Articulo', 'id_articulo', 'ArticuloId', 'articulo_id']) || 'Id_Articulo';
-            const cPrecio = pickTP(['Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl']) || 'Precio';
+            const cTar = pickTP(['tarclip_tarcli_id', 'Id_Tarifa', 'id_tarifa', 'TarifaId', 'tarifa_id']) || 'tarclip_tarcli_id';
+            const cArt = pickTP(['tarclip_art_id', 'Id_Articulo', 'id_articulo', 'ArticuloId', 'articulo_id']) || 'tarclip_art_id';
+            const cPrecio = pickTP(['tarclip_precio', 'Precio', 'precio', 'PVP', 'pvp', 'PVL', 'pvl']) || 'tarclip_precio';
 
             const idsArr = Array.from(articuloIds);
             const ph = idsArr.map(() => '?').join(', ');
@@ -361,7 +361,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
 
         const getPrecioFromTarifa = (art, artId) => {
           if (!art || typeof art !== 'object') return 0;
-          const pvlArticulo = getNum(art.PVL ?? art.pvl ?? 0, 0);
+          const pvlArticulo = getNum(art.art_pvl ?? art.PVL ?? art.pvl ?? 0, 0);
           const pvl = (artId && preciosPVL.has(artId)) ? preciosPVL.get(artId) : pvlArticulo;
           if (effectiveTarifaId && effectiveTarifaId !== 0 && artId && preciosTarifa.has(artId)) {
             return preciosTarifa.get(artId);
@@ -510,7 +510,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           if (colIvaPctLinea && mysqlData[colIvaPctLinea] !== null && mysqlData[colIvaPctLinea] !== undefined && String(mysqlData[colIvaPctLinea]).trim() !== '') {
             ivaPct = clampPct(getNum(mysqlData[colIvaPctLinea], 0));
           } else if (articulo) {
-            ivaPct = clampPct(getNum(articulo.IVA ?? articulo.iva ?? 0, 0));
+            ivaPct = clampPct(getNum(articulo.art_iva ?? articulo.IVA ?? articulo.iva ?? 0, 0));
           }
           const ivaImporte = round2(base * ivaPct / 100);
           const total = round2(base + ivaImporte);
@@ -565,8 +565,16 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
             : (pedidoInput.Dto ?? pedidoInput.dto ?? 0);
           pedidoDtoPct = clampPct(getNum(dtoManualRaw, 0));
         } else {
-          const dtoPedidoPct = await this.getDtoPedidoPctForSubtotal(sumTotal, conn).catch(() => 0);
-          pedidoDtoPct = clampPct(getNum(dtoPedidoPct, 0));
+          // Si el formulario envía Dto explícito, usarlo; si no, calcular por tabla de tramos
+          const dtoManual = colDtoPedido
+            ? (Object.prototype.hasOwnProperty.call(filteredPedido, colDtoPedido) ? filteredPedido[colDtoPedido] : null)
+            : (pedidoInput.Dto ?? pedidoInput.dto ?? null);
+          if (dtoManual != null && String(dtoManual).trim() !== '') {
+            pedidoDtoPct = clampPct(getNum(dtoManual, 0));
+          } else {
+            const dtoFromTable = await this.getDtoPedidoPctForSubtotal(sumTotal, conn).catch(() => 0);
+            pedidoDtoPct = clampPct(getNum(dtoFromTable, 0));
+          }
         }
         const descuentoPedido = round2(sumTotal * (pedidoDtoPct / 100));
         const totalFinal = round2(sumTotal - descuentoPedido);

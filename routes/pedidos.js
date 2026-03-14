@@ -1476,7 +1476,7 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
       Serie: 'P',
       ...(esEspecial ? { EsEspecial: 1, EspecialEstado: 'pendiente' } : { EsEspecial: 0 }),
       ...(esEspecial && !existingEspecial ? { EspecialFechaSolicitud: new Date() } : {}),
-      ...(esEspecial ? { Dto: Number(String(body.Dto || '').replace(',', '.')) || 0 } : {}),
+      ...((esEspecial || (body.Dto != null && body.Dto !== '')) ? { Dto: Number(String(body.Dto || '').replace(',', '.')) || 0 } : {}),
       NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
       NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
       FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
