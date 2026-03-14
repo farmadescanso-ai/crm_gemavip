@@ -180,4 +180,53 @@ router.get('/aprobar-asignacion', async (req, res) => {
   }
 });
 
+router.get('/aprobar-pedido', async (req, res) => {
+  try {
+    const notifId = Number(req.query.notifId);
+    const approvedRaw = req.query.approved;
+    const sig = String(req.query.sig || '').trim();
+
+    if (!Number.isFinite(notifId) || notifId <= 0) {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.status(400).send(paginaErrorHtml('Enlace inválido', 'Faltan parámetros.'));
+    }
+
+    const approved = approvedRaw === '1' || approvedRaw === 'true' || approvedRaw === true;
+    const expectedSig = computeSig(notifId, approved);
+    if (sig !== expectedSig) {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.status(400).send(paginaErrorHtml('Enlace inválido', 'Firma incorrecta.'));
+    }
+
+    const result = await db.resolverSolicitudAsignacion(notifId, null, approved);
+    if (!result?.ok) {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.status(404).send(paginaErrorHtml('Acción no válida', result?.message || 'La solicitud ya fue resuelta.'));
+    }
+
+    const pedidoNum = result.num_pedido || '';
+    const clienteNombre = result.cliente_nombre || '';
+    const comercialEmail = result.comercial_email;
+
+    if (comercialEmail) {
+      const { sendPedidoAprobacionResultadoEmail } = require('../lib/mailer');
+      await sendPedidoAprobacionResultadoEmail(comercialEmail, {
+        aprobado: approved,
+        pedidoNum,
+        clienteNombre,
+        pedidoUrl: result.id_pedido ? `${APP_BASE_URL}/pedidos/${result.id_pedido}` : null
+      }).catch((e) => console.warn('[APROBACION-PEDIDO] Error email resultado:', e?.message));
+    }
+
+    const titulo = approved ? 'Pedido aprobado' : 'Pedido denegado';
+    const label = pedidoNum ? `Pedido ${pedidoNum}` : (clienteNombre || 'Pedido');
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(paginaListoHtml(approved, label));
+  } catch (e) {
+    console.error('[APROBACION-PEDIDO] Error:', e?.message);
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.status(500).send(paginaErrorHtml('Error', 'No se pudo procesar la solicitud.'));
+  }
+});
+
 module.exports = router;

@@ -88,6 +88,28 @@ module.exports = {
     }
   },
 
+  async createSolicitudPedido(idPedido, idComercialSolicitante, idCliente) {
+    await this._ensureNotificacionesTable();
+    const m = await this._ensureNotificacionesMeta();
+    const cols = [m.colTipo, m.colContacto, m.colPedido, m.colComercial, m.colEstado];
+    const colList = cols.map((c) => `\`${c}\``).join(', ');
+    try {
+      const r = await this.query(
+        `INSERT INTO \`notificaciones\` (${colList}) VALUES (?, ?, ?, ?, ?)`,
+        ['aprobacion_pedido', idCliente || 0, idPedido, idComercialSolicitante, 'pendiente']
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    } catch (_e) {
+      const colsAlt = [m.colTipo, m.colPedido, m.colComercial, m.colEstado];
+      const colListAlt = colsAlt.map((c) => `\`${c}\``).join(', ');
+      const r = await this.query(
+        `INSERT INTO \`notificaciones\` (${colListAlt}) VALUES (?, ?, ?, ?)`,
+        ['aprobacion_pedido', idPedido, idComercialSolicitante, 'pendiente']
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    }
+  },
+
   async getNotificacionesPendientesCount() {
     try {
       await this._ensureNotificacionesTable();
@@ -360,6 +382,77 @@ module.exports = {
       return {
         ok: true,
         tipo: 'pedido_especial',
+        decision: aprobar ? 'aprobada' : 'rechazada',
+        id_pedido: resolvedPid,
+        num_pedido: resolvedPedidoNum,
+        cliente_nombre: resolvedClienteNombre,
+        comercial_email: resolvedComercialEmail,
+        id_comercial_solicitante: notif.id_comercial_solicitante
+      };
+    }
+
+    if (String(notif.tipo || '').toLowerCase() === 'aprobacion_pedido') {
+      let resolvedPid = null;
+      let resolvedPedidoNum = null;
+      let resolvedClienteNombre = null;
+      let resolvedComercialEmail = null;
+      try {
+        await this.ensurePedidosSchema();
+        const meta = await this._ensurePedidosMeta();
+        const cols = await this._getColumns(meta.tPedidos).catch(() => []);
+        const pick = (cands) => this._pickCIFromColumns(cols, cands);
+        const pk = meta.pk;
+        const colEstadoTxtPedido = meta.colEstado || pick(['EstadoPedido', 'estado_pedido', 'Estado', 'estado']);
+        const colEstadoIdPedido = meta.colEstadoId || pick(['Id_EstadoPedido', 'id_estado_pedido', 'EstadoPedidoId', 'estado_pedido_id']);
+        const colNumPedido = meta.colNumPedido || pick(['NumPedido', 'NumeroPedido', 'Numero_Pedido', 'num_pedido']);
+        let pid = Number.parseInt(String(notif.id_pedido ?? '').trim(), 10);
+        if (Number.isFinite(pid) && pid > 0) {
+          resolvedPid = pid;
+          const upd = {};
+          const estadoTexto = aprobar ? 'Aprobado' : 'Denegado';
+          const estadoCodigo = aprobar ? 'aprobado' : 'denegado';
+          if (colEstadoTxtPedido) upd[colEstadoTxtPedido] = estadoTexto;
+          if (colEstadoIdPedido) {
+            const estId = await this.getEstadoPedidoIdByCodigo(estadoCodigo).catch(() => null);
+            if (estId) upd[colEstadoIdPedido] = estId;
+          }
+          const keys = Object.keys(upd);
+          if (keys.length) {
+            const fields = keys.map((c) => `\`${c}\` = ?`).join(', ');
+            const values = keys.map((c) => upd[c]);
+            values.push(pid);
+            await this.query(`UPDATE \`${meta.tPedidos}\` SET ${fields} WHERE \`${pk}\` = ?`, values);
+          }
+          try {
+            if (colNumPedido) {
+              const rowsP = await this.query(
+                `SELECT \`${colNumPedido}\` AS num FROM \`${meta.tPedidos}\` WHERE \`${pk}\` = ? LIMIT 1`,
+                [pid]
+              );
+              const rowP = Array.isArray(rowsP) && rowsP.length ? rowsP[0] : null;
+              resolvedPedidoNum = rowP?.num != null ? String(rowP.num).trim() : null;
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+      try {
+        const clienteId = Number.parseInt(String(notif.id_contacto ?? '').trim(), 10);
+        if (Number.isFinite(clienteId) && clienteId > 0) {
+          const nombres = await this._getClientesNombresByIds([clienteId]).catch(() => ({}));
+          resolvedClienteNombre = nombres[clienteId] ?? null;
+        }
+      } catch (_) {}
+      try {
+        const cid = Number.parseInt(String(notif.id_comercial_solicitante ?? '').trim(), 10);
+        if (Number.isFinite(cid) && cid > 0) {
+          const com = await this.getComercialById(cid).catch(() => null);
+          resolvedComercialEmail = com?.Email ?? com?.email ?? com?.com_email ?? null;
+        }
+      } catch (_) {}
+
+      return {
+        ok: true,
+        tipo: 'aprobacion_pedido',
         decision: aprobar ? 'aprobada' : 'rechazada',
         id_pedido: resolvedPid,
         num_pedido: resolvedPedidoNum,

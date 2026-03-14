@@ -3,6 +3,8 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
+const axios = require('axios');
 const db = require('../config/mysql-crm');
 const {
   _n,
@@ -56,6 +58,125 @@ function ensureTransferTarifaYFormaPago(payload, body, tarifas, formasPago, tipo
   if (tarTransfer) out.Id_Tarifa = Number(_n(tarTransfer.tarcli_id, _n(tarTransfer.Id, tarTransfer.id))) || 0;
   if (fpTransfer) out.Id_FormaPago = Number(_n(fpTransfer.formp_id, _n(fpTransfer.id, fpTransfer.Id))) || 0;
   return out;
+}
+
+const N8N_APROBACION_PEDIDO_WEBHOOK = 'https://farmadescanso-n8n.6f4r35.easypanel.host/webhook/d6977a0f-a949-4fdc-bb45-09083fda4f8b';
+const APROBACION_SECRET = () => (process.env.APROBACION_SECRET || process.env.API_KEY || 'crm-gemavip-aprobacion').trim();
+
+function _signAprobacion(notifId, approved) {
+  return crypto.createHmac('sha256', APROBACION_SECRET()).update(`notifId=${notifId}&approved=${approved}`).digest('hex');
+}
+
+async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
+  const item = await db.getPedidoById(pedidoId).catch(() => null);
+  if (!item) return;
+
+  const idCliente = Number(_n(_n(item.Id_Cliente, item.id_cliente), item.ped_cli_id) || 0);
+  const idComercial = Number(_n(_n(_n(item.Id_Cial, item.id_cial), item.ped_com_id) || 0));
+
+  const [lineas, cliente, comercial] = await Promise.all([
+    db.getArticulosByPedido(pedidoId).catch(() => []),
+    idCliente ? db.getClienteById(idCliente).catch(() => null) : null,
+    idComercial ? db.getComercialById(idComercial).catch(() => null) : null
+  ]);
+
+  let direccionEnvio = null;
+  try {
+    const dirId = Number(_n(_n(item.Id_DireccionEnvio, item.id_direccion_envio), item.ped_direnv_id) || 0);
+    if (dirId) direccionEnvio = await db.getDireccionEnvioById(dirId).catch(() => null);
+    if (!direccionEnvio && idCliente) {
+      const dirs = await db.getDireccionesEnvioByCliente(idCliente, { compact: false }).catch(() => []);
+      if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
+    }
+  } catch (_) {}
+
+  let excelBase64 = null;
+  let excelFilename = null;
+  try {
+    const built = await buildStandardPedidoXlsxBuffer({
+      item, id: pedidoId, lineas, cliente, direccionEnvio,
+      fmtDateES: (d) => { try { return new Date(d).toLocaleDateString('es-ES'); } catch (_) { return String(d || ''); } },
+      mayoristaInfo: null
+    });
+    excelBase64 = built.buf.toString('base64');
+    excelFilename = built.filename;
+  } catch (e) {
+    console.warn('[WEBHOOK] Error generando Excel para aprobación:', e?.message);
+  }
+
+  const notifId = await db.createSolicitudPedido(pedidoId, idComercial || (sessionUser?.id || 0), idCliente).catch((e) => {
+    console.warn('[WEBHOOK] Error creando notificación pedido:', e?.message);
+    return null;
+  });
+
+  let approvalUrlApprove = null;
+  let approvalUrlDeny = null;
+  if (notifId) {
+    approvalUrlApprove = `${APP_BASE_URL}/webhook/aprobar-pedido?notifId=${notifId}&approved=1&sig=${_signAprobacion(notifId, true)}`;
+    approvalUrlDeny = `${APP_BASE_URL}/webhook/aprobar-pedido?notifId=${notifId}&approved=0&sig=${_signAprobacion(notifId, false)}`;
+  }
+
+  const numPedido = String(_n(_n(_n(item.NumPedido, item.Num_Pedido), item.Numero_Pedido), '')).trim() || String(pedidoId);
+  const comercialEmail = comercial?.com_email ?? comercial?.Email ?? comercial?.email ?? sessionUser?.email ?? null;
+  const comercialNombre = comercial?.com_nombre ?? comercial?.Nombre ?? comercial?.nombre ?? sessionUser?.nombre ?? '';
+
+  const payload = {
+    pedido: {
+      id: pedidoId,
+      numero: numPedido,
+      fecha: _n(_n(item.FechaPedido, item.ped_fecha), item.Fecha) || null,
+      total: _n(_n(item.TotalPedido, item.ped_total), item.Total) || 0,
+      subtotal: _n(item.SubtotalPedido, item.Subtotal) || 0,
+      dtoPct: _n(_n(item.Dto, item.ped_dto), item.Descuento) || 0,
+      observaciones: _n(item.Observaciones, item.ped_observaciones) || '',
+      estado: _n(_n(item.EstadoPedido, item.ped_estado_txt), 'Revisando')
+    },
+    cliente: cliente ? {
+      id: _n(_n(cliente.Id, cliente.id), cliente.cli_id) || idCliente,
+      nombre: cliente.Nombre_Razon_Social || cliente.cli_nombre_razon_social || cliente.Nombre || '',
+      nombreComercial: cliente.Nombre_Cial || cliente.cli_nombre_cial || '',
+      cif: _n(cliente.DNI_CIF, cliente.cli_dni_cif) || '',
+      direccion: _n(cliente.Direccion, cliente.cli_direccion) || '',
+      poblacion: _n(cliente.Poblacion, cliente.cli_poblacion) || '',
+      cp: _n(cliente.CodigoPostal, cliente.cli_codigo_postal) || '',
+      telefono: _n(cliente.Telefono, _n(cliente.cli_telefono, _n(cliente.Movil, cliente.cli_movil))) || '',
+      email: _n(cliente.Email, cliente.cli_email) || ''
+    } : null,
+    comercial: {
+      id: idComercial,
+      nombre: comercialNombre,
+      email: comercialEmail || '',
+      movil: comercial?.com_movil ?? comercial?.Movil ?? ''
+    },
+    lineas: (lineas || []).map((l) => ({
+      articuloId: Number(_n(_n(l.Id_Articulo, l.id_articulo), l.pedart_art_id) || 0),
+      codigo: String(_n(_n(l.art_codigo, _n(l.SKU, l.Codigo)), '') || '').trim(),
+      nombre: String(_n(_n(l.art_nombre, _n(l.Nombre, l.Descripcion)), l.pedart_articulo_txt) || '').trim(),
+      cantidad: Number(_n(_n(l.pedart_cantidad, l.Cantidad), l.Unidades) || 0),
+      precio: Number(_n(_n(_n(l.Linea_PVP, l.pedart_pvp), _n(l.PVP, l.PrecioUnitario)), 0) || 0),
+      dto: Number(_n(_n(l.Linea_Dto, l.pedart_dto), _n(l.DtoLinea, l.Dto)) || 0),
+      iva: Number(_n(_n(l.Linea_IVA, l.pedart_iva), _n(l.IVA, l.PorcIVA)) || 0)
+    })),
+    direccionEnvio: direccionEnvio || null,
+    excel: excelBase64 ? { filename: excelFilename, mime: XLSX_MIME, base64: excelBase64 } : null,
+    approvalUrlApprove,
+    approvalUrlDeny,
+    emailDirector: 'j.deaza@gemavip.com',
+    emailCcResponsable: 'c.betancourt@gmavip.com',
+    emailComercial: comercialEmail || '',
+    source: 'crm_gemavip',
+    timestamp: new Date().toISOString()
+  };
+
+  await axios.post(N8N_APROBACION_PEDIDO_WEBHOOK, payload, {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 15000,
+    validateStatus: () => true
+  }).then((r) => {
+    if (r.status >= 400) console.warn('[WEBHOOK] n8n respondió', r.status, r.statusText);
+  }).catch((err) => {
+    console.warn('[WEBHOOK] Error enviando a n8n aprobación pedido:', err?.message);
+  });
 }
 
 router.get('/', requireLogin, async (req, res, next) => {
@@ -448,6 +569,15 @@ router.post('/:id(\\d+)/estado', requireLogin, async (req, res, next) => {
     await db.updatePedido(id, { Id_EstadoPedido: estadoId, EstadoPedido: nombre || undefined }).catch((e) => {
       throw e;
     });
+
+    // Si cambia a "Revisando", enviar datos al webhook n8n para aprobación
+    if (nombre.toLowerCase().includes('revis')) {
+      try {
+        await _sendPedidoAprobacionWebhook(id, res.locals.user);
+      } catch (whErr) {
+        console.warn('[ESTADO] Error enviando webhook aprobación pedido:', whErr?.message);
+      }
+    }
 
     return res.json({ ok: true, id, estado: { id: estadoId, nombre: nombre || '—', color } });
   } catch (e) {

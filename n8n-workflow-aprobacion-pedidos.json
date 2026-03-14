@@ -1,0 +1,139 @@
+{
+  "name": "Aprobación Pedidos Gemavip",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "d6977a0f-a949-4fdc-bb45-09083fda4f8b",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-960, -256],
+      "id": "wh-aprobacion-pedido",
+      "name": "Webhook Pedido",
+      "webhookId": "d6977a0f-a949-4fdc-bb45-09083fda4f8b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst d = raw.body || raw;\n\nconst pedido = d.pedido || {};\nconst cliente = d.cliente || {};\nconst comercial = d.comercial || {};\nconst lineas = Array.isArray(d.lineas) ? d.lineas : [];\nconst excel = d.excel || null;\nconst approveUrl = d.approvalUrlApprove || '';\nconst denyUrl = d.approvalUrlDeny || '';\nconst emailDirector = d.emailDirector || 'j.deaza@gemavip.com';\nconst emailCc = d.emailCcResponsable || 'c.betancourt@gmavip.com';\nconst emailComercial = d.emailComercial || comercial.email || '';\n\nconst numPedido = pedido.numero || String(pedido.id || '');\nconst fecha = pedido.fecha ? new Date(pedido.fecha).toLocaleDateString('es-ES') : '—';\nconst total = pedido.total != null ? Number(pedido.total).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '€' : '—';\n\nconst lineasHtml = lineas.map(l => {\n  const base = (l.cantidad * l.precio * (1 - (l.dto||0)/100));\n  return `<tr><td style=\"padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;\">${l.codigo||'—'}</td><td style=\"padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;\">${l.nombre||'—'}</td><td style=\"padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;\">${l.cantidad}</td><td style=\"padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;\">${Number(l.precio||0).toFixed(2)}€</td><td style=\"padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;\">${l.dto ? l.dto+'%' : '—'}</td><td style=\"padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;font-weight:600;\">${base.toFixed(2)}€</td></tr>`;\n}).join('');\n\nconst botonesHtml = (approveUrl && denyUrl)\n  ? `<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-top:24px;\"><tr><td><a href=\"${denyUrl}\" style=\"display:inline-block;padding:12px 28px;background:#1f2a44;color:#fff!important;text-decoration:none;border-radius:10px;font-weight:600;font-size:14px;margin-right:12px;\">Denegar</a><a href=\"${approveUrl}\" style=\"display:inline-block;padding:12px 28px;background:#16a34a;color:#fff!important;text-decoration:none;border-radius:10px;font-weight:600;font-size:14px;\">Aprobar</a></td></tr></table>`\n  : '';\n\nconst htmlDirector = `<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\"></head>\n<body style=\"margin:0;padding:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#f8f8f8;color:#1f2a44;line-height:1.6;\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:linear-gradient(180deg,rgba(0,139,210,0.06) 0%,transparent 120px);\">\n<tr><td style=\"padding:40px 20px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:640px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(12,20,58,0.10);border:1px solid #e5e5e5;\">\n<tr><td><div style=\"height:4px;background:linear-gradient(90deg,#008bd2,#2ea3f2,#ffba00,#8fae1b);border-radius:14px 14px 0 0;\"></div>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n<tr><td style=\"padding:28px 32px 20px;\"><p style=\"margin:0 0 6px;font-size:12px;color:#5b667a;text-transform:uppercase;letter-spacing:0.5px;\">CRM Gemavip · Aprobación de pedido</p><h1 style=\"margin:0;font-size:22px;font-weight:700;color:#0c143a;\">Pedido ${numPedido} pendiente de aprobación</h1><p style=\"margin:10px 0 0;font-size:13px;color:#5b667a;\">Fecha: ${fecha}</p></td></tr>\n<tr><td style=\"padding:0 32px 24px;\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e5e5e5;border-radius:14px;overflow:hidden;margin-bottom:20px;\">\n<tr><td style=\"padding:20px 24px;background:linear-gradient(135deg,rgba(0,139,210,0.08) 0%,rgba(23,66,139,0.04) 100%);\">\n<h2 style=\"margin:0 0 12px;font-size:17px;font-weight:600;color:#0c143a;\">Datos del cliente</h2>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;color:#1f2a44;\">\n<tr><td style=\"padding:4px 0;width:130px;color:#5b667a;\">Cliente</td><td style=\"padding:4px 0;font-weight:600;\">${cliente.nombre||'—'}</td></tr>\n<tr><td style=\"padding:4px 0;color:#5b667a;\">CIF</td><td style=\"padding:4px 0;\">${cliente.cif||'—'}</td></tr>\n<tr><td style=\"padding:4px 0;color:#5b667a;\">Dirección</td><td style=\"padding:4px 0;\">${cliente.direccion||'—'}</td></tr>\n<tr><td style=\"padding:4px 0;color:#5b667a;\">CP / Población</td><td style=\"padding:4px 0;\">${cliente.cp||''} ${cliente.poblacion||'—'}</td></tr>\n<tr><td style=\"padding:4px 0;color:#5b667a;\">Teléfono</td><td style=\"padding:4px 0;\">${cliente.telefono||'—'}</td></tr>\n<tr><td style=\"padding:4px 0;color:#5b667a;\">Email</td><td style=\"padding:4px 0;\">${cliente.email||'—'}</td></tr>\n</table></td></tr></table>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e5e5e5;border-radius:14px;overflow:hidden;margin-bottom:20px;\">\n<tr><td style=\"padding:16px 24px;background:#f8f8f8;\"><h2 style=\"margin:0 0 4px;font-size:15px;font-weight:600;color:#0c143a;\">Comercial</h2><p style=\"margin:0;font-size:14px;color:#5b667a;\">${comercial.nombre||'—'} · ${comercial.email||'—'}</p></td></tr></table>\n<h3 style=\"margin:0 0 10px;font-size:15px;font-weight:600;color:#0c143a;\">Líneas del pedido</h3>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e5e5e5;border-radius:10px;overflow:hidden;\">\n<tr style=\"background:#f1f5f9;\"><th style=\"padding:10px;font-size:12px;text-align:left;color:#5b667a;\">Código</th><th style=\"padding:10px;font-size:12px;text-align:left;color:#5b667a;\">Artículo</th><th style=\"padding:10px;font-size:12px;text-align:right;color:#5b667a;\">Uds</th><th style=\"padding:10px;font-size:12px;text-align:right;color:#5b667a;\">PVL</th><th style=\"padding:10px;font-size:12px;text-align:right;color:#5b667a;\">Dto</th><th style=\"padding:10px;font-size:12px;text-align:right;color:#5b667a;\">Base</th></tr>\n${lineasHtml}\n</table>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:12px;\"><tr><td style=\"text-align:right;font-size:16px;font-weight:700;color:#0c143a;\">Total pedido: ${total}</td></tr></table>\n${botonesHtml}\n</td></tr>\n<tr><td style=\"padding:20px 32px 28px;border-top:1px solid #e5e5e5;\"><p style=\"margin:0;font-size:11px;color:#5b667a;\">Correo generado automáticamente por CRM Gemavip</p></td></tr>\n</table></td></tr></table></td></tr></table></body></html>`;\n\nconst htmlComercial = `<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\"></head>\n<body style=\"margin:0;padding:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#f8f8f8;color:#1f2a44;line-height:1.6;\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:linear-gradient(180deg,rgba(0,139,210,0.06) 0%,transparent 120px);\">\n<tr><td style=\"padding:40px 20px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(12,20,58,0.10);border:1px solid #e5e5e5;\">\n<tr><td><div style=\"height:4px;background:linear-gradient(90deg,#008bd2,#2ea3f2,#ffba00,#8fae1b);border-radius:14px 14px 0 0;\"></div>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n<tr><td style=\"padding:28px 32px 20px;\"><p style=\"margin:0 0 6px;font-size:12px;color:#5b667a;text-transform:uppercase;letter-spacing:0.5px;\">CRM Gemavip</p><h1 style=\"margin:0;font-size:22px;font-weight:700;color:#0c143a;\">Pedido ${numPedido} en revisión</h1></td></tr>\n<tr><td style=\"padding:0 32px 24px;\"><p style=\"margin:0 0 16px;font-size:15px;color:#1f2a44;\">Tu pedido <strong>${numPedido}</strong> para el cliente <strong>${cliente.nombre||'—'}</strong> ha sido enviado a revisión por la dirección comercial.</p><p style=\"margin:0 0 8px;font-size:14px;color:#5b667a;\">Te notificaremos por email cuando se haya tomado una decisión.</p><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:16px;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden;background:#f8f8f8;\"><tr><td style=\"padding:14px 18px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;\"><tr><td style=\"padding:4px 0;color:#5b667a;width:100px;\">Pedido</td><td style=\"padding:4px 0;font-weight:600;\">${numPedido}</td></tr><tr><td style=\"padding:4px 0;color:#5b667a;\">Cliente</td><td style=\"padding:4px 0;\">${cliente.nombre||'—'}</td></tr><tr><td style=\"padding:4px 0;color:#5b667a;\">Total</td><td style=\"padding:4px 0;font-weight:700;\">${total}</td></tr><tr><td style=\"padding:4px 0;color:#5b667a;\">Estado</td><td style=\"padding:4px 0;\"><span style=\"display:inline-block;padding:2px 10px;background:#dbeafe;color:#1e40af;border-radius:6px;font-size:12px;font-weight:600;\">Revisando</span></td></tr></table></td></tr></table></td></tr>\n<tr><td style=\"padding:20px 32px 28px;border-top:1px solid #e5e5e5;\"><p style=\"margin:0;font-size:11px;color:#5b667a;\">Correo generado automáticamente por CRM Gemavip</p></td></tr>\n</table></td></tr></table></td></tr></table></body></html>`;\n\nconst outputs = [];\n\nif (emailComercial) {\n  outputs.push({\n    json: {\n      type: 'comercial',\n      to: emailComercial,\n      subject: `Pedido ${numPedido} en revisión · CRM Gemavip`,\n      html: htmlComercial\n    }\n  });\n}\n\noutputs.push({\n  json: {\n    type: 'director',\n    to: emailDirector,\n    cc: emailCc,\n    subject: `Pedido ${numPedido} · ${cliente.nombre||'Pedido'} · Aprobación · CRM Gemavip`,\n    html: htmlDirector,\n    excelBase64: excel ? excel.base64 : null,\n    excelFilename: excel ? excel.filename : null,\n    excelMime: excel ? excel.mime : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'\n  }\n});\n\nreturn outputs;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-512, -256],
+      "id": "code-prepare-emails",
+      "name": "Preparar Emails"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-is-comercial",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "comercial",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-256, -256],
+      "id": "if-tipo-email",
+      "name": "Es comercial?"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=crm-gemavip@farmadescanso.com",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [0, -400],
+      "id": "email-comercial",
+      "name": "Email Comercial",
+      "credentials": {
+        "smtp": {
+          "id": "r7KoPuklI2NZlT2L",
+          "name": "CRM GEMAVIP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst binaryData = {};\n\nif (item.excelBase64) {\n  binaryData.attachment = {\n    data: item.excelBase64,\n    mimeType: item.excelMime || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n    fileName: item.excelFilename || 'pedido.xlsx'\n  };\n}\n\nreturn [{ json: item, binary: binaryData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, -100],
+      "id": "code-prepare-binary",
+      "name": "Preparar Excel adjunto"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=crm-gemavip@farmadescanso.com",
+        "toEmail": "={{ $json.to }}",
+        "ccEmail": "={{ $json.cc }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "attachment"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [256, -100],
+      "id": "email-director",
+      "name": "Email Director + CC",
+      "credentials": {
+        "smtp": {
+          "id": "r7KoPuklI2NZlT2L",
+          "name": "CRM GEMAVIP"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Pedido": {
+      "main": [[{ "node": "Preparar Emails", "type": "main", "index": 0 }]]
+    },
+    "Preparar Emails": {
+      "main": [[{ "node": "Es comercial?", "type": "main", "index": 0 }]]
+    },
+    "Es comercial?": {
+      "main": [
+        [{ "node": "Email Comercial", "type": "main", "index": 0 }],
+        [{ "node": "Preparar Excel adjunto", "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar Excel adjunto": {
+      "main": [[{ "node": "Email Director + CC", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
