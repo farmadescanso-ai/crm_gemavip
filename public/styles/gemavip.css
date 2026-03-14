@@ -777,6 +777,7 @@ main.container{
   width: 120px;
   white-space: nowrap;
   overflow: visible;
+  padding-right: 5px;
 }
 /* Fecha, Tipo, Referencia: padding izquierdo reducido */
 .gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-fecha,
