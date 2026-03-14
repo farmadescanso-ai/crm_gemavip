@@ -161,8 +161,8 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
     excel: excelBase64 ? { filename: excelFilename, mime: XLSX_MIME, base64: excelBase64 } : null,
     approvalUrlApprove,
     approvalUrlDeny,
-    emailDirector: 'j.deaza@gemavip.com',
-    emailCcResponsable: 'c.betancourt@gmavip.com',
+    emailDirector: 'info@farmadescanso.com',
+    emailCcResponsable: '',
     emailComercial: comercialEmail || '',
     source: 'crm_gemavip',
     timestamp: new Date().toISOString()
