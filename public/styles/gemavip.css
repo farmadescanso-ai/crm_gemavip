@@ -2364,7 +2364,7 @@ table.calendar td.is-empty{
 .gv-telefono-display {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .gv-telefono-display.gv-telefono-empty { display: inline; }
@@ -2384,7 +2384,8 @@ table.calendar td.is-empty{
 }
 .gv-telefono-btn:hover { opacity: 0.9; transform: scale(1.05); }
 .gv-telefono-btn--call {
-  background: linear-gradient(135deg, #0d9488, #0f766e);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
 }
 .gv-telefono-btn--wa {
   background: linear-gradient(135deg, #25d366, #128c7e);
