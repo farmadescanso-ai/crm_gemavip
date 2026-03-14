@@ -503,13 +503,15 @@ router.get('/new', requireLogin, async (_req, res, next) => {
 
 router.post('/new', requireLogin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido, provincias, paises] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getTiposPedido().catch(() => []),
       db.getDescuentosPedidoActivos().catch(() => []),
-      db.getEstadosPedidoActivos().catch(() => [])
+      db.getEstadosPedidoActivos().catch(() => []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises')
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
     const body = req.body || {};
@@ -553,6 +555,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
+        provincias: Array.isArray(provincias) ? provincias : [],
+        paises: Array.isArray(paises) ? paises : [],
         item: pedidoPayload,
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
         clientes: [],
@@ -574,6 +578,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
+        provincias: Array.isArray(provincias) ? provincias : [],
+        paises: Array.isArray(paises) ? paises : [],
         item: pedidoPayload,
         lineas,
         clientes: [],
@@ -592,6 +598,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
+        provincias: Array.isArray(provincias) ? provincias : [],
+        paises: Array.isArray(paises) ? paises : [],
         item: pedidoPayload,
         lineas,
         clientes: await db.getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
@@ -610,6 +618,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
+        provincias: Array.isArray(provincias) ? provincias : [],
+        paises: Array.isArray(paises) ? paises : [],
         item: pedidoPayload,
         lineas,
         clientes: await db.getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' }).catch(() => []),
@@ -628,6 +638,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
+        provincias: Array.isArray(provincias) ? provincias : [],
+        paises: Array.isArray(paises) ? paises : [],
         item: pedidoPayload,
         lineas,
         clientes: [],
@@ -1438,13 +1450,15 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
       });
     }
 
-    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido, estadosPedido] = await Promise.all([
+    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido, estadosPedido, provincias, paises] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => []),
       db.getTiposPedido().catch(() => []),
       db.getDescuentosPedidoActivos().catch(() => []),
-      db.getEstadosPedidoActivos().catch(() => [])
+      db.getEstadosPedidoActivos().catch(() => []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises')
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
 
@@ -1485,6 +1499,8 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         comerciales,
         articulos,
+        provincias: Array.isArray(provincias) ? provincias : [],
+        paises: Array.isArray(paises) ? paises : [],
         error: 'Id_Cial e Id_Cliente son obligatorios'
       });
     }
