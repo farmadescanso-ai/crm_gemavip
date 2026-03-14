@@ -41,7 +41,7 @@
   const clienteEmail = cliente?.Email || cliente?.cli_email || '';
   const clienteTel = cliente?.Telefono || cliente?.cli_telefono || cliente?.Movil || cliente?.cli_movil || '';
   const dir = direccionEnvio || null;
-  const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.Dto ?? item.Descuento ?? item?.ped_dto ?? 0, 0)));
+  const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.ped_dto ?? item.Dto ?? item.Descuento ?? 0, 0)));
   const serie = String(item?.Serie ?? item?.serie ?? 'P').trim();
   const idDireccionEnvio = Number(item?.Id_DireccionEnvio ?? item?.id_direccion_envio ?? item?.ped_direnv_id ?? 0) || 0;
 
