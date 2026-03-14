@@ -788,7 +788,7 @@ main.container{
 .gv-notificaciones-table-wrap .gv-notificaciones-table tbody tr:hover td {
   background: rgba(0,139,210,.04);
 }
-/* Acciones: ancho fijo para 3 iconos, evita solapamiento con Fecha */
+/* Acciones: ancho fijo para 3 iconos */
 .gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-acciones {
   width: 120px;
 }
@@ -797,6 +797,21 @@ main.container{
   width: 120px;
   white-space: nowrap;
   overflow: visible;
+}
+/* Fecha: ancho fijo para DD/MM/YYYY */
+.gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-fecha {
+  width: 95px;
+}
+/* Tipo: ancho fijo para "Asignación cliente" / "Pedido especial", espacio antes de Referencia */
+.gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-tipo {
+  width: 130px;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-tipo,
+.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-tipo {
+  padding-right: 10px;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 /* Referencia: más espacio (22%), texto en varias líneas */
 .gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-referencia {
