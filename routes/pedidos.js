@@ -552,7 +552,7 @@ router.post('/:id(\\d+)/estado', requireLogin, async (req, res, next) => {
     const color = String(_n(_n(estado && estado.color, estado && estado.Color), 'info')).trim().toLowerCase() || 'info';
 
     if (!admin) {
-      const pedido = await db.getPedido(id).catch(() => null);
+      const pedido = await db.getPedidoById(id).catch(() => null);
       if (!pedido) return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
       const owner = Number(_n(_n(pedido.ped_com_id, pedido.Id_Cial), pedido.id_cial) || 0);
       const uid = Number(res.locals.user?.id || 0);
