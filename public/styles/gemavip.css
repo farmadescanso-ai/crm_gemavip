@@ -780,6 +780,11 @@ main.container{
   letter-spacing: .4px;
   text-transform: uppercase;
   border-bottom: 1px solid var(--gv-border);
+  vertical-align: middle;
+}
+/* Referencia: cabecera en una sola línea */
+.gv-notificaciones-table-wrap .gv-notificaciones-table thead th.gv-notif-col-referencia {
+  white-space: nowrap;
 }
 .gv-notificaciones-table-wrap .gv-notificaciones-table tbody td {
   vertical-align: middle;
