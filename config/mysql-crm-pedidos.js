@@ -138,11 +138,12 @@ const base = {
         `
           INSERT INTO \`estados_pedido\` (\`codigo\`, \`nombre\`, \`color\`, \`activo\`, \`orden\`)
           VALUES
-            ('pendiente', 'Pendiente', 'warn', 1, 10),
-            ('aprobado',  'Aprobado',  'ok',   1, 20),
-            ('entregado', 'Entregado', 'info', 1, 25),
-            ('pagado',    'Pagado',    'ok',   1, 30),
-            ('denegado',  'Denegado',  'danger', 1, 40)
+            ('pendiente',  'Pendiente',  'warn',   1, 10),
+            ('revisando',  'Revisando',  'info',   1, 15),
+            ('aprobado',   'Aprobado',   'ok',     1, 20),
+            ('entregado',  'Entregado',  'info',   1, 25),
+            ('pagado',     'Pagado',     'ok',     1, 30),
+            ('denegado',   'Denegado',   'danger', 1, 40)
           ON DUPLICATE KEY UPDATE
             \`nombre\`=VALUES(\`nombre\`),
             \`color\`=VALUES(\`color\`),

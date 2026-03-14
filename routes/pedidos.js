@@ -385,12 +385,8 @@ router.get('/', requireLogin, async (req, res, next) => {
             }
           : null;
 
-    // Estados de pedido (solo admin) para UI de cambio de estado en listado
-    let estadosPedido = [];
-    if (admin) {
-      await db.ensureEstadosPedidoTable().catch(() => null);
-      estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
-    }
+    await db.ensureEstadosPedidoTable().catch(() => null);
+    const estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
 
     const sessionUser = res.locals.user;
     const sessionUserId = sessionUser?.id != null ? Number(sessionUser.id) : null;
@@ -413,11 +409,14 @@ router.get('/', requireLogin, async (req, res, next) => {
   }
 });
 
-// Admin: cambiar estado del pedido desde el listado (/pedidos)
-router.post('/:id(\\d+)/estado', requireAdmin, async (req, res, next) => {
+// Cambiar estado del pedido: admin puede cambiar a cualquiera; comercial solo de Pendiente→Revisando
+router.post('/:id(\\d+)/estado', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ ok: false, error: 'ID no válido' });
+
+    const admin = isAdminUser(res.locals.user);
+    await db.ensureEstadosPedidoTable().catch(() => null);
 
     const estadoIdRaw = _n(_n(_n(_n(req.body && req.body.estadoId, req.body && req.body.estado_id), req.body && req.body.Id_EstadoPedido), req.body && req.body.id_estado_pedido), null);
     const estadoId = Number(estadoIdRaw);
@@ -425,14 +424,27 @@ router.post('/:id(\\d+)/estado', requireAdmin, async (req, res, next) => {
       return res.status(400).json({ ok: false, error: 'Estado no válido' });
     }
 
-    await db.ensureEstadosPedidoTable().catch(() => null);
     const estado = await db.getEstadoPedidoById(estadoId).catch(() => null);
     if (!estado) return res.status(404).json({ ok: false, error: 'Estado no encontrado' });
 
     const nombre = String(_n(_n(estado && estado.nombre, estado && estado.Nombre), '')).trim();
     const color = String(_n(_n(estado && estado.color, estado && estado.Color), 'info')).trim().toLowerCase() || 'info';
 
-    // Best-effort: actualizar Id_EstadoPedido si existe y mantener texto legacy si existe.
+    if (!admin) {
+      const pedido = await db.getPedido(id).catch(() => null);
+      if (!pedido) return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+      const owner = Number(_n(_n(pedido.ped_com_id, pedido.Id_Cial), pedido.id_cial) || 0);
+      const uid = Number(res.locals.user?.id || 0);
+      if (!uid || owner !== uid) return res.status(403).json({ ok: false, error: 'No tienes permiso sobre este pedido' });
+      const estadoActual = String(_n(_n(_n(pedido.EstadoPedido, pedido.ped_estado_txt), pedido.Estado), 'pendiente')).trim().toLowerCase();
+      if (!estadoActual.includes('pend')) {
+        return res.status(403).json({ ok: false, error: 'Solo puedes cambiar el estado de pedidos en estado Pendiente' });
+      }
+      if (!nombre.toLowerCase().includes('revis')) {
+        return res.status(403).json({ ok: false, error: 'Solo puedes pasar el pedido a estado Revisando' });
+      }
+    }
+
     await db.updatePedido(id, { Id_EstadoPedido: estadoId, EstadoPedido: nombre || undefined }).catch((e) => {
       throw e;
     });
