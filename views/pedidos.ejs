@@ -823,6 +823,11 @@
               cModal.hidden = true;
               cBackdrop.hidden = true;
               activeBadge = null;
+
+              var wh = json.webhook;
+              if (wh && !wh.ok) {
+                alert('Estado actualizado, pero hubo un error al notificar (webhook): ' + (wh.error || 'HTTP ' + wh.status));
+              }
             } catch (e) {
               cModal.hidden = true;
               cBackdrop.hidden = true;

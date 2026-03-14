@@ -168,15 +168,18 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
     timestamp: new Date().toISOString()
   };
 
-  await axios.post(N8N_APROBACION_PEDIDO_WEBHOOK, payload, {
+  const whResult = await axios.post(N8N_APROBACION_PEDIDO_WEBHOOK, payload, {
     headers: { 'Content-Type': 'application/json' },
     timeout: 15000,
     validateStatus: () => true
   }).then((r) => {
-    if (r.status >= 400) console.warn('[WEBHOOK] n8n respondió', r.status, r.statusText);
+    if (r.status >= 400) console.warn('[WEBHOOK] n8n respondió', r.status, r.statusText, r.data);
+    return { ok: r.status < 400, status: r.status };
   }).catch((err) => {
     console.warn('[WEBHOOK] Error enviando a n8n aprobación pedido:', err?.message);
+    return { ok: false, error: err?.message };
   });
+  return whResult;
 }
 
 router.get('/', requireLogin, async (req, res, next) => {
@@ -574,16 +577,17 @@ router.post('/:id(\\d+)/estado', requireLogin, async (req, res, next) => {
       throw e;
     });
 
-    // Si cambia a "Revisando", enviar datos al webhook n8n para aprobación
+    let webhook = null;
     if (nombre.toLowerCase().includes('revis')) {
       try {
-        await _sendPedidoAprobacionWebhook(id, res.locals.user);
+        webhook = await _sendPedidoAprobacionWebhook(id, res.locals.user);
       } catch (whErr) {
         console.warn('[ESTADO] Error enviando webhook aprobación pedido:', whErr?.message);
+        webhook = { ok: false, error: whErr?.message };
       }
     }
 
-    return res.json({ ok: true, id, estado: { id: estadoId, nombre: nombre || '—', color } });
+    return res.json({ ok: true, id, estado: { id: estadoId, nombre: nombre || '—', color }, webhook });
   } catch (e) {
     next(e);
   }
