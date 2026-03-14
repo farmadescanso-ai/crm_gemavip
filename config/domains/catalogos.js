@@ -5,6 +5,8 @@
  */
 'use strict';
 
+const { invalidateCatalogCache } = require('../../lib/catalog-cache');
+
 module.exports = {
   async getFormasPago() {
     try {
@@ -114,22 +116,36 @@ module.exports = {
       const table = await this._resolveTableNameCaseInsensitive('tipos_pedidos').catch(() => null)
         || await this._resolveTableNameCaseInsensitive('tipos_pedido').catch(() => null);
       if (!table) return [];
-      const cols = await this._getColumns(table).catch(() => []);
-      const pk = this._pickCIFromColumns(cols, ['tipp_id', 'id', 'Id']) || 'id';
-      const colNombre = this._pickCIFromColumns(cols, ['tipp_tipo', 'Tipo', 'tipo', 'Nombre', 'nombre']) || 'Tipo';
       let rows = [];
       try {
-        rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY \`${pk}\` ASC`);
+        rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY 1 ASC`);
       } catch (e1) {
-        rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY Id ASC`).catch(() => []);
+        try {
+          rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY \`id\` ASC`);
+        } catch (e2) {
+          rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY \`Id\` ASC`).catch(() => []);
+        }
       }
+      if (!Array.isArray(rows) || rows.length === 0) {
+        try {
+          const cols = await this._getColumns(table).catch(() => []);
+          const colTipo = this._pickCIFromColumns(cols, ['tipp_tipo', 'Tipo', 'tipo', 'Nombre', 'nombre']) || 'Tipo';
+          await this.query(`INSERT INTO \`${table}\` (\`${colTipo}\`) VALUES ('Venta')`);
+          invalidateCatalogCache('tiposPedido');
+          rows = await this.query(`SELECT * FROM \`${table}\` ORDER BY 1 ASC`);
+        } catch (_) {}
+      }
+      const r0 = (rows || [])[0];
+      const keys = r0 ? Object.keys(r0) : [];
+      const pk = keys.find((k) => /^tipp_id$|^id$|^Id$/i.test(k)) || keys[0];
+      const colNombre = keys.find((k) => /^tipp_tipo$|^Tipo$|^tipo$|^Nombre$|^nombre$/i.test(k)) || keys.find((k) => k !== pk) || 'Tipo';
       return (rows || []).map((r) => ({
         ...r,
         id: r?.[pk] ?? r?.tipp_id ?? r?.id ?? r?.Id ?? r?.ID ?? null,
         Id: r?.[pk] ?? r?.tipp_id ?? r?.id ?? r?.Id ?? null,
         tipp_id: r?.[pk] ?? r?.tipp_id ?? null,
         tipp_tipo: r?.[colNombre] ?? r?.tipp_tipo ?? null,
-        Nombre: r?.[colNombre] ?? r?.Tipo ?? r?.tipo ?? r?.Nombre ?? r?.nombre ?? ''
+        Nombre: String(r?.[colNombre] ?? r?.tipp_tipo ?? r?.Tipo ?? r?.tipo ?? r?.Nombre ?? r?.nombre ?? '').trim() || `Tipo ${r?.[pk] ?? ''}`
       }));
     } catch (error) {
       console.error('❌ Error obteniendo tipos de pedido:', error.message);
