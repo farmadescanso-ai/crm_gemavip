@@ -105,9 +105,12 @@
 
         <label class="gv-field gv-field--full">
           <span class="gv-field__label">Dirección de envío <button type="button" class="gv-field-info" aria-label="Información" id="Id_DireccionEnvioInfoBtn" data-info="Si el cliente tiene más de una, selecciona una."></button></span>
-          <select class="gv-input" name="Id_DireccionEnvio" id="Id_DireccionEnvio" data-existing="<%= item.Id_DireccionEnvio ?? item.ped_direnv_id ?? '' %>">
-            <option value="">(por defecto)</option>
-          </select>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select class="gv-input" name="Id_DireccionEnvio" id="Id_DireccionEnvio" data-existing="<%= item.Id_DireccionEnvio ?? item.ped_direnv_id ?? '' %>" style="flex:1; min-width:200px;">
+              <option value="">(por defecto)</option>
+            </select>
+            <button type="button" class="btn secondary" id="btnNuevaDireccionEnvio" title="Crear nueva dirección de envío para este cliente" disabled>+ Nueva dirección</button>
+          </div>
           <span class="gv-field__help gv-field__help--hidden" id="Id_DireccionEnvioHelp">Si el cliente tiene más de una, selecciona una.</span>
         </label>
       </div>
@@ -295,6 +298,79 @@
 </section>
 
 <div id="gvInfoBubble" class="gv-field-info__bubble" role="tooltip" aria-hidden="true" style="display:none;"></div>
+
+<!-- Modal Nueva dirección de envío -->
+<div class="gv-modal-backdrop" id="gvNuevaDirEnvioBackdrop" hidden></div>
+<div class="gv-modal" id="gvNuevaDirEnvioModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvNuevaDirEnvioTitle">
+  <div class="gv-modal-card" style="max-width: 560px;">
+    <div class="gv-modal-hd">
+      <div class="gv-modal-title" id="gvNuevaDirEnvioTitle">Nueva dirección de envío</div>
+      <div class="gv-modal-subtitle" id="gvNuevaDirEnvioSub">Añade una dirección para el cliente seleccionado.</div>
+    </div>
+    <div class="gv-modal-bd" style="padding: 16px; display:grid; gap: 12px;">
+      <div id="gvNuevaDirEnvioError" class="gv-alert gv-alert--warn" style="display:none;"></div>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Alias</span>
+        <input type="text" id="gvDirEnvioAlias" placeholder="Ej: Almacén, Sucursal centro" maxlength="120" class="gv-input" />
+      </label>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Nombre destinatario</span>
+        <input type="text" id="gvDirEnvioNombreDest" maxlength="255" class="gv-input" />
+      </label>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Dirección</span>
+        <input type="text" id="gvDirEnvioDireccion" maxlength="255" class="gv-input" />
+      </label>
+      <label style="display:grid; gap:6px; font-weight:700;">
+        <span>Dirección 2</span>
+        <input type="text" id="gvDirEnvioDireccion2" maxlength="255" class="gv-input" />
+      </label>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Código postal</span>
+          <input type="text" id="gvDirEnvioCP" maxlength="12" class="gv-input" />
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Población</span>
+          <input type="text" id="gvDirEnvioPoblacion" maxlength="255" class="gv-input" />
+        </label>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>Provincia</span>
+          <select id="gvDirEnvioProvincia" class="gv-input">
+            <option value="">—</option>
+            <% (provincias || []).forEach((p) => { %>
+              <% const pid = Number(p.prov_id ?? p.id ?? p.Id ?? 0) || 0; %>
+              <% const plabel = p.prov_nombre ?? p.Nombre ?? p.nombre ?? ('Provincia ' + pid); %>
+              <option value="<%= pid %>"><%= plabel %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label style="display:grid; gap:6px; font-weight:700;">
+          <span>País</span>
+          <select id="gvDirEnvioPais" class="gv-input">
+            <option value="">—</option>
+            <% (paises || []).forEach((p) => { %>
+              <% const pid = Number(p.pais_id ?? p.id ?? p.Id ?? 0) || 0; %>
+              <% const plabel = p.pais_nombre ?? p.Nombre ?? p.nombre ?? ('País ' + pid); %>
+              <option value="<%= pid %>"><%= plabel %></option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+      <label style="display:flex; align-items:center; gap:10px; font-weight:700;">
+        <input type="checkbox" id="gvDirEnvioPrincipal" value="1" />
+        <span>Marcar como dirección principal</span>
+      </label>
+    </div>
+    <div class="gv-modal-actions" style="display:flex; gap:10px; justify-content:flex-end;">
+      <button type="button" class="btn secondary" id="gvNuevaDirEnvioCancelar">Cancelar</button>
+      <button type="button" class="btn" id="gvNuevaDirEnvioGuardar">Guardar dirección</button>
+    </div>
+  </div>
+</div>
+
 <script>
   (function () {
     var table = document.getElementById('lineasTable');
@@ -304,6 +380,7 @@
     var dtoPedidoEl = document.getElementById('DtoPedidoInput') || (form ? form.querySelector('input[name=\"Dto\"]') : null);
     var selDirEnvio = document.getElementById('Id_DireccionEnvio');
     var helpDirEnvio = document.getElementById('Id_DireccionEnvioHelp');
+    var btnNuevaDir = document.getElementById('btnNuevaDireccionEnvio');
     var chkEspecial = document.getElementById('EsEspecial');
     var hidCial = document.getElementById('Id_Cial');
     var selCialDisplay = document.getElementById('Id_Cial__display');
@@ -621,6 +698,79 @@
       } catch(_e){}
     }
 
+    function setBtnNuevaDirEnvioState(clienteId){
+      if (!btnNuevaDir) return;
+      var cid = parseInt(String(clienteId || '').trim(), 10) || 0;
+      btnNuevaDir.disabled = !cid;
+    }
+
+    function showNuevaDirEnvioModal(){
+      var cid = hidCliente ? String(hidCliente.value || '').trim() : '';
+      if (!cid) return;
+      var modal = document.getElementById('gvNuevaDirEnvioModal');
+      var backdrop = document.getElementById('gvNuevaDirEnvioBackdrop');
+      var errEl = document.getElementById('gvNuevaDirEnvioError');
+      if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+      ['gvDirEnvioAlias','gvDirEnvioNombreDest','gvDirEnvioDireccion','gvDirEnvioDireccion2','gvDirEnvioCP','gvDirEnvioPoblacion','gvDirEnvioProvincia','gvDirEnvioPais','gvDirEnvioPrincipal'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (el.type === 'checkbox') el.checked = false;
+        else el.value = '';
+      });
+      if (modal) modal.hidden = false;
+      if (backdrop) backdrop.hidden = false;
+    }
+    function hideNuevaDirEnvioModal(){
+      var modal = document.getElementById('gvNuevaDirEnvioModal');
+      var backdrop = document.getElementById('gvNuevaDirEnvioBackdrop');
+      if (modal) modal.hidden = true;
+      if (backdrop) backdrop.hidden = true;
+    }
+    async function guardarNuevaDirEnvio(){
+      var cid = hidCliente ? parseInt(String(hidCliente.value || '').trim(), 10) : 0;
+      if (!cid) return;
+      var errEl = document.getElementById('gvNuevaDirEnvioError');
+      var btnGuardar = document.getElementById('gvNuevaDirEnvioGuardar');
+      var payload = {
+        Alias: document.getElementById('gvDirEnvioAlias')?.value?.trim() || null,
+        Nombre_Destinatario: document.getElementById('gvDirEnvioNombreDest')?.value?.trim() || null,
+        Direccion: document.getElementById('gvDirEnvioDireccion')?.value?.trim() || null,
+        Direccion2: document.getElementById('gvDirEnvioDireccion2')?.value?.trim() || null,
+        Poblacion: document.getElementById('gvDirEnvioPoblacion')?.value?.trim() || null,
+        CodigoPostal: document.getElementById('gvDirEnvioCP')?.value?.trim() || null,
+        Id_Provincia: document.getElementById('gvDirEnvioProvincia')?.value ? (parseInt(document.getElementById('gvDirEnvioProvincia').value, 10) || null) : null,
+        Id_Pais: document.getElementById('gvDirEnvioPais')?.value ? (parseInt(document.getElementById('gvDirEnvioPais').value, 10) || null) : null,
+        Es_Principal: document.getElementById('gvDirEnvioPrincipal')?.checked ? 1 : 0
+      };
+      if (!payload.Direccion && !payload.Poblacion && !payload.CodigoPostal) {
+        if (errEl) { errEl.textContent = 'Indica al menos dirección, población o código postal.'; errEl.style.display = ''; }
+        return;
+      }
+      if (btnGuardar) btnGuardar.disabled = true;
+      if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+      try {
+        var r = await fetch('/api/clientes/' + encodeURIComponent(String(cid)) + '/direcciones-envio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var json = await r.json().catch(function(){ return null; });
+        if (!r.ok || !json || json.ok !== true) {
+          var msg = (json && json.error) ? json.error : 'Error al guardar la dirección.';
+          if (errEl) { errEl.textContent = msg; errEl.style.display = ''; }
+          return;
+        }
+        var newId = json.insertId;
+        hideNuevaDirEnvioModal();
+        await loadDireccionesEnvio(cid);
+        if (selDirEnvio && newId) selDirEnvio.value = String(newId);
+      } catch(e) {
+        if (errEl) { errEl.textContent = 'Error de conexión. Inténtalo de nuevo.'; errEl.style.display = ''; }
+      } finally {
+        if (btnGuardar) btnGuardar.disabled = false;
+      }
+    }
+
     async function loadClienteAndDefaults(clienteId){
       if (!canEdit) return;
       var id = parseInt(String(clienteId || '').trim(), 10) || 0;
@@ -682,6 +832,7 @@
         refreshPrecios();
         loadDireccionesEnvio(id);
         toggleNumAsociadoHefameVisibility();
+        setBtnNuevaDirEnvioState(id);
 
         // En edición, los cambios de cabecera se aplican solo al pulsar "Guardar".
       } catch (_e) {}
@@ -974,14 +1125,27 @@
     // Si venimos con un cliente ya guardado (editar), cargar defaults
     if (hidCliente) {
       hidCliente.addEventListener('change', function(){
+        setBtnNuevaDirEnvioState(hidCliente.value);
         loadDireccionesEnvio(hidCliente.value);
         loadClienteAndDefaults(hidCliente.value);
       });
       if (String(hidCliente.value || '').trim()) {
+        setBtnNuevaDirEnvioState(hidCliente.value);
         loadDireccionesEnvio(hidCliente.value);
         loadClienteAndDefaults(hidCliente.value);
+      } else {
+        setBtnNuevaDirEnvioState('');
       }
     }
+
+    // Modal Nueva dirección de envío
+    if (btnNuevaDir) btnNuevaDir.addEventListener('click', showNuevaDirEnvioModal);
+    var btnCancelDir = document.getElementById('gvNuevaDirEnvioCancelar');
+    if (btnCancelDir) btnCancelDir.addEventListener('click', hideNuevaDirEnvioModal);
+    var btnGuardarDir = document.getElementById('gvNuevaDirEnvioGuardar');
+    if (btnGuardarDir) btnGuardarDir.addEventListener('click', guardarNuevaDirEnvio);
+    var backdropDir = document.getElementById('gvNuevaDirEnvioBackdrop');
+    if (backdropDir) backdropDir.addEventListener('click', hideNuevaDirEnvioModal);
     toggleNumAsociadoHefameVisibility();
     applyTransferTarifaYFormaPago();
 

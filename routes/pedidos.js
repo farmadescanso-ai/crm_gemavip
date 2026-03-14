@@ -18,6 +18,7 @@ const { parsePagination } = require('../lib/pagination');
 const { sendPedidoEmail, sendTransferExcelEmail, getSmtpStatus, getGraphStatus, APP_BASE_URL } = require('../lib/mailer');
 const { escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { loadMarcasForSelect } = require('../lib/articulo-helpers');
+const { loadSimpleCatalogForSelect } = require('../lib/cliente-helpers');
 const { SYSVAR_PEDIDOS_MAIL_TO } = require('../lib/admin-helpers');
 let sendPushToAdmins = () => Promise.resolve();
 try {
@@ -444,14 +445,16 @@ router.post('/:id(\\d+)/estado', requireAdmin, async (req, res, next) => {
 
 router.get('/new', requireLogin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido, estadoPendienteId] = await Promise.all([
+    const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido, estadoPendienteId, provincias, paises] = await Promise.all([
       db.getComerciales().catch(() => []),
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getTiposPedido().catch(() => []),
       db.getDescuentosPedidoActivos().catch(() => []),
       db.getEstadosPedidoActivos().catch(() => []),
-      db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null)
+      db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises')
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && _n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id) != null && !(tarifas || []).some((t) => Number(_n(t.tarcli_id, t.Id, t.id)) === Number(_n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id)))) tarifas.push(tarifaTransfer);
@@ -475,6 +478,8 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       articulos: Array.isArray(articulos) ? articulos : [],
+      provincias: Array.isArray(provincias) ? provincias : [],
+      paises: Array.isArray(paises) ? paises : [],
       item: {
         Id_Cial: _n(res.locals.user && res.locals.user.id, null),
         Id_Tarifa: 0,
@@ -1305,13 +1310,15 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
     const id = Number(req.params.id);
-    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido, estadosPedido] = await Promise.all([
+    const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido, estadosPedido, provincias, paises] = await Promise.all([
       db.getTarifas().catch(() => []),
       db.getFormasPago().catch(() => []),
       db.getComerciales().catch(() => []),
       db.getTiposPedido().catch(() => []),
       db.getDescuentosPedidoActivos().catch(() => []),
-      db.getEstadosPedidoActivos().catch(() => [])
+      db.getEstadosPedidoActivos().catch(() => []),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises')
     ]);
     const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
     if (tarifaTransfer && _n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id) != null && !(tarifas || []).some((t) => Number(_n(t.tarcli_id, t.Id, t.id)) === Number(_n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id)))) tarifas.push(tarifaTransfer);
@@ -1399,6 +1406,8 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       comerciales,
       articulos,
+      provincias: Array.isArray(provincias) ? provincias : [],
+      paises: Array.isArray(paises) ? paises : [],
       clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
       cliente,
       clienteLabel,
