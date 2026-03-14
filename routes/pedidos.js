@@ -548,8 +548,12 @@ router.post('/:id(\\d+)/estado', requireLogin, async (req, res, next) => {
     const estado = await db.getEstadoPedidoById(estadoId).catch(() => null);
     if (!estado) return res.status(404).json({ ok: false, error: 'Estado no encontrado' });
 
-    const nombre = String(_n(_n(estado && estado.nombre, estado && estado.Nombre), '')).trim();
-    const color = String(_n(_n(estado && estado.color, estado && estado.Color), 'info')).trim().toLowerCase() || 'info';
+    const nombre = String(
+      estado.nombre ?? estado.Nombre ?? estado.estped_nombre ?? estado.name ?? ''
+    ).trim();
+    const color = String(
+      estado.color ?? estado.Color ?? estado.estped_color ?? 'info'
+    ).trim().toLowerCase() || 'info';
 
     if (!admin) {
       const pedido = await db.getPedidoById(id).catch(() => null);

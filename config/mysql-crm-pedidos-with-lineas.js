@@ -147,8 +147,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
             const n = Number.parseInt(String(filteredPedido[colEstadoId] ?? '').trim(), 10);
             if (Number.isFinite(n) && n > 0) {
               const est = await this.getEstadoPedidoById(n).catch(() => null);
-              const eMeta = await this._ensureEstadosPedidoMeta().catch(() => null);
-              const nombre = eMeta?.colNombre && est ? est[eMeta.colNombre] : (est?.nombre ?? null);
+              const nombre = est?.nombre ?? null;
               if (nombre && colEstadoTxt && !Object.prototype.hasOwnProperty.call(filteredPedido, colEstadoTxt)) {
                 filteredPedido[colEstadoTxt] = String(nombre);
               }

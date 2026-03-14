@@ -208,9 +208,16 @@ const base = {
     try {
       const meta = await this._ensureEstadosPedidoMeta().catch(() => null);
       if (!meta?.table) return null;
-      const cols = await this._getColumns(meta.table).catch(() => []);
-      const colList = cols.length ? cols.map((c) => `\`${c}\``).join(', ') : '*';
-      const rows = await this.query(`SELECT ${colList} FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`, [n]);
+      const rows = await this.query(
+        `SELECT
+          \`${meta.pk}\` AS id,
+          \`${meta.colCodigo}\` AS codigo,
+          \`${meta.colNombre}\` AS nombre,
+          \`${meta.colColor}\` AS color,
+          \`${meta.colOrden}\` AS orden
+        FROM \`${meta.table}\` WHERE \`${meta.pk}\` = ? LIMIT 1`,
+        [n]
+      );
       return rows?.[0] ?? null;
     } catch (_) {
       return null;
@@ -576,9 +583,8 @@ const base = {
       const estado = await this.getEstadoPedidoById(estadoId).catch(() => null);
       if (!estado) return p;
 
-      const eMeta = await this._ensureEstadosPedidoMeta().catch(() => null);
-      const nombre = eMeta?.colNombre ? estado[eMeta.colNombre] : (estado.nombre ?? null);
-      const color = eMeta?.colColor ? estado[eMeta.colColor] : (estado.color ?? null);
+      const nombre = estado.nombre ?? null;
+      const color = estado.color ?? null;
 
       if (nombre) p.EstadoPedido = String(nombre);
       if (color) p.EstadoColor = String(color);

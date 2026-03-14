@@ -141,8 +141,7 @@ module.exports = {
 
         if (colEstadoTxt && (mysqlData[colEstadoTxt] === undefined || mysqlData[colEstadoTxt] === null || String(mysqlData[colEstadoTxt]).trim() === '') && estadoId) {
           const est = await this.getEstadoPedidoById(estadoId).catch(() => null);
-          const eMeta = await this._ensureEstadosPedidoMeta().catch(() => null);
-          const nombre = eMeta?.colNombre && est ? est[eMeta.colNombre] : (est?.nombre ?? null);
+          const nombre = est?.nombre ?? null;
           if (nombre) mysqlData[colEstadoTxt] = String(nombre);
         }
       } catch (_) {}
