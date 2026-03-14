@@ -738,9 +738,15 @@ main.container{
 
 /* ===========================
    Tabla Notificaciones (estilo Gemavip)
-   Referencia: -40% ancho, texto en varias líneas
+   Referencia: más espacio, texto en varias líneas
+   Comercial solicitante: texto en varias líneas
    =========================== */
-.gv-notificaciones-table-wrap { margin: 0; width: 100%; }
+.gv-notificaciones-table-wrap {
+  margin: 0;
+  width: 100%;
+  padding: 0 5px;
+  box-sizing: border-box;
+}
 .gv-notificaciones-table-wrap .gv-notificaciones-table {
   table-layout: fixed;
   width: 100%;
@@ -756,6 +762,15 @@ main.container{
 .gv-notificaciones-table-wrap .gv-notificaciones-table thead th:last-child,
 .gv-notificaciones-table-wrap .gv-notificaciones-table tbody td:last-child {
   padding-right: 5px;
+}
+/* Comercial solicitante y Estado: 10px espacio entre ellas */
+.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-comercial,
+.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-comercial {
+  padding-right: 10px;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-estado,
+.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-estado {
+  padding-left: 0;
 }
 .gv-notificaciones-table-wrap .gv-notificaciones-table thead th {
   background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
@@ -783,12 +798,22 @@ main.container{
   white-space: nowrap;
   overflow: visible;
 }
-/* Referencia: -40% ancho (≈15% del total), texto en varias líneas */
+/* Referencia: más espacio (22%), texto en varias líneas */
 .gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-referencia {
-  width: 15%;
+  width: 22%;
 }
 .gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-referencia,
 .gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-referencia {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.35;
+  vertical-align: top;
+}
+/* Comercial solicitante: texto en varias líneas (como Referencia) */
+.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-comercial,
+.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-comercial {
   white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;

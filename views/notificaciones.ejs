@@ -28,8 +28,8 @@
           <col />
           <col />
           <col class="gv-notif-col-referencia" />
-          <col />
-          <col />
+          <col class="gv-notif-col-comercial" />
+          <col class="gv-notif-col-estado" />
           <col />
           <col />
         </colgroup>
@@ -39,8 +39,8 @@
             <th class="gv-notif-col-fecha">Fecha</th>
             <th class="gv-notif-col-tipo">Tipo</th>
             <th class="gv-notif-col-referencia">Referencia</th>
-            <th>Comercial solicitante</th>
-            <th>Estado</th>
+            <th class="gv-notif-col-comercial">Comercial solicitante</th>
+            <th class="gv-notif-col-estado">Estado</th>
             <th>Fecha resolución</th>
             <th>Resuelto por</th>
           </tr>
@@ -89,8 +89,8 @@
                     <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente' %></a>
                   <% } %>
                 </td>
-                <td><%= n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante %></td>
-                <td>
+                <td class="gv-notif-col-comercial"><%= n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante %></td>
+                <td class="gv-notif-col-estado">
                   <span class="gv-badge gv-badge--<%= (n.estado || '').toLowerCase() === 'pendiente' ? 'otros' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'persona' : 'empresa') %>">
                     <%= (n.estado || '').toLowerCase() === 'pendiente' ? 'Pendiente' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'Aprobada' : 'Rechazada') %>
                   </span>
@@ -147,7 +147,7 @@
         acc += '<form method="post" action="/notificaciones/' + n.id + '/eliminar" style="display:inline;"><button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm(\'¿Eliminar esta notificación?\');" style="color:#6c757d;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></form></div>';
         var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
         var adminNombre = (estado !== 'pendiente') ? (n.admin_nombre || 'Enlace email') : '—';
-        tr.innerHTML = '<td class="gv-notif-col-acciones">' + acc + '</td><td class="gv-notif-col-fecha">' + fmtDate(n.fecha_creacion) + '</td><td class="gv-notif-col-tipo">' + tipoLabel + '</td><td class="gv-notif-col-referencia">' + ref + '</td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + adminNombre + '</td>';
+        tr.innerHTML = '<td class="gv-notif-col-acciones">' + acc + '</td><td class="gv-notif-col-fecha">' + fmtDate(n.fecha_creacion) + '</td><td class="gv-notif-col-tipo">' + tipoLabel + '</td><td class="gv-notif-col-referencia">' + ref + '</td><td class="gv-notif-col-comercial">' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td class="gv-notif-col-estado"><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + adminNombre + '</td>';
         tbody.appendChild(tr);
       });
     })
