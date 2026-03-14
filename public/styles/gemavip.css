@@ -2381,6 +2381,13 @@ table.calendar td.is-empty{
   color: #fff;
   text-decoration: none;
   transition: opacity 0.15s, transform 0.1s;
+  cursor: pointer;
+  font: inherit;
+}
+button.gv-telefono-btn {
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .gv-telefono-btn:hover { opacity: 0.9; transform: scale(1.05); }
 .gv-telefono-btn--call {
