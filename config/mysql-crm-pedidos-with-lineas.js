@@ -510,12 +510,13 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           const bruto = round2(qty * precioUnit);
           const base = round2(bruto * (1 - dtoLineaPct / 100));
 
-          // IVA porcentaje (prioridad: línea explícita -> artículo -> 0)
-          let ivaPct = 0;
+          // IVA porcentaje (prioridad: línea explícita -> artículo -> 21% por defecto)
+          let ivaPct = 21; // Por defecto 21% para evitar totales sin IVA
           if (colIvaPctLinea && mysqlData[colIvaPctLinea] !== null && mysqlData[colIvaPctLinea] !== undefined && String(mysqlData[colIvaPctLinea]).trim() !== '') {
-            ivaPct = clampPct(getNum(mysqlData[colIvaPctLinea], 0));
+            ivaPct = clampPct(getNum(mysqlData[colIvaPctLinea], 21));
           } else if (articulo) {
-            ivaPct = clampPct(getNum(articulo.art_iva ?? articulo.IVA ?? articulo.iva ?? 0, 0));
+            const artIva = getNum(articulo.art_iva ?? articulo.IVA ?? articulo.iva ?? 0, 21);
+            ivaPct = clampPct(artIva > 0 ? artIva : 21);
           }
           const ivaImporte = round2(base * ivaPct / 100);
           const total = round2(base + ivaImporte);

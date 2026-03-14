@@ -331,7 +331,11 @@
         <%
           const subtotalConIva = round2(sumTotal);
           const importeDtoPedido = dtoPedidoPct ? round2(subtotalConIva * dtoPedidoPct / 100) : 0;
-          const totalAntesRetenciones = round2(subtotalConIva - importeDtoPedido);
+          const totalCalculado = round2(subtotalConIva - importeDtoPedido);
+          const totalGuardado = toNum(item.ped_total ?? item.TotalPedido ?? item.Total ?? NaN, NaN);
+          const totalAntesRetenciones = (Number.isFinite(totalGuardado) && totalGuardado > 0)
+            ? round2(totalGuardado)
+            : totalCalculado;
         %>
         <table>
           <% if (dtoPedidoPct) { %>
