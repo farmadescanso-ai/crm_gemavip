@@ -384,6 +384,26 @@ module.exports = {
   },
 
   /**
+   * Borra una notificación por ID (solo admin).
+   * @param {number} id - ID de la notificación
+   * @returns {{ ok: boolean, deleted: number }}
+   */
+  async deleteNotificacionById(id) {
+    const nid = Number.parseInt(String(id ?? '').trim(), 10);
+    if (!Number.isFinite(nid) || nid <= 0) return { ok: false, deleted: 0 };
+    await this._ensureNotificacionesTable();
+    try {
+      const m = await this._ensureNotificacionesMeta();
+      const result = await this.query(`DELETE FROM \`notificaciones\` WHERE \`${m.pk}\` = ?`, [nid]);
+      const deleted = result?.affectedRows ?? result ?? 0;
+      return { ok: true, deleted: Number(deleted) };
+    } catch (e) {
+      console.error('❌ Error eliminando notificación:', e?.message);
+      throw e;
+    }
+  },
+
+  /**
    * Borra todo el historial de notificaciones (solo admin).
    * @returns {{ ok: boolean, deleted: number }}
    */

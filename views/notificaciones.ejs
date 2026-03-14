@@ -16,6 +16,11 @@
         Historial borrado: <strong><%= borrado %></strong> notificaciones eliminadas.
       </p>
     <% } %>
+    <% if (typeof eliminada !== 'undefined' && eliminada) { %>
+      <p class="notice" style="margin-bottom:12px; padding:10px; background: rgba(25,135,84,.1); border-radius:8px; color:#198754;">
+        Notificación eliminada.
+      </p>
+    <% } %>
     <p style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
       <span aria-hidden="true">🔔</span> Solicitudes pendientes: <strong><%= typeof paging !== 'undefined' ? paging.total : 0 %></strong>
       <form method="post" action="/notificaciones/borrar-historial" style="display:inline-block; margin-left:16px;">
@@ -68,8 +73,8 @@
                 <td><%= (n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion ? (typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion) : '—' %></td>
                 <td><%= (n.estado || '').toLowerCase() !== 'pendiente' ? (n.admin_nombre || 'Enlace email') : '—' %></td>
                 <td>
-                  <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
-                    <div class="gv-actions">
+                  <div class="gv-actions">
+                    <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
                       <form method="post" action="/notificaciones/<%= n.id %>/aprobar">
                         <button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -80,10 +85,13 @@
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                       </form>
-                    </div>
-                  <% } else { %>
-                    —
-                  <% } %>
+                    <% } %>
+                    <form method="post" action="/notificaciones/<%= n.id %>/eliminar" style="display:inline;">
+                      <button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm('¿Eliminar esta notificación?');" style="color:#6c757d;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                      </button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             <% }) %>
@@ -128,9 +136,11 @@
           ? ('<a href="/pedidos/' + pid + '/edit" title="' + pedidoLabel + '">' + clienteLabel + '</a>')
           : ('<a href="/clientes/' + n.id_contacto + '">' + clienteLabel + '</a>');
         var tr = document.createElement('tr');
-        var acc = estado === 'pendiente'
-          ? '<div class="gv-actions"><form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form></div>'
-          : '—';
+        var acc = '<div class="gv-actions">';
+        if (estado === 'pendiente') {
+          acc += '<form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form>';
+        }
+        acc += '<form method="post" action="/notificaciones/' + n.id + '/eliminar" style="display:inline;"><button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm(\'¿Eliminar esta notificación?\');" style="color:#6c757d;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></form></div>';
         var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
         var adminNombre = (estado !== 'pendiente') ? (n.admin_nombre || 'Enlace email') : '—';
         tr.innerHTML = '<td>' + fmtDate(n.fecha_creacion) + '</td><td>' + tipoLabel + '</td><td>' + ref + '</td><td>' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td>' + fechaResol + '</td><td>' + adminNombre + '</td><td>' + acc + '</td>';

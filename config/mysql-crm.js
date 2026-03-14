@@ -822,6 +822,7 @@ class MySQLCRM {
   async getClienteIdsSolicitudPendienteComercial(idComercial) { return domains.notificaciones.getClienteIdsSolicitudPendienteComercial.apply(this, arguments); }
   async getClienteIdsSolicitudRechazadaComercial(idComercial) { return domains.notificaciones.getClienteIdsSolicitudRechazadaComercial.apply(this, arguments); }
   async resolverSolicitudAsignacion(idNotif, idAdmin, aprobar) { return domains.notificaciones.resolverSolicitudAsignacion.apply(this, arguments); }
+  async deleteNotificacionById(id) { return domains.notificaciones.deleteNotificacionById.apply(this, arguments); }
   async deleteAllNotificaciones() { return domains.notificaciones.deleteAllNotificaciones.apply(this, arguments); }
 
   async fixNotifFkCliente() {

@@ -15,6 +15,17 @@ const NOTIF_EMAILS_ENABLED =
 
 const router = express.Router();
 
+router.post('/notificaciones/:id/eliminar', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    await db.deleteNotificacionById(id);
+    return res.redirect('/notificaciones?eliminada=1');
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/notificaciones/borrar-historial', requireAdmin, async (req, res, next) => {
   try {
     const result = await db.deleteAllNotificaciones();
@@ -28,7 +39,7 @@ router.get('/notificaciones', requireAdmin, async (req, res, next) => {
   try {
     const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 100 });
     const [items, total] = await Promise.all([db.getNotificaciones(limit, offset), db.getNotificacionesPendientesCount()]);
-    res.render('notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, resuelto: req.query.resuelto || undefined, borrado: req.query.borrado });
+    res.render('notificaciones', { items: items || [], paging: { page, limit, total: total || 0 }, resuelto: req.query.resuelto || undefined, borrado: req.query.borrado, eliminada: req.query.eliminada });
   } catch (e) {
     next(e);
   }
