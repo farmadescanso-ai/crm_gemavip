@@ -484,10 +484,15 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           const qty = colQty ? Math.max(0, getNum(mysqlData[colQty], 0)) : Math.max(0, getNum(linea.Cantidad ?? linea.Unidades ?? 0, 0));
 
           let precioUnit = 0;
-          // Fuente de verdad: SIEMPRE calcular PVL por tarifa en backend (no confiar en valores enviados por navegador).
+          // Fuente de verdad: calcular PVL por tarifa en backend.
           if (articulo) precioUnit = Math.max(0, getPrecioFromTarifa(articulo, artId));
           if (isTransfer) {
             precioUnit = 0;
+          }
+          // Fallback: si el backend devuelve 0 pero el formulario envió PrecioUnitario válido, usarlo
+          if (precioUnit <= 0) {
+            const pvlPayload = getNum(linea.PrecioUnitario ?? linea.Precio ?? linea.PVP ?? linea.pvp ?? linea.PVL ?? linea.pvl ?? 0, 0);
+            if (pvlPayload > 0) precioUnit = pvlPayload;
           }
           if (colPrecioUnit) mysqlData[colPrecioUnit] = precioUnit;
 
