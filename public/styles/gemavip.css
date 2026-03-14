@@ -747,6 +747,11 @@ main.container{
   border-collapse: collapse;
   font-size: 0.9rem;
 }
+.gv-notificaciones-table-wrap .gv-notificaciones-table thead th,
+.gv-notificaciones-table-wrap .gv-notificaciones-table tbody td {
+  padding: 12px 14px;
+  box-sizing: border-box;
+}
 .gv-notificaciones-table-wrap .gv-notificaciones-table thead th {
   background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
   color: var(--gv-ink);
@@ -755,32 +760,36 @@ main.container{
   letter-spacing: .4px;
   text-transform: uppercase;
   border-bottom: 1px solid var(--gv-border);
-  padding: 12px 14px;
 }
-.gv-notificaciones-table-wrap .gv-notificaciones-table th,
-.gv-notificaciones-table-wrap .gv-notificaciones-table td {
-  padding: 10px 14px;
+.gv-notificaciones-table-wrap .gv-notificaciones-table tbody td {
   vertical-align: middle;
   min-width: 0;
-  box-sizing: border-box;
 }
 .gv-notificaciones-table-wrap .gv-notificaciones-table tbody tr:hover td {
   background: rgba(0,139,210,.04);
 }
+/* Acciones: ancho fijo para 3 iconos, evita solapamiento con Fecha */
+.gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-acciones {
+  width: 120px;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-acciones,
+.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-acciones {
+  width: 120px;
+  white-space: nowrap;
+  overflow: visible;
+}
 /* Referencia: -40% ancho (≈15% del total), texto en varias líneas */
-.gv-notificaciones-table-wrap .gv-notificaciones-table .gv-notif-col-referencia {
+.gv-notificaciones-table-wrap .gv-notificaciones-table col.gv-notif-col-referencia {
   width: 15%;
-  max-width: 15%;
+}
+.gv-notificaciones-table-wrap .gv-notificaciones-table th.gv-notif-col-referencia,
+.gv-notificaciones-table-wrap .gv-notificaciones-table td.gv-notif-col-referencia {
   white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
   line-height: 1.35;
   vertical-align: top;
-}
-.gv-notificaciones-table-wrap .gv-notificaciones-table .gv-notif-col-acciones {
-  width: 1%;
-  white-space: nowrap;
 }
 
 .table-wrap{ overflow:auto; border-radius: 14px; border:1px solid var(--gv-border); }

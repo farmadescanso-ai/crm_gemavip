@@ -23,6 +23,16 @@
     </p>
     <div class="table-wrap gv-notificaciones-table-wrap">
       <table class="gv-notificaciones-table">
+        <colgroup>
+          <col class="gv-notif-col-acciones" />
+          <col />
+          <col />
+          <col class="gv-notif-col-referencia" />
+          <col />
+          <col />
+          <col />
+          <col />
+        </colgroup>
         <thead>
           <tr>
             <th class="gv-notif-col-acciones">Acciones</th>
@@ -43,7 +53,7 @@
           <% } else { %>
             <% items.forEach((n) => { %>
               <tr>
-                <td>
+                <td class="gv-notif-col-acciones">
                   <div class="gv-actions">
                     <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
                       <form method="post" action="/notificaciones/<%= n.id %>/aprobar">
