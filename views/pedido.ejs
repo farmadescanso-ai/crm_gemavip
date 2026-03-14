@@ -286,8 +286,9 @@
                   )
                 );
 
+                // Base por línea (sin dto pedido), igual que en el formulario de edición
                 const baseStored = toNum(l.pedart_subtotal ?? l.Base ?? l.BaseImponible ?? l.Subtotal ?? l.Importe ?? NaN, NaN);
-                const baseCalc = round2(qty * pvl * (1 - dto / 100) * (1 - dtoPedidoPct / 100));
+                const baseCalc = round2(qty * pvl * (1 - dto / 100));
                 const base = Number.isFinite(baseStored) ? round2(baseStored) : baseCalc;
 
                 const ivaImpStored = toNum(l.ImporteIVA ?? l.TotalIVA ?? l.importe_iva ?? NaN, NaN);
@@ -316,7 +317,7 @@
                 </td>
                 <td class="is-right"><%= fmtEur(pvl) %></td>
                 <td class="is-right"><%= qty ? fmtQty(qty) : '' %></td>
-                <td class="is-right"><%= dto ? `${fmtNumES(dto, 2)}%` : '—' %></td>
+                <td class="is-right"><%= `${fmtNumES(dto, 2)}%` %></td>
                 <td class="is-right"><%= fmtEur(base) %></td>
                 <td class="is-right"><%= ivaPct ? `${fmtNumES(ivaPct, 2)}%` : '—' %></td>
                 <td class="is-right"><%= fmtEur(total) %></td>
@@ -327,12 +328,23 @@
       </div>
 
       <div class="gv-doc-summary">
+        <%
+          const subtotalConIva = round2(sumTotal);
+          const importeDtoPedido = dtoPedidoPct ? round2(subtotalConIva * dtoPedidoPct / 100) : 0;
+          const totalAntesRetenciones = round2(subtotalConIva - importeDtoPedido);
+        %>
         <table>
           <% if (dtoPedidoPct) { %>
             <tr>
               <td>DTO PEDIDO</td>
               <td class="is-right"><%= `${fmtNumES(dtoPedidoPct, 2)}%` %></td>
             </tr>
+            <% if (importeDtoPedido > 0) { %>
+            <tr>
+              <td>Dto pedido (importe)</td>
+              <td class="is-right">−<%= fmtEur(importeDtoPedido) %></td>
+            </tr>
+            <% } %>
           <% } %>
           <tr>
             <td>BASE IMPONIBLE</td>
@@ -369,7 +381,7 @@
           <% }) %>
           <tr>
             <td class="gv-doc-grand">TOTAL</td>
-            <td class="gv-doc-grand is-right"><%= fmtEur(round2(round2(sumTotal) - retenciones.reduce((s, r) => s + r.importe, 0))) %></td>
+            <td class="gv-doc-grand is-right"><%= fmtEur(round2(totalAntesRetenciones - retenciones.reduce((s, r) => s + r.importe, 0))) %></td>
           </tr>
         </table>
       </div>
