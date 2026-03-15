@@ -215,6 +215,15 @@ router.get('/aprobar-pedido', async (req, res) => {
       return res.status(404).send(paginaErrorHtml('Acción no válida', result?.message || 'La solicitud ya fue resuelta.'));
     }
 
+    if (approved && result.tipo === 'aprobacion_pedido' && result.id_pedido) {
+      try {
+        const { pushPedidoToHolded } = require('../lib/holded-export');
+        await pushPedidoToHolded(result.id_pedido, result.id_comercial_solicitante);
+      } catch (e) {
+        console.warn('[APROBACION-PEDIDO] Error enviando a Holded:', e?.message);
+      }
+    }
+
     const pedidoNum = result.num_pedido || '';
     const clienteNombre = result.cliente_nombre || '';
     const comercialEmail = result.comercial_email;
