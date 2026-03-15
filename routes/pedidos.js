@@ -150,7 +150,7 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
     },
     lineas: (lineas || []).map((l) => ({
       articuloId: Number(_n(_n(l.Id_Articulo, l.id_articulo), l.pedart_art_id) || 0),
-      codigo: String(_n(_n(l.art_codigo, _n(l.SKU, l.Codigo)), '') || '').trim(),
+      codigo: String(_n(_n(_n(_n(l.art_sku, l.art_codigo_interno), l.art_codigo), _n(l.SKU, l.Codigo)), '') || '').trim(),
       nombre: String(_n(_n(l.art_nombre, _n(l.Nombre, l.Descripcion)), l.pedart_articulo_txt) || '').trim(),
       cantidad: Number(_n(_n(l.pedart_cantidad, l.Cantidad), l.Unidades) || 0),
       precio: Number(_n(_n(_n(l.Linea_PVP, l.pedart_pvp), _n(l.PVP, l.PrecioUnitario)), 0) || 0),
