@@ -552,7 +552,6 @@ KEY `idx_tiposcargorol_activo_nombre` (`Activo`, `Nombre`);
 - `/pedidos/:id.xlsx` — Excel del pedido
 - `/pedidos/:id/hefame.xlsx` — Plantilla Hefame
 - `/pedidos/:id/hefame-send-email` — Envío por email
-- `/pedidos/:id/enviar-n8n` — Webhook N8N
 - `/health`, `/health/db` — Health checks
 
 ### 7.3 API REST (`/api/`)

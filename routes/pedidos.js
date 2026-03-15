@@ -1,5 +1,5 @@
 /**
- * Rutas HTML de pedidos (CRUD, Excel, Hefame, N8N).
+ * Rutas HTML de pedidos (CRUD, Excel, Hefame).
  */
 
 const express = require('express');
@@ -17,11 +17,9 @@ const {
   createLoadPedidoAndCheckOwner
 } = require('../lib/auth');
 const { parsePagination } = require('../lib/pagination');
-const { sendPedidoEmail, sendTransferExcelEmail, getSmtpStatus, getGraphStatus, APP_BASE_URL } = require('../lib/mailer');
-const { escapeHtml: escapeHtmlUtil } = require('../lib/utils');
+const { sendTransferExcelEmail, getSmtpStatus, getGraphStatus, APP_BASE_URL } = require('../lib/mailer');
 const { loadMarcasForSelect } = require('../lib/articulo-helpers');
 const { loadSimpleCatalogForSelect } = require('../lib/cliente-helpers');
-const { SYSVAR_PEDIDOS_MAIL_TO } = require('../lib/admin-helpers');
 let sendPushToAdmins = () => Promise.resolve();
 try {
   const wp = require('../lib/web-push');
@@ -514,26 +512,6 @@ router.get('/', requireLogin, async (req, res, next) => {
       totalPedidos = Number(_n(countRows && countRows[0] && countRows[0].total, 0));
     }
 
-    const n8nFlag = String(req.query.n8n || '').trim().toLowerCase();
-    const n8nPid = String(req.query.pid || '').trim();
-    const n8nFile = String(req.query.file || '').trim();
-    const n8nMsg = String(req.query.msg || '').trim();
-    const n8nNotice =
-      n8nFlag === 'ok'
-        ? {
-            ok: true,
-            pid: n8nPid || null,
-            file: n8nFile || null,
-            message: `Pedido${n8nPid ? ` ${n8nPid}` : ''} enviado correctamente${n8nFile ? `.\nExcel: ${n8nFile}` : '.'}${n8nMsg ? `\n${n8nMsg}` : ''}`
-          }
-        : n8nFlag === 'err'
-          ? {
-              ok: false,
-              pid: n8nPid || null,
-              message: `No se pudo enviar el pedido${n8nPid ? ` ${n8nPid}` : ''} a N8N.${n8nMsg ? `\n${n8nMsg}` : ''}`
-            }
-          : null;
-
     await db.ensureEstadosPedidoTable().catch(() => null);
     const estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
 
@@ -549,7 +527,6 @@ router.get('/', requireLogin, async (req, res, next) => {
       admin,
       userId: sessionUserId,
       user: sessionUser,
-      n8nNotice,
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       paging: { page, limit, total: totalPedidos }
     });
@@ -1225,270 +1202,6 @@ router.get('/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, asyn
     return res.end(built.buf);
   } catch (e) {
     next(e);
-  }
-});
-
-router.post('/:id(\\d+)/enviar-n8n', requireLogin, requireAdmin, loadPedidoAndCheckOwner, async (req, res, next) => {
-  try {
-    const item = res.locals.pedido;
-    const id = Number(req.params.id);
-
-    let lineas = await db.getArticulosByPedido(id).catch(() => []);
-    const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
-
-    const idTarifa = _n(item?.Id_Tarifa, item?.id_tarifa);
-    const artIdsNeedingPvl = (lineas || [])
-      .map((l) => Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    const needsEnrichment = (lineas || []).some((l) => {
-      const pvl = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
-      return !Number.isFinite(pvl) || pvl <= 0;
-    });
-    if (needsEnrichment && artIdsNeedingPvl.length > 0) {
-      const precios = await db.getPreciosArticulosParaTarifa(idTarifa ?? 0, artIdsNeedingPvl).catch(() => ({}));
-      lineas = (lineas || []).map((l) => {
-        const artId = Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0);
-        const pvlStored = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
-        if ((!Number.isFinite(pvlStored) || pvlStored <= 0) && artId > 0 && precios[artId] != null) {
-          return { ...l, Linea_PVP: precios[artId], pedart_pvp: precios[artId] };
-        }
-        return l;
-      });
-    }
-
-    let direccionEnvio = null;
-    try {
-      direccionEnvio = item?.Id_DireccionEnvio
-        ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
-        : null;
-      if (!direccionEnvio && cliente?.Id) {
-        const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
-        if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
-      }
-    } catch (_) {
-      direccionEnvio = null;
-    }
-
-    const isTransfer = await isTransferPedido(db, item).catch(() => false);
-    const canShowHefame = await canShowHefameForPedido(db, item);
-    const mayoristaInfo = canShowHefame ? await resolveMayoristaInfo(db, item) : null;
-
-    let excel;
-    let excelTipo = 'estandar';
-    if (isTransfer) {
-      const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
-      if (!built.ok) {
-        return res.redirect(
-          `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent(built.error || 'No se pudo generar el Excel (Transfer).')}`
-        );
-      }
-      excel = { buf: built.buf, filename: built.filename };
-      excelTipo = 'transfer';
-    } else {
-      const built = await buildStandardPedidoXlsxBuffer({
-        item,
-        id,
-        lineas,
-        cliente,
-        direccionEnvio,
-        fmtDateES: res.locals.fmtDateES,
-        mayoristaInfo
-      });
-      excel = { buf: built.buf, filename: built.filename };
-      excelTipo = 'directo';
-    }
-
-    const payload = {
-      requestId: req.requestId,
-      sentAt: new Date().toISOString(),
-      excelTipo,
-      pedido: (() => {
-        const pedidoId = Number(_n(_n(item && item.Id, item && item.id), id)) || id;
-        const numPedido = String(_n(_n(_n(item && item.NumPedido, item && item.Num_Pedido), item && item.Numero_Pedido), '')).trim();
-        const numPedidoCliente = String(_n(_n(item && item.NumPedidoCliente, item && item.Num_Pedido_Cliente), '')).trim();
-        const idCliente = Number(_n(_n(_n(_n(item && item.Id_Cliente, item && item.id_cliente), cliente && cliente.Id), cliente && cliente.id), 0)) || null;
-        const idComercial = Number(_n(_n(_n(_n(item && item.Id_Cial, item && item.id_cial), item && item.ComercialId), item && item.comercialId), 0)) || null;
-        const idFormaPago = Number(_n(_n(item && item.Id_FormaPago, item && item.id_forma_pago), 0)) || null;
-        const idTipoPedido = Number(_n(_n(item && item.Id_TipoPedido, item && item.id_tipo_pedido), 0)) || null;
-        const idTarifa = _n(item && item.Id_Tarifa, item && item.id_tarifa);
-        const tarifaIdNum = idTarifa === null || idTarifa === undefined || String(idTarifa).trim() === '' ? null : (Number(idTarifa) || null);
-        const idEstado = Number(_n(_n(item && item.Id_EstadoPedido, item && item.id_estado_pedido), 0)) || null;
-
-        const clienteNombre =
-          cliente?.Nombre_Razon_Social || cliente?.Nombre || cliente?.nombre || item?.ClienteNombre || item?.ClienteNombreCial || '';
-        const comercialNombre = item?.ComercialNombre || item?.NombreComercial || '';
-
-        // Best-effort: resolver nombres de catálogos (no romper si falla)
-        const formaPagoNombre = (item?.FormaPagoNombre || '').toString().trim();
-        const tipoPedidoNombre = (item?.TipoPedidoNombre || '').toString().trim();
-        const tarifaNombre = (item?.TarifaNombre || '').toString().trim();
-        const estadoNombre = (item?.EstadoPedidoNombre || item?.EstadoPedido || item?.Estado || '').toString().trim();
-
-        return {
-          id: pedidoId,
-          numero: numPedido || String(pedidoId),
-          fecha: _n(_n(item && item.FechaPedido, item && item.Fecha), null),
-          entrega: _n(item && item.FechaEntrega, null),
-          total: _n(_n(item && item.TotalPedido, item && item.Total), null),
-          subtotal: _n(_n(item && item.SubtotalPedido, item && item.Subtotal), null),
-          descuentoPct: _n(_n(item && item.Dto, item && item.Descuento), null),
-          observaciones: _n(item && item.Observaciones, null),
-          numPedidoCliente: numPedidoCliente || null,
-          numAsociadoHefame: _n(_n(item && item.NumAsociadoHefame, item && item.num_asociado_hefame), null),
-          cliente: {
-            id: idCliente,
-            nombre: clienteNombre || (idCliente ? String(idCliente) : null),
-            cif: _n(cliente && cliente.DNI_CIF, cliente && cliente.DniCif),
-            poblacion: _n(cliente && cliente.Poblacion, null),
-            cp: _n(cliente && cliente.CodigoPostal, null),
-            telefono: _n(cliente && cliente.Telefono, cliente && cliente.Movil),
-            email: _n(cliente && cliente.Email, null)
-          },
-          comercial: {
-            id: idComercial,
-            nombre: comercialNombre || (idComercial ? String(idComercial) : null)
-          },
-          formaPago: { id: idFormaPago, nombre: formaPagoNombre || null },
-          tipoPedido: { id: idTipoPedido, nombre: tipoPedidoNombre || null },
-          tarifa: { id: tarifaIdNum, nombre: tarifaNombre || null },
-          estado: { id: idEstado, nombre: estadoNombre || null }
-        };
-      })(),
-      lineas: (Array.isArray(lineas) ? lineas : []).map((l) => ({
-        articuloId: Number(_n(_n(_n(l.Id_Articulo, l.id_articulo), l.ArticuloId), 0)) || null,
-        codigo: String(_n(_n(_n(_n(l.SKU, l.Codigo), l.Id_Articulo), l.id_articulo), '')).trim() || null,
-        nombre: String(_n(_n(_n(_n(l.Nombre, l.Descripcion), l.Articulo), l.nombre), '')).trim() || null,
-        cantidad: Number(_n(_n(l.Cantidad, l.Unidades), 0)) || 0,
-        precioUnitario: Number(_n(_n(_n(_n(_n(l.Linea_PVP, l.PVP), l.PrecioUnitario), l.PVL), l.Precio), 0)) || 0,
-        descuentoPct: Number(_n(_n(_n(_n(_n(l.Linea_Dto, l.DtoLinea), l.Dto), l.dto), l.Descuento), 0)) || 0,
-        ivaPct: Number(_n(_n(_n(_n(l.Linea_IVA, l.IVA), l.PorcIVA), l.PorcentajeIVA), 0)) || 0
-      })),
-      cliente: cliente
-        ? {
-            id: _n(_n(cliente && cliente.Id, cliente && cliente.id), null),
-            nombre: _n(_n(_n(cliente && cliente.Nombre_Razon_Social, cliente && cliente.Nombre), cliente && cliente.nombre), null),
-            cif: _n(cliente && cliente.DNI_CIF, cliente && cliente.DniCif),
-            direccion: _n(cliente && cliente.Direccion, null),
-            poblacion: _n(cliente && cliente.Poblacion, null),
-            cp: _n(cliente && cliente.CodigoPostal, null),
-            telefono: _n(cliente && cliente.Telefono, cliente && cliente.Movil),
-            email: _n(cliente && cliente.Email, null)
-          }
-        : null,
-      direccionEnvio,
-      excel: {
-        filename: excel.filename,
-        mime: XLSX_MIME,
-        base64: excel.buf.toString('base64')
-      }
-    };
-
-    // === ENVÍO POR EMAIL (modo actual) ===
-    // Nota: mantenemos el código de N8N más abajo, pero no se ejecuta por defecto.
-    const mailToFromDb = await db.getVariableSistema?.(SYSVAR_PEDIDOS_MAIL_TO).catch(() => null);
-    const mailTo = String(mailToFromDb || process.env.PEDIDOS_MAIL_TO || 'p.lara@gemavip.com').trim() || 'p.lara@gemavip.com';
-    const pedidoNum = String(_n(_n(_n(item && item.NumPedido, item && item.Num_Pedido), item && item.Numero_Pedido), id)).trim();
-    const clienteNombre =
-      (payload?.pedido?.cliente?.nombre ? String(payload.pedido.cliente.nombre) : '') ||
-      String(_n(_n(item && item.ClienteNombre, item && item.ClienteNombreCial), '')).trim() ||
-      '';
-    const totalLabel = _n(_n(item && item.TotalPedido, item && item.Total), null);
-    const pedidoUrl = `${APP_BASE_URL}/pedidos/${id}`;
-    const subject = `Pedido ${pedidoNum}${clienteNombre ? ` · ${clienteNombre}` : ''} · CRM Gemavip`;
-
-    const signatureText = [
-      '--',
-      'GEMAVIP',
-      'Paco Lara',
-      'Key Account Manager',
-      'GEMAVIP',
-      'Email: p.lara@gemavip.com',
-      'Tel: +34 610 72 13 69',
-      'Web: gemavip.com/es/ | farmadescanso.com',
-      'LinkedIn',
-      'Valoraciones Trustpilot',
-      '',
-      'Aviso de confidencialidad: La información contenida en esta comunicación electrónica y en sus archivos adjuntos es confidencial, privilegiada y está dirigida exclusivamente a la persona o entidad a la que va destinada. Si usted no es el destinatario previsto, se le notifica que cualquier lectura, uso, copia, distribución, divulgación o reproducción de este mensaje y sus anexos está estrictamente prohibida y puede constituir un delito. Si ha recibido este correo por error, le rogamos que lo notifique inmediatamente al remitente respondiendo a este mensaje y proceda a su eliminación de su sistema.',
-      '',
-      'Protección de datos: De conformidad con el Reglamento (UE) 2016/679 del Parlamento Europeo y del Consejo (RGPD) y la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos Personales y garantía de los derechos digitales (LOPDGDD), garantizo la adopción de todas las medidas técnicas y organizativas necesarias para el tratamiento seguro y confidencial de sus datos personales. Puede ejercer sus derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición escribiendo a p.lara@gemavip.com.',
-      '',
-      'Exención de responsabilidad: No me hago responsable de la transmisión íntegra y puntual de este mensaje, ni de posibles retrasos, errores, alteraciones o pérdidas que pudieran producirse en su recepción. Este mensaje no constituye ningún compromiso, salvo que exista un acuerdo expreso y por escrito entre las partes.'
-    ].join('\n');
-
-    const linesText = (payload.lineas || [])
-      .slice(0, 60)
-      .map((l) => `- ${l.codigo || l.articuloId || '—'} · ${l.nombre || ''} · uds: ${_n(l.cantidad, 0)}`)
-      .join('\n');
-
-    const text = [
-      'Pedido enviado desde CRM Gemavip.',
-      '',
-      `Pedido: ${pedidoNum}`,
-      clienteNombre ? `Cliente: ${clienteNombre}` : null,
-      totalLabel != null ? `Total: ${String(totalLabel)}` : null,
-      `Enlace: ${pedidoUrl}`,
-      '',
-      (linesText ? `Líneas (resumen):\n${linesText}\n` : ''),
-      signatureText
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const html = `
-      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.45;color:#111827;">
-        <h2 style="margin:0 0 10px 0;font-size:16px;">Pedido enviado desde CRM Gemavip</h2>
-        <div style="margin:0 0 12px 0;">
-          <div><strong>Pedido:</strong> ${escapeHtmlUtil(pedidoNum)}</div>
-          ${clienteNombre ? `<div><strong>Cliente:</strong> ${escapeHtmlUtil(clienteNombre)}</div>` : ''}
-          ${totalLabel != null ? `<div><strong>Total:</strong> ${escapeHtmlUtil(String(totalLabel))}</div>` : ''}
-          <div><strong>Enlace:</strong> <a href="${escapeHtmlUtil(pedidoUrl)}">${escapeHtmlUtil(pedidoUrl)}</a></div>
-        </div>
-        ${
-          linesText
-            ? `<div style="margin: 0 0 12px 0;"><strong>Líneas (resumen)</strong><div style="white-space:pre-wrap;margin-top:6px;">${escapeHtmlUtil(linesText)}</div></div>`
-            : ''
-        }
-        <hr style="border:0;border-top:1px solid #e5e7eb;margin:16px 0;" />
-        <div style="white-space:pre-wrap;color:#111827;">${escapeHtmlUtil(signatureText)}</div>
-      </div>
-    `.trim();
-
-    const mailRes = await sendPedidoEmail(mailTo, {
-      subject,
-      text,
-      html,
-      attachments: [
-        {
-          filename: excel.filename,
-          content: excel.buf,
-          contentType: XLSX_MIME
-        }
-      ]
-    });
-
-    if (!mailRes?.sent) {
-      return res.redirect(
-        `/pedidos?n8n=err&pid=${encodeURIComponent(String(id))}&msg=${encodeURIComponent(`No se pudo enviar el email: ${mailRes?.error || 'error desconocido'}`)}`
-      );
-    }
-
-    // Resultado OK por email
-    // (Reutilizamos el aviso existente en /pedidos, aunque internamente no hayamos llamado a N8N)
-    /*
-    // === CÓDIGO N8N (PRESERVADO, NO EJECUTAR) ===
-    // Si se quisiera reactivar en el futuro:
-    // 1) resolver webhookUrl (BD o .env)
-    // 2) enviar axios.post(webhookUrl, payload, { headers: { 'Content-Type': 'application/json' }, ... })
-    */
-
-    return res.redirect(
-      `/pedidos?n8n=ok&pid=${encodeURIComponent(String(id))}&file=${encodeURIComponent(excel.filename)}&msg=${encodeURIComponent(`Email enviado a ${mailTo}`)}`
-    );
-  } catch (e) {
-    console.error('Enviar pedido a N8N: error', e?.message);
-    return res.redirect(
-      `/pedidos?n8n=err&pid=${encodeURIComponent(String(req.params.id || ''))}&msg=${encodeURIComponent('Error enviando a N8N. Revisa logs/soporte.')}`
-    );
   }
 });
 
