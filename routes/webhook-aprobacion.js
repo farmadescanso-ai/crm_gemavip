@@ -22,14 +22,28 @@ function computeSig(notifId, approved) {
  * @param {boolean} approved - true si aprobado, false si rechazado
  * @param {string} [clienteNombre] - Nombre del cliente (opcional)
  */
-function paginaListoHtml(approved, clienteNombre = '') {
+function paginaListoHtml(approved, label = '', opts = {}) {
   const isAprobado = approved === true;
-  const titulo = isAprobado ? 'Solicitud aprobada' : 'Solicitud rechazada';
-  const mensaje = isAprobado
-    ? (clienteNombre ? `El cliente <strong>${escapeHtml(clienteNombre)}</strong> ha sido asignado al comercial.` : 'La asignación ha sido aprobada correctamente.')
-    : (clienteNombre ? `La solicitud para <strong>${escapeHtml(clienteNombre)}</strong> ha sido rechazada.` : 'La solicitud ha sido rechazada.');
+  const tipo = opts.tipo || 'solicitud';
+  const pedidoUrl = opts.pedidoUrl || null;
+
+  let titulo, mensaje;
+  if (tipo === 'pedido') {
+    titulo = isAprobado ? 'Pedido aprobado' : 'Pedido denegado';
+    mensaje = isAprobado
+      ? (label ? `El pedido <strong>${escapeHtml(label)}</strong> ha sido aprobado. Se ha notificado al comercial.` : 'El pedido ha sido aprobado correctamente.')
+      : (label ? `El pedido <strong>${escapeHtml(label)}</strong> ha sido denegado. Se ha notificado al comercial.` : 'El pedido ha sido denegado.');
+  } else {
+    titulo = isAprobado ? 'Solicitud aprobada' : 'Solicitud rechazada';
+    mensaje = isAprobado
+      ? (label ? `El cliente <strong>${escapeHtml(label)}</strong> ha sido asignado al comercial.` : 'La asignación ha sido aprobada correctamente.')
+      : (label ? `La solicitud para <strong>${escapeHtml(label)}</strong> ha sido rechazada.` : 'La solicitud ha sido rechazada.');
+  }
+
   const icono = isAprobado ? '✓' : '✕';
   const colorPrincipal = isAprobado ? '#198754' : '#dc3545';
+  const btnLink = pedidoUrl || `${APP_BASE_URL}/pedidos`;
+  const btnLabel = pedidoUrl ? 'Ver pedido en el CRM' : 'Ir al CRM';
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -51,8 +65,8 @@ function paginaListoHtml(approved, clienteNombre = '') {
     .card-body p { font-size: 15px; line-height: 1.6; color: #5b667a; margin: 0 0 24px; }
     .card-body p strong { color: #1f2a44; }
     .hint { font-size: 13px; color: #8b95a5; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
-    .btn-close { display: inline-block; padding: 12px 28px; background: #1f2a44; color: #fff !important; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px; transition: transform 0.2s, box-shadow 0.2s; }
-    .btn-close:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(31,42,68,0.25); }
+    .btn-crm { display: inline-block; padding: 12px 28px; background: #008bd2; color: #fff !important; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px; transition: transform 0.2s, box-shadow 0.2s; }
+    .btn-crm:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,139,210,0.30); }
     .brand { font-size: 11px; color: #8b95a5; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   </style>
 </head>
@@ -64,13 +78,10 @@ function paginaListoHtml(approved, clienteNombre = '') {
       <div class="icon-wrap">${icono}</div>
       <h1>${titulo}</h1>
       <p>${mensaje}</p>
-      <a href="#" class="btn-close" onclick="window.close(); return false;">Cerrar ventana</a>
-      <p class="hint">Puedes cerrar esta pestaña o ventana.</p>
+      <a href="${btnLink}" class="btn-crm">${btnLabel}</a>
+      <p class="hint">Ya puedes cerrar esta pestaña.</p>
     </div>
   </div>
-  <script>
-    try { if (window.opener) setTimeout(function(){ window.close(); }, 1500); } catch(e) {}
-  </script>
 </body>
 </html>`;
 }
@@ -218,10 +229,10 @@ router.get('/aprobar-pedido', async (req, res) => {
       }).catch((e) => console.warn('[APROBACION-PEDIDO] Error email resultado:', e?.message));
     }
 
-    const titulo = approved ? 'Pedido aprobado' : 'Pedido denegado';
     const label = pedidoNum ? `Pedido ${pedidoNum}` : (clienteNombre || 'Pedido');
+    const pedidoUrl = result.id_pedido ? `${APP_BASE_URL}/pedidos/${result.id_pedido}` : null;
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(paginaListoHtml(approved, label));
+    res.send(paginaListoHtml(approved, label, { tipo: 'pedido', pedidoUrl }));
   } catch (e) {
     console.error('[APROBACION-PEDIDO] Error:', e?.message);
     res.set('Content-Type', 'text/html; charset=utf-8');
