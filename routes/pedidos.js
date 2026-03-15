@@ -120,6 +120,31 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
   const comercialEmail = comercial?.com_email ?? comercial?.Email ?? comercial?.email ?? sessionUser?.email ?? null;
   const comercialNombre = comercial?.com_nombre ?? comercial?.Nombre ?? comercial?.nombre ?? sessionUser?.nombre ?? '';
 
+  const _pickCI = (obj, keys) => {
+    if (!obj || typeof obj !== 'object') return undefined;
+    const map = new Map(Object.keys(obj).map((k) => [k.toLowerCase(), obj[k]]));
+    for (const k of keys) {
+      const v = map.get(k.toLowerCase());
+      if (v != null && v !== '') return v;
+    }
+    return undefined;
+  };
+  const _pickNonZero = (obj, keys, dflt = 0) => {
+    if (!obj || typeof obj !== 'object') return dflt;
+    const map = new Map(Object.keys(obj).map((k) => [k.toLowerCase(), obj[k]]));
+    let first = undefined;
+    for (const k of keys) {
+      const v = map.get(k.toLowerCase());
+      if (v != null && v !== '') {
+        if (first === undefined) first = v;
+        if (Number(v) > 0) return Number(v);
+      }
+    }
+    return first !== undefined ? Number(first) : dflt;
+  };
+
+  const dtoPedidoPct = _pickNonZero(item, ['ped_dto', 'Dto', 'Descuento'], 0);
+
   const payload = {
     pedido: {
       id: pedidoId,
@@ -127,7 +152,7 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
       fecha: _n(_n(item.FechaPedido, item.ped_fecha), item.Fecha) || null,
       total: _n(_n(item.TotalPedido, item.ped_total), item.Total) || 0,
       subtotal: _n(item.SubtotalPedido, item.Subtotal) || 0,
-      dtoPct: _n(_n(item.Dto, item.ped_dto), item.Descuento) || 0,
+      dtoPct: dtoPedidoPct,
       observaciones: _n(item.Observaciones, item.ped_observaciones) || '',
       estado: _n(_n(item.EstadoPedido, item.ped_estado_txt), 'Revisando')
     },
@@ -149,13 +174,13 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
       movil: comercial?.com_movil ?? comercial?.Movil ?? ''
     },
     lineas: (lineas || []).map((l) => ({
-      articuloId: Number(_n(_n(l.Id_Articulo, l.id_articulo), l.pedart_art_id) || 0),
-      codigo: String(_n(_n(_n(_n(l.art_sku, l.art_codigo_interno), l.art_codigo), _n(l.SKU, l.Codigo)), '') || '').trim(),
-      nombre: String(_n(_n(l.art_nombre, _n(l.Nombre, l.Descripcion)), l.pedart_articulo_txt) || '').trim(),
-      cantidad: Number(_n(_n(l.pedart_cantidad, l.Cantidad), l.Unidades) || 0),
-      precio: Number(_n(_n(_n(l.Linea_PVP, l.pedart_pvp), _n(l.PVP, l.PrecioUnitario)), 0) || 0),
-      dto: Number(_n(_n(l.Linea_Dto, l.pedart_dto), _n(l.DtoLinea, l.Dto)) || 0),
-      iva: Number(_n(_n(l.Linea_IVA, l.pedart_iva), _n(l.IVA, l.PorcIVA)) || 0)
+      articuloId: Number(_pickCI(l, ['Id_Articulo', 'id_articulo', 'pedart_art_id']) || 0),
+      codigo: String(_pickCI(l, ['art_sku', 'art_codigo_interno', 'art_codigo', 'SKU', 'Codigo']) || '').trim(),
+      nombre: String(_pickCI(l, ['art_nombre', 'art_descripcion', 'Nombre', 'Descripcion', 'pedart_articulo_txt', 'Articulo']) || '').trim(),
+      cantidad: Number(_pickCI(l, ['Linea_Cantidad', 'pedart_cantidad', 'Cantidad', 'Unidades']) || 0),
+      precio: _pickNonZero(l, ['Linea_PVP', 'pedart_pvp', 'PVP', 'pvp', 'PrecioUnitario', 'PVL', 'Precio', 'art_pvl'], 0),
+      dto: Number(_pickCI(l, ['Linea_Dto', 'pedart_dto', 'DtoLinea', 'dto_linea', 'Dto']) || 0),
+      iva: _pickNonZero(l, ['Linea_IVA', 'pedart_iva', 'IVA', 'PorcIVA', 'PorcentajeIVA', 'TipoIVA', 'art_iva'], 0)
     })),
     direccionEnvio: direccionEnvio || null,
     excel: excelBase64 ? { filename: excelFilename, mime: XLSX_MIME, base64: excelBase64 } : null,
