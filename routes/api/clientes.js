@@ -330,6 +330,28 @@ router.delete(
   })
 );
 
+router.patch(
+  '/:id/cooperativas/:relId',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const clienteId = toInt(req.params.id, 0);
+    const relId = toInt(req.params.relId, 0);
+    if (!clienteId || !relId) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    if (!isAdmin) {
+      const canEdit = await db.canComercialEditCliente(clienteId, sessionUser?.id);
+      if (!canEdit) return res.status(403).json({ ok: false, error: 'Sin permiso' });
+    }
+    try {
+      const numAsociado = String(req.body.NumAsociado ?? '').trim();
+      await db.updateClienteCooperativa(relId, { NumAsociado: numAsociado });
+      return res.json({ ok: true });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message || 'Error al actualizar' });
+    }
+  })
+);
+
 router.get(
   '/:id/direcciones-envio',
   asyncHandler(async (req, res) => {
