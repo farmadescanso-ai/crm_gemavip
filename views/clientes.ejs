@@ -23,8 +23,11 @@
           <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %><input type="hidden" name="tipo" value="<%= tipoContacto %>" /><% } %>
           <input type="hidden" name="order" value="<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" />
           <input type="hidden" name="limit" value="<%= paging.limit %>" />
-          <input type="search" name="q" placeholder="Buscar..." value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" />
+          <input type="search" name="q" placeholder="Ej: provincia:Murcia estado:activos tipo:Farmacia · o texto libre" value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" />
           <button class="btn secondary" type="submit">Buscar</button>
+          <% if (typeof q !== 'undefined' && q) { %>
+            <a class="btn secondary" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&limit=<%= paging.limit %>" title="Limpiar búsqueda">✕</a>
+          <% } %>
         </form>
         <a class="btn" href="/clientes/new">Nuevo contacto</a>
       </div>

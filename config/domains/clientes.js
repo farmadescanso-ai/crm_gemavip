@@ -755,6 +755,39 @@ module.exports = {
         }
       }
 
+      // ── Filtros de búsqueda inteligente (campo:valor) ──
+      const _addSmartLike = (col, val) => { whereConditions.push(`LOWER(IFNULL(c.\`${col}\`,'')) LIKE ?`); params.push(`%${String(val).toLowerCase()}%`); };
+      if (filters.nombre && typeof filters.nombre === 'string') {
+        const v = `%${filters.nombre.toLowerCase()}%`;
+        whereConditions.push(`(LOWER(IFNULL(c.\`${colNombre}\`,'')) LIKE ? OR LOWER(IFNULL(c.\`${colNombreCial}\`,'')) LIKE ?)`);
+        params.push(v, v);
+      }
+      if (filters.cif && typeof filters.cif === 'string') _addSmartLike(colDniCif, filters.cif);
+      if (filters.email && typeof filters.email === 'string') _addSmartLike(colEmail, filters.email);
+      if (filters.telefono && typeof filters.telefono === 'string') {
+        const v = `%${filters.telefono.toLowerCase()}%`;
+        whereConditions.push(`(LOWER(IFNULL(c.\`${colTelefono}\`,'')) LIKE ? OR LOWER(IFNULL(c.\`${colMovil}\`,'')) LIKE ?)`);
+        params.push(v, v);
+      }
+      if (filters.cp && typeof filters.cp === 'string') _addSmartLike(colCodigoPostal, filters.cp);
+      if (filters.poblacion && typeof filters.poblacion === 'string') _addSmartLike(colPoblacion, filters.poblacion);
+      if (filters.tags && typeof filters.tags === 'string') {
+        whereConditions.push(`LOWER(IFNULL(c.cli_tags,'')) LIKE ?`);
+        params.push(`%${filters.tags.toLowerCase()}%`);
+      }
+      if (filters.provinciaNombre && typeof filters.provinciaNombre === 'string') {
+        whereConditions.push(`LOWER(IFNULL(p.prov_nombre,'')) LIKE ?`);
+        params.push(`%${filters.provinciaNombre.toLowerCase()}%`);
+      }
+      if (filters.tipoClienteNombre && typeof filters.tipoClienteNombre === 'string') {
+        whereConditions.push(`LOWER(IFNULL(tc.tipc_tipo,'')) LIKE ?`);
+        params.push(`%${filters.tipoClienteNombre.toLowerCase()}%`);
+      }
+      if (filters.comercialNombre && typeof filters.comercialNombre === 'string' && colComercial && tComerciales) {
+        whereConditions.push(`LOWER(IFNULL(cial.\`${comercialColNombre}\`,'')) LIKE ?`);
+        params.push(`%${filters.comercialNombre.toLowerCase()}%`);
+      }
+
       if (filters.q && typeof filters.q === 'string' && filters.q.trim().length >= 1) {
         const raw = filters.q.trim();
         const rawDigits = raw.replace(/\D/g, '');
@@ -1035,11 +1068,23 @@ module.exports = {
       const colNumeroFarmacia = this._pickCIFromColumns(colsClientes, ['cli_numero_farmacia', 'NumeroFarmacia', 'numero_farmacia']);
       const colNomContacto = this._pickCIFromColumns(colsClientes, ['cli_nom_contacto', 'NomContacto', 'nom_contacto']);
       const colObservaciones = this._pickCIFromColumns(colsClientes, ['cli_observaciones', 'Observaciones', 'observaciones']);
+      const colNombreRS = meta.colNombreRazonSocial || 'cli_nombre_razon_social';
       const whereConditions = [];
       const colProv = colProvincia || 'cli_prov_id';
       const colTipC = colTipoCliente || 'cli_tipc_id';
 
+      const needJoinProv = !!(filters.provinciaNombre);
+      const needJoinTipoC = !!(filters.tipoClienteNombre);
+      const comercialMeta = colComercial ? await this._ensureComercialesMeta().catch(() => null) : null;
+      const comercialPk = comercialMeta?.pk || 'com_id';
+      const comercialColNombre = comercialMeta?.colNombre || 'com_nombre';
+      const tComerciales = comercialMeta?.table || null;
+      const needJoinCom = !!(filters.comercialNombre && colComercial && tComerciales);
+
       sql = 'SELECT COUNT(*) as total FROM clientes c';
+      if (needJoinProv) sql += ` LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id`;
+      if (needJoinTipoC) sql += ` LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id`;
+      if (needJoinCom) sql += ` LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\``;
       const params = [];
 
       if (colEstadoCliente) {
@@ -1129,6 +1174,39 @@ module.exports = {
         } else if (filters.conVentas === false || filters.conVentas === 'false' || filters.conVentas === '0') {
           whereConditions.push(`NOT EXISTS (SELECT 1 FROM pedidos p2 WHERE p2.\`${this.__pedidosClienteCol}\` = c.\`${pk}\`)`);
         }
+      }
+
+      // ── Filtros de búsqueda inteligente (campo:valor) ──
+      const _addCountLike = (col, val) => { whereConditions.push(`LOWER(IFNULL(c.\`${col}\`,'')) LIKE ?`); params.push(`%${String(val).toLowerCase()}%`); };
+      if (filters.nombre && typeof filters.nombre === 'string') {
+        const v = `%${filters.nombre.toLowerCase()}%`;
+        whereConditions.push(`(LOWER(IFNULL(c.\`${colNombreRS}\`,'')) LIKE ? OR LOWER(IFNULL(c.\`${colNombreCial}\`,'')) LIKE ?)`);
+        params.push(v, v);
+      }
+      if (filters.cif && typeof filters.cif === 'string') _addCountLike(colDniCif, filters.cif);
+      if (filters.email && typeof filters.email === 'string') _addCountLike(colEmail, filters.email);
+      if (filters.telefono && typeof filters.telefono === 'string') {
+        const v = `%${filters.telefono.toLowerCase()}%`;
+        whereConditions.push(`(LOWER(IFNULL(c.\`${colTelefono}\`,'')) LIKE ? OR LOWER(IFNULL(c.\`${colMovil}\`,'')) LIKE ?)`);
+        params.push(v, v);
+      }
+      if (filters.cp && typeof filters.cp === 'string') _addCountLike(colCodigoPostal, filters.cp);
+      if (filters.poblacion && typeof filters.poblacion === 'string') _addCountLike(colPoblacion, filters.poblacion);
+      if (filters.tags && typeof filters.tags === 'string') {
+        whereConditions.push(`LOWER(IFNULL(c.cli_tags,'')) LIKE ?`);
+        params.push(`%${filters.tags.toLowerCase()}%`);
+      }
+      if (needJoinProv) {
+        whereConditions.push(`LOWER(IFNULL(p.prov_nombre,'')) LIKE ?`);
+        params.push(`%${filters.provinciaNombre.toLowerCase()}%`);
+      }
+      if (needJoinTipoC) {
+        whereConditions.push(`LOWER(IFNULL(tc.tipc_tipo,'')) LIKE ?`);
+        params.push(`%${filters.tipoClienteNombre.toLowerCase()}%`);
+      }
+      if (needJoinCom) {
+        whereConditions.push(`LOWER(IFNULL(cial.\`${comercialColNombre}\`,'')) LIKE ?`);
+        params.push(`%${filters.comercialNombre.toLowerCase()}%`);
       }
 
       if (filters.q && typeof filters.q === 'string' && filters.q.trim().length >= 1) {

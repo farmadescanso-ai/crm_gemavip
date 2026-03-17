@@ -41,7 +41,7 @@
         </div>
         <div class="card-bd">
           <ul style="margin:0; padding-left: 18px; color: var(--gv-muted); font-weight: 700;">
-            <li>Ir a <a href="/pedidos">Pedidos</a> y usar el buscador inteligente.</li>
+            <li>Ir a <a href="/clientes">Clientes</a> o <a href="/pedidos">Pedidos</a> y usar el buscador inteligente.</li>
             <li>Crear un pedido desde <a href="/pedidos/new">Nuevo pedido</a>.</li>
             <li>Revisar el resumen y seguimiento (pestañas) en <a href="/pedidos">Pedidos</a>.</li>
             <li>Ver calendario en <a href="/visitas/calendar">Visitas</a> (si lo tienes habilitado).</li>
@@ -84,12 +84,61 @@
         <h2 class="card-title" style="font-size: 16px;">Clientes</h2>
         <p class="card-subtitle">Buscar, consultar y editar fichas.</p>
       </div>
-      <div class="card-bd" style="display:grid; gap: 10px;">
+      <div class="card-bd" style="display:grid; gap: 12px;">
         <div class="gv-readonly">
           - En <a href="/clientes">Clientes</a> puedes ver tu cartera (o todos si eres admin).<br />
+          - Usa las pestañas <b>Todos</b>, <b>Empresas</b>, <b>Personas</b> y <b>Otros</b> para filtrar por tipo de contacto.<br />
           - Abre una ficha para ver datos y moverte por pestañas (si están disponibles).<br />
-          - Si un campo no aparece, normalmente es porque ese catálogo/columna no existe en esa instalación (la app funciona en modo “best-effort”).
+          - Si un campo no aparece, normalmente es porque ese catálogo/columna no existe en esa instalación (la app funciona en modo &ldquo;best-effort&rdquo;).
         </div>
+
+        <section class="card" style="box-shadow:none;">
+          <div class="card-hd">
+            <h3 class="card-title" style="font-size: 14px;">Búsqueda inteligente de Clientes</h3>
+            <p class="card-subtitle">Escribe texto libre o usa filtros con <code>campo:valor</code>. Se pueden combinar.</p>
+          </div>
+          <div class="card-bd">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Ejemplo</th><th>Qué hace</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><code>farmacia murcia</code></td><td>Texto libre: busca en nombre, CIF, email, teléfono, dirección, etc.</td></tr>
+                  <tr><td><code>provincia:Murcia</code></td><td>Filtra por nombre de provincia.</td></tr>
+                  <tr><td><code>tipo:Farmacia</code></td><td>Filtra por tipo de cliente (ej. Farmacia, Distribuidor&hellip;).</td></tr>
+                  <tr><td><code>estado:activos</code></td><td>Solo clientes activos. También vale <code>estado:inactivos</code>.</td></tr>
+                  <tr><td><code>contacto:Empresa</code></td><td>Filtra por tipo de contacto (Empresa, Persona, Otros).</td></tr>
+                  <tr><td><code>poblacion:Cartagena</code></td><td>Filtra por población/localidad.</td></tr>
+                  <tr><td><code>cp:30001</code></td><td>Filtra por código postal.</td></tr>
+                  <tr><td><code>nombre:Dimefarma</code></td><td>Busca solo en el nombre/razón social.</td></tr>
+                  <tr><td><code>cif:B12345</code></td><td>Busca por CIF/NIF/DNI.</td></tr>
+                  <tr><td><code>email:gmail</code></td><td>Busca por email.</td></tr>
+                  <tr><td><code>tel:666</code></td><td>Busca por teléfono o móvil.</td></tr>
+                  <tr><td><code>tags:premium</code></td><td>Busca por etiquetas.</td></tr>
+                  <tr><td><code>comercial:Juan</code></td><td>Filtra por nombre de comercial (solo admin).</td></tr>
+                  <tr><td><code>ventas:si</code></td><td>Solo clientes con pedidos. <code>ventas:no</code> = sin pedidos.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top: 10px; color: var(--gv-muted); font-weight: 700;">
+              Se pueden combinar: <code>provincia:Murcia tipo:Farmacia estado:activos</code> muestra farmacias activas de Murcia.<br />
+              También puedes mezclar filtros con texto libre: <code>provincia:Murcia Dimefarma</code>.
+            </div>
+          </div>
+        </section>
+
+        <section class="card" style="box-shadow:none;">
+          <div class="card-hd">
+            <h3 class="card-title" style="font-size: 14px;">Limpiar búsqueda</h3>
+            <p class="card-subtitle">Volver al listado completo con un clic.</p>
+          </div>
+          <div class="card-bd" style="display:grid; gap: 10px;">
+            <div class="gv-readonly">
+              Cuando hay una búsqueda activa, aparece el botón <b>&times;</b> junto al buscador. Haz clic para borrar todos los filtros y volver al listado sin búsqueda.
+            </div>
+          </div>
+        </section>
       </div>
     </section>
 
@@ -117,13 +166,13 @@
           <ul style="margin: 8px 0 0 18px;">
             <li><b>Listado</b>: tabla principal de pedidos.</li>
             <li><b>Resumen</b>: KPIs y rankings calculados con el filtro actual.</li>
-            <li><b>Seguimiento</b>: pendientes, especiales y pedidos “incompletos”.</li>
+            <li><b>Seguimiento</b>: pendientes, especiales y pedidos &ldquo;incompletos&rdquo;.</li>
           </ul>
         </div>
 
         <section class="card" style="box-shadow:none;">
           <div class="card-hd">
-            <h3 class="card-title" style="font-size: 14px;">Búsqueda inteligente (backend)</h3>
+            <h3 class="card-title" style="font-size: 14px;">Búsqueda inteligente de Pedidos</h3>
             <p class="card-subtitle">Un solo campo para filtrar por varios criterios.</p>
           </div>
           <div class="card-bd">
@@ -135,10 +184,13 @@
                 <tbody>
                   <tr><td><code>farmacia murcia</code></td><td>Texto libre: busca por cliente/provincia/comercial/estado y referencias.</td></tr>
                   <tr><td><code>provincia:Murcia</code></td><td>Filtra por provincia.</td></tr>
-                  <tr><td><code>comercial:Paco</code></td><td>Filtra por comercial (nombre/email/id, según datos disponibles).</td></tr>
-                  <tr><td><code>estado:pendiente</code></td><td>Filtra por estado.</td></tr>
-                  <tr><td><code>ref:PO-12345</code></td><td>Filtra por Nº Pedido Cliente.</td></tr>
+                  <tr><td><code>comercial:Paco</code></td><td>Filtra por comercial (nombre/email/id).</td></tr>
+                  <tr><td><code>estado:pendiente</code></td><td>Filtra por estado del pedido.</td></tr>
+                  <tr><td><code>tipo:Farmacia</code></td><td>Filtra por tipo de cliente.</td></tr>
+                  <tr><td><code>ref:PO-12345</code></td><td>Filtra por N&ordm; Pedido Cliente.</td></tr>
                   <tr><td><code>total:&gt;300</code></td><td>Filtra por importe total mayor que 300.</td></tr>
+                  <tr><td><code>total:100..500</code></td><td>Filtra por importe entre 100 y 500.</td></tr>
+                  <tr><td><code>fecha:2025-01-01..2025-03-31</code></td><td>Filtra pedidos por rango de fecha.</td></tr>
                   <tr><td><code>-estado:pagado</code></td><td>Excluye los pagados (negación con <code>-</code>).</td></tr>
                 </tbody>
               </table>
@@ -156,7 +208,7 @@
           </div>
           <div class="card-bd" style="display:grid; gap: 10px;">
             <div class="gv-readonly">
-              - Pasa el ratón por el estado: verás el aviso “Hacer clic para modificar el estado del pedido”.<br />
+              - Pasa el ratón por el estado: verás el aviso &ldquo;Hacer clic para modificar el estado del pedido&rdquo;.<br />
               - Haz clic en el estado, selecciona el nuevo y confirma.<br />
               - La app guarda en la base de datos y actualiza el badge en la tabla.
             </div>
@@ -211,9 +263,10 @@
       </div>
       <div class="card-bd">
         <ul style="margin:0; padding-left: 18px; color: var(--gv-muted); font-weight: 700;">
-          <li>Usa la búsqueda con tokens: <code>provincia:</code>, <code>comercial:</code>, <code>estado:</code>, <code>ref:</code>…</li>
-          <li>Antes de duplicar, busca por referencia del cliente (<code>ref:</code>) o número de pedido.</li>
-          <li>En pedidos, revisa la pestaña “Seguimiento” para no dejar pendientes atrás.</li>
+          <li>Usa la búsqueda inteligente con tokens tanto en <b>Clientes</b> como en <b>Pedidos</b>: <code>provincia:</code>, <code>estado:</code>, <code>tipo:</code>, <code>comercial:</code>&hellip;</li>
+          <li>Combina varios filtros en una sola búsqueda: <code>provincia:Murcia tipo:Farmacia estado:activos</code>.</li>
+          <li>Antes de duplicar, busca por referencia del cliente (<code>cif:</code>) o número de pedido (<code>ref:</code>).</li>
+          <li>En pedidos, revisa la pestaña &ldquo;Seguimiento&rdquo; para no dejar pendientes atrás.</li>
         </ul>
       </div>
     </section>
@@ -227,10 +280,10 @@
         <div class="gv-readonly">
           La API REST está documentada con OpenAPI/Swagger. Accede a la interfaz interactiva en:
           <ul style="margin: 8px 0 0 18px;">
-            <li><a href="/api/docs/" target="_blank" rel="noopener noreferrer">Swagger UI</a> — Probar endpoints desde el navegador.</li>
-            <li><a href="/api/openapi.json" target="_blank" rel="noopener noreferrer">openapi.json</a> — Especificación OpenAPI 3.0.</li>
+            <li><a href="/api/docs/" target="_blank" rel="noopener noreferrer">Swagger UI</a> &mdash; Probar endpoints desde el navegador.</li>
+            <li><a href="/api/openapi.json" target="_blank" rel="noopener noreferrer">openapi.json</a> &mdash; Especificación OpenAPI 3.0.</li>
           </ul>
-          Admins: también puedes acceder desde el menú de usuario → <b>API Docs</b>.
+          Admins: también puedes acceder desde el menú de usuario &rarr; <b>API Docs</b>.
         </div>
       </div>
     </section>
@@ -255,4 +308,3 @@
 </section>
 
 <%- include('partials/footer') %>
-
