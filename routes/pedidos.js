@@ -956,12 +956,11 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
     const tipoPedidoLabel = pick(tipoPedido, ['Nombre', 'Tipo', 'tipp_tipo', 'nombre', 'tipo']);
     const estadoLabel = pick(estadoPedido, ['nombre', 'Nombre', 'estped_nombre']) || pick(item, ['EstadoPedido', 'Estado', 'ped_estado_txt']) || '';
 
-    // Enriquecer líneas con PVL cuando está en 0: buscar precios por tarifa
     let lineasToRender = lineas || [];
     const artIdsNeedingPvl = (lineasToRender || [])
       .map((l) => Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0))
       .filter((n) => Number.isFinite(n) && n > 0);
-    const needsEnrichment = (lineasToRender || []).some((l) => {
+    const needsEnrichment = !isTransfer && (lineasToRender || []).some((l) => {
       const pvl = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
       return !Number.isFinite(pvl) || pvl <= 0;
     });
@@ -1014,11 +1013,12 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
     const canShowHefame = await canShowHefameForPedido(db, item);
     const mayoristaInfo = canShowHefame ? await resolveMayoristaInfo(db, item) : null;
 
+    const esTransfer = await isTransferPedido(db, item);
     const idTarifa = _n(item?.Id_Tarifa, item?.id_tarifa);
     const artIdsNeedingPvl = (lineas || [])
       .map((l) => Number(l.pedart_art_id ?? l.Id_Articulo ?? l.id_articulo ?? l.art_id ?? 0))
       .filter((n) => Number.isFinite(n) && n > 0);
-    const needsEnrichment = (lineas || []).some((l) => {
+    const needsEnrichment = !esTransfer && (lineas || []).some((l) => {
       const pvl = Number(l.Linea_PVP ?? l.pedart_pvp ?? l.PVP ?? l.pvp ?? l.art_pvl ?? 0);
       return !Number.isFinite(pvl) || pvl <= 0;
     });
