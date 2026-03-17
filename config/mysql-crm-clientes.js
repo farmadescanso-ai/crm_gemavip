@@ -251,25 +251,25 @@ module.exports = {
 
   async getClientesCooperativa() {
     try {
-      const tRel = await this._resolveTableNameCaseInsensitive('clientes_cooperativas');
+      const rc = await this._resolveCoopRelCols();
       const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-      const tCooperativas = await this._resolveTableNameCaseInsensitive('cooperativas');
+      const tCoop = await this._resolveTableNameCaseInsensitive('cooperativas');
+      const coopCols = await this._getColumns(tCoop).catch(() => []);
+      const colCoopPk = this._pickCIFromColumns(coopCols, ['coop_id', 'id', 'Id']);
+      const colCoopNombre = this._pickCIFromColumns(coopCols, ['coop_nombre', 'Nombre', 'nombre']);
+      const pk = rc.pk || 'id';
 
       const sql = `
-        SELECT 
-          cc.id,
-          cc.Id_Cliente,
-          cc.Id_Cooperativa,
-          cc.NumAsociado,
-          COALESCE(c.cli_nombre_razon_social, c.Nombre_Razon_Social) as ClienteNombre,
-          co.Nombre as CooperativaNombre
-        FROM \`${tRel}\` cc
-        LEFT JOIN \`${tClientes}\` c ON cc.Id_Cliente = c.id
-        LEFT JOIN \`${tCooperativas}\` co ON cc.Id_Cooperativa = co.id
-        ORDER BY cc.id DESC
+        SELECT cc.\`${pk}\` AS id, cc.\`${rc.colCli}\` AS Id_Cliente, cc.\`${rc.colCoop}\` AS Id_Cooperativa,
+          ${rc.colNum ? `cc.\`${rc.colNum}\` AS NumAsociado,` : ''}
+          COALESCE(c.cli_nombre_razon_social, c.Nombre_Razon_Social) AS ClienteNombre
+          ${colCoopNombre ? `, co.\`${colCoopNombre}\` AS CooperativaNombre` : ''}
+        FROM \`${rc.table}\` cc
+        LEFT JOIN \`${tClientes}\` c ON cc.\`${rc.colCli}\` = c.id
+        ${colCoopPk ? `LEFT JOIN \`${tCoop}\` co ON cc.\`${rc.colCoop}\` = co.\`${colCoopPk}\`` : ''}
+        ORDER BY cc.\`${pk}\` DESC
       `;
-      const rows = await this.query(sql);
-      return rows || [];
+      return (await this.query(sql)) || [];
     } catch (error) {
       console.error('❌ Error obteniendo clientes_cooperativas:', error.message);
       return [];
@@ -278,63 +278,24 @@ module.exports = {
 
   async getClienteCooperativaById(id) {
     try {
-      let sqlSimple = 'SELECT id, Id_Cliente, Id_Cooperativa, NumAsociado FROM `Clientes_Cooperativas` WHERE id = ? LIMIT 1';
-      let rowSimple;
+      const rc = await this._resolveCoopRelCols();
+      const tCoop = await this._resolveTableNameCaseInsensitive('cooperativas');
+      const coopCols = await this._getColumns(tCoop).catch(() => []);
+      const pickCoop = (cands) => this._pickCIFromColumns(coopCols, cands);
+      const colCoopPk = pickCoop(['coop_id', 'id', 'Id']);
+      const colCoopNombre = pickCoop(['coop_nombre', 'Nombre', 'nombre']);
+      const pk = rc.pk || 'id';
 
-      try {
-        const rowsSimple = await this.query(sqlSimple, [id]);
-        if (rowsSimple.length > 0) {
-          rowSimple = rowsSimple[0];
-        }
-      } catch (error1) {
-        try {
-          sqlSimple = 'SELECT id, Id_Cliente, Id_Cooperativa, NumAsociado FROM clientes_cooperativas WHERE id = ? LIMIT 1';
-          const rowsSimple2 = await this.query(sqlSimple, [id]);
-          if (rowsSimple2.length > 0) {
-            rowSimple = rowsSimple2[0];
-          }
-        } catch (error2) {}
-      }
-
-      if (!rowSimple) return null;
-
-      let sql = `
-        SELECT 
-          cc.*,
-          c.cli_nombre_razon_social as ClienteNombre,
-          co.Nombre as CooperativaNombre
-        FROM \`Clientes_Cooperativas\` cc
-        LEFT JOIN clientes c ON cc.Id_Cliente = c.id
-        LEFT JOIN cooperativas co ON cc.Id_Cooperativa = co.id
-        WHERE cc.id = ? LIMIT 1
+      const sql = `
+        SELECT cc.*, c.cli_nombre_razon_social AS ClienteNombre
+          ${colCoopNombre ? `, co.\`${colCoopNombre}\` AS CooperativaNombre` : ''}
+        FROM \`${rc.table}\` cc
+        LEFT JOIN clientes c ON cc.\`${rc.colCli}\` = c.${pk === 'id' ? 'id' : '`cli_id`'}
+        ${colCoopPk ? `LEFT JOIN \`${tCoop}\` co ON cc.\`${rc.colCoop}\` = co.\`${colCoopPk}\`` : ''}
+        WHERE cc.\`${pk}\` = ? LIMIT 1
       `;
-      let rows;
-
-      try {
-        rows = await this.query(sql, [id]);
-        if (rows.length > 0) return rows[0];
-      } catch (error3) {}
-
-      sql = `
-        SELECT 
-          cc.*,
-          c.cli_nombre_razon_social as ClienteNombre,
-          co.Nombre as CooperativaNombre
-        FROM clientes_cooperativas cc
-        LEFT JOIN clientes c ON cc.Id_Cliente = c.id
-        LEFT JOIN cooperativas co ON cc.Id_Cooperativa = co.id
-        WHERE cc.id = ? LIMIT 1
-      `;
-      try {
-        rows = await this.query(sql, [id]);
-        if (rows.length > 0) return rows[0];
-      } catch (error4) {}
-
-      return {
-        ...rowSimple,
-        ClienteNombre: null,
-        CooperativaNombre: null
-      };
+      const rows = await this.query(sql, [id]);
+      return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo cliente_cooperativa por ID:', error.message);
       return null;
@@ -382,44 +343,37 @@ module.exports = {
   /** Obtiene NumAsociado Hefame para un cliente. Fallback cuando getCooperativasByClienteId devuelve vacío. */
   async getNumAsociadoHefameByClienteId(clienteId) {
     if (!clienteId) return null;
-    const tRel = await this._resolveTableNameCaseInsensitive('clientes_cooperativas');
-    const tCoop = await this._resolveTableNameCaseInsensitive('cooperativas');
-    const variants = [
-      { colCli: 'Id_Cliente', colCoop: 'Id_Cooperativa', colNum: 'NumAsociado', coopPk: 'id', coopNom: 'Nombre' },
-      { colCli: 'Id_Cliente', colCoop: 'Id_Cooperativa', colNum: 'NumAsociado', coopPk: 'coop_id', coopNom: 'coop_nombre' }
-    ];
-    for (const v of variants) {
-      try {
-        const sql = `
-          SELECT cc.\`${v.colNum}\` AS NumAsociado
-          FROM \`${tRel}\` cc
-          INNER JOIN \`${tCoop}\` c ON cc.\`${v.colCoop}\` = c.\`${v.coopPk}\`
-          WHERE cc.\`${v.colCli}\` = ? AND (c.\`${v.coopNom}\` LIKE '%hefame%' OR c.\`${v.coopNom}\` LIKE '%HEFAME%')
-          LIMIT 1
-        `;
-        const rows = await this.query(sql, [clienteId]);
-        const val = rows?.[0]?.NumAsociado ?? rows?.[0]?.numAsociado;
-        if (val != null && String(val).trim() !== '') return String(val).trim();
-      } catch (_) {}
-    }
-    return null;
+    try {
+      const rc = await this._resolveCoopRelCols();
+      const tCoop = await this._resolveTableNameCaseInsensitive('cooperativas');
+      const coopCols = await this._getColumns(tCoop).catch(() => []);
+      const pickCoop = (cands) => this._pickCIFromColumns(coopCols, cands);
+      const colCoopPk = pickCoop(['coop_id', 'id', 'Id']);
+      const colCoopNombre = pickCoop(['coop_nombre', 'Nombre', 'nombre']);
+      if (!rc.colCli || !rc.colCoop || !rc.colNum || !colCoopPk || !colCoopNombre) return null;
+
+      const sql = `
+        SELECT cc.\`${rc.colNum}\` AS NumAsociado
+        FROM \`${rc.table}\` cc
+        INNER JOIN \`${tCoop}\` c ON cc.\`${rc.colCoop}\` = c.\`${colCoopPk}\`
+        WHERE cc.\`${rc.colCli}\` = ? AND c.\`${colCoopNombre}\` LIKE '%hefame%'
+        LIMIT 1
+      `;
+      const rows = await this.query(sql, [clienteId]);
+      const val = rows?.[0]?.NumAsociado ?? rows?.[0]?.numAsociado;
+      return (val != null && String(val).trim() !== '') ? String(val).trim() : null;
+    } catch (_) { return null; }
   },
 
-  /** Obtiene NumAsociado de clientes_cooperativas por Id_Cliente e Id_Cooperativa.
-   * Tablas: cooperativas (id/coop_id, Nombre), clientes_cooperativas (Id_Cliente, Id_Cooperativa, NumAsociado) */
   async getNumAsociadoByClienteAndCooperativaId(clienteId, cooperativaId) {
     if (!clienteId || !cooperativaId) return null;
     try {
-      for (const tRel of ['Clientes_Cooperativas', 'clientes_cooperativas']) {
-        try {
-          const sql = `SELECT NumAsociado, numAsociado FROM \`${tRel}\` WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1`;
-          const rows = await this.query(sql, [clienteId, cooperativaId]);
-          const r = rows?.[0];
-          const val = r?.NumAsociado ?? r?.numAsociado;
-          if (val != null && String(val).trim() !== '') return String(val).trim();
-        } catch (_) {}
-      }
-      return null;
+      const rc = await this._resolveCoopRelCols();
+      if (!rc.colCli || !rc.colCoop || !rc.colNum) return null;
+      const sql = `SELECT \`${rc.colNum}\` AS NumAsociado FROM \`${rc.table}\` WHERE \`${rc.colCli}\` = ? AND \`${rc.colCoop}\` = ? LIMIT 1`;
+      const rows = await this.query(sql, [clienteId, cooperativaId]);
+      const val = rows?.[0]?.NumAsociado;
+      return (val != null && String(val).trim() !== '') ? String(val).trim() : null;
     } catch (error) {
       console.error('❌ Error obteniendo NumAsociado por cliente y cooperativa:', error.message);
       return null;
