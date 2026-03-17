@@ -10,7 +10,7 @@
         · <span style="font-weight:900;"><%= item.NumPedido ?? item.ped_numero ?? '' %></span>
       <% } %>
     </h1>
-    <p class="card-subtitle">Cabecera + líneas. Al guardar, recalculamos base/IVA/total con la tarifa.</p>
+    <p class="card-subtitle">Cabecera + líneas. Al guardar, recalculamos base/impuestos/total con la tarifa.</p>
   </div>
   <div class="card-bd">
     <% if (error) { %>
@@ -99,7 +99,7 @@
         </label>
 
         <label class="gv-field">
-          <span class="gv-field__label">Nº Pedido Cliente <button type="button" class="gv-field-info" aria-label="Información" data-info="Referencia del pedido del cliente (si aplica)."></button></span>
+          <span class="gv-field__label">Ref. cliente <button type="button" class="gv-field-info" aria-label="Información" data-info="Referencia o número de pedido del cliente (si aplica)."></button></span>
           <input class="gv-input" name="NumPedidoCliente" value="<%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? item.ped_num_pedido_cliente ?? '' %>" placeholder="Ej: PO-12345" />
         </label>
 
@@ -280,7 +280,7 @@
                 <td></td>
               </tr>
               <tr>
-                <td colspan="4" style="text-align:right; font-weight:700;">IVA</td>
+                <td colspan="4" style="text-align:right; font-weight:700;" id="taxLabelCell"><%= (() => { const _r = Number(item?.ped_regfis_id ?? (typeof cliente !== 'undefined' && cliente ? cliente.cli_regfis_id : 1)) || 1; return ({ 1:'IVA', 2:'IGIC', 3:'IPSI' })[_r] || 'IVA'; })() %></td>
                 <td style="text-align:right; font-weight:700;" id="ivaCell">—</td>
                 <td></td>
               </tr>
@@ -378,6 +378,16 @@
 
 <script>
   (function () {
+    var _regfisId = <%= JSON.stringify(Number(item?.ped_regfis_id ?? (typeof cliente !== 'undefined' && cliente ? cliente.cli_regfis_id : 1)) || 1) %>;
+    var _taxLabels = { 1: 'IVA', 2: 'IGIC', 3: 'IPSI' };
+    var _eqMap = { 21: { 2: 7, 3: 4 }, 10: { 2: 3, 3: 2 }, 4: { 2: 0, 3: 0.5 }, 0: { 2: 0, 3: 0.5 } };
+    var _defaultRates = { 1: 21, 2: 7, 3: 4 };
+    function convertTaxRate(ivaPct) {
+      if (_regfisId === 1) return ivaPct;
+      var eq = _eqMap[ivaPct];
+      if (eq && eq[_regfisId] !== undefined) return eq[_regfisId];
+      return _defaultRates[_regfisId] || ivaPct;
+    }
     var table = document.getElementById('lineasTable');
     var btn = document.getElementById('addLineaBtn');
     var form = document.getElementById('pedidoForm');
@@ -1017,7 +1027,8 @@
       var opt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
       var raw = opt ? opt.getAttribute('data-iva') : '';
       var x = Number(String(raw || '').replace(',', '.'));
-      return isFinite(x) ? Math.max(0, Math.min(100, x)) : 0;
+      var pct = isFinite(x) ? Math.max(0, Math.min(100, x)) : 0;
+      return convertTaxRate(pct);
     }
 
     function recalcTotals(){

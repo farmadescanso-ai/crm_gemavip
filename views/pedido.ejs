@@ -42,6 +42,9 @@
   const clienteTel = cliente?.Telefono || cliente?.cli_telefono || cliente?.Movil || cliente?.cli_movil || '';
   const dir = direccionEnvio || null;
   const dtoPedidoPct = Math.max(0, Math.min(100, toNum(item.ped_dto ?? item.Dto ?? item.Descuento ?? 0, 0)));
+  const _regfisId = Number(item?.ped_regfis_id ?? cliente?.cli_regfis_id ?? 1) || 1;
+  const _taxLabels = { 1: 'IVA', 2: 'IGIC', 3: 'IPSI' };
+  const taxLabel = _taxLabels[_regfisId] || 'IVA';
   const serie = String(item?.Serie ?? item?.serie ?? 'P').trim();
   const idDireccionEnvio = Number(item?.Id_DireccionEnvio ?? item?.id_direccion_envio ?? item?.ped_direnv_id ?? 0) || 0;
 
@@ -137,7 +140,7 @@
           <div><span>Entrega</span><b><%= entrega %></b></div>
         <% } %>
         <% if (item.NumPedidoCliente || item.Num_Pedido_Cliente) { %>
-          <div><span>Nº Pedido Cliente</span><b><%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></b></div>
+          <div><span>Ref. cliente</span><b><%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></b></div>
         <% } %>
         <% if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) { %>
           <div><span>Cooperativa</span><b><%= mayoristaInfo.nombre || '—' %></b></div>
@@ -188,7 +191,7 @@
             <div><span>Tarifa</span><b><%= tarifaDisplay || '—' %></b></div>
             <div><span>Forma pago</span><b><%= formaPagoDisplay || '—' %></b></div>
             <div><span>Tipo pedido</span><b><%= tipoPedidoDisplay || '—' %></b></div>
-            <div><span>Nº cliente</span><b><%= (item.NumPedidoCliente ?? item.Num_Pedido_Cliente) || '—' %></b></div>
+            <div><span>Ref. cliente</span><b><%= (item.NumPedidoCliente ?? item.Num_Pedido_Cliente) || '—' %></b></div>
             <div><span>Dto pedido</span><b><%= dtoPedidoPct ? `${fmtNumES(dtoPedidoPct, 2)}%` : '—' %></b></div>
             <div><span>Especial</span><b><%= Number(item.EsEspecial ?? item.es_especial ?? 0) === 1 ? 'Sí' : '—' %></b></div>
             <% if (Number(item.EsEspecial ?? item.es_especial ?? 0) === 1) { %>
@@ -263,7 +266,7 @@
               <th class="is-right">UNDS</th>
               <th class="is-right">DTO</th>
               <th class="is-right">SUBTOTAL</th>
-              <th class="is-right">IVA</th>
+              <th class="is-right"><%= taxLabel %></th>
               <th class="is-right">TOTAL</th>
             </tr>
           </thead>
@@ -357,7 +360,7 @@
           <% Object.keys(ivaByPct || {}).sort((a, b) => Number(a) - Number(b)).forEach((key) => { %>
             <% const iva = ivaByPct[key]; if (iva && iva.sum) { %>
               <tr>
-                <td>IMPUESTO (<%= fmtNumES(iva.pct, 2) %>%)</td>
+                <td><%= taxLabel %> (<%= fmtNumES(iva.pct, 2) %>%)</td>
                 <td class="is-right"><%= fmtEur(round2(round2(iva.sum) * factorDto)) %></td>
               </tr>
             <% } %>

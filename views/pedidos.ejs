@@ -122,7 +122,7 @@
               value="<%= typeof q === 'string' ? q : '' %>"
             />
             <button class="btn secondary" type="submit">Ver</button>
-            <a class="btn secondary" href="/pedidos">Año actual</a>
+            <% if ((typeof q === 'string' && q) || selectedMarcaId) { %><a class="btn secondary" href="/pedidos?year=<%= selectedYear %>" title="Limpiar filtros">✕</a><% } %>
           </form>
 
           <% if (typeof paging !== 'undefined' && paging && paging.total && paging.total > (paging.limit || 10)) { %>
@@ -160,7 +160,7 @@
                 <th>Total</th>
                 <th>PEDIDO</th>
                 <th>Nº Asociado</th>
-                <th>PEDIDO CLIENTE</th>
+                <th>REF. CLIENTE</th>
                 <th>Comercial</th>
                 <th>Provincia</th>
               </tr>
