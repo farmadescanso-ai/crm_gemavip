@@ -188,8 +188,8 @@
           <% } %>
         </label>
         <div id="gv-num-asociado-hefame-wrap" class="gv-field gv-num-asociado-hefame" style="display: none;">
-          <span class="gv-field__label">Nº asociado (Hefame)</span>
-          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" placeholder="Seleccione un cliente con asociación a cooperativa Hefame o indíquelo manualmente" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? item.ped_num_asoc_hefame ?? item.numero_cooperativa ?? '').toString().trim() %>" />
+          <span class="gv-field__label" id="labelNumAsociado">Nº asociado (Mayorista)</span>
+          <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" placeholder="Seleccione un cliente con asociación a cooperativa o indíquelo manualmente" value="<%= (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? item.ped_num_asoc_hefame ?? item.numero_cooperativa ?? '').toString().trim() %>" />
         </div>
       </div>
       </div>
@@ -405,6 +405,7 @@
     var selFormaPago = document.querySelector('select[name="Id_FormaPago"]') || document.getElementById('Id_FormaPago');
     var wrapNumAsociadoHefame = document.getElementById('gv-num-asociado-hefame-wrap');
     var inputNumAsociadoHefame = document.getElementById('numAsociadoHefame');
+    var labelNumAsociado = document.getElementById('labelNumAsociado');
     var selEstadoPedido = document.getElementById('Id_EstadoPedido');
     var hidEstadoPedido = document.getElementById('EstadoPedidoLegacy');
     if (!table || !btn) return;
@@ -573,14 +574,15 @@
       }
       return false;
     }
+    function getTransferMayoristaName(){
+      if (!selTipoPedido || selTipoPedido.tagName !== 'SELECT') return '';
+      var opt = selTipoPedido.options && selTipoPedido.selectedIndex >= 0 ? selTipoPedido.options[selTipoPedido.selectedIndex] : null;
+      var text = opt ? String(opt.textContent || opt.innerText || '').trim() : '';
+      if (!/transfer/i.test(text)) return '';
+      return text.replace(/^Transfer\s+/i, '').trim() || 'Mayorista';
+    }
     function isTipoTransferHefame(){
-      if (!selTipoPedido) return false;
-      if (selTipoPedido.tagName === 'SELECT') {
-        var opt = selTipoPedido.options && selTipoPedido.selectedIndex >= 0 ? selTipoPedido.options[selTipoPedido.selectedIndex] : null;
-        var text = opt ? String(opt.textContent || opt.innerText || '').trim() : '';
-        return /hefame/i.test(text);
-      }
-      return false;
+      return getTransferMayoristaName() !== '';
     }
     function findOptionByLabel(selectEl, labelContains){
       if (!selectEl || selectEl.tagName !== 'SELECT' || !labelContains) return null;
@@ -645,8 +647,11 @@
     }
     function toggleNumAsociadoHefameVisibility(){
       if (!wrapNumAsociadoHefame) return;
-      if (isTipoTransferHefame()) {
+      var mayorista = getTransferMayoristaName();
+      if (mayorista) {
         wrapNumAsociadoHefame.style.display = '';
+        if (labelNumAsociado) labelNumAsociado.textContent = 'Nº asociado (' + mayorista + ')';
+        if (inputNumAsociadoHefame) inputNumAsociadoHefame.placeholder = 'Nº asociado de ' + mayorista + ' (o indíquelo manualmente)';
         var cid = hidCliente ? String(hidCliente.value || '').trim() : '';
         loadNumAsociadoHefame(cid);
       } else {

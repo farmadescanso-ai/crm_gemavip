@@ -144,9 +144,10 @@
         <% } %>
         <% if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) { %>
           <div><span>Cooperativa</span><b><%= mayoristaInfo.nombre || '—' %></b></div>
-          <div><span>Nº asociado</span><b><%= mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—') %></b></div>
+          <div><span>Nº asociado (<%= mayoristaInfo.nombre || 'Mayorista' %>)</span><b><%= mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—') %></b></div>
         <% } else if (item.NumAsociadoHefame || item.num_asociado_hefame) { %>
-          <div><span>Nº asociado (Hefame)</span><b><%= item.NumAsociadoHefame ?? item.num_asociado_hefame %></b></div>
+          <% const _mNom = /transfer\s+(.+)/i.test(tipoPedidoDisplay || '') ? RegExp.$1.trim() : 'Mayorista'; %>
+          <div><span>Nº asociado (<%= _mNom %>)</span><b><%= item.NumAsociadoHefame ?? item.num_asociado_hefame %></b></div>
         <% } %>
         <% if (Number(item.EsEspecial ?? item.es_especial ?? 0) === 1) { %>
           <% const est = String(item.EspecialEstado ?? item.especial_estado ?? 'pendiente').trim().toLowerCase() || 'pendiente'; %>
@@ -200,9 +201,10 @@
             <% } %>
             <% if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) { %>
               <div><span>Cooperativa</span><b><%= mayoristaInfo.nombre || '—' %></b></div>
-              <div><span>Nº asociado</span><b><%= mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—') %></b></div>
+              <div><span>Nº asociado (<%= mayoristaInfo.nombre || 'Mayorista' %>)</span><b><%= mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—') %></b></div>
             <% } else if ((item.NumAsociadoHefame ?? item.num_asociado_hefame)) { %>
-              <div><span>Nº Hefame</span><b><%= (item.NumAsociadoHefame ?? item.num_asociado_hefame) %></b></div>
+              <% const _mNom2 = /transfer\s+(.+)/i.test(tipoPedidoDisplay || '') ? RegExp.$1.trim() : 'Mayorista'; %>
+              <div><span>Nº asociado (<%= _mNom2 %>)</span><b><%= (item.NumAsociadoHefame ?? item.num_asociado_hefame) %></b></div>
             <% } %>
           </div>
         </div>
