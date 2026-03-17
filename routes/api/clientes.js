@@ -283,6 +283,53 @@ router.get(
   })
 );
 
+router.post(
+  '/:id/cooperativas',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const clienteId = toInt(req.params.id, 0);
+    if (!clienteId) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    if (!isAdmin) {
+      const canEdit = await db.canComercialEditCliente(clienteId, sessionUser?.id);
+      if (!canEdit) return res.status(403).json({ ok: false, error: 'Sin permiso' });
+    }
+    const coopId = toInt(req.body.Id_Cooperativa, 0);
+    const numAsociado = String(req.body.NumAsociado || '').trim();
+    if (!coopId) return res.status(400).json({ ok: false, error: 'Selecciona un mayorista' });
+    try {
+      await db.createClienteCooperativa({ Id_Cliente: clienteId, Id_Cooperativa: coopId, NumAsociado: numAsociado });
+      const items = await db.getCooperativasByClienteId(clienteId).catch(() => []);
+      return res.json({ ok: true, items });
+    } catch (err) {
+      const msg = err.message || 'Error al guardar';
+      const isDup = msg.includes('Duplicate') || msg.includes('ya existe') || msg.includes('uq_cli_coop');
+      return res.status(isDup ? 409 : 500).json({ ok: false, error: isDup ? 'Este mayorista ya está asociado al cliente' : msg });
+    }
+  })
+);
+
+router.delete(
+  '/:id/cooperativas/:relId',
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session?.user || null;
+    const isAdmin = isAdminUser(sessionUser);
+    const clienteId = toInt(req.params.id, 0);
+    const relId = toInt(req.params.relId, 0);
+    if (!clienteId || !relId) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    if (!isAdmin) {
+      const canEdit = await db.canComercialEditCliente(clienteId, sessionUser?.id);
+      if (!canEdit) return res.status(403).json({ ok: false, error: 'Sin permiso' });
+    }
+    try {
+      await db.deleteClienteCooperativa(relId);
+      return res.json({ ok: true });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message || 'Error al eliminar' });
+    }
+  })
+);
+
 router.get(
   '/:id/direcciones-envio',
   asyncHandler(async (req, res) => {

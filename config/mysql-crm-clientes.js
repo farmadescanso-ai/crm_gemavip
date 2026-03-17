@@ -366,8 +366,10 @@ module.exports = {
         return [];
       }
 
+      const colPk = pickCC(['id', 'Id', 'ID', 'clicoop_id']);
+      const pkSel = colPk ? `cc.\`${colPk}\` AS id, ` : '';
       const sql = `
-        SELECT cc.\`${colCoop}\` AS Id_Cooperativa, c.\`${colCoopNombre}\` AS Nombre, cc.\`${colNumAsoc}\` AS NumAsociado
+        SELECT ${pkSel}cc.\`${colCoop}\` AS Id_Cooperativa, c.\`${colCoopNombre}\` AS Nombre, cc.\`${colNumAsoc}\` AS NumAsociado
         FROM \`${tRel}\` cc
         INNER JOIN \`${tCoop}\` c ON cc.\`${colCoop}\` = c.\`${colCoopPk}\`
         WHERE cc.\`${colCli}\` = ?

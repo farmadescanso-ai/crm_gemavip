@@ -377,9 +377,10 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const poolId = await db.getComercialIdPool();
     const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
-    const [tieneRelaciones, relacionesData] = await Promise.all([
+    const [tieneRelaciones, relacionesData, cooperativasCliente] = await Promise.all([
       db.tieneRelaciones(id).catch(() => false),
-      db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }))
+      db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] })),
+      db.getCooperativasByClienteId(id).catch(() => [])
     ]);
     const relaciones = [
       ...(relacionesData.comoOrigen || []).map(normalizeRelacionRow),
@@ -417,7 +418,8 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       agendaOk: false,
       agendaError: false,
       tieneRelaciones: !!tieneRelaciones,
-      relaciones: relaciones || []
+      relaciones: relaciones || [],
+      cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
     });
   } catch (e) {
     next(e);
@@ -448,7 +450,10 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
-    const relacionesData = await db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }));
+    const [relacionesData, cooperativasCliente] = await Promise.all([
+      db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] })),
+      db.getCooperativasByClienteId(id).catch(() => [])
+    ]);
     const relaciones = [
       ...(relacionesData.comoOrigen || []).map(normalizeRelacionRow),
       ...(relacionesData.comoRelacionado || []).map(normalizeRelacionRow)
@@ -481,7 +486,8 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       contactoId: id,
       agendaContactos: [],
       agendaIncludeHistorico: false,
-      relaciones: relaciones || []
+      relaciones: relaciones || [],
+      cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
     });
   } catch (e) {
     next(e);
@@ -494,7 +500,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, meta, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras] = await Promise.all([
+    const [item, meta, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, cooperativasCliente] = await Promise.all([
       db.getClienteById(id),
       db._ensureClientesMeta().catch(() => null),
       loadSimpleCatalogForSelect(db, 'provincias'),
@@ -506,7 +512,8 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
       loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
       _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
-      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), [])
+      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
+      db.getCooperativasByClienteId(id).catch(() => [])
     ]);
     if (!item) return res.status(404).send('No encontrado');
     const comerciales = await db.getComercialesForSelect().catch(() => []);
@@ -566,7 +573,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
         canChangeComercial: !!admin,
         missingFields
       });
-      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, canChangeComercial: admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false });
+      return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, canChangeComercial: admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false, cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : [] });
     }
 
     await db.updateCliente(id, payload);

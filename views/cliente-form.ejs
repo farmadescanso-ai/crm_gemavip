@@ -159,6 +159,63 @@
                 No hay contactos relacionados. Usa el botón superior para añadirlos.
               </p>
             </div>
+          <% } else if (t.id === 'mayoristas' && cid) { %>
+            <div class="gv-relaciones-tab">
+              <div class="gv-relaciones-tab__hd">
+                <h3 class="gv-relaciones-tab__title">Mayoristas / Cooperativas</h3>
+                <p class="gv-relaciones-tab__sub">Asocia los mayoristas con los que trabaja este cliente y su número de asociado.</p>
+              </div>
+              <% if (mode === 'edit') { %>
+              <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
+                <label style="display:grid; gap:4px; flex:1; min-width:160px;">
+                  <span style="font-weight:700; font-size:13px;">Mayorista</span>
+                  <select id="gvCoopSelect" style="padding:8px 10px; border:1px solid var(--gv-border); border-radius:8px; font-size:14px;">
+                    <option value="">— Seleccionar —</option>
+                    <% (cooperativas || []).forEach((c) => { %>
+                      <% const cid2 = Number(c.coop_id ?? c.id ?? c.Id ?? 0); %>
+                      <option value="<%= cid2 %>"><%= c.coop_nombre ?? c.Nombre ?? c.nombre ?? ('Cooperativa ' + cid2) %></option>
+                    <% }) %>
+                  </select>
+                </label>
+                <label style="display:grid; gap:4px; flex:1; min-width:120px;">
+                  <span style="font-weight:700; font-size:13px;">Nº Asociado</span>
+                  <input type="text" id="gvCoopNumAsociado" placeholder="Código de asociado" style="padding:8px 10px; border:1px solid var(--gv-border); border-radius:8px; font-size:14px;" />
+                </label>
+                <button type="button" class="btn gv-relaciones-add" id="gvBtnAddCoop" style="white-space:nowrap;">Añadir</button>
+              </div>
+              <% } %>
+              <div class="table-wrap" id="gvCoopTableWrap" <%= (!(cooperativasCliente || []).length) ? 'style="display:none;"' : '' %>>
+                <table class="gv-contactos-table">
+                  <thead>
+                    <tr>
+                      <th>Mayorista</th>
+                      <th>Nº Asociado</th>
+                      <% if (mode === 'edit') { %><th style="width:60px;">Acciones</th><% } %>
+                    </tr>
+                  </thead>
+                  <tbody id="gvCoopList">
+                    <% (cooperativasCliente || []).forEach((cc) => { %>
+                      <tr data-rel-id="<%= cc.id || '' %>" data-coop-id="<%= cc.Id_Cooperativa %>">
+                        <td style="font-weight:700;"><%= cc.Nombre || '—' %></td>
+                        <td><%= cc.NumAsociado || '—' %></td>
+                        <% if (mode === 'edit') { %>
+                        <td>
+                          <button type="button" class="btn secondary icon gv-remove-coop" data-rel-id="<%= cc.id || '' %>" title="Quitar">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                              <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                          </button>
+                        </td>
+                        <% } %>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+              <p id="gvCoopEmpty" <%= ((cooperativasCliente || []).length) ? 'style="display:none;"' : '' %> style="color:var(--gv-muted); font-size:14px; margin-top:8px;">
+                No hay mayoristas asociados a este cliente.
+              </p>
+            </div>
           <% } else { %>
           <div class="grid cols-2 gv-form-grid" style="gap: 12px;">
               <% (t.fields || []).forEach((f) => { %>
@@ -166,7 +223,7 @@
                 <% const label = f.label; %>
                 <% const required = !!f.required; %>
                 <% const spec = f.spec || {}; %>
-                <% if (spec.kind === 'relaciones') return; %>
+                <% if (spec.kind === 'relaciones' || spec.kind === 'mayoristas') return; %>
                 <% if (spec.options === 'comerciales') return; %>
                 <% const isMissing = missingFieldsList.indexOf(name) !== -1; %>
                 <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
@@ -834,6 +891,41 @@
       });
     });
   }
+
+  // --- Mayoristas / Cooperativas ---
+  var btnAddCoop = document.getElementById('gvBtnAddCoop');
+  var coopSelect = document.getElementById('gvCoopSelect');
+  var coopNumInput = document.getElementById('gvCoopNumAsociado');
+  if (btnAddCoop && coopSelect && clienteId) {
+    btnAddCoop.addEventListener('click', function() {
+      var coopId = coopSelect.value;
+      var numAsoc = (coopNumInput ? coopNumInput.value : '').trim();
+      if (!coopId) { alert('Selecciona un mayorista'); return; }
+      btnAddCoop.disabled = true;
+      fetch('/api/clientes/' + clienteId + '/cooperativas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ Id_Cooperativa: Number(coopId), NumAsociado: numAsoc })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(json) {
+          if (json && json.ok) window.location.replace(window.location.pathname + '#tab_mayoristas');
+          else alert(json.error || 'Error al guardar');
+          btnAddCoop.disabled = false;
+        })
+        .catch(function() { alert('Error de conexión'); btnAddCoop.disabled = false; });
+    });
+  }
+  document.querySelectorAll('.gv-remove-coop').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var relId = this.getAttribute('data-rel-id');
+      if (!relId || !confirm('¿Quitar este mayorista?')) return;
+      fetch('/api/clientes/' + clienteId + '/cooperativas/' + relId, { method: 'DELETE', headers: { Accept: 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(json) { if (json && json.ok) window.location.replace(window.location.pathname + '#tab_mayoristas'); })
+        .catch(function() { alert('Error de conexión'); });
+    });
+  });
 
   // DNI/CIF -> no permitir OK si vacío
   var dni = document.getElementById('gv_DNI_CIF') || document.getElementById('gv-dni-cif');
