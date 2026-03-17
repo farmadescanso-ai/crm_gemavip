@@ -68,7 +68,7 @@
   "articulos": { "pk": "art_id", "cols": ["art_id", "art_sku", "art_codigo_interno", "art_nombre", "art_presentacion", "art_mar_id", "art_ean13", "art_activo"] },
   "centros_prescriptores": { "pk": "cent_id", "cols": ["cent_id"] },
   "clientes_contactos": { "pk": ["clicont_cli_id", "clicont_ag_id"], "cols": ["clicont_cli_id", "clicont_ag_id"] },
-  "clientes_cooperativas": { "pk": "clico_id", "cols": ["clico_id", "clico_Id_Cooperativa", "clico_Id_Cliente", "clico_NumAsociado"] },
+  "clientes_cooperativas": { "pk": "detco_id", "cols": ["detco_id", "detco_Id_Cooperativa", "detco_Id_Cliente", "detco_NumAsociado"], "fk": { "detco_Id_Cliente": "clientes", "detco_Id_Cooperativa": "cooperativas" } },
   "clientes_gruposCompras": { "pk": "detgru_id", "cols": ["detgru_id"] },
   "comerciales_codigos_postales_marcas": { "pk": "comdod_id", "cols": ["comdod_id"] },
   "cooperativas": { "pk": "coop_id", "cols": ["coop_id"] },
