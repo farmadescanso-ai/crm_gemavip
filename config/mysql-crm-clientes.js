@@ -219,33 +219,29 @@ module.exports = {
     }
   },
 
+  async _resolveCoopRelCols() {
+    const tRel = await this._resolveTableNameCaseInsensitive('clientes_cooperativas');
+    const ccCols = await this._getColumns(tRel).catch(() => []);
+    const pick = (cands) => this._pickCIFromColumns(ccCols, cands);
+    return {
+      table: tRel,
+      pk: pick(['id', 'Id', 'ID', 'clicoop_id', 'detco_id']),
+      colCli: pick(['clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'cliente_id']),
+      colCoop: pick(['clicoop_coop_id', 'Id_Cooperativa', 'id_cooperativa', 'CooperativaId', 'cooperativa_id']),
+      colNum: pick(['clicoop_num_asociado', 'NumAsociado', 'numAsociado', 'numero_asociado'])
+    };
+  },
+
   async checkNumeroAsociadoDuplicado(cooperativaId, numeroAsociado, excludeId = null) {
     try {
       if (!numeroAsociado || numeroAsociado.trim() === '') return false;
-
-      let sql = 'SELECT id FROM `Clientes_Cooperativas` WHERE Id_Cooperativa = ? AND NumAsociado = ?';
-      let params = [cooperativaId, numeroAsociado.trim()];
-
-      if (excludeId) {
-        sql += ' AND id != ?';
-        params.push(excludeId);
-      }
+      const c = await this._resolveCoopRelCols();
+      if (!c.colCoop || !c.colNum) return false;
+      let sql = `SELECT 1 FROM \`${c.table}\` WHERE \`${c.colCoop}\` = ? AND \`${c.colNum}\` = ?`;
+      const params = [cooperativaId, numeroAsociado.trim()];
+      if (excludeId && c.pk) { sql += ` AND \`${c.pk}\` != ?`; params.push(excludeId); }
       sql += ' LIMIT 1';
-
-      let rows;
-      try {
-        rows = await this.query(sql, params);
-      } catch (error1) {
-        sql = 'SELECT id FROM clientes_cooperativas WHERE Id_Cooperativa = ? AND NumAsociado = ?';
-        params = [cooperativaId, numeroAsociado.trim()];
-        if (excludeId) {
-          sql += ' AND id != ?';
-          params.push(excludeId);
-        }
-        sql += ' LIMIT 1';
-        rows = await this.query(sql, params);
-      }
-
+      const rows = await this.query(sql, params);
       return rows.length > 0;
     } catch (error) {
       console.error('❌ Error verificando número de asociado duplicado:', error.message);
@@ -586,48 +582,29 @@ module.exports = {
 
   async createClienteCooperativa(payload) {
     try {
-      if (!this.connected && !this.pool) {
-        await this.connect();
-      }
+      if (!this.connected && !this.pool) await this.connect();
+      const c = await this._resolveCoopRelCols();
+      if (!c.colCli || !c.colCoop) throw new Error('No se pudieron resolver las columnas de clientes_cooperativas');
 
-      if (payload.NumAsociado && payload.NumAsociado.trim() !== '') {
-        const existeDuplicado = await this.checkNumeroAsociadoDuplicado(
-          payload.Id_Cooperativa,
-          payload.NumAsociado
-        );
-
-        if (existeDuplicado) {
-          const cooperativa = await this.getCooperativaById(payload.Id_Cooperativa);
-          const nombreCooperativa = cooperativa ? (cooperativa.Nombre || cooperativa.nombre) : `Cooperativa #${payload.Id_Cooperativa}`;
-          throw new Error(`El número de asociado "${payload.NumAsociado}" ya existe en la cooperativa "${nombreCooperativa}". Cada cooperativa debe tener números de asociado únicos.`);
+      const numAsoc = String(payload.NumAsociado || '').trim();
+      if (numAsoc) {
+        const dup = await this.checkNumeroAsociadoDuplicado(payload.Id_Cooperativa, numAsoc);
+        if (dup) {
+          const coop = await this.getCooperativaById(payload.Id_Cooperativa);
+          throw new Error(`El nº asociado "${numAsoc}" ya existe en "${coop?.Nombre || coop?.nombre || 'Cooperativa'}".`);
         }
       }
 
-      const keys = this._filterPayloadKeys(payload);
-      const fields = keys.map(key => `\`${key}\``).join(', ');
-      const placeholders = keys.map(() => '?').join(', ');
-      const values = keys.map(key => payload[key]);
+      const mapped = {};
+      mapped[c.colCli] = payload.Id_Cliente;
+      mapped[c.colCoop] = payload.Id_Cooperativa;
+      if (c.colNum) mapped[c.colNum] = numAsoc || null;
 
-      let sql = `INSERT INTO \`Clientes_Cooperativas\` (${fields}) VALUES (${placeholders})`;
-      let result;
-      let insertId;
-
-      try {
-        [result] = await this.pool.execute(sql, values);
-        insertId = result.insertId;
-      } catch (error1) {
-        sql = `INSERT INTO clientes_cooperativas (${fields}) VALUES (${placeholders})`;
-        try {
-          [result] = await this.pool.execute(sql, values);
-          insertId = result.insertId;
-        } catch (error2) {
-          throw error2;
-        }
-      }
-
-      if (!insertId) {
-        throw new Error('No se pudo obtener el ID de la relación creada');
-      }
+      const keys = Object.keys(mapped);
+      const sql = `INSERT INTO \`${c.table}\` (${keys.map(k => '`' + k + '`').join(',')}) VALUES (${keys.map(() => '?').join(',')})`;
+      const [result] = await this.pool.execute(sql, keys.map(k => mapped[k]));
+      const insertId = result.insertId;
+      if (!insertId) throw new Error('No se pudo obtener el ID de la relación creada');
       return { insertId, Id: insertId, id: insertId };
     } catch (error) {
       console.error('❌ Error creando cliente_cooperativa:', error.message);
@@ -637,41 +614,28 @@ module.exports = {
 
   async updateClienteCooperativa(id, payload) {
     try {
-      if (payload.NumAsociado && payload.NumAsociado.trim() !== '') {
-        const cooperativaId = payload.Id_Cooperativa;
-        if (cooperativaId) {
-          const existeDuplicado = await this.checkNumeroAsociadoDuplicado(
-            cooperativaId,
-            payload.NumAsociado,
-            id
-          );
-
-          if (existeDuplicado) {
-            const cooperativa = await this.getCooperativaById(cooperativaId);
-            const nombreCooperativa = cooperativa ? (cooperativa.Nombre || cooperativa.nombre) : `Cooperativa #${cooperativaId}`;
-            throw new Error(`El número de asociado "${payload.NumAsociado}" ya existe en la cooperativa "${nombreCooperativa}". Cada cooperativa debe tener números de asociado únicos.`);
-          }
+      const c = await this._resolveCoopRelCols();
+      const pk = c.pk || 'id';
+      const numAsoc = String(payload.NumAsociado || payload.numAsociado || '').trim();
+      if (numAsoc && payload.Id_Cooperativa) {
+        const dup = await this.checkNumeroAsociadoDuplicado(payload.Id_Cooperativa, numAsoc, id);
+        if (dup) {
+          const coop = await this.getCooperativaById(payload.Id_Cooperativa);
+          throw new Error(`El nº asociado "${numAsoc}" ya existe en "${coop?.Nombre || coop?.nombre || 'Cooperativa'}".`);
         }
       }
 
-      const fields = [];
-      const values = [];
+      const mapped = {};
+      if (payload.Id_Cooperativa != null && c.colCoop) mapped[c.colCoop] = payload.Id_Cooperativa;
+      if (payload.Id_Cliente != null && c.colCli) mapped[c.colCli] = payload.Id_Cliente;
+      if ((payload.NumAsociado != null || payload.numAsociado != null) && c.colNum) mapped[c.colNum] = numAsoc || null;
 
-      for (const [key, value] of Object.entries(payload)) {
-        fields.push(`\`${key}\` = ?`);
-        values.push(value);
-      }
-
+      const keys = Object.keys(mapped);
+      if (!keys.length) return { affectedRows: 0 };
+      const values = keys.map(k => mapped[k]);
       values.push(id);
-
-      let sql = `UPDATE \`Clientes_Cooperativas\` SET ${fields.join(', ')} WHERE id = ?`;
-      try {
-        await this.query(sql, values);
-      } catch (error1) {
-        sql = `UPDATE clientes_cooperativas SET ${fields.join(', ')} WHERE id = ?`;
-        await this.query(sql, values);
-      }
-
+      const sql = `UPDATE \`${c.table}\` SET ${keys.map(k => '`' + k + '` = ?').join(', ')} WHERE \`${pk}\` = ?`;
+      await this.query(sql, values);
       return { affectedRows: 1 };
     } catch (error) {
       console.error('❌ Error actualizando cliente_cooperativa:', error.message);
@@ -681,15 +645,11 @@ module.exports = {
 
   async deleteClienteCooperativa(id) {
     try {
-      try {
-        const sql = 'DELETE FROM `Clientes_Cooperativas` WHERE id = ?';
-        await this.query(sql, [id]);
-        return { affectedRows: 1 };
-      } catch (error1) {
-        const sql = 'DELETE FROM clientes_cooperativas WHERE id = ?';
-        await this.query(sql, [id]);
-        return { affectedRows: 1 };
-      }
+      const c = await this._resolveCoopRelCols();
+      const pk = c.pk || 'id';
+      const sql = `DELETE FROM \`${c.table}\` WHERE \`${pk}\` = ?`;
+      await this.query(sql, [id]);
+      return { affectedRows: 1 };
     } catch (error) {
       console.error('❌ Error eliminando cliente_cooperativa:', error.message);
       throw error;
@@ -699,24 +659,20 @@ module.exports = {
   async upsertClienteCooperativa({ clienteId, cooperativaNombre, numeroAsociado }) {
     try {
       let cooperativa = await this.findCooperativaByNombre(cooperativaNombre);
-
       if (!cooperativa) {
         const result = await this.createCooperativa(cooperativaNombre);
         cooperativa = { id: result.insertId };
       }
-
-      const sqlCheck = 'SELECT id, Id_Cliente, Id_Cooperativa, NumAsociado FROM `Clientes_Cooperativas` WHERE Id_Cliente = ? AND Id_Cooperativa = ? LIMIT 1';
       const cooperativaId = cooperativa.id || cooperativa.Id;
+      const c = await this._resolveCoopRelCols();
+      const pk = c.pk || 'id';
+      const sqlCheck = `SELECT \`${pk}\` AS id FROM \`${c.table}\` WHERE \`${c.colCli}\` = ? AND \`${c.colCoop}\` = ? LIMIT 1`;
       const existing = await this.query(sqlCheck, [clienteId, cooperativaId]);
 
       if (existing.length > 0) {
-        return await this.updateClienteCooperativa(existing[0].id, { NumAsociado: numeroAsociado });
+        return await this.updateClienteCooperativa(existing[0].id, { Id_Cooperativa: cooperativaId, NumAsociado: numeroAsociado });
       } else {
-        return await this.createClienteCooperativa({
-          Id_Cliente: clienteId,
-          Id_Cooperativa: cooperativaId,
-          NumAsociado: numeroAsociado
-        });
+        return await this.createClienteCooperativa({ Id_Cliente: clienteId, Id_Cooperativa: cooperativaId, NumAsociado: numeroAsociado });
       }
     } catch (error) {
       console.error('❌ Error en upsert cliente_cooperativa:', error.message);
