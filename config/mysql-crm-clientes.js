@@ -225,10 +225,10 @@ module.exports = {
     const pick = (cands) => this._pickCIFromColumns(ccCols, cands);
     return {
       table: tRel,
-      pk: pick(['id', 'Id', 'ID', 'clicoop_id', 'detco_id']),
-      colCli: pick(['clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'cliente_id']),
-      colCoop: pick(['clicoop_coop_id', 'Id_Cooperativa', 'id_cooperativa', 'CooperativaId', 'cooperativa_id']),
-      colNum: pick(['clicoop_num_asociado', 'NumAsociado', 'numAsociado', 'numero_asociado'])
+      pk: pick(['clico_id', 'clicoop_id', 'detco_id', 'id', 'Id', 'ID']),
+      colCli: pick(['clico_Id_Cliente', 'clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'cliente_id']),
+      colCoop: pick(['clico_Id_Cooperativa', 'clicoop_coop_id', 'Id_Cooperativa', 'id_cooperativa', 'CooperativaId', 'cooperativa_id']),
+      colNum: pick(['clico_NumAsociado', 'clicoop_num_asociado', 'NumAsociado', 'numAsociado', 'numero_asociado'])
     };
   },
 
@@ -313,9 +313,9 @@ module.exports = {
       const pickCC = (cands) => this._pickCIFromColumns(ccCols, cands);
       const pickCoop = (cands) => this._pickCIFromColumns(coopCols, cands);
 
-      const colCli = pickCC(['clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'cliente_id']);
-      const colCoop = pickCC(['clicoop_coop_id', 'Id_Cooperativa', 'id_cooperativa', 'CooperativaId', 'cooperativa_id']);
-      const colNumAsoc = pickCC(['clicoop_num_asociado', 'NumAsociado', 'numAsociado', 'numero_asociado']);
+      const colCli = pickCC(['clico_Id_Cliente', 'clicoop_cli_id', 'Id_Cliente', 'id_cliente', 'ClienteId', 'cliente_id']);
+      const colCoop = pickCC(['clico_Id_Cooperativa', 'clicoop_coop_id', 'Id_Cooperativa', 'id_cooperativa', 'CooperativaId', 'cooperativa_id']);
+      const colNumAsoc = pickCC(['clico_NumAsociado', 'clicoop_num_asociado', 'NumAsociado', 'numAsociado', 'numero_asociado']);
       const colCoopPk = pickCoop(['coop_id', 'id', 'Id']);
       const colCoopNombre = pickCoop(['coop_nombre', 'Nombre', 'nombre']);
 
@@ -323,7 +323,7 @@ module.exports = {
         return [];
       }
 
-      const colPk = pickCC(['id', 'Id', 'ID', 'clicoop_id']);
+      const colPk = pickCC(['clico_id', 'clicoop_id', 'id', 'Id', 'ID']);
       const pkSel = colPk ? `cc.\`${colPk}\` AS id, ` : '';
       const sql = `
         SELECT ${pkSel}cc.\`${colCoop}\` AS Id_Cooperativa, c.\`${colCoopNombre}\` AS Nombre, cc.\`${colNumAsoc}\` AS NumAsociado
