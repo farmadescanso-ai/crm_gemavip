@@ -240,7 +240,8 @@
                 <% const isMissing = missingFieldsList.indexOf(name) !== -1; %>
                 <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
 
-                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %>">
+                <% const isTipoEspField = (spec.options === 'tipos_clientes' || spec.options === 'especialidades' || spec.options === 'tipos_clientes_nombre'); %>
+                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="empresa"' : '' %>>
                   <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %></span>
 
                   <% if (spec.kind === 'readonly') { %>
@@ -272,7 +273,7 @@
                     <small style="color: var(--gv-muted);">Si seleccionas Activo sin DNI/CIF válido, se guardará como Potencial.</small>
                   <% } else if (spec.kind === 'select' && spec.options === 'tipo_contacto') { %>
                     <% const curTipo = String(_pickVal(name) || '').trim(); %>
-                    <select id="<%= inputId %>" name="<%= name %>">
+                    <select id="gv-tipo-contacto" name="<%= name %>" data-field="tipo_contacto">
                       <option value="">— Seleccionar —</option>
                       <option value="Empresa" <%= curTipo.toLowerCase() === 'empresa' ? 'selected' : '' %>>Empresa</option>
                       <option value="Persona" <%= curTipo.toLowerCase() === 'persona' ? 'selected' : '' %>>Persona</option>
@@ -552,6 +553,23 @@
   var tabToOpen = hashTab || qsTab;
   if (tabToOpen && tabButtons.some(function(b){ return b.getAttribute('data-tab') === tabToOpen; })) {
     setTab(tabToOpen);
+  }
+
+  // Tipo Cliente y Especialidad: solo visibles cuando Tipo de contacto = Empresa
+  var tipoContactoSelect = document.getElementById('gv-tipo-contacto');
+  var tipoEspFields = form.querySelectorAll('.gv-field-tipo-esp');
+  function toggleTipoEspVisibility() {
+    var val = tipoContactoSelect ? String((tipoContactoSelect.options[tipoContactoSelect.selectedIndex] || {}).value || '').trim().toLowerCase() : '';
+    var show = val === 'empresa';
+    tipoEspFields.forEach(function (el) {
+      el.style.display = show ? '' : 'none';
+    });
+  }
+  if (tipoContactoSelect) {
+    tipoContactoSelect.addEventListener('change', toggleTipoEspVisibility);
+    toggleTipoEspVisibility();
+  } else if (tipoEspFields.length) {
+    tipoEspFields.forEach(function (el) { el.style.display = ''; });
   }
 
   // Barra de nombre del cliente (encima de pestañas)
