@@ -234,6 +234,8 @@ router.get('/', requireLogin, async (req, res, next) => {
     };
     const colNumPedidoCliente = pickPedidoCol(['NumPedidoCliente', 'Num_Pedido_Cliente', 'num_pedido_cliente']);
     const colNumAsociadoHefame = pickPedidoCol(['NumAsociadoHefame', 'num_asociado_hefame']);
+    const colClienteId = pedidosMeta?.colCliente || 'ped_cli_id';
+    const numAsociadoSubquery = `COALESCE(${colNumAsociadoHefame ? `NULLIF(p.\`${colNumAsociadoHefame}\`, '')` : 'NULL'}, (SELECT cc.detco_NumAsociado FROM clientes_cooperativas cc WHERE cc.detco_Id_Cliente = p.\`${colClienteId}\` ORDER BY cc.detco_id LIMIT 1)) AS NumAsociadoMayorista`;
     const colTotal = pickPedidoCol(['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'importe_total']);
     const colEspecial = pickPedidoCol(['EsEspecial', 'es_especial', 'especial']);
     const colEspecialEstado = pickPedidoCol(['EspecialEstado', 'especial_estado']);
@@ -444,6 +446,7 @@ router.get('/', requireLogin, async (req, res, next) => {
         SELECT DISTINCT p.*,
           p.\`${colFecha}\` AS FechaPedido,
           p.\`${colNumPedido}\` AS NumPedido,
+          ${numAsociadoSubquery},
           ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
@@ -555,6 +558,7 @@ router.get('/', requireLogin, async (req, res, next) => {
         SELECT p.*,
           p.\`${colFecha}\` AS FechaPedido,
           p.\`${colNumPedido}\` AS NumPedido,
+          ${numAsociadoSubquery},
           ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
