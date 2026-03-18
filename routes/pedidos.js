@@ -280,6 +280,41 @@ router.get('/', requireLogin, async (req, res, next) => {
     const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
     const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
 
+    const selectedPeriodo = String(req.query.periodo || '').trim().toLowerCase();
+    let periodoDateFrom = null;
+    let periodoDateTo = null;
+    if (selectedPeriodo) {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      if (selectedPeriodo === 'hoy') {
+        periodoDateFrom = fmtDate(now);
+        periodoDateTo = fmtDate(now);
+      } else if (selectedPeriodo === '7d') {
+        const d = new Date(now); d.setDate(d.getDate() - 6);
+        periodoDateFrom = fmtDate(d);
+        periodoDateTo = fmtDate(now);
+      } else if (selectedPeriodo === '30d') {
+        const d = new Date(now); d.setDate(d.getDate() - 29);
+        periodoDateFrom = fmtDate(d);
+        periodoDateTo = fmtDate(now);
+      } else if (selectedPeriodo === '90d') {
+        const d = new Date(now); d.setDate(d.getDate() - 89);
+        periodoDateFrom = fmtDate(d);
+        periodoDateTo = fmtDate(now);
+      } else if (selectedPeriodo === 'mes') {
+        periodoDateFrom = `${selectedYear}-${pad(now.getMonth() + 1)}-01`;
+        const lastDay = new Date(selectedYear, now.getMonth() + 1, 0).getDate();
+        periodoDateTo = `${selectedYear}-${pad(now.getMonth() + 1)}-${pad(lastDay)}`;
+      } else if (selectedPeriodo === 'trimestre') {
+        const q = Math.floor(now.getMonth() / 3);
+        const m1 = q * 3 + 1;
+        periodoDateFrom = `${selectedYear}-${pad(m1)}-01`;
+        const lastDay = new Date(selectedYear, q * 3 + 3, 0).getDate();
+        periodoDateTo = `${selectedYear}-${pad(m1 + 2)}-${pad(lastDay)}`;
+      }
+    }
+
     const marcas = await loadMarcasForSelect(db);
 
     const rawQ = String(req.query.q || req.query.search || '').trim();
@@ -318,8 +353,13 @@ router.get('/', requireLogin, async (req, res, next) => {
 
       const where = [];
       const params = [];
-      where.push(`YEAR(p.\`${colFecha}\`) = ?`);
-      params.push(selectedYear);
+      if (periodoDateFrom && periodoDateTo) {
+        where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
+        params.push(periodoDateFrom, periodoDateTo);
+      } else {
+        where.push(`YEAR(p.\`${colFecha}\`) = ?`);
+        params.push(selectedYear);
+      }
       where.push(`a.\`${colArtMarca}\` = ?`);
       params.push(selectedMarcaId);
       if (scopeUserId) {
@@ -419,8 +459,13 @@ router.get('/', requireLogin, async (req, res, next) => {
     } else {
       const where = [];
       const params = [];
-      where.push(`YEAR(p.\`${colFecha}\`) = ?`);
-      params.push(selectedYear);
+      if (periodoDateFrom && periodoDateTo) {
+        where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
+        params.push(periodoDateFrom, periodoDateTo);
+      } else {
+        where.push(`YEAR(p.\`${colFecha}\`) = ?`);
+        params.push(selectedYear);
+      }
       if (scopeUserId) {
         where.push(`p.\`${colComercial}\` = ?`);
         params.push(scopeUserId);
@@ -523,6 +568,7 @@ router.get('/', requireLogin, async (req, res, next) => {
       selectedYear,
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
+      selectedPeriodo: selectedPeriodo || '',
       q: rawQ,
       admin,
       userId: sessionUserId,

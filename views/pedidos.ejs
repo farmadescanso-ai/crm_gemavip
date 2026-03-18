@@ -111,6 +111,7 @@
 
           <form method="get" action="/pedidos" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 0;">
             <input type="hidden" name="limit" value="<%= (typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10 %>" />
+            <input type="hidden" name="periodo" id="gv-periodo-hidden" value="<%= typeof selectedPeriodo === 'string' ? selectedPeriodo : '' %>" />
             <label for="year" style="font-weight:700; color: var(--gv-ink);">Año</label>
             <select id="year" name="year" class="gv-client-picker__q" style="width:auto; min-width: 140px;">
               <% (years || []).forEach((y) => { %>
@@ -135,14 +136,38 @@
               value="<%= typeof q === 'string' ? q : '' %>"
             />
             <button class="btn secondary" type="submit">Ver</button>
-            <% if ((typeof q === 'string' && q) || selectedMarcaId) { %><a class="btn secondary" href="/pedidos?year=<%= selectedYear %>" title="Limpiar filtros">✕</a><% } %>
+            <% if ((typeof q === 'string' && q) || selectedMarcaId || (typeof selectedPeriodo === 'string' && selectedPeriodo)) { %><a class="btn secondary" href="/pedidos?year=<%= selectedYear %>" title="Limpiar filtros">✕</a><% } %>
           </form>
+
+          <%
+            const _periodoActual = typeof selectedPeriodo === 'string' ? selectedPeriodo : '';
+            const _periodoBase = `/pedidos?year=${encodeURIComponent(String(selectedYear ?? ''))}` + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '') + `&limit=${(typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10}`;
+            const _periodos = [
+              { key: '',          label: 'Año completo' },
+              { key: 'hoy',       label: 'Hoy' },
+              { key: '7d',        label: 'Últimos 7 días' },
+              { key: '30d',       label: 'Últimos 30 días' },
+              { key: '90d',       label: 'Últimos 90 días' },
+              { key: 'mes',       label: 'Mes actual' },
+              { key: 'trimestre', label: 'Trimestre actual' },
+            ];
+          %>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <span style="font-weight:700; color:var(--gv-ink); font-size:12px; margin-right:4px;">Periodo:</span>
+            <% _periodos.forEach((pr) => { %>
+              <% const isActive = _periodoActual === pr.key; %>
+              <a href="<%= _periodoBase %><%= pr.key ? '&periodo=' + encodeURIComponent(pr.key) : '' %>"
+                class="badge <%= isActive ? 'ok' : '' %>"
+                style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;<%= isActive ? ' font-weight:900;' : '' %>"
+              ><%= pr.label %></a>
+            <% }) %>
+          </div>
 
           <% if (typeof paging !== 'undefined' && paging && paging.total && paging.total > (paging.limit || 10)) { %>
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
               <% const prev = (paging.page || 1) > 1 ? (paging.page || 1) - 1 : null; %>
               <% const next = ((paging.page || 1) * (paging.limit || 10)) < paging.total ? (paging.page || 1) + 1 : null; %>
-              <% const base = `/pedidos?year=${encodeURIComponent(String(selectedYear ?? ''))}&limit=${paging.limit || 10}` + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : ''); %>
+              <% const base = `/pedidos?year=${encodeURIComponent(String(selectedYear ?? ''))}&limit=${paging.limit || 10}` + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '') + (_periodoActual ? `&periodo=${encodeURIComponent(_periodoActual)}` : ''); %>
               <% if (prev) { %>
                 <a class="btn secondary" href="<%= base %>&page=<%= prev %>">Anterior</a>
               <% } %>
