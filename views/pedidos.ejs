@@ -81,6 +81,19 @@
       });
       const pendientes = itemsArr.filter(isPendiente);
       const especialesPend = itemsArr.filter((p) => isEspecial(p) && (especialEstado(p) === 'pendiente' || especialEstado(p) === '' || especialEstado(p) === 'pending'));
+
+      const _seguimientoEstados = [
+        { key: 'pendiente',  label: 'Pendiente',  badge: 'warn',   icon: '⏳' },
+        { key: 'revisando',  label: 'Revisando',  badge: 'info',   icon: '🔍' },
+        { key: 'aprobado',   label: 'Aprobado',   badge: 'ok',     icon: '✅' },
+        { key: 'entregado',  label: 'Entregado',  badge: 'info',   icon: '📦' },
+        { key: 'pagado',     label: 'Pagado',     badge: 'ok',     icon: '💰' },
+        { key: 'denegado',   label: 'Denegado',   badge: 'danger', icon: '❌' },
+      ];
+      const _byEstadoSeg = {};
+      _seguimientoEstados.forEach((e) => {
+        _byEstadoSeg[e.key] = itemsArr.filter((p) => estadoNorm(p) === e.key);
+      });
     %>
 
     <div id="gvPedidosTabs">
@@ -380,46 +393,75 @@
       </section>
 
       <section id="tab_seguimiento" class="gv-tabpanel" role="tabpanel" data-tabpanel="seguimiento">
-        <div class="grid cols-2" style="gap: 12px;">
-          <section class="card">
-            <div class="card-hd">
-              <h2 class="card-title">Pendientes</h2>
-              <p class="card-subtitle"><%= pendientes.length %> pedidos</p>
-            </div>
-            <div class="card-bd">
-              <div class="table-wrap">
-                <table>
-                  <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Total</th></tr></thead>
-                  <tbody>
-                    <% (pendientes || []).slice(0, 20).forEach((p) => { %>
-                      <% const pid = p.Id ?? p.id ?? p.ped_id; %>
-                      <tr>
-                        <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
-                        <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
-                        <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                        <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
-                      </tr>
-                    <% }) %>
-                    <% if (!pendientes.length) { %>
-                      <tr><td colspan="4" style="color: var(--gv-muted); font-weight:800;">Sin pendientes.</td></tr>
-                    <% } %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
 
-          <section class="card">
+        <%/* ── Resumen rápido de estados ── */%>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+          <% _seguimientoEstados.forEach((e) => { %>
+            <span class="badge <%= e.badge %>" style="font-size:13px; padding:7px 14px; cursor:default;">
+              <%= e.icon %> <%= e.label %>: <strong><%= (_byEstadoSeg[e.key] || []).length %></strong>
+            </span>
+          <% }) %>
+          <% if (especialesPend.length) { %>
+            <span class="badge warn" style="font-size:13px; padding:7px 14px; cursor:default;">⚡ Especiales pend.: <strong><%= especialesPend.length %></strong></span>
+          <% } %>
+          <% if (incompletos.length) { %>
+            <span class="badge danger" style="font-size:13px; padding:7px 14px; cursor:default;">⚠ Incompletos: <strong><%= incompletos.length %></strong></span>
+          <% } %>
+        </div>
+
+        <%/* ── Tarjetas por cada estado ── */%>
+        <div class="grid cols-2" style="gap: 12px;">
+          <% _seguimientoEstados.forEach((e) => { %>
+            <% const _estItems = _byEstadoSeg[e.key] || []; %>
+            <section class="card">
+              <div class="card-hd" style="display:flex; align-items:center; gap:8px;">
+                <h2 class="card-title" style="display:flex; align-items:center; gap:6px;">
+                  <span class="badge <%= e.badge %>" style="font-size:11px; padding:3px 8px;"><%= e.icon %> <%= e.label %></span>
+                </h2>
+                <p class="card-subtitle" style="margin:0;"><%= _estItems.length %> pedido<%= _estItems.length !== 1 ? 's' : '' %></p>
+              </div>
+              <div class="card-bd">
+                <% if (_estItems.length) { %>
+                  <div class="table-wrap">
+                    <table>
+                      <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Total</th></tr></thead>
+                      <tbody>
+                        <% _estItems.slice(0, 20).forEach((p) => { %>
+                          <% const pid = p.Id ?? p.id ?? p.ped_id; %>
+                          <tr>
+                            <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
+                            <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
+                            <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                            <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
+                          </tr>
+                        <% }) %>
+                        <% if (_estItems.length > 20) { %>
+                          <tr><td colspan="4" style="color:var(--gv-muted); font-weight:700; text-align:center;">… y <%= _estItems.length - 20 %> más</td></tr>
+                        <% } %>
+                      </tbody>
+                    </table>
+                  </div>
+                <% } else { %>
+                  <p style="color: var(--gv-muted); font-weight:800; margin:0;">Sin pedidos en este estado.</p>
+                <% } %>
+              </div>
+            </section>
+          <% }) %>
+        </div>
+
+        <%/* ── Especiales pendientes ── */%>
+        <% if (especialesPend.length) { %>
+          <section class="card" style="margin-top: 12px;">
             <div class="card-hd">
-              <h2 class="card-title">Especiales (pendientes)</h2>
+              <h2 class="card-title">⚡ Especiales (pendientes)</h2>
               <p class="card-subtitle"><%= especialesPend.length %> pedidos</p>
             </div>
             <div class="card-bd">
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Estado</th></tr></thead>
+                  <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Estado especial</th></tr></thead>
                   <tbody>
-                    <% (especialesPend || []).slice(0, 20).forEach((p) => { %>
+                    <% especialesPend.slice(0, 20).forEach((p) => { %>
                       <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                       <tr>
                         <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
@@ -428,19 +470,17 @@
                         <td><%= (p.EspecialEstado ?? p.especial_estado ?? 'pendiente') %></td>
                       </tr>
                     <% }) %>
-                    <% if (!especialesPend.length) { %>
-                      <tr><td colspan="4" style="color: var(--gv-muted); font-weight:800;">Sin especiales pendientes.</td></tr>
-                    <% } %>
                   </tbody>
                 </table>
               </div>
             </div>
           </section>
-        </div>
+        <% } %>
 
+        <%/* ── Incompletos ── */%>
         <section class="card" style="margin-top: 12px;">
           <div class="card-hd">
-            <h2 class="card-title">Incompletos</h2>
+            <h2 class="card-title">⚠ Incompletos</h2>
             <p class="card-subtitle">Faltan datos clave (dirección, referencia cliente, forma de pago o tipo)</p>
           </div>
           <div class="card-bd">
