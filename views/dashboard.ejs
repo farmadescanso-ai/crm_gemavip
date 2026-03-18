@@ -336,10 +336,9 @@
             <thead>
               <tr>
                 <th class="dash-th-actions">Acciones</th>
-                <th>Nombre</th>
+                <th style="width:50%">Nombre</th>
                 <th>Población</th>
                 <th>Facturación</th>
-                <th>Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -352,7 +351,6 @@
                   <td><%= c.Nombre_Razon_Social ?? '' %></td>
                   <td><%= c.Poblacion ?? '' %></td>
                   <td><%= fmtEurES(c.TotalFacturado ?? 0) %></td>
-                  <td><span class="badge <%= (c.OK_KO === 1 || (c.OK_KO ?? '').toString().toUpperCase() === 'OK') ? 'ok' : 'info' %>"><%= (c.OK_KO === 1 || (c.OK_KO ?? '').toString().toUpperCase() === 'OK') ? 'Activo' : (c.OK_KO === 0 || (c.OK_KO ?? '').toString().toUpperCase() === 'KO') ? 'Inactivo' : (c.OK_KO ?? '—') %></span></td>
                 </tr>
               <% }) %>
             </tbody>
