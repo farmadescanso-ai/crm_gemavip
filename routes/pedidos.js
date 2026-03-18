@@ -315,6 +315,11 @@ router.get('/', requireLogin, async (req, res, next) => {
       }
     }
 
+    const rawEstadoFilter = String(req.query.estado || '').trim();
+    const selectedEstadoId = rawEstadoFilter && /^\d+$/.test(rawEstadoFilter) ? Number(rawEstadoFilter) : null;
+    const rawComercialFilter = String(req.query.comercial || '').trim();
+    const selectedComercialId = admin && rawComercialFilter && /^\d+$/.test(rawComercialFilter) ? Number(rawComercialFilter) : null;
+
     const marcas = await loadMarcasForSelect(db);
 
     const rawQ = String(req.query.q || req.query.search || '').trim();
@@ -365,6 +370,14 @@ router.get('/', requireLogin, async (req, res, next) => {
       if (scopeUserId) {
         where.push(`p.\`${colComercial}\` = ?`);
         params.push(scopeUserId);
+      }
+      if (selectedEstadoId && hasEstadoIdCol) {
+        where.push(`p.\`${colEstadoId}\` = ?`);
+        params.push(selectedEstadoId);
+      }
+      if (selectedComercialId && colComercial) {
+        where.push(`p.\`${colComercial}\` = ?`);
+        params.push(selectedComercialId);
       }
 
       const tokenClauses = buildPedidosTokenClauses(smartQ, {
@@ -470,6 +483,14 @@ router.get('/', requireLogin, async (req, res, next) => {
         where.push(`p.\`${colComercial}\` = ?`);
         params.push(scopeUserId);
       }
+      if (selectedEstadoId && hasEstadoIdCol) {
+        where.push(`p.\`${colEstadoId}\` = ?`);
+        params.push(selectedEstadoId);
+      }
+      if (selectedComercialId && colComercial) {
+        where.push(`p.\`${colComercial}\` = ?`);
+        params.push(selectedComercialId);
+      }
 
       const tokenClauses = buildPedidosTokenClauses(smartQ, {
         colFecha,
@@ -558,7 +579,10 @@ router.get('/', requireLogin, async (req, res, next) => {
     }
 
     await db.ensureEstadosPedidoTable().catch(() => null);
-    const estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
+    const [estadosPedido, comercialesList] = await Promise.all([
+      db.getEstadosPedidoActivos().catch(() => []),
+      admin ? db.getComerciales().catch(() => []) : Promise.resolve([])
+    ]);
 
     const sessionUser = res.locals.user;
     const sessionUserId = sessionUser?.id != null ? Number(sessionUser.id) : null;
@@ -569,6 +593,9 @@ router.get('/', requireLogin, async (req, res, next) => {
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
       selectedPeriodo: selectedPeriodo || '',
+      selectedEstadoId: selectedEstadoId || null,
+      selectedComercialId: selectedComercialId || null,
+      comercialesList: Array.isArray(comercialesList) ? comercialesList : [],
       q: rawQ,
       admin,
       userId: sessionUserId,

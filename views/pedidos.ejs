@@ -136,7 +136,7 @@
               value="<%= typeof q === 'string' ? q : '' %>"
             />
             <button class="btn secondary" type="submit">Ver</button>
-            <% if ((typeof q === 'string' && q) || selectedMarcaId || (typeof selectedPeriodo === 'string' && selectedPeriodo)) { %><a class="btn secondary" href="/pedidos?year=<%= selectedYear %>" title="Limpiar filtros">✕</a><% } %>
+            <% if ((typeof q === 'string' && q) || selectedMarcaId || (typeof selectedPeriodo === 'string' && selectedPeriodo) || (typeof selectedEstadoId !== 'undefined' && selectedEstadoId) || (typeof selectedComercialId !== 'undefined' && selectedComercialId)) { %><a class="btn secondary" href="/pedidos?year=<%= selectedYear %>" title="Limpiar filtros">✕</a><% } %>
           </form>
 
           <%
@@ -163,11 +163,48 @@
             <% }) %>
           </div>
 
+          <% if (typeof admin !== 'undefined' && admin) { %>
+            <%
+              const _selEstadoId = typeof selectedEstadoId !== 'undefined' ? Number(selectedEstadoId) : null;
+              const _selComercialId = typeof selectedComercialId !== 'undefined' ? Number(selectedComercialId) : null;
+              const _estadosArr = (typeof estadosPedido !== 'undefined' && Array.isArray(estadosPedido)) ? estadosPedido : [];
+              const _comercialesArr = (typeof comercialesList !== 'undefined' && Array.isArray(comercialesList)) ? comercialesList : [];
+              const _filtroBase = `/pedidos?year=${encodeURIComponent(String(selectedYear ?? ''))}`
+                + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '')
+                + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '')
+                + (_periodoActual ? `&periodo=${encodeURIComponent(_periodoActual)}` : '')
+                + `&limit=${(typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10}`;
+            %>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <label style="font-weight:700; color:var(--gv-ink); font-size:12px; display:flex; align-items:center; gap:5px;">
+                Estado
+                <select id="gv-filter-estado" style="font-size:12px; padding:4px 8px; min-width:140px;" onchange="window.location.href='<%= _filtroBase %>' + (this.value ? '&estado=' + this.value : '') + '<%= _selComercialId ? '&comercial=' + _selComercialId : '' %>'">
+                  <option value="">Todos</option>
+                  <% _estadosArr.forEach((e) => { %>
+                    <option value="<%= e.estped_id ?? e.id %>" <%= _selEstadoId === Number(e.estped_id ?? e.id) ? 'selected' : '' %>><%= e.estped_nombre ?? e.nombre ?? e.Nombre %></option>
+                  <% }) %>
+                </select>
+              </label>
+              <label style="font-weight:700; color:var(--gv-ink); font-size:12px; display:flex; align-items:center; gap:5px;">
+                Comercial
+                <select id="gv-filter-comercial" style="font-size:12px; padding:4px 8px; min-width:180px;" onchange="window.location.href='<%= _filtroBase %>' + '<%= _selEstadoId ? '&estado=' + _selEstadoId : '' %>' + (this.value ? '&comercial=' + this.value : '')">
+                  <option value="">Todos</option>
+                  <% _comercialesArr.forEach((c) => { %>
+                    <option value="<%= c.com_id ?? c.id ?? c.Id %>" <%= _selComercialId === Number(c.com_id ?? c.id ?? c.Id) ? 'selected' : '' %>><%= c.com_nombre ?? c.nombre ?? c.Nombre ?? c.com_email ?? '' %></option>
+                  <% }) %>
+                </select>
+              </label>
+              <% if (_selEstadoId || _selComercialId) { %>
+                <a class="badge danger" href="<%= _filtroBase %>" style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;">Limpiar filtros avanzados</a>
+              <% } %>
+            </div>
+          <% } %>
+
           <% if (typeof paging !== 'undefined' && paging && paging.total && paging.total > (paging.limit || 10)) { %>
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
               <% const prev = (paging.page || 1) > 1 ? (paging.page || 1) - 1 : null; %>
               <% const next = ((paging.page || 1) * (paging.limit || 10)) < paging.total ? (paging.page || 1) + 1 : null; %>
-              <% const base = `/pedidos?year=${encodeURIComponent(String(selectedYear ?? ''))}&limit=${paging.limit || 10}` + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '') + (_periodoActual ? `&periodo=${encodeURIComponent(_periodoActual)}` : ''); %>
+              <% const base = `/pedidos?year=${encodeURIComponent(String(selectedYear ?? ''))}&limit=${paging.limit || 10}` + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '') + (_periodoActual ? `&periodo=${encodeURIComponent(_periodoActual)}` : '') + ((typeof selectedEstadoId !== 'undefined' && selectedEstadoId) ? `&estado=${selectedEstadoId}` : '') + ((typeof selectedComercialId !== 'undefined' && selectedComercialId) ? `&comercial=${selectedComercialId}` : ''); %>
               <% if (prev) { %>
                 <a class="btn secondary" href="<%= base %>&page=<%= prev %>">Anterior</a>
               <% } %>
