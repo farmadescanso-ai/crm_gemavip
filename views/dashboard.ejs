@@ -153,6 +153,8 @@
   </div>
 </section>
 
+<% const _desgloseEstadoArr = (typeof desgloseEstado !== 'undefined' && Array.isArray(desgloseEstado)) ? desgloseEstado : []; %>
+
 <% if (isAdmin) { %>
   <div class="dash-grid" style="margin-top: 16px; display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
     <% if ((rankingComerciales || []).length > 0) { %>
@@ -205,7 +207,6 @@
       </section>
     <% } %>
 
-    <% const _desgloseEstadoArr = (typeof desgloseEstado !== 'undefined' && Array.isArray(desgloseEstado)) ? desgloseEstado : []; %>
     <% if (_desgloseEstadoArr.length > 0) { %>
       <section class="card dash-card">
         <div class="card-hd">
