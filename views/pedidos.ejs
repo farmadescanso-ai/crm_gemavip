@@ -361,7 +361,7 @@
                   <td><%= p.TipoClienteNombre ?? '—' %></td>
                   <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
                   <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
-                  <td><%= p.NumAsociadoMayorista ?? p.NumAsociadoHefame ?? p.num_asociado_hefame ?? '—' %></td>
+                  <td><%= p.NumAsociadoMayorista ? (p.NumAsociadoMayorista + (p.NombreMayorista ? ' · ' + p.NombreMayorista : '')) : '—' %></td>
                   <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '' %></td>
                   <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—') %></td>
                   <td><%= p.ProvinciaNombre ?? '—' %></td>

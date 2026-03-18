@@ -235,7 +235,13 @@ router.get('/', requireLogin, async (req, res, next) => {
     const colNumPedidoCliente = pickPedidoCol(['NumPedidoCliente', 'Num_Pedido_Cliente', 'num_pedido_cliente']);
     const colNumAsociadoHefame = pickPedidoCol(['NumAsociadoHefame', 'num_asociado_hefame']);
     const colClienteId = pedidosMeta?.colCliente || 'ped_cli_id';
-    const numAsociadoSubquery = `COALESCE(${colNumAsociadoHefame ? `NULLIF(p.\`${colNumAsociadoHefame}\`, '')` : 'NULL'}, (SELECT cc.detco_NumAsociado FROM clientes_cooperativas cc WHERE cc.detco_Id_Cliente = p.\`${colClienteId}\` ORDER BY cc.detco_id LIMIT 1)) AS NumAsociadoMayorista`;
+    const colTipoPedidoId = pickPedidoCol(['Id_TipoPedido', 'ped_tipp_id', 'id_tipo_pedido']);
+
+    const transferSubqueries = colTipoPedidoId
+      ? `CASE WHEN tp_t.tipp_tipo IS NOT NULL AND tp_t.tipp_tipo LIKE '%transfer%' THEN COALESCE(${colNumAsociadoHefame ? `NULLIF(p.\`${colNumAsociadoHefame}\`, '')` : 'NULL'}, (SELECT cc.detco_NumAsociado FROM clientes_cooperativas cc WHERE cc.detco_Id_Cliente = p.\`${colClienteId}\` ORDER BY cc.detco_id LIMIT 1)) ELSE NULL END AS NumAsociadoMayorista, CASE WHEN tp_t.tipp_tipo IS NOT NULL AND tp_t.tipp_tipo LIKE '%transfer%' THEN TRIM(REPLACE(tp_t.tipp_tipo, 'Transfer', '')) ELSE NULL END AS NombreMayorista`
+      : `NULL AS NumAsociadoMayorista, NULL AS NombreMayorista`;
+    const joinTipoPedido = colTipoPedidoId ? `LEFT JOIN tipos_pedidos tp_t ON tp_t.tipp_id = p.\`${colTipoPedidoId}\`` : '';
+
     const colTotal = pickPedidoCol(['ped_total', 'TotalPedido', 'Total', 'ImporteTotal', 'total_pedido', 'importe_total']);
     const colEspecial = pickPedidoCol(['EsEspecial', 'es_especial', 'especial']);
     const colEspecialEstado = pickPedidoCol(['EspecialEstado', 'especial_estado']);
@@ -446,7 +452,7 @@ router.get('/', requireLogin, async (req, res, next) => {
         SELECT DISTINCT p.*,
           p.\`${colFecha}\` AS FechaPedido,
           p.\`${colNumPedido}\` AS NumPedido,
-          ${numAsociadoSubquery},
+          ${transferSubqueries},
           ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
@@ -460,6 +466,7 @@ router.get('/', requireLogin, async (req, res, next) => {
         ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.tipc_id` : ''}
         ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
         ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
+        ${joinTipoPedido}
         INNER JOIN pedidos_articulos pa ON pa.\`${colPaPedidoId || 'pedart_ped_id'}\` = p.\`${pedidosMeta?.pk || 'ped_id'}\`
         INNER JOIN articulos a ON a.\`${colArtPk || 'art_id'}\` = pa.\`${colPaArticulo || 'pedart_art_id'}\`
         WHERE ${where.join('\n          AND ')}
@@ -558,7 +565,7 @@ router.get('/', requireLogin, async (req, res, next) => {
         SELECT p.*,
           p.\`${colFecha}\` AS FechaPedido,
           p.\`${colNumPedido}\` AS NumPedido,
-          ${numAsociadoSubquery},
+          ${transferSubqueries},
           ${hasEstadoIdCol ? 'ep.estped_nombre AS EstadoPedidoNombre, ep.estped_color AS EstadoColor,' : 'NULL AS EstadoPedidoNombre, NULL AS EstadoColor,'}
           ${cColNombre ? `c.\`${cColNombre}\` AS ClienteNombre,` : 'NULL AS ClienteNombre,'}
           ${cColNombreCial ? `c.\`${cColNombreCial}\` AS ClienteNombreCial,` : 'NULL AS ClienteNombreCial,'}
@@ -572,6 +579,7 @@ router.get('/', requireLogin, async (req, res, next) => {
         ${joinTipoCliente ? `LEFT JOIN \`${tTiposClientes}\` tc ON c.\`${cColTipoClienteId}\` = tc.tipc_id` : ''}
         ${joinComerciales ? `LEFT JOIN \`${tComerciales}\` co ON p.\`${colComercial}\` = co.com_id` : ''}
         ${hasEstadoIdCol ? `LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`` : ''}
+        ${joinTipoPedido}
         WHERE ${where.join('\n          AND ')}
         ORDER BY p.\`${pedidosMeta?.pk || 'ped_id'}\` DESC
         LIMIT ${limit} OFFSET ${offset}
