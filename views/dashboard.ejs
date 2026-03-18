@@ -80,9 +80,7 @@
         <% }) %>
       </select>
       <button class="btn" type="submit">Aplicar</button>
-      <% if (_dHasFilters) { %>
-        <a class="btn secondary" href="/dashboard?year=<%= selectedYear %>" title="Limpiar filtros">✕ Limpiar</a>
-      <% } %>
+      <a class="btn secondary" href="/dashboard" title="Limpiar todos los filtros">✕ Limpiar</a>
     </form>
 
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
