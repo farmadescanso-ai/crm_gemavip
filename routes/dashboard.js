@@ -41,8 +41,38 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
             : currentYear);
     filters.year = selectedYear;
 
-    const { from: dateFrom, to: dateTo } = getSqlDateRange(filters);
+    const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
+    const rawDesde = String(req.query.desde || '').trim();
+    const rawHasta = String(req.query.hasta || '').trim();
+    const selectedDesde = isValidDate(rawDesde) ? rawDesde : '';
+    const selectedHasta = isValidDate(rawHasta) ? rawHasta : '';
+
+    const selectedPeriodo = String(req.query.periodo || '').trim().toLowerCase();
+    let dateFrom, dateTo;
+
+    if (selectedDesde || selectedHasta) {
+      dateFrom = selectedDesde || `${selectedYear === 'all' ? new Date().getFullYear() : selectedYear}-01-01`;
+      dateTo = selectedHasta || `${selectedYear === 'all' ? new Date().getFullYear() : selectedYear}-12-31`;
+    } else if (['hoy', '7d', '30d', '90d', 'mes', 'trimestre'].includes(selectedPeriodo)) {
+      const _now = new Date();
+      const _pad = (n) => String(n).padStart(2, '0');
+      const _fmt = (d) => `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`;
+      const _yr = selectedYear === 'all' ? _now.getFullYear() : Number(selectedYear);
+      if (selectedPeriodo === 'hoy') { dateFrom = _fmt(_now); dateTo = _fmt(_now); }
+      else if (selectedPeriodo === '7d') { const d = new Date(_now); d.setDate(d.getDate() - 6); dateFrom = _fmt(d); dateTo = _fmt(_now); }
+      else if (selectedPeriodo === '30d') { const d = new Date(_now); d.setDate(d.getDate() - 29); dateFrom = _fmt(d); dateTo = _fmt(_now); }
+      else if (selectedPeriodo === '90d') { const d = new Date(_now); d.setDate(d.getDate() - 89); dateFrom = _fmt(d); dateTo = _fmt(_now); }
+      else if (selectedPeriodo === 'mes') { dateFrom = `${_yr}-${_pad(_now.getMonth() + 1)}-01`; dateTo = `${_yr}-${_pad(_now.getMonth() + 1)}-${_pad(new Date(_yr, _now.getMonth() + 1, 0).getDate())}`; }
+      else if (selectedPeriodo === 'trimestre') { const q = Math.floor(_now.getMonth() / 3); const m1 = q * 3 + 1; dateFrom = `${_yr}-${_pad(m1)}-01`; dateTo = `${_yr}-${_pad(m1 + 2)}-${_pad(new Date(_yr, q * 3 + 3, 0).getDate())}`; }
+    } else {
+      const range = getSqlDateRange(filters);
+      dateFrom = range.from;
+      dateTo = range.to;
+    }
     const hasDateFilter = dateFrom && dateTo;
+
+    const rawEstadoFilter = String(req.query.estado || '').trim();
+    const selectedEstadoId = rawEstadoFilter && /^\d+$/.test(rawEstadoFilter) ? Number(rawEstadoFilter) : null;
 
     const metaVisitas = await db._ensureVisitasMeta().catch(() => null);
     const pedidosMeta = await db._ensurePedidosMeta().catch(() => null);
@@ -62,6 +92,8 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
     const colPedTotal = db._pickCIFromColumns(pedidosCols, ['ped_total', 'TotalPedido', 'Total', 'ImporteTotal']) || 'ped_total';
     const colPedEstado = db._pickCIFromColumns(pedidosCols, ['ped_estado_txt', 'EstadoPedido', 'Estado', 'estado']) || 'ped_estado_txt';
 
+    const colEstadoId = db._pickCIFromColumns(pedidosCols, ['Id_EstadoPedido', 'id_estado_pedido', 'ped_estped_id']);
+
     const buildPedidosBaseWhere = (comercialId = null) => {
       const where = [];
       const params = [];
@@ -75,6 +107,10 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       if (hasDateFilter && colPedFecha) {
         where.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
         params.push(dateFrom, dateTo);
+      }
+      if (selectedEstadoId && colEstadoId) {
+        where.push(`p.\`${colEstadoId}\` = ?`);
+        params.push(selectedEstadoId);
       }
       return { where, params };
     };
@@ -580,6 +616,18 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       marcasList = Array.isArray(rows) ? rows : [];
     } catch (_) {}
 
+    await db.ensureEstadosPedidoTable().catch(() => null);
+    const estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
+
+    if (!admin) {
+      try {
+        const comRows = await db.query(
+          `SELECT \`${comercialesMeta?.pk || 'com_id'}\` AS id, \`${comercialesMeta?.colNombre || 'com_nombre'}\` AS nombre FROM \`${comercialesMeta?.table || 'comerciales'}\` ORDER BY \`${comercialesMeta?.colNombre || 'com_nombre'}\``
+        );
+        comercialesList = Array.isArray(comRows) ? comRows : [];
+      } catch (_) {}
+    }
+
     res.render('dashboard', {
       stats,
       latest,
@@ -587,9 +635,14 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       rankingZona,
       rankingProductos,
       desgloseEstado: Array.isArray(desgloseEstado) ? desgloseEstado : [],
+      estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       dashboardErrors: dashboardErrors || {},
       years,
       selectedYear,
+      selectedPeriodo: (selectedDesde || selectedHasta) ? '' : selectedPeriodo,
+      selectedDesde,
+      selectedHasta,
+      selectedEstadoId,
       filters,
       periodOptions: PERIOD_OPTIONS,
       zonas,
