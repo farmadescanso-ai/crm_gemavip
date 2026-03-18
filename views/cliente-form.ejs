@@ -241,10 +241,15 @@
                 <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
 
                 <% const isTipoEspField = (spec.options === 'tipos_clientes' || spec.options === 'especialidades' || spec.options === 'tipos_clientes_nombre'); %>
-                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="empresa"' : '' %>>
-                  <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %></span>
+                <% const isAdminOnly = !!f.adminOnly; %>
+                <% const forceReadonly = isAdminOnly && !(typeof admin !== 'undefined' && admin); %>
+                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %><%= isAdminOnly ? ' gv-field-admin-only' : '' %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="empresa"' : '' %>>
+                  <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %><% if (isAdminOnly) { %> <span class="gv-badge-admin" title="Solo puede editar un administrador">Solo admin</span><% } %></span>
 
-                  <% if (spec.kind === 'readonly') { %>
+                  <% if (forceReadonly) { %>
+                    <div class="gv-readonly"><%= _pickVal(name) || '—' %></div>
+                    <input type="hidden" name="<%= name %>" value="<%= _pickVal(name) %>" />
+                  <% } else if (spec.kind === 'readonly') { %>
                     <div class="gv-readonly"><%= pickDisplayVal(name) %></div>
                   <% } else if (spec.kind === 'textarea') { %>
                     <textarea id="<%= inputId %>" name="<%= name %>" rows="4" <%= required ? 'required' : '' %> aria-invalid="<%= isMissing ? 'true' : 'false' %>"><%= _pickVal(name) %></textarea>
@@ -522,6 +527,25 @@
     <% } %>
   </div>
 </section>
+
+<style>
+.gv-field-admin-only {
+  border-left: 3px solid var(--gv-danger, #e53e3e);
+  padding-left: 8px;
+}
+.gv-badge-admin {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--gv-danger, #e53e3e);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 5px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+}
+</style>
 
 <script>
 (function () {
