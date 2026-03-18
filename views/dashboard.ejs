@@ -136,6 +136,13 @@
           <div class="dash-stat-foot">Total en BD</div>
         </div>
       <% } %>
+      <% if (stats.pendientes != null && stats.pendientes > 0) { %>
+        <div class="dash-stat" data-variant="yellow">
+          <div class="dash-stat-label">Pendientes</div>
+          <div class="dash-stat-value"><%= stats.pendientes %></div>
+          <div class="dash-stat-foot"><%= stats.pedidos ? `${Math.round((stats.pendientes / stats.pedidos) * 100)}%` : '—' %> del total</div>
+        </div>
+      <% } %>
     </div>
 
     <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -189,6 +196,33 @@
                     <td><%= fmtEurES(r.Ventas ?? 0) %></td>
                     <td><%= r.Pedidos ?? 0 %></td>
                     <td><%= fmtEurES(r.TicketMedio ?? 0) %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    <% } %>
+
+    <% const _desgloseEstadoArr = (typeof desgloseEstado !== 'undefined' && Array.isArray(desgloseEstado)) ? desgloseEstado : []; %>
+    <% if (_desgloseEstadoArr.length > 0) { %>
+      <section class="card dash-card">
+        <div class="card-hd">
+          <h2 class="card-title">Pedidos por Estado</h2>
+          <p class="card-subtitle">Desglose de pedidos y ventas por estado</p>
+        </div>
+        <div class="card-bd">
+          <div class="table-wrap">
+            <table class="dash-table">
+              <thead><tr><th>Estado</th><th>Pedidos</th><th>Ventas</th></tr></thead>
+              <tbody>
+                <% _desgloseEstadoArr.forEach((r) => { %>
+                  <% const _bCls = String(r.color || '').toLowerCase() || 'info'; %>
+                  <tr>
+                    <td><span class="badge <%= _bCls %>" style="font-size:11px; padding:3px 8px;"><%= r.estado || '—' %></span></td>
+                    <td><%= r.pedidos ?? 0 %></td>
+                    <td><%= fmtEurES(r.ventas ?? 0) %></td>
                   </tr>
                 <% }) %>
               </tbody>
@@ -362,6 +396,30 @@
         <a class="btn secondary" href="/pedidos" style="margin-top:10px; display:inline-block;">Ver todos</a>
       </div>
     </section>
+    <% if (_desgloseEstadoArr.length > 0) { %>
+      <section class="card dash-card">
+        <div class="card-hd">
+          <h2 class="card-title">Mis Pedidos por Estado</h2>
+        </div>
+        <div class="card-bd">
+          <div class="table-wrap">
+            <table class="dash-table">
+              <thead><tr><th>Estado</th><th>Pedidos</th><th>Ventas</th></tr></thead>
+              <tbody>
+                <% _desgloseEstadoArr.forEach((r) => { %>
+                  <% const _bCls2 = String(r.color || '').toLowerCase() || 'info'; %>
+                  <tr>
+                    <td><span class="badge <%= _bCls2 %>" style="font-size:11px; padding:3px 8px;"><%= r.estado || '—' %></span></td>
+                    <td><%= r.pedidos ?? 0 %></td>
+                    <td><%= fmtEurES(r.ventas ?? 0) %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    <% } %>
     <section class="card dash-card">
       <div class="card-hd">
         <h2 class="card-title">Ranking Productos</h2>

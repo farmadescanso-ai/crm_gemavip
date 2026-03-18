@@ -261,6 +261,35 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       clientesActivos
     };
 
+    let desgloseEstado = [];
+    try {
+      const colEstadoId = db._pickCIFromColumns(pedidosCols, ['Id_EstadoPedido', 'id_estado_pedido', 'ped_estped_id']);
+      if (colEstadoId) {
+        const deWhere = [...pedWhere.where];
+        const deParams = [...pedWhere.params];
+        if (pedidosWithZone) {
+          deWhere.push(...(zoneParams.length ? ['cp.codpos_ComunidadAutonoma = ?'] : []));
+          deParams.push(...zoneParams);
+        }
+        const deWhereClause = deWhere.length ? `WHERE ${deWhere.join(' AND ')}` : '';
+        const deSql = `
+          SELECT ep.estped_nombre AS estado, ep.estped_color AS color, ep.estped_orden AS orden,
+            COUNT(*) AS pedidos, COALESCE(SUM(COALESCE(p.\`${colPedTotal}\`, 0)), 0) AS ventas
+          FROM \`${tPedidos}\` p
+          LEFT JOIN estados_pedido ep ON ep.estped_id = p.\`${colEstadoId}\`
+          ${pedidosWithZone ? `INNER JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\` ${ccaaJoin}` : ''}
+          ${deWhereClause}
+          GROUP BY ep.estped_nombre, ep.estped_color, ep.estped_orden
+          ORDER BY ep.estped_orden ASC`;
+        desgloseEstado = await db.query(deSql, deParams);
+      }
+    } catch (e) {
+      desgloseEstado = [];
+    }
+
+    const pendientesCount = desgloseEstado.reduce((n, r) => n + (String(r.estado || '').toLowerCase().includes('pend') ? Number(r.pedidos || 0) : 0), 0);
+    stats.pendientes = pendientesCount;
+
     const limitAdmin = 10;
     const limitComercial = 8;
     const latest = { clientes: [], pedidos: [], visitas: [], proximasVisitas: [] };
@@ -557,6 +586,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       rankingComerciales,
       rankingZona,
       rankingProductos,
+      desgloseEstado: Array.isArray(desgloseEstado) ? desgloseEstado : [],
       dashboardErrors: dashboardErrors || {},
       years,
       selectedYear,
