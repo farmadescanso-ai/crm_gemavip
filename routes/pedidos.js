@@ -280,10 +280,20 @@ router.get('/', requireLogin, async (req, res, next) => {
     const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
     const selectedMarcaId = Number.isFinite(parsedMarca) && parsedMarca > 0 ? parsedMarca : null;
 
+    const rawDesde = String(req.query.desde || '').trim();
+    const rawHasta = String(req.query.hasta || '').trim();
+    const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
+    const selectedDesde = isValidDate(rawDesde) ? rawDesde : '';
+    const selectedHasta = isValidDate(rawHasta) ? rawHasta : '';
+
     const selectedPeriodo = String(req.query.periodo || '').trim().toLowerCase();
     let periodoDateFrom = null;
     let periodoDateTo = null;
-    if (selectedPeriodo) {
+
+    if (selectedDesde || selectedHasta) {
+      periodoDateFrom = selectedDesde || `${selectedYear}-01-01`;
+      periodoDateTo = selectedHasta || `${selectedYear}-12-31`;
+    } else if (selectedPeriodo) {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, '0');
       const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -592,7 +602,9 @@ router.get('/', requireLogin, async (req, res, next) => {
       selectedYear,
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
-      selectedPeriodo: selectedPeriodo || '',
+      selectedPeriodo: (selectedDesde || selectedHasta) ? '' : (selectedPeriodo || ''),
+      selectedDesde: selectedDesde || '',
+      selectedHasta: selectedHasta || '',
       selectedEstadoId: selectedEstadoId || null,
       selectedComercialId: selectedComercialId || null,
       comercialesList: Array.isArray(comercialesList) ? comercialesList : [],
