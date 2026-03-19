@@ -39,7 +39,8 @@ const {
   buildStandardPedidoXlsxBuffer,
   buildHefameXlsxBuffer,
   buildPedidosTokenClauses,
-  buildPedidosTermClauses
+  buildPedidosTermClauses,
+  resolveDireccionEnvio
 } = require('../lib/pedido-helpers');
 
 const router = express.Router();
@@ -90,15 +91,7 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
     idComercial ? db.getComercialById(idComercial).catch(() => null) : null
   ]);
 
-  let direccionEnvio = null;
-  try {
-    const dirId = Number(_n(_n(item.Id_DireccionEnvio, item.id_direccion_envio), item.ped_direnv_id) || 0);
-    if (dirId) direccionEnvio = await db.getDireccionEnvioById(dirId).catch(() => null);
-      if (!direccionEnvio && idCliente) {
-      const dirs = await db.getDireccionesEnvioByCliente(idCliente, { compact: false }).catch(() => []);
-      if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
-    }
-  } catch (e) { warn('[pedidos] dirEnvio:', e?.message); }
+  const direccionEnvio = await resolveDireccionEnvio(db, item, idCliente).catch((e) => { warn('[pedidos] dirEnvio:', e?.message); return null; });
 
   let excelBase64 = null;
   let excelFilename = null;
@@ -1006,15 +999,8 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
     const isTransfer = await isTransferPedido(db, item).catch(() => false);
     const mayoristaInfo = (canShowHefame || isTransfer) ? await resolveMayoristaInfo(db, item) : null;
 
-    const idDirEnvio = Number(item?.Id_DireccionEnvio ?? item?.ped_direnv_id ?? 0) || 0;
-    let direccionEnvio = idDirEnvio
-      ? await db.getDireccionEnvioById(idDirEnvio).catch(() => null)
-      : null;
     const clientePk = Number(cliente?.Id ?? cliente?.cli_id ?? cliente?.id ?? 0) || 0;
-    if (!direccionEnvio && clientePk) {
-      const dirs = await db.getDireccionesEnvioByCliente(clientePk).catch(() => []);
-      if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
-    }
+    const direccionEnvio = await resolveDireccionEnvio(db, item, clientePk).catch(() => null);
 
     const estadoNorm = String(_n(_n(_n(item.EstadoPedido, item.Estado), item.ped_estado_txt), '')).trim().toLowerCase() || 'pendiente';
     const userId = Number(res.locals.user?.id);
@@ -1111,13 +1097,7 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
     if (canShowHefame) {
       const built = await buildHefameXlsxBuffer({ item, id, lineas, cliente, mayoristaInfo });
       if (!built.ok) {
-        let direccionEnvio = item?.Id_DireccionEnvio
-          ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
-          : null;
-        if (!direccionEnvio && cliente?.Id) {
-          const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
-          if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
-        }
+        const direccionEnvio = await resolveDireccionEnvio(db, item, cliente?.Id).catch(() => null);
         const std = await buildStandardPedidoXlsxBuffer({
           item,
           id,
@@ -1134,13 +1114,7 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
         filename = built.filename;
       }
     } else {
-      let direccionEnvio = item?.Id_DireccionEnvio
-        ? await db.getDireccionEnvioById(Number(item.Id_DireccionEnvio)).catch(() => null)
-        : null;
-      if (!direccionEnvio && cliente?.Id) {
-        const dirs = await db.getDireccionesEnvioByCliente(Number(cliente.Id), { compact: false }).catch(() => []);
-        if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
-      }
+      const direccionEnvio = await resolveDireccionEnvio(db, item, cliente?.Id).catch(() => null);
       const built = await buildStandardPedidoXlsxBuffer({
         item,
         id,
