@@ -19,6 +19,9 @@
         <% } %>
       <% }) %>
     <% } %>
+    <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+      <meta name="csrf-token" content="<%= csrfToken %>" />
+    <% } %>
   </head>
   <body>
     <% const hv = (typeof headerVariant !== 'undefined' && headerVariant) ? headerVariant : 'default'; %>

@@ -82,6 +82,7 @@
 | `cli_MotivoBaja` | varchar(200) | |
 | `cli_tipo_contacto` | varchar(20) | Empresa, Persona, Otros |
 | `cli_Id_cliente_relacionado` | int | |
+| `cli_regfis_id` | int | FK → regimenes_fiscales (1=IVA, 2=IGIC, 3=IPSI) |
 
 ---
 
@@ -126,6 +127,7 @@
 | `codpos_CreadoEn` | timestamp |
 | `codpos_ActualizadoEn` | timestamp |
 | `codpos_NumClientes` | int |
+| `codpos_regfis_id` | int | FK → regimenes_fiscales |
 
 ---
 
@@ -237,6 +239,13 @@ Valores: Lead (1), Activo (2), Inactivo (3).
 | `ped_estado_txt` | varchar(255) |
 | `ped_estped_id` | int |
 | `ped_Id_EstadoPedido` | int |
+| `ped_total` | decimal(10,2) |
+| `ped_base` | decimal(10,2) |
+| `ped_iva` | decimal(10,2) |
+| `ped_dto` | decimal(5,2) |
+| `ped_descuento` | decimal(10,2) |
+| `ped_id_holded` | varchar(255) |
+| `ped_regfis_id` | int | FK → regimenes_fiscales (1=IVA, 2=IGIC, 3=IPSI) |
 
 ---
 
@@ -296,6 +305,59 @@ Valores: Lead (1), Activo (2), Inactivo (3).
 
 ## Convenciones
 
-- **Prefijos:** `cli_` clientes, `prov_` provincias, `pais_` paises, `codpos_` codigos_postales, `tipc_` tipos_clientes, `esp_` especialidades, `estcli_` estdoClientes, `idiom_` idiomas, `mon_` monedas, `formp_` formas_pago, `com_` comerciales, `ped_` pedidos.
+- **Prefijos:** `cli_` clientes, `prov_` provincias, `pais_` paises, `codpos_` codigos_postales, `tipc_` tipos_clientes, `esp_` especialidades, `estcli_` estdoClientes, `idiom_` idiomas, `mon_` monedas, `formp_` formas_pago, `com_` comerciales, `ped_` pedidos, `regfis_` regimenes_fiscales, `timp_` tipos_impuesto, `eqimp_` equivalencias_impuesto.
 - **Tabla con typo:** `estdoClientes` (no estadoClientes).
 - **Collation:** mezcla de `utf8mb4_unicode_ci` y `utf8mb4_0900_ai_ci`; usar `COLLATE utf8mb4_unicode_ci` en comparaciones si hay conflicto.
+
+---
+
+## Tablas fiscales
+
+### `regimenes_fiscales`
+**PK:** `regfis_id`
+
+Regímenes de impuestos indirectos por territorio.
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `regfis_id` | int | PK |
+| `regfis_codigo` | varchar(10) | UNIQUE. 'IVA', 'IGIC', 'IPSI', 'IVA_PT' |
+| `regfis_nombre` | varchar(150) | Nombre completo |
+| `regfis_nombre_corto` | varchar(10) | Etiqueta para documentos: IVA, IGIC, IPSI |
+| `regfis_pais_codigo` | varchar(3) | Código ISO país (ES, PT) |
+| `regfis_activo` | tinyint(1) | |
+| `regfis_creado_en` | datetime | |
+
+Valores: 1=IVA (Península+Baleares), 2=IGIC (Canarias), 3=IPSI (Ceuta/Melilla), 4=IVA_PT (Portugal).
+
+---
+
+### `tipos_impuesto`
+**PK:** `timp_id`
+
+Tipos concretos de impuesto con porcentaje, vinculados a un régimen.
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `timp_id` | int | PK |
+| `timp_regfis_id` | int | FK → regimenes_fiscales |
+| `timp_codigo` | varchar(30) | UNIQUE. Ej: 'IVA_GENERAL', 'IGIC_REDUCIDO' |
+| `timp_nombre` | varchar(100) | 'IVA General 21%', 'IGIC General 7%' |
+| `timp_porcentaje` | decimal(5,2) | Porcentaje del impuesto |
+| `timp_es_defecto` | tinyint(1) | 1 si es el tipo por defecto del régimen |
+| `timp_activo` | tinyint(1) | |
+
+---
+
+### `equivalencias_impuesto`
+**PK:** `eqimp_id`
+
+Mapeo entre tipos de IVA peninsular y sus equivalentes en otros regímenes.
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `eqimp_id` | int | PK |
+| `eqimp_timp_origen_id` | int | FK → tipos_impuesto (tipo IVA peninsular) |
+| `eqimp_timp_destino_id` | int | FK → tipos_impuesto (tipo equivalente en otro régimen) |
+
+Ejemplo: IVA General 21% (id=1) → IGIC General 7% (id=5).

@@ -53,8 +53,8 @@ router.get('/', requireLogin, async (req, res, next) => {
     }
 
     if (qDate && meta.colFecha) {
-      where.push(`DATE(v.\`${meta.colFecha}\`) = ?`);
-      params.push(qDate);
+      where.push(`v.\`${meta.colFecha}\` >= ? AND v.\`${meta.colFecha}\` < ? + INTERVAL 1 DAY`);
+      params.push(qDate, qDate);
     }
 
     const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
@@ -94,7 +94,7 @@ router.get('/', requireLogin, async (req, res, next) => {
               paramsCal.push(uIdNum);
             }
           }
-          whereCal.push(`DATE(v.\`${meta.colFecha}\`) >= ? AND DATE(v.\`${meta.colFecha}\`) < ?`);
+          whereCal.push(`v.\`${meta.colFecha}\` >= ? AND v.\`${meta.colFecha}\` < ?`);
           paramsCal.push(start, end);
           const whereCalSql = whereCal.length ? `WHERE ${whereCal.join(' AND ')}` : '';
           const rows = await db.query(`SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereCalSql}`, paramsCal);

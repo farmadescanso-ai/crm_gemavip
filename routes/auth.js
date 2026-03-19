@@ -10,6 +10,7 @@ const { normalizeRoles } = require('../lib/auth');
 const { requireLogin } = require('../lib/auth');
 const { sendPasswordResetEmail, APP_BASE_URL } = require('../lib/mailer');
 const { _n, getStoredPasswordFromRow } = require('../lib/app-helpers');
+const { loginLimiter, passwordResetLimiter } = require('../lib/rate-limit');
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ router.get('/login', (req, res) => {
   res.render('login', { title: 'Login', error: null, restablecido, returnTo });
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const email = String(req.body?.email || '').trim();
     const password = String(req.body?.password || '').trim();
@@ -100,7 +101,7 @@ router.get('/login/olvidar-contrasena', (req, res) => {
   res.render('login-olvidar-contrasena', { title: 'Recuperar contraseña', error: null, success: null });
 });
 
-router.post('/login/olvidar-contrasena', async (req, res, next) => {
+router.post('/login/olvidar-contrasena', passwordResetLimiter, async (req, res, next) => {
   try {
     if (req.session?.user) return res.redirect('/dashboard');
     const email = String(req.body?.email || '').trim().toLowerCase();

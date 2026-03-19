@@ -43,6 +43,7 @@ class MySQLCRM {
   async _getColumns(tableName) {
     const key = String(tableName || '').trim();
     if (!key) return [];
+    if (!/^[a-zA-Z0-9_\-]+$/.test(key) || key.length > 64) return [];
 
     // Mapeo estático: evita SHOW COLUMNS en cada request (crítico en Vercel serverless)
     const { getColumns: getStaticColumns } = require('./schema-columns');

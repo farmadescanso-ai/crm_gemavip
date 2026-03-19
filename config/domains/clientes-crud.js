@@ -7,6 +7,7 @@
 
 const { debug } = require('../../lib/logger');
 const { normalizeTelefonoForDB } = require('../../lib/telefono-utils');
+const { getRegimenByPostalCode } = require('../../lib/tax-helpers');
 
 const MAX_CODIGO_POSTAL_LENGTH = 8;
 
@@ -307,6 +308,16 @@ module.exports = {
         }
       }
 
+      // Auto-asignar régimen fiscal según código postal (IVA/IGIC/IPSI)
+      const cpRegimen = String(
+        payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal
+        ?? clienteActual?.cli_codigo_postal ?? clienteActual?.CodigoPostal ?? ''
+      ).trim();
+      if (cpRegimen) {
+        const regfisId = getRegimenByPostalCode(cpRegimen);
+        payload.cli_regfis_id = regfisId;
+      }
+
       const metaUpdate = await this._ensureClientesMeta().catch(() => null);
       if (!metaUpdate?.colTipoContacto && payload.TipoContacto !== undefined) delete payload.TipoContacto;
       if (payload.TipoContacto !== undefined && payload.TipoContacto !== null) {
@@ -593,6 +604,16 @@ module.exports = {
             console.warn('⚠️  No se pudo asociar provincia por código postal:', error.message);
           }
         }
+      }
+
+      // Auto-asignar régimen fiscal según código postal (IVA/IGIC/IPSI)
+      const cpRegimenCreate = String(
+        payload.cli_codigo_postal ?? payload.CodigoPostal ?? payload.codigo_postal ?? ''
+      ).trim();
+      if (cpRegimenCreate) {
+        payload.cli_regfis_id = getRegimenByPostalCode(cpRegimenCreate);
+      } else {
+        payload.cli_regfis_id = 1;
       }
 
       try {

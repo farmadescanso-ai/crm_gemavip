@@ -5,6 +5,7 @@
  * getPedidoById usa this._enrichPedidoWithEstado (definido en mysql-crm.js).
  */
 'use strict';
+const { dateRange } = require('../../lib/date-query-utils');
 
 module.exports = {
   async getPedidos(comercialId = null) {
@@ -63,16 +64,9 @@ module.exports = {
       params.push(clienteId);
     }
     if (colFecha && (from || to)) {
-      if (from && to) {
-        where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
-        params.push(from, to);
-      } else if (from) {
-        where.push(`DATE(p.\`${colFecha}\`) >= ?`);
-        params.push(from);
-      } else if (to) {
-        where.push(`DATE(p.\`${colFecha}\`) <= ?`);
-        params.push(to);
-      }
+      const dr = dateRange(`p.\`${colFecha}\``, from, to);
+      where.push(dr.sql);
+      params.push(...dr.params);
     }
     if (search && colNumPedido) {
       where.push(`LOWER(COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')) LIKE ?`);
@@ -113,16 +107,9 @@ module.exports = {
         params.push(clienteId);
       }
       if (colFecha && (from || to)) {
-        if (from && to) {
-          where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
-          params.push(from, to);
-        } else if (from) {
-          where.push(`DATE(p.\`${colFecha}\`) >= ?`);
-          params.push(from);
-        } else if (to) {
-          where.push(`DATE(p.\`${colFecha}\`) <= ?`);
-          params.push(to);
-        }
+        const dr = dateRange(`p.\`${colFecha}\``, from, to);
+        where.push(dr.sql);
+        params.push(...dr.params);
       }
       if (search && colNumPedido) {
         where.push(`LOWER(COALESCE(CONCAT(p.\`${colNumPedido}\`,''),'')) LIKE ?`);

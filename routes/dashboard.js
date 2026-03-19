@@ -105,7 +105,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         params.push(userId);
       }
       if (hasDateFilter && colPedFecha) {
-        where.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+        where.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
         params.push(dateFrom, dateTo);
       }
       if (selectedEstadoId && colEstadoId) {
@@ -163,7 +163,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         visParams.push(userId);
       }
       if (hasDateFilter && metaVisitas.colFecha) {
-        visWhere.push(`DATE(\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
+        visWhere.push(`\`${metaVisitas.colFecha}\` >= ? AND \`${metaVisitas.colFecha}\` < ? + INTERVAL 1 DAY`);
         visParams.push(dateFrom, dateTo);
       }
       const visWhereSql = visWhere.length ? `WHERE ${visWhere.join(' AND ')}` : '';
@@ -186,7 +186,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           cliWhere.push(`c.\`${clientesMeta?.colComercial || 'cli_com_id'}\` = ?`);
           cliParams.push(userId);
         }
-        cliWhere.push(`DATE(c.cli_creado_holded) BETWEEN ? AND ?`);
+        cliWhere.push(`c.cli_creado_holded >= ? AND c.cli_creado_holded < ? + INTERVAL 1 DAY`);
         cliParams.push(dateFrom, dateTo);
         if (filters.zone) {
           cliWhere.push('cp.codpos_ComunidadAutonoma = ?');
@@ -210,7 +210,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           faWhere.push(`p.\`${colPedComercial}\` = ?`);
           faParams.push(filters.comercial);
         }
-        faWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+        faWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
         faParams.push(dateFrom, dateTo);
         const faJoin = filters.zone ? `INNER JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\` ${ccaaJoin} ${zoneCondition}` : '';
         const [faRow] = await db.query(
@@ -227,7 +227,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           ccWhere.push(`p.\`${colPedComercial}\` = ?`);
           ccParams.push(filters.comercial);
         }
-        ccWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+        ccWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
         ccParams.push(dateFrom, dateTo);
         const [ccRow] = await db.query(
           `SELECT COUNT(DISTINCT COALESCE(cp.codpos_ComunidadAutonoma, 'Sin CCAA')) AS n
@@ -243,7 +243,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       try {
         const caWhere = []; const caParams = [userId];
         if (hasDateFilter) {
-          caWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          caWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
           caParams.push(dateFrom, dateTo);
         }
         const caWhereSql = caWhere.length ? `AND ${caWhere.join(' AND ')}` : '';
@@ -344,7 +344,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         try {
           const rzWhere = ['cp.codpos_ComunidadAutonoma = ?']; const rzParams = [filters.zone];
           if (hasDateFilter) {
-            rzWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+            rzWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
             rzParams.push(dateFrom, dateTo);
           }
           if (filters.comercial) {
@@ -368,7 +368,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         try {
           const rcWhere = []; const rcParams = [];
           if (hasDateFilter) {
-            rcWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+            rcWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
             rcParams.push(dateFrom, dateTo);
           } else {
             rcWhere.push('1=1');
@@ -408,7 +408,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
 
         const rpWhere = []; const rpParams = [];
         if (hasDateFilter) {
-          rpWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          rpWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
           rpParams.push(dateFrom, dateTo);
         }
         if (filters.comercial) {
@@ -448,7 +448,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         const adminCliParams = [];
         if (filters.zone) adminCliParams.push(filters.zone);
         if (hasDateFilter && colPedFecha) {
-          adminCliWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          adminCliWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
           adminCliParams.push(dateFrom, dateTo);
         }
         if (filters.comercial) {
@@ -488,7 +488,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       if (metaVisitas?.table) {
         const visWhere = []; const visParams = [];
         if (hasDateFilter && metaVisitas.colFecha) {
-          visWhere.push(`DATE(v.\`${metaVisitas.colFecha}\`) BETWEEN ? AND ?`);
+          visWhere.push(`v.\`${metaVisitas.colFecha}\` >= ? AND v.\`${metaVisitas.colFecha}\` < ? + INTERVAL 1 DAY`);
           visParams.push(dateFrom, dateTo);
         }
         if (filters.comercial) {
@@ -521,7 +521,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
             (SELECT MAX(v.\`${metaVisitas?.colFecha}\`) FROM \`${metaVisitas?.table}\` v WHERE v.\`${metaVisitas?.colCliente}\` = c.\`${pkClientes}\` AND v.\`${metaVisitas?.colComercial}\` = ?) AS UltimaVisita,
             MAX(p.\`${colPedFecha}\`) AS UltimoPedido
            FROM \`${tClientes}\` c
-           LEFT JOIN \`${tPedidos}\` p ON p.\`${colPedCliente}\` = c.\`${pkClientes}\` AND p.\`${colPedComercial}\` = ? ${hasDateFilter ? `AND DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?` : ''}
+           LEFT JOIN \`${tPedidos}\` p ON p.\`${colPedCliente}\` = c.\`${pkClientes}\` AND p.\`${colPedComercial}\` = ? ${hasDateFilter ? `AND p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY` : ''}
            WHERE c.\`${clientesMeta?.colComercial || 'cli_com_id'}\` = ?
            GROUP BY c.\`${pkClientes}\`, c.\`${colNombreRazon}\`
            ORDER BY TotalFacturado DESC LIMIT ${limitComercial}`,
@@ -542,7 +542,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           `SELECT p.ped_id AS Id, p.\`${colPedNum}\` AS NumPedido, p.\`${colPedFecha}\` AS FechaPedido, p.\`${colPedTotal}\` AS TotalPedido, p.\`${colPedEstado}\` AS EstadoPedido,
             c.\`${colNombreRazon}\` AS ClienteNombre
            FROM \`${tPedidos}\` p LEFT JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = p.\`${colPedCliente}\`
-           WHERE p.\`${colPedComercial}\` = ? ${hasDateFilter ? `AND DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?` : ''} ${pedEstadoFilter}
+           WHERE p.\`${colPedComercial}\` = ? ${hasDateFilter ? `AND p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY` : ''} ${pedEstadoFilter}
            ORDER BY p.ped_id DESC LIMIT ${limitComercial}`,
           [userId, ...(hasDateFilter ? [dateFrom, dateTo] : []), ...pedEstadoParam]
         );
@@ -561,7 +561,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
 
         const rpWhere = ['p.\`' + colPedComercial + '\` = ?']; const rpParams = [userId];
         if (hasDateFilter) {
-          rpWhere.push(`DATE(p.\`${colPedFecha}\`) BETWEEN ? AND ?`);
+          rpWhere.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
           rpParams.push(dateFrom, dateTo);
         }
         if (filters.marca) {
@@ -586,7 +586,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
               c.\`${colNombreRazon}\` AS ClienteNombre
              FROM \`${metaVisitas.table}\` v
              LEFT JOIN \`${tClientes}\` c ON c.\`${pkClientes}\` = v.\`${metaVisitas.colCliente}\`
-             WHERE v.\`${metaVisitas.colComercial}\` = ? AND DATE(v.\`${metaVisitas.colFecha}\`) >= ?
+             WHERE v.\`${metaVisitas.colComercial}\` = ? AND v.\`${metaVisitas.colFecha}\` >= ?
              ORDER BY v.\`${metaVisitas.colFecha}\` ASC LIMIT 10`,
             [userId, hoy]
           );

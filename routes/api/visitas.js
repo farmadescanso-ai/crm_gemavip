@@ -145,8 +145,7 @@ router.get(
       }
     }
 
-    // Rango [start, end) para FullCalendar
-    where.push(`DATE(v.\`${meta.colFecha}\`) >= ? AND DATE(v.\`${meta.colFecha}\`) < ?`);
+    where.push(`v.\`${meta.colFecha}\` >= ? AND v.\`${meta.colFecha}\` < ?`);
     params.push(start, end);
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';

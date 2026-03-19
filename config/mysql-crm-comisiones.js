@@ -1011,11 +1011,11 @@ class ComisionesCRM {
       params.push(Number(filters.comercial_id));
     }
     if (desde) {
-      sql += ` AND DATE(${fechaCol}) >= ?`;
+      sql += ` AND ${fechaCol} >= ?`;
       params.push(desde);
     }
     if (hasta) {
-      sql += ` AND DATE(${fechaCol}) <= ?`;
+      sql += ` AND ${fechaCol} < ? + INTERVAL 1 DAY`;
       params.push(hasta);
     }
 
@@ -1059,11 +1059,11 @@ class ComisionesCRM {
       LEFT JOIN comerciales co ON c.comercial_id = co.com_id
       WHERE c.comercial_id = ?
         AND ${fechaCol} IS NOT NULL
-        AND DATE(${fechaCol}) = ?
+        AND ${fechaCol} >= ? AND ${fechaCol} < ? + INTERVAL 1 DAY
       ORDER BY c.año DESC, c.mes ASC, c.id ASC
     `;
 
-    const comisiones = await this.query(sql, [Number(comercial_id), fecha]);
+    const comisiones = await this.query(sql, [Number(comercial_id), fecha, fecha]);
     return comisiones;
   }
 

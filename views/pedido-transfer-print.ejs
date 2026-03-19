@@ -40,7 +40,7 @@
       <div class="gv-cabecera-row"><span class="gv-cabecera-label">Nº Pedido:</span> <%= numPedido || '—' %></div>
       <div class="gv-cabecera-row"><span class="gv-cabecera-label">Cliente:</span> <%= clienteNombre || '—' %></div>
       <div class="gv-cabecera-row"><span class="gv-cabecera-label">Nº asociado:</span> <%= codigoAsociado || '—' %></div>
-      <div class="gv-cabecera-row"><span class="gv-cabecera-label">Teléfono:</span> <%= (typeof fmtTelefono === 'function' ? fmtTelefono(telefono) : telefono) || '—' %></div>
+      <div class="gv-cabecera-row"><span class="gv-cabecera-label">Teléfono:</span> <%- include('partials/telefono-display', { telefono: telefono }) %></div>
       <div class="gv-cabecera-row"><span class="gv-cabecera-label">CP / Población:</span> <%= poblacionConCP || '—' %></div>
     </div>
 

@@ -188,25 +188,14 @@ module.exports = {
   async getClienteById(id) {
     if (!id || !Number.isFinite(Number(id))) return null;
     const numId = Number(id);
-    let simpleRow = null;
     try {
-      const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-      for (const pkCol of ['cli_id', 'id', 'Id']) {
-        try {
-          const simple = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]);
-          if (simple && simple.length > 0) {
-            simpleRow = simple[0];
-            break;
-          }
-        } catch (_) {}
-      }
-      const meta = await this._ensureClientesMeta().catch(() => null);
+      const meta = await this._ensureClientesMeta();
       const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
       const colsLower = new Set(colsClientes.map((c) => String(c).toLowerCase()));
       const hasCol = (name) => colsLower.has(String(name).toLowerCase());
 
-      const t = meta?.tClientes || tClientes;
-      const pk = meta?.pk || 'Id';
+      const t = meta?.tClientes;
+      const pk = meta?.pk || 'cli_id';
       const colComercial = meta?.colComercial || null;
       const colProvincia = meta?.colProvincia || 'Id_Provincia';
       const colTipoCliente = meta?.colTipoCliente || 'Id_TipoCliente';
@@ -218,26 +207,30 @@ module.exports = {
       const colClienteRel = hasCol('cli_Id_cliente_relacionado') ? 'cli_Id_cliente_relacionado' : null;
       const colNombreRazon = meta?.colNombreRazonSocial || 'cli_nombre_razon_social';
 
-      const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes').catch(() => null) : null;
-      const tTiposClientes = await this._resolveTableNameCaseInsensitive('tipos_clientes').catch(() => null);
-      const tProvincias = await this._resolveTableNameCaseInsensitive('provincias').catch(() => null);
-      const tComerciales = colComercial ? await this._resolveTableNameCaseInsensitive('comerciales').catch(() => null) : null;
-      const tIdiomas = colIdioma ? await this._resolveTableNameCaseInsensitive('idiomas').catch(() => null) : null;
-      const tMonedas = colMoneda ? await this._resolveTableNameCaseInsensitive('monedas').catch(() => null) : null;
-      const tFormasPago = colFormaPago ? await this._resolveTableNameCaseInsensitive('formas_pago').catch(() => null) : null;
-      const tPaises = colPais ? await this._resolveTableNameCaseInsensitive('paises').catch(() => null) : null;
+      const [tEstados, tTiposClientes, tProvincias, tComerciales, tIdiomas, tMonedas, tFormasPago, tPaises] = await Promise.all([
+        colEstadoCliente ? this._resolveTableNameCaseInsensitive('estdoClientes').catch(() => null) : null,
+        this._resolveTableNameCaseInsensitive('tipos_clientes').catch(() => null),
+        this._resolveTableNameCaseInsensitive('provincias').catch(() => null),
+        colComercial ? this._resolveTableNameCaseInsensitive('comerciales').catch(() => null) : null,
+        colIdioma ? this._resolveTableNameCaseInsensitive('idiomas').catch(() => null) : null,
+        colMoneda ? this._resolveTableNameCaseInsensitive('monedas').catch(() => null) : null,
+        colFormaPago ? this._resolveTableNameCaseInsensitive('formas_pago').catch(() => null) : null,
+        colPais ? this._resolveTableNameCaseInsensitive('paises').catch(() => null) : null,
+      ]);
 
       const comercialMeta = (colComercial && tComerciales) ? await this._ensureComercialesMeta().catch(() => null) : null;
       const comercialPk = comercialMeta?.pk || 'com_id';
       const comercialColNombre = comercialMeta?.colNombre || 'com_nombre';
 
-      const colsProv = tProvincias ? await this._getColumns(tProvincias).catch(() => []) : [];
-      const colsTipc = tTiposClientes ? await this._getColumns(tTiposClientes).catch(() => []) : [];
-      const colsEst = tEstados ? await this._getColumns(tEstados).catch(() => []) : [];
-      const colsIdiom = tIdiomas ? await this._getColumns(tIdiomas).catch(() => []) : [];
-      const colsMon = tMonedas ? await this._getColumns(tMonedas).catch(() => []) : [];
-      const colsFormp = tFormasPago ? await this._getColumns(tFormasPago).catch(() => []) : [];
-      const colsPais = tPaises ? await this._getColumns(tPaises).catch(() => []) : [];
+      const [colsProv, colsTipc, colsEst, colsIdiom, colsMon, colsFormp, colsPais] = await Promise.all([
+        tProvincias ? this._getColumns(tProvincias).catch(() => []) : [],
+        tTiposClientes ? this._getColumns(tTiposClientes).catch(() => []) : [],
+        tEstados ? this._getColumns(tEstados).catch(() => []) : [],
+        tIdiomas ? this._getColumns(tIdiomas).catch(() => []) : [],
+        tMonedas ? this._getColumns(tMonedas).catch(() => []) : [],
+        tFormasPago ? this._getColumns(tFormasPago).catch(() => []) : [],
+        tPaises ? this._getColumns(tPaises).catch(() => []) : [],
+      ]);
 
       const provPk = this._pickCIFromColumns(colsProv, ['prov_id', 'id', 'Id']) || 'prov_id';
       const provNombre = this._pickCIFromColumns(colsProv, ['prov_nombre', 'Nombre', 'nombre']) || 'Nombre';
@@ -280,29 +273,21 @@ module.exports = {
         WHERE c.\`${pk}\` = ?
         LIMIT 1
       `;
-      const rows = await this.query(sql, [id]);
+      const rows = await this.query(sql, [numId]);
       if (rows.length > 0) return rows[0];
-      // Fallback: si la consulta con JOINs devuelve 0 filas, intentar consulta simple (por si hay desajuste de columnas)
-      for (const pkCol of ['cli_id', 'id', 'Id']) {
-        try {
-          const fallback = await this.query(`SELECT * FROM \`${t}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]);
-          if (fallback && fallback.length > 0) return fallback[0];
-        } catch (_) {}
-      }
-      return simpleRow;
+      // Fallback: consulta simple con la PK resuelta (sin JOINs, por si hay desajuste de FK)
+      const fallback = await this.query(`SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [numId]).catch(() => []);
+      return (fallback && fallback.length > 0) ? fallback[0] : null;
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
-      if (simpleRow) return simpleRow;
       try {
         const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-        const pkCandidates = ['cli_id', 'id', 'Id'];
-        for (const pkCol of pkCandidates) {
-          try {
-            const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]);
-            if (rows && rows.length > 0) return rows[0];
-          } catch (_) {}
-        }
-        return null;
+        const fallbackPk = this._pickCIFromColumns(
+          await this._getColumns(tClientes).catch(() => []),
+          ['cli_id', 'id', 'Id']
+        ) || 'cli_id';
+        const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${fallbackPk}\` = ? LIMIT 1`, [numId]);
+        return (rows && rows.length > 0) ? rows[0] : null;
       } catch (_) {
         return null;
       }

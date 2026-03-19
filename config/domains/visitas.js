@@ -4,6 +4,7 @@
  * Se invoca con db como contexto (this) para acceder a query, _ensureVisitasMeta, etc.
  */
 'use strict';
+const { dateRange } = require('../../lib/date-query-utils');
 
 module.exports = {
   async getVisitas(comercialId = null) {
@@ -49,16 +50,9 @@ module.exports = {
       params.push(clienteId);
     }
     if (meta.colFecha && (from || to)) {
-      if (from && to) {
-        where.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
-        params.push(from, to);
-      } else if (from) {
-        where.push(`DATE(v.\`${meta.colFecha}\`) >= ?`);
-        params.push(from);
-      } else if (to) {
-        where.push(`DATE(v.\`${meta.colFecha}\`) <= ?`);
-        params.push(to);
-      }
+      const dr = dateRange(`v.\`${meta.colFecha}\``, from, to);
+      where.push(dr.sql);
+      params.push(...dr.params);
     }
 
     let sql = `SELECT v.* FROM \`${meta.table}\` v`;
@@ -88,16 +82,9 @@ module.exports = {
         params.push(clienteId);
       }
       if (meta.colFecha && (from || to)) {
-        if (from && to) {
-          where.push(`DATE(v.\`${meta.colFecha}\`) BETWEEN ? AND ?`);
-          params.push(from, to);
-        } else if (from) {
-          where.push(`DATE(v.\`${meta.colFecha}\`) >= ?`);
-          params.push(from);
-        } else if (to) {
-          where.push(`DATE(v.\`${meta.colFecha}\`) <= ?`);
-          params.push(to);
-        }
+        const dr = dateRange(`v.\`${meta.colFecha}\``, from, to);
+        where.push(dr.sql);
+        params.push(...dr.params);
       }
 
       let sql = `SELECT COUNT(*) as total FROM \`${meta.table}\` v`;

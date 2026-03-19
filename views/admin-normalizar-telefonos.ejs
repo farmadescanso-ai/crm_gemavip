@@ -26,8 +26,8 @@
               <% result.updates.forEach((u) => { %>
                 <tr>
                   <td><%= u.id %></td>
-                  <td><% if (u.telBefore !== u.telAfter) { %><%= u.telBefore %> → <strong><%= u.telAfter %></strong><% } else { %>—<% } %></td>
-                  <td><% if (u.movBefore !== u.movAfter) { %><%= u.movBefore %> → <strong><%= u.movAfter %></strong><% } else { %>—<% } %></td>
+                  <td><% if (u.telBefore !== u.telAfter) { %><%= (u.telBefore || '').replace(/</g, '&lt;') %> → <strong><%- include('partials/telefono-display', { telefono: u.telAfter }) %></strong><% } else { %>—<% } %></td>
+                  <td><% if (u.movBefore !== u.movAfter) { %><%= (u.movBefore || '').replace(/</g, '&lt;') %> → <strong><%- include('partials/telefono-display', { telefono: u.movAfter }) %></strong><% } else { %>—<% } %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -55,8 +55,8 @@
                 <tr>
                   <td><%= f.id %></td>
                   <td><%= (f.nombre || '').replace(/</g, '&lt;') %></td>
-                  <td><%= (f.telefono || '').replace(/</g, '&lt;') %></td>
-                  <td><%= (f.movil || '').replace(/</g, '&lt;') %></td>
+                  <td><%- include('partials/telefono-display', { telefono: f.telefono }) %></td>
+                  <td><%- include('partials/telefono-display', { telefono: f.movil }) %></td>
                 </tr>
               <% }) %>
             </tbody>

@@ -385,7 +385,7 @@ router.get('/', requireLogin, async (req, res, next) => {
       const where = [];
       const params = [];
       if (periodoDateFrom && periodoDateTo) {
-        where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
+        where.push(`p.\`${colFecha}\` >= ? AND p.\`${colFecha}\` < ? + INTERVAL 1 DAY`);
         params.push(periodoDateFrom, periodoDateTo);
       } else {
         where.push(`YEAR(p.\`${colFecha}\`) = ?`);
@@ -501,7 +501,7 @@ router.get('/', requireLogin, async (req, res, next) => {
       const where = [];
       const params = [];
       if (periodoDateFrom && periodoDateTo) {
-        where.push(`DATE(p.\`${colFecha}\`) BETWEEN ? AND ?`);
+        where.push(`p.\`${colFecha}\` >= ? AND p.\`${colFecha}\` < ? + INTERVAL 1 DAY`);
         params.push(periodoDateFrom, periodoDateTo);
       } else {
         where.push(`YEAR(p.\`${colFecha}\`) = ?`);

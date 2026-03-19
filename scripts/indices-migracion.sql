@@ -89,4 +89,34 @@ CALL _add_index_if_not_exists('articulos', 'idx_articulos_marca', '`art_mar_id`'
 -- CLIENTES (Contactos Nuevos: filtro por fecha creación)
 CALL _add_index_if_not_exists('clientes', 'idx_clientes_creado_holded', '`cli_creado_holded`', 'BTREE');
 
+-- =============================================================================
+-- ÍNDICES COMPUESTOS (v2.0 — queries pesadas del dashboard y listados paginados)
+-- =============================================================================
+-- Estos cubren las combinaciones WHERE + ORDER BY más frecuentes.
+-- Sin ellos MySQL hace merge de índices simples o scan parciales.
+
+-- PEDIDOS: comercial + fecha + PK (dashboard ventas, rankings, listado pedidos)
+CALL _add_index_if_not_exists('pedidos', 'idx_pedidos_com_fecha_id', '`ped_com_id`,`ped_fecha`,`ped_id`', 'BTREE');
+
+-- PEDIDOS: comercial + estado + fecha (dashboard desglose por estado de pedido)
+CALL _add_index_if_not_exists('pedidos', 'idx_pedidos_com_estado_fecha', '`ped_com_id`,`ped_estped_id`,`ped_fecha`', 'BTREE');
+
+-- PEDIDOS: cliente + fecha + PK (pedidos de un cliente, subconsulta MAX(ped_fecha) en listado clientes)
+CALL _add_index_if_not_exists('pedidos', 'idx_pedidos_cli_fecha_id', '`ped_cli_id`,`ped_fecha`,`ped_id`', 'BTREE');
+
+-- CLIENTES: comercial + estado + PK (listado clientes filtrado por comercial y estado — página más usada)
+CALL _add_index_if_not_exists('clientes', 'idx_clientes_com_estado_id', '`cli_com_id`,`cli_estcli_id`,`cli_id`', 'BTREE');
+
+-- CLIENTES: comercial + tipo cliente + PK (listado clientes filtrado por tipo)
+CALL _add_index_if_not_exists('clientes', 'idx_clientes_com_tipo_id', '`cli_com_id`,`cli_tipc_id`,`cli_id`', 'BTREE');
+
+-- CLIENTES: comercial + fecha creación (dashboard contactos nuevos)
+CALL _add_index_if_not_exists('clientes', 'idx_clientes_com_creado', '`cli_com_id`,`cli_creado_holded`', 'BTREE');
+
+-- VISITAS: cliente + fecha + PK (historial de visitas de un cliente)
+CALL _add_index_if_not_exists('visitas', 'idx_visitas_cli_fecha_id', '`vis_cli_id`,`vis_fecha`,`vis_id`', 'BTREE');
+
+-- VISITAS: comercial + fecha + PK (listado visitas del comercial, dashboard)
+CALL _add_index_if_not_exists('visitas', 'idx_visitas_com_fecha_id', '`vis_com_id`,`vis_fecha`,`vis_id`', 'BTREE');
+
 DROP PROCEDURE IF EXISTS _add_index_if_not_exists;

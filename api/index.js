@@ -230,6 +230,10 @@ if (process.env.FIX_NOTIF_FK_ON_STARTUP === '1') {
     .catch((e) => console.warn('[FIX] notif FK:', e?.message));
 }
 
+// CSRF: protección contra cross-site request forgery en formularios POST/PUT/DELETE.
+const { csrfProtection } = require('../lib/csrf');
+app.use(csrfProtection({ skipPaths: ['/api/', '/webhook/', '/health', '/sw.js'] }));
+
 // Request ID estándar (útil para soporte)
 app.use((req, res, next) => {
   req.requestId = makeRequestId();
@@ -237,6 +241,17 @@ app.use((req, res, next) => {
   res.setHeader('X-Request-Id', req.requestId);
   next();
 });
+
+// Cache para notificaciones pendientes (evita query en cada request de admin)
+let _notifCache = { value: 0, ts: 0 };
+const NOTIF_CACHE_TTL_MS = 30000;
+async function _cachedNotifCount() {
+  const now = Date.now();
+  if (now - _notifCache.ts < NOTIF_CACHE_TTL_MS) return _notifCache.value;
+  const count = await db.getNotificacionesPendientesCount();
+  _notifCache = { value: count, ts: now };
+  return count;
+}
 
 // Locals para todas las vistas
 app.use((req, _res, next) => {
@@ -251,7 +266,7 @@ app.use(async (req, res, next) => {
   res.locals.roleNavLinks = res.locals.user ? getRoleNavLinksForRoles(roles) : [];
   if (res.locals.user && isAdminUser(res.locals.user)) {
     try {
-      res.locals.notificacionesPendientes = await db.getNotificacionesPendientesCount();
+      res.locals.notificacionesPendientes = await _cachedNotifCount();
     } catch (_) {
       res.locals.notificacionesPendientes = 0;
     }
@@ -602,7 +617,8 @@ app.get('/api/docs/', swaggerUiHtml);
 app.use('/api/docs', swaggerUi.serve);
 
 // API REST (protegida con API_KEY si está configurada)
-app.use('/api', requireApiKeyIfConfigured, apiRouter);
+const { apiLimiter } = require('../lib/rate-limit');
+app.use('/api', apiLimiter, requireApiKeyIfConfigured, apiRouter);
 
 // 404 estándar (HTML bonito + JSON consistente)
 app.use((req, res) => {

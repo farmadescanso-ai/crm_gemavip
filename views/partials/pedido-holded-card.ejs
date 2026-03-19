@@ -39,14 +39,20 @@
           <% if (p.cif) { %><small><%= p.cif %></small><% } %>
           <% if (p.direccion) { %><small><%= p.direccion %></small><% } %>
           <% if (p.codigoPostal || p.poblacion) { %><small><%= [p.codigoPostal, p.poblacion].filter(Boolean).join(' ') %></small><% } %>
-          <% if (p.email || p.telefono) { %><small><%= [p.email, p.telefono].filter(Boolean).join(' · ') %></small><% } %>
+          <% if (p.email || p.telefono) { %>
+          <small>
+            <% if (p.email) { %><span><%= p.email %></span><% } %>
+            <% if (p.email && p.telefono) { %> · <% } %>
+            <% if (p.telefono) { %><%- include('partials/telefono-display', { telefono: p.telefono }) %><% } %>
+          </small>
+          <% } %>
         </div>
       </div>
       <div class="gv-doc-box">
         <h3>Condiciones</h3>
         <div class="gv-doc-kv">
           <div><span>Subtotal</span><b><%= fmtEur(p.subtotal) %></b></div>
-          <div><span>IVA</span><b><%= fmtEur(p.tax) %></b></div>
+          <div><span><%= (() => { const _r = Number(p.ped_regfis_id ?? 1) || 1; return ({ 1:'IVA', 2:'IGIC', 3:'IPSI' })[_r] || 'IVA'; })() %></span><b><%= fmtEur(p.tax) %></b></div>
           <div><span>Total</span><b><%= fmtEur(p.total) %></b></div>
         </div>
       </div>

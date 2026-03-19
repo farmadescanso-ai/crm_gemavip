@@ -1,5 +1,7 @@
 'use strict';
 
+const { getClienteRegimenId, getEquivalentRate, getDefaultRate, REGIMEN_IVA } = require('../lib/tax-helpers');
+
 module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) {
     // Actualiza cabecera + reemplaza líneas en una transacción, manteniendo el mismo ID.
     try {
@@ -368,6 +370,13 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           return pvl;
         };
 
+        // Régimen fiscal del cliente (IVA/IGIC/IPSI)
+        let regimenFiscalId = REGIMEN_IVA;
+        if (Number.isFinite(finalClienteId) && finalClienteId > 0) {
+          regimenFiscalId = await getClienteRegimenId(this, finalClienteId).catch(() => REGIMEN_IVA);
+        }
+        const colRegfis = pedidosColsLower.get('ped_regfis_id') || null;
+
         // 1) Update cabecera (si hay campos)
         const pedidoKeys = Object.keys(filteredPedido);
         let updatedPedido = { affectedRows: 0, changedRows: 0 };
@@ -509,13 +518,16 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           const bruto = round2(qty * precioUnit);
           const base = round2(bruto * (1 - dtoLineaPct / 100));
 
-          // IVA porcentaje (prioridad: línea explícita -> artículo -> 21% por defecto)
-          let ivaPct = 21; // Por defecto 21% para evitar totales sin IVA
+          // IVA porcentaje (prioridad: línea explícita -> artículo -> defecto del régimen)
+          const defaultPctRegimen = getDefaultRate(regimenFiscalId);
+          let ivaPct = defaultPctRegimen;
           if (colIvaPctLinea && mysqlData[colIvaPctLinea] !== null && mysqlData[colIvaPctLinea] !== undefined && String(mysqlData[colIvaPctLinea]).trim() !== '') {
-            ivaPct = clampPct(getNum(mysqlData[colIvaPctLinea], 21));
+            const rawPct = clampPct(getNum(mysqlData[colIvaPctLinea], defaultPctRegimen));
+            ivaPct = regimenFiscalId !== REGIMEN_IVA ? getEquivalentRate(rawPct, regimenFiscalId) : rawPct;
           } else if (articulo) {
             const artIva = getNum(articulo.art_iva ?? articulo.IVA ?? articulo.iva ?? 0, 21);
-            ivaPct = clampPct(artIva > 0 ? artIva : 21);
+            const baseIva = clampPct(artIva > 0 ? artIva : 21);
+            ivaPct = regimenFiscalId !== REGIMEN_IVA ? getEquivalentRate(baseIva, regimenFiscalId) : baseIva;
           }
           const ivaImporte = round2(base * ivaPct / 100);
           const total = round2(base + ivaImporte);
@@ -592,6 +604,7 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
         if (colIvaPedido) totalsUpdate[colIvaPedido] = ivaAfterDto;
         if (colDescuentoPedido) totalsUpdate[colDescuentoPedido] = round2(sumDescuento + descuentoPedido);
         if (colDtoPedido) totalsUpdate[colDtoPedido] = pedidoDtoPct;
+        if (colRegfis) totalsUpdate[colRegfis] = regimenFiscalId;
         const totalKeys = Object.keys(totalsUpdate);
         if (totalKeys.length) {
           const fields = totalKeys.map((c) => `\`${c}\` = ?`).join(', ');
@@ -608,7 +621,8 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           insertedIds,
           numPedido: finalNumPedido,
           totals: { base: baseAfterDto, iva: ivaAfterDto, subtotal: round2(sumBase), dtoPct: pedidoDtoPct, descuentoPedido, total: totalFinal, descuentoLineas: round2(sumDescuento), descuentoTotal: round2(sumDescuento + descuentoPedido) },
-          tarifa: { Id_Tarifa: effectiveTarifaId, info: tarifaInfo || null }
+          tarifa: { Id_Tarifa: effectiveTarifaId, info: tarifaInfo || null },
+          regimenFiscalId
         };
       } catch (e) {
         try { await conn.rollback(); } catch (_) {}

@@ -1,0 +1,165 @@
+{
+  "name": "Albaranes Holded – Última Semana",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-800, 0],
+      "id": "trigger-semanal",
+      "name": "Cada día a las 8:00"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-800, 200],
+      "id": "trigger-manual",
+      "name": "Ejecución manual"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);\nnow.setHours(23, 59, 59, 999);\n\nconst starttmp = Math.floor(firstDay.getTime() / 1000);\nconst endtmp = Math.floor(now.getTime() / 1000);\n\nreturn [{\n  json: {\n    starttmp,\n    endtmp,\n    fechaDesde: firstDay.toLocaleDateString('es-ES'),\n    fechaHasta: now.toLocaleDateString('es-ES')\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-500, 100],
+      "id": "code-calcular-fechas",
+      "name": "Calcular rango última semana"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.holded.com/api/invoicing/v1/documents/waybill",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "PEGA_TU_HOLDED_API_KEY_AQUI"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "starttmp",
+              "value": "={{ $json.starttmp }}"
+            },
+            {
+              "name": "endtmp",
+              "value": "={{ $json.endtmp }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-200, 100],
+      "id": "http-holded-waybills",
+      "name": "GET Albaranes Holded"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst fechaDesde = items[0]?.json?.fechaDesde\n  ?? $('Calcular rango última semana').first().json.fechaDesde;\nconst fechaHasta = items[0]?.json?.fechaHasta\n  ?? $('Calcular rango última semana').first().json.fechaHasta;\n\nlet albaranes = [];\n\nfor (const item of items) {\n  const data = item.json;\n  if (Array.isArray(data)) {\n    albaranes = data;\n    break;\n  }\n  if (data.id) {\n    albaranes.push(data);\n  }\n}\n\nif (albaranes.length === 0) {\n  return [{\n    json: {\n      totalAlbaranes: 0,\n      fechaDesde,\n      fechaHasta,\n      mensaje: 'No se encontraron albaranes en la última semana',\n      albaranes: []\n    }\n  }];\n}\n\nconst fmt = (ts) => {\n  if (!ts) return '—';\n  const d = new Date(ts * 1000);\n  return d.toLocaleDateString('es-ES', {\n    day: '2-digit', month: '2-digit', year: 'numeric'\n  });\n};\n\nconst fmtMoney = (n) => Number(n || 0).toLocaleString('es-ES', {\n  minimumFractionDigits: 2,\n  maximumFractionDigits: 2\n}) + ' €';\n\nlet totalImporte = 0;\n\nconst resumen = albaranes.map(a => {\n  const total = Number(a.total || a.subtotal || 0);\n  totalImporte += total;\n  return {\n    id: a.id,\n    numero: a.docNumber || a.num || '—',\n    fecha: fmt(a.date),\n    contacto: a.contactName || a.contact?.name || '—',\n    contactId: a.contactId || a.contact?.id || null,\n    estado: a.status || '—',\n    subtotal: fmtMoney(a.subtotal),\n    impuestos: fmtMoney(a.tax),\n    total: fmtMoney(a.total),\n    numLineas: Array.isArray(a.items) ? a.items.length : 0,\n    notas: a.notes || ''\n  };\n});\n\nreturn [{\n  json: {\n    totalAlbaranes: albaranes.length,\n    importeTotal: fmtMoney(totalImporte),\n    fechaDesde,\n    fechaHasta,\n    albaranes: resumen\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [100, 100],
+      "id": "code-procesar-albaranes",
+      "name": "Procesar y resumir albaranes"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-hay-albaranes",
+              "leftValue": "={{ $json.totalAlbaranes }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [350, 100],
+      "id": "if-hay-albaranes",
+      "name": "¿Hay albaranes?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst albs = data.albaranes || [];\n\nconst td = 'padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:13px;';\nconst tdr = td + 'text-align:right;';\nconst thL = 'padding:10px;font-size:12px;text-align:left;color:#5b667a;background:#f1f5f9;';\nconst thR = 'padding:10px;font-size:12px;text-align:right;color:#5b667a;background:#f1f5f9;';\n\nconst rows = albs.map(a => {\n  return '<tr>' +\n    '<td style=\"' + td + '\">' + a.numero + '</td>' +\n    '<td style=\"' + td + '\">' + a.fecha + '</td>' +\n    '<td style=\"' + td + '\">' + a.contacto + '</td>' +\n    '<td style=\"' + tdr + '\">' + a.subtotal + '</td>' +\n    '<td style=\"' + tdr + '\">' + a.impuestos + '</td>' +\n    '<td style=\"' + tdr + 'font-weight:600;\">' + a.total + '</td>' +\n    '<td style=\"' + td + 'text-align:center;\">' + a.numLineas + '</td>' +\n    '<td style=\"' + td + '\">' + (a.estado || '') + '</td>' +\n    '</tr>';\n}).join('');\n\nconst html = '<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\"></head>' +\n'<body style=\"margin:0;padding:0;font-family:Segoe UI,Roboto,Arial,sans-serif;background:#f8f8f8;color:#1f2a44;\">' +\n'<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">' +\n'<tr><td style=\"padding:40px 20px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:900px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(12,20,58,0.10);border:1px solid #e5e5e5;\">' +\n'<tr><td><div style=\"height:4px;background:linear-gradient(90deg,#008bd2,#2ea3f2,#ffba00,#8fae1b);border-radius:14px 14px 0 0;\"></div>' +\n'<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">' +\n'<tr><td style=\"padding:28px 32px 10px;\">' +\n'<p style=\"margin:0 0 6px;font-size:12px;color:#5b667a;text-transform:uppercase;letter-spacing:0.5px;\">CRM Gemavip · Holded</p>' +\n'<h1 style=\"margin:0;font-size:22px;font-weight:700;color:#0c143a;\">Albaranes de ventas – Última semana</h1>' +\n'<p style=\"margin:8px 0 0;font-size:14px;color:#5b667a;\">Período: ' + data.fechaDesde + ' → ' + data.fechaHasta + '</p>' +\n'</td></tr>' +\n'<tr><td style=\"padding:16px 32px;\">' +\n'<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-bottom:16px;\">' +\n'<tr>' +\n'<td style=\"padding:16px 20px;background:linear-gradient(135deg,rgba(0,139,210,0.08),rgba(23,66,139,0.04));border-radius:10px;text-align:center;\">' +\n'<p style=\"margin:0;font-size:28px;font-weight:700;color:#008bd2;\">' + data.totalAlbaranes + '</p>' +\n'<p style=\"margin:4px 0 0;font-size:12px;color:#5b667a;\">ALBARANES</p>' +\n'</td>' +\n'<td style=\"width:16px;\"></td>' +\n'<td style=\"padding:16px 20px;background:linear-gradient(135deg,rgba(143,174,27,0.08),rgba(143,174,27,0.04));border-radius:10px;text-align:center;\">' +\n'<p style=\"margin:0;font-size:28px;font-weight:700;color:#5a7a00;\">' + data.importeTotal + '</p>' +\n'<p style=\"margin:4px 0 0;font-size:12px;color:#5b667a;\">IMPORTE TOTAL</p>' +\n'</td>' +\n'</tr></table>' +\n'</td></tr>' +\n'<tr><td style=\"padding:0 32px 24px;\">' +\n'<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e5e5e5;border-radius:10px;overflow:hidden;\">' +\n'<tr>' +\n'<th style=\"' + thL + '\">Nº Albarán</th>' +\n'<th style=\"' + thL + '\">Fecha</th>' +\n'<th style=\"' + thL + '\">Cliente</th>' +\n'<th style=\"' + thR + '\">Subtotal</th>' +\n'<th style=\"' + thR + '\">Impuestos</th>' +\n'<th style=\"' + thR + '\">Total</th>' +\n'<th style=\"' + thL + 'text-align:center;\">Líneas</th>' +\n'<th style=\"' + thL + '\">Estado</th>' +\n'</tr>' +\nrows +\n'</table>' +\n'</td></tr>' +\n'<tr><td style=\"padding:20px 32px 28px;border-top:1px solid #e5e5e5;\"><p style=\"margin:0;font-size:11px;color:#5b667a;\">Informe generado automáticamente · CRM Gemavip + Holded</p></td></tr>' +\n'</table></td></tr></table></td></tr></table></body></html>';\n\nreturn [{\n  json: {\n    ...data,\n    htmlResumen: html,\n    asunto: 'Albaranes Holded (' + data.fechaDesde + ' – ' + data.fechaHasta + ') · ' + data.totalAlbaranes + ' albaranes · CRM Gemavip'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 0],
+      "id": "code-generar-html",
+      "name": "Generar HTML resumen"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{\n  json: {\n    totalAlbaranes: 0,\n    fechaDesde: data.fechaDesde,\n    fechaHasta: data.fechaHasta,\n    mensaje: 'No se encontraron albaranes de ventas en la última semana'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 250],
+      "id": "code-sin-resultados",
+      "name": "Sin albaranes"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cada día a las 8:00": {
+      "main": [[{ "node": "Calcular rango última semana", "type": "main", "index": 0 }]]
+    },
+    "Ejecución manual": {
+      "main": [[{ "node": "Calcular rango última semana", "type": "main", "index": 0 }]]
+    },
+    "Calcular rango última semana": {
+      "main": [[{ "node": "GET Albaranes Holded", "type": "main", "index": 0 }]]
+    },
+    "GET Albaranes Holded": {
+      "main": [[{ "node": "Procesar y resumir albaranes", "type": "main", "index": 0 }]]
+    },
+    "Procesar y resumir albaranes": {
+      "main": [[{ "node": "¿Hay albaranes?", "type": "main", "index": 0 }]]
+    },
+    "¿Hay albaranes?": {
+      "main": [
+        [{ "node": "Generar HTML resumen", "type": "main", "index": 0 }],
+        [{ "node": "Sin albaranes", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
