@@ -73,14 +73,26 @@
       if (!meta) return;
       var token = meta.getAttribute('content');
       if (!token) return;
-      document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(function(form) {
+      function injectToken(form) {
         if (form.querySelector('input[name="_csrf"]')) return;
+        var m = (form.getAttribute('method') || '').toUpperCase();
+        if (m !== 'POST') return;
         var input = document.createElement('input');
         input.type = 'hidden';
         input.name = '_csrf';
         input.value = token;
         form.appendChild(input);
-      });
+      }
+      document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(injectToken);
+      new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          m.addedNodes.forEach(function(node) {
+            if (node.nodeType !== 1) return;
+            if (node.tagName === 'FORM') injectToken(node);
+            if (node.querySelectorAll) node.querySelectorAll('form').forEach(injectToken);
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
       var origFetch = window.fetch;
       window.fetch = function(url, opts) {
         opts = opts || {};
