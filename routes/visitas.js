@@ -8,6 +8,7 @@ const { requireLogin } = require('../lib/auth');
 const { isAdminUser } = require('../lib/auth');
 const { _n } = require('../lib/app-helpers');
 const { parsePagination } = require('../lib/pagination');
+const { addMinutesHHMM } = require('../lib/time-utils');
 
 const router = express.Router();
 
@@ -220,17 +221,6 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
     const comercialId = admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id);
 
-    const addMinutesHHMM = (hhmm, minutes) => {
-      const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
-      if (!m) return '';
-      const hh = Number(m[1]);
-      const mm = Number(m[2]);
-      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '';
-      const total = (hh * 60 + mm + Number(minutes || 0)) % (24 * 60);
-      const outH = String(Math.floor((total + 24 * 60) % (24 * 60) / 60)).padStart(2, '0');
-      const outM = String(((total + 24 * 60) % (24 * 60)) % 60).padStart(2, '0');
-      return `${outH}:${outM}`;
-    };
     const horaFinal = horaFinalRaw || (hora ? addMinutesHHMM(hora, 30) : '');
 
     const renderError = (message) => {
@@ -366,17 +356,6 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     const clienteId = req.body?.ClienteId ? Number(req.body.ClienteId) : null;
     const comercialId = admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id);
 
-    const addMinutesHHMM = (hhmm, minutes) => {
-      const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
-      if (!m) return '';
-      const hh = Number(m[1]);
-      const mm = Number(m[2]);
-      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '';
-      const total = (hh * 60 + mm + Number(minutes || 0)) % (24 * 60);
-      const outH = String(Math.floor((total + 24 * 60) % (24 * 60) / 60)).padStart(2, '0');
-      const outM = String(((total + 24 * 60) % (24 * 60)) % 60).padStart(2, '0');
-      return `${outH}:${outM}`;
-    };
     const currentHoraFinal = meta.colHoraFinal ? String(row?.[meta.colHoraFinal] || '').slice(0, 5) : '';
     const horaFinal = horaFinalRaw || (hora ? addMinutesHHMM(hora, 30) : currentHoraFinal);
 

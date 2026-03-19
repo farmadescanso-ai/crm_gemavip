@@ -223,7 +223,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       } catch (e) { warn('[dashboard]', e?.message); }
 
       try {
-        const ccJoin = buildClienteCCAAJoin();
+        const ccJoin = ccaaJoin;
         const ccWhere = []; const ccParams = [];
         if (filters.comercial) {
           ccWhere.push(`p.\`${colPedComercial}\` = ?`);

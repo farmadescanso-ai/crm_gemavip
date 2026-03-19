@@ -12,7 +12,8 @@ const {
   renderErrorPage,
   requireAdmin,
   pickCI,
-  pickNonZero
+  pickNonZero,
+  pickStr
 } = require('../lib/app-helpers');
 const {
   isAdminUser,
@@ -943,21 +944,12 @@ router.get('/:id(\\d+)/duplicate', requireLogin, loadPedidoAndCheckOwner, async 
     delete cabecera.id;
     if (colNum) cabecera[colNum] = '';
     const lineasRaw = await db.getArticulosByPedido(id).catch(() => []);
-    const pickRowCI = (row, cands) => {
-      const obj = row && typeof row === 'object' ? row : {};
-      const map = new Map(Object.keys(obj).map((k) => [String(k).toLowerCase(), k]));
-      for (const cand of cands || []) {
-        const real = map.get(String(cand).toLowerCase());
-        if (real && obj[real] !== undefined) return obj[real];
-      }
-      return undefined;
-    };
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
       ? lineasRaw.map((l) => ({
-          Id_Articulo: _n(pickRowCI(l, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'Articulo_Id']), ''),
-          Cantidad: _n(pickRowCI(l, ['Cantidad', 'cantidad', 'Unidades', 'Uds']), 1),
-          Dto: _n(pickRowCI(l, ['Linea_Dto', 'DtoLinea', 'Dto', 'dto', 'Descuento']), ''),
-          PrecioUnitario: _n(pickRowCI(l, ['Linea_PVP', 'PVP', 'PrecioUnitario', 'Precio', 'PVL']), '')
+          Id_Articulo: _n(pickCI(l, ['Id_Articulo', 'id_articulo', 'ArticuloId', 'Articulo_Id']), ''),
+          Cantidad: _n(pickCI(l, ['Cantidad', 'cantidad', 'Unidades', 'Uds']), 1),
+          Dto: _n(pickCI(l, ['Linea_Dto', 'DtoLinea', 'Dto', 'dto', 'Descuento']), ''),
+          PrecioUnitario: _n(pickCI(l, ['Linea_PVP', 'PVP', 'PrecioUnitario', 'Precio', 'PVL']), '')
         }))
       : [];
     const created = await db.createPedido(cabecera);
@@ -1030,21 +1022,12 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
     const canEdit =
       admin ? !estadoNorm.includes('pagad') : (Number.isFinite(userId) && userId === owner && estadoNorm.includes('pend'));
 
-    // Labels para mostrar nombres en vez de IDs (compatibles con columnas legacy y migradas)
-    const pick = (obj, keys) => {
-      if (!obj || typeof obj !== 'object') return '';
-      for (const k of keys) {
-        const v = obj[k];
-        if (v != null && String(v).trim() !== '') return String(v).trim();
-      }
-      return '';
-    };
-    const clienteLabel = pick(cliente, ['Nombre_Razon_Social', 'cli_nombre_razon_social', 'Nombre', 'nombre']);
-    const comercialLabel = pick(comercial, ['Nombre', 'com_nombre', 'nombre']);
-    const formaPagoLabel = pick(formaPago, ['FormaPago', 'formp_nombre', 'Nombre', 'nombre', 'forma_pago']);
-    const tarifaLabel = pick(tarifa, ['NombreTarifa', 'Nombre', 'nombre', 'tarcli_nombre']);
-    const tipoPedidoLabel = pick(tipoPedido, ['Nombre', 'Tipo', 'tipp_tipo', 'nombre', 'tipo']);
-    const estadoLabel = pick(estadoPedido, ['nombre', 'Nombre', 'estped_nombre']) || pick(item, ['EstadoPedido', 'Estado', 'ped_estado_txt']) || '';
+    const clienteLabel = pickStr(cliente, ['Nombre_Razon_Social', 'cli_nombre_razon_social', 'Nombre', 'nombre']);
+    const comercialLabel = pickStr(comercial, ['Nombre', 'com_nombre', 'nombre']);
+    const formaPagoLabel = pickStr(formaPago, ['FormaPago', 'formp_nombre', 'Nombre', 'nombre', 'forma_pago']);
+    const tarifaLabel = pickStr(tarifa, ['NombreTarifa', 'Nombre', 'nombre', 'tarcli_nombre']);
+    const tipoPedidoLabel = pickStr(tipoPedido, ['Nombre', 'Tipo', 'tipp_tipo', 'nombre', 'tipo']);
+    const estadoLabel = pickStr(estadoPedido, ['nombre', 'Nombre', 'estped_nombre']) || pickStr(item, ['EstadoPedido', 'Estado', 'ped_estado_txt']) || '';
 
     let lineasToRender = lineas || [];
     const artIdsNeedingPvl = (lineasToRender || [])
@@ -1203,20 +1186,12 @@ router.get('/:id(\\d+)/transfer-imprimir', requireLogin, loadPedidoAndCheckOwner
     const cliente = item?.Id_Cliente ? await db.getClienteById(Number(item.Id_Cliente)).catch(() => null) : null;
     const mayoristaInfo = await resolveMayoristaInfo(db, item);
 
-    const pick = (obj, keys) => {
-      if (!obj || typeof obj !== 'object') return '';
-      for (const k of keys) {
-        const v = obj[k];
-        if (v != null && String(v).trim() !== '') return String(v).trim();
-      }
-      return '';
-    };
     const numPedido = item?.NumPedido ?? item?.ped_numero ?? item?.Numero_Pedido ?? '';
-    const clienteNombre = pick(cliente, ['Nombre_Razon_Social', 'cli_nombre_razon_social', 'Nombre', 'nombre']) || item?.Id_Cliente || '';
+    const clienteNombre = pickStr(cliente, ['Nombre_Razon_Social', 'cli_nombre_razon_social', 'Nombre', 'nombre']) || item?.Id_Cliente || '';
     const codigoAsociado = mayoristaInfo?.codigoAsociado || String(item?.NumAsociadoHefame ?? item?.num_asociado_hefame ?? '').trim() || '';
-    const telefono = pick(cliente, ['cli_telefono', 'cli_movil', 'Telefono', 'Movil', 'Teléfono']) || '';
-    const cp = String(pick(cliente, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || '').trim();
-    const poblacion = String(pick(cliente, ['cli_poblacion', 'Poblacion', 'poblacion']) || '').trim();
+    const telefono = pickStr(cliente, ['cli_telefono', 'cli_movil', 'Telefono', 'Movil', 'Teléfono']) || '';
+    const cp = String(pickStr(cliente, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || '').trim();
+    const poblacion = String(pickStr(cliente, ['cli_poblacion', 'Poblacion', 'poblacion']) || '').trim();
     const poblacionConCP = [cp, poblacion].filter(Boolean).join(' ');
 
     res.render('pedido-transfer-print', {
@@ -1352,20 +1327,10 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
     const lineasRaw = await db.getArticulosByPedido(id).catch(() => []);
 
     // Helper: leer valores de columnas con nombres variables (case-insensitive)
-    const pickRowCI = (row, cands) => {
-      const obj = row && typeof row === 'object' ? row : {};
-      const map = new Map(Object.keys(obj).map((k) => [String(k).toLowerCase(), k]));
-      for (const cand of (cands || [])) {
-        const real = map.get(String(cand).toLowerCase());
-        if (real && obj[real] !== undefined) return obj[real];
-      }
-      return undefined;
-    };
-
     const lineas = Array.isArray(lineasRaw) && lineasRaw.length
       ? lineasRaw.map((l) => ({
           Id_Articulo:
-            _n(pickRowCI(l, [
+            _n(pickCI(l, [
               'pedart_art_id',
               'Id_Articulo',
               'id_articulo',
@@ -1377,11 +1342,11 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
               'idArticulo'
             ]), ''),
           Cantidad:
-            _n(pickRowCI(l, ['pedart_cantidad', 'Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']), 1),
+            _n(pickCI(l, ['pedart_cantidad', 'Cantidad', 'cantidad', 'Unidades', 'unidades', 'Uds', 'uds', 'Cant', 'cant']), 1),
           Dto:
-            _n(pickRowCI(l, ['pedart_dto', 'Linea_Dto', 'DtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento']), ''),
+            _n(pickCI(l, ['pedart_dto', 'Linea_Dto', 'DtoLinea', 'dto_linea', 'Dto', 'dto', 'DTO', 'Descuento', 'descuento', 'PorcentajeDescuento', 'porcentaje_descuento']), ''),
           PrecioUnitario:
-            _n(pickRowCI(l, ['pedart_pvp', 'Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']), '')
+            _n(pickCI(l, ['pedart_pvp', 'Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']), '')
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
     const _ftEdit = filterOutTransferOptions(formasPago, tiposPedido);

@@ -14,7 +14,8 @@ const {
   loadEstadosClienteForSelect,
   applySpainDefaultsIfEmpty,
   buildClienteFormModel,
-  coerceClienteValue
+  coerceClienteValue,
+  loadClienteFormCatalogs
 } = require('../lib/cliente-helpers');
 const { normalizeTelefonoForDB } = require('../lib/telefono-utils');
 const { tokenizeSmartQuery } = require('../lib/pedido-helpers');
@@ -155,21 +156,7 @@ router.get('/', requireLogin, async (req, res, next) => {
 
 router.get('/new', requireLogin, async (_req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
-      db.getComercialesForSelect().catch(() => []),
-      db.getTarifas().catch(() => []),
-      loadSimpleCatalogForSelect(db, 'provincias'),
-      loadSimpleCatalogForSelect(db, 'paises'),
-      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      loadTiposClientesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getTiposClientes?.().catch(() => []))),
-      loadEspecialidadesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
-      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
-      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
-      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
-      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
-      db._ensureClientesMeta().catch(() => null)
-    ]);
+    const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = await loadClienteFormCatalogs(db);
     const isAdmin = isAdminUser(res.locals.user);
     const baseItem = applySpainDefaultsIfEmpty(
       { OK_KO: 1, Tarifa: 0, Dto: 0 },
@@ -206,21 +193,7 @@ router.get('/new', requireLogin, async (_req, res, next) => {
 
 router.post('/new', requireLogin, async (req, res, next) => {
   try {
-    const [comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
-      db.getComercialesForSelect().catch(() => []),
-      db.getTarifas().catch(() => []),
-      loadSimpleCatalogForSelect(db, 'provincias'),
-      loadSimpleCatalogForSelect(db, 'paises'),
-      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      loadTiposClientesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getTiposClientes?.().catch(() => []))),
-      loadEspecialidadesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
-      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
-      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
-      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
-      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
-      db._ensureClientesMeta().catch(() => null)
-    ]);
+    const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = await loadClienteFormCatalogs(db);
     const isAdmin = isAdminUser(res.locals.user);
     const body = req.body || {};
     const dupConfirmed = String(body.dup_confirmed || '').trim() === '1';
@@ -398,22 +371,8 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     const admin = isAdminUser(res.locals.user);
     const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
     if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
-      db.getClienteById(id),
-      db.getComercialesForSelect().catch(() => []),
-      db.getTarifas().catch(() => []),
-      loadSimpleCatalogForSelect(db, 'provincias'),
-      loadSimpleCatalogForSelect(db, 'paises'),
-      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      loadTiposClientesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getTiposClientes?.().catch(() => []))),
-      loadEspecialidadesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
-      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
-      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
-      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
-      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
-      db._ensureClientesMeta().catch(() => null)
-    ]);
+    const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
+    const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const poolId = await db.getComercialIdPool();
@@ -473,22 +432,8 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta] = await Promise.all([
-      db.getClienteById(id),
-      db.getComercialesForSelect().catch(() => []),
-      db.getTarifas().catch(() => []),
-      loadSimpleCatalogForSelect(db, 'provincias'),
-      loadSimpleCatalogForSelect(db, 'paises'),
-      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      loadTiposClientesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getTiposClientes?.().catch(() => []))),
-      loadEspecialidadesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
-      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
-      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
-      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
-      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
-      db._ensureClientesMeta().catch(() => null)
-    ]);
+    const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
+    const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
     if (!item) return res.status(404).send('No encontrado');
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const [relacionesData, cooperativasCliente] = await Promise.all([
@@ -541,24 +486,13 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
-    const [item, meta, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, cooperativasCliente] = await Promise.all([
+    const [item, catalogs, cooperativasCliente] = await Promise.all([
       db.getClienteById(id),
-      db._ensureClientesMeta().catch(() => null),
-      loadSimpleCatalogForSelect(db, 'provincias'),
-      loadSimpleCatalogForSelect(db, 'paises'),
-      _n(db.getFormasPago && db.getFormasPago().catch(() => []), []),
-      loadTiposClientesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getTiposClientes?.().catch(() => []))),
-      loadEspecialidadesForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEspecialidades?.().catch(() => []))),
-      loadSimpleCatalogForSelect(db, 'idiomas', { labelCandidates: ['Nombre', 'Idioma', 'Descripcion', 'descripcion'] }),
-      loadSimpleCatalogForSelect(db, 'monedas', { labelCandidates: ['Nombre', 'Moneda', 'Descripcion', 'descripcion', 'Codigo', 'codigo', 'ISO', 'Iso'] }),
-      loadEstadosClienteForSelect(db).then((r) => (Array.isArray(r) && r.length > 0 ? r : db.getEstadosCliente?.().catch(() => []))).then((r) => (Array.isArray(r) && r.length > 0 ? r : [{ estcli_id: 1, estcli_nombre: 'Lead', id: 1, Nombre: 'Lead', nombre: 'Lead', Estado: 'Lead', estado: 'Lead' }, { estcli_id: 2, estcli_nombre: 'Activo', id: 2, Nombre: 'Activo', nombre: 'Activo', Estado: 'Activo', estado: 'Activo' }, { estcli_id: 3, estcli_nombre: 'Inactivo', id: 3, Nombre: 'Inactivo', nombre: 'Inactivo', Estado: 'Inactivo', estado: 'Inactivo' }])),
-      _n(db.getCooperativas && db.getCooperativas().catch(() => []), []),
-      _n(db.getGruposCompras && db.getGruposCompras().catch(() => []), []),
+      loadClienteFormCatalogs(db),
       db.getCooperativasByClienteId(id).catch(() => [])
     ]);
+    const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
     if (!item) return res.status(404).send('No encontrado');
-    const comerciales = await db.getComercialesForSelect().catch(() => []);
-    const tarifas = await db.getTarifas().catch(() => []);
     const body = req.body || {};
     const canChangeComercial = admin;
 

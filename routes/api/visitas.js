@@ -5,6 +5,7 @@ const { asyncHandler, toInt, parsePagination } = require('./_utils');
 const router = express.Router();
 
 const { isAdminUser } = require('../../lib/auth');
+const { addMinutesHHMM } = require('../../lib/time-utils');
 
 /**
  * @openapi
@@ -187,17 +188,6 @@ router.get(
       const s = String(value);
       const m = s.match(/(\d{2}:\d{2})/);
       return m ? m[1] : '';
-    };
-    const addMinutesHHMM = (hhmm, minutes) => {
-      const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
-      if (!m) return '';
-      const hh = Number(m[1]);
-      const mm = Number(m[2]);
-      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return '';
-      const total = (hh * 60 + mm + Number(minutes || 0)) % (24 * 60);
-      const outH = String(Math.floor((total + 24 * 60) % (24 * 60) / 60)).padStart(2, '0');
-      const outM = String(((total + 24 * 60) % (24 * 60)) % 60).padStart(2, '0');
-      return `${outH}:${outM}`;
     };
     const items = (rows || []).map((r) => {
       const date = toYmd(r?.Fecha);
