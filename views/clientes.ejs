@@ -11,35 +11,34 @@
     </div>
     <div class="gv-contactos-hd__bar">
       <nav class="gv-contactos-tabs" aria-label="Filtrar por tipo">
-        <a class="gv-contactos-tab <%= (typeof tipoContacto === 'undefined' || tipoContacto === '') ? 'is-active' : '' %>" href="/clientes?<%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %>">Todos</a>
+        <a class="gv-contactos-tab <%= (typeof tipoContacto === 'undefined' || tipoContacto === '') ? 'is-active' : '' %>" href="/clientes?<%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>">Todos</a>
         <% if (typeof admin !== 'undefined' && admin) { %><a class="gv-contactos-tab" href="/clientes/duplicados" title="Ver grupos de contactos duplicados">Duplicados</a><% } %>
-        <a class="gv-contactos-tab <%= tipoContacto === 'Empresa' ? 'is-active' : '' %>" href="/clientes?tipo=Empresa&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Empresas</a>
-        <a class="gv-contactos-tab <%= tipoContacto === 'Persona' ? 'is-active' : '' %>" href="/clientes?tipo=Persona&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Personas</a>
-        <a class="gv-contactos-tab <%= tipoContacto === 'Otros' ? 'is-active' : '' %>" href="/clientes?tipo=Otros&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&amp;limit=<%= paging.limit %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Otros</a>
+        <a class="gv-contactos-tab <%= tipoContacto === 'Empresa' ? 'is-active' : '' %>" href="/clientes?tipo=Empresa&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Empresas</a>
+        <a class="gv-contactos-tab <%= tipoContacto === 'Persona' ? 'is-active' : '' %>" href="/clientes?tipo=Persona&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Personas</a>
+        <a class="gv-contactos-tab <%= tipoContacto === 'Otros' ? 'is-active' : '' %>" href="/clientes?tipo=Otros&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Otros</a>
       </nav>
       <div class="gv-contactos-hd__actions">
-        <a class="gv-contactos-order gv-contactos-order-link" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %><%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= (typeof orderNombre !== 'undefined' && orderNombre === 'asc') ? 'desc' : 'asc' %>&amp;limit=<%= paging.limit %>" title="Ordenar por nombre (clic para alternar A–Z / Z–A)"><%= (typeof orderNombre !== 'undefined' && orderNombre === 'desc') ? 'Contactos Z–A' : 'Contactos A–Z' %></a>
+        <a class="gv-contactos-order gv-contactos-order-link" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %><%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= (typeof orderNombre !== 'undefined' && orderNombre === 'asc') ? 'desc' : 'asc' %>" title="Ordenar por nombre (clic para alternar A–Z / Z–A)"><%= (typeof orderNombre !== 'undefined' && orderNombre === 'desc') ? 'Contactos Z–A' : 'Contactos A–Z' %></a>
         <form method="get" action="/clientes" class="gv-contactos-search">
           <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %><input type="hidden" name="tipo" value="<%= tipoContacto %>" /><% } %>
           <input type="hidden" name="order" value="<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" />
-          <input type="hidden" name="limit" value="<%= paging.limit %>" />
           <input type="search" name="q" placeholder="Ej: provincia:Murcia estado:activos tipo:Farmacia · o texto libre" value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" />
           <button class="btn secondary" type="submit">Buscar</button>
           <% if (typeof q !== 'undefined' && q) { %>
-            <a class="btn secondary" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>&limit=<%= paging.limit %>" title="Limpiar búsqueda">✕</a>
+            <a class="btn secondary" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" title="Limpiar búsqueda">✕</a>
           <% } %>
         </form>
         <a class="btn" href="/clientes/new">Nuevo contacto</a>
       </div>
     </div>
     <p class="gv-contactos-hd__sub">
-      Página <%= paging.page %> de <%= paging.totalPages || 1 %> · Mostrando <%= items.length %> de <%= paging.total %> (límite <%= paging.limit %>)
+      Página <%= paging.page %> de <%= paging.totalPages || 1 %> · Mostrando <%= items.length %> de <%= paging.total %>
       <% if (typeof q !== 'undefined' && q) { %> · Buscando: "<%= q %>"<% } %>
       <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %> · Tipo: <%= tipoContacto %><% } %>
     </p>
   </div>
   <div class="card-bd">
-    <% const qsBase = []; if (typeof q !== 'undefined' && q) qsBase.push('q=' + encodeURIComponent(q)); if (typeof tipoContacto !== 'undefined' && tipoContacto) qsBase.push('tipo=' + encodeURIComponent(tipoContacto)); qsBase.push('order=' + (typeof orderNombre !== 'undefined' ? orderNombre : 'asc')); qsBase.push('limit=' + paging.limit); const qsBaseStr = qsBase.join('&'); %>
+    <% const qsBase = []; if (typeof q !== 'undefined' && q) qsBase.push('q=' + encodeURIComponent(q)); if (typeof tipoContacto !== 'undefined' && tipoContacto) qsBase.push('tipo=' + encodeURIComponent(tipoContacto)); qsBase.push('order=' + (typeof orderNombre !== 'undefined' ? orderNombre : 'asc')); const qsBaseStr = qsBase.join('&'); %>
     <div class="gv-contactos-pagination">
       <% if (paging.page > 1) { %>
         <a class="btn secondary" href="/clientes?page=<%= paging.page - 1 %>&<%= qsBaseStr %>">← Anterior</a>
@@ -47,7 +46,6 @@
       <span class="gv-contactos-pagination__info">
         Página
         <form method="get" action="/clientes" class="gv-contactos-pagination__goto" style="display:inline;">
-          <input type="hidden" name="limit" value="<%= paging.limit %>" />
           <input type="hidden" name="order" value="<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" />
           <% if (typeof q !== 'undefined' && q) { %><input type="hidden" name="q" value="<%= q %>" /><% } %>
           <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %><input type="hidden" name="tipo" value="<%= tipoContacto %>" /><% } %>
@@ -59,19 +57,6 @@
       <% if ((paging.page * paging.limit) < paging.total) { %>
         <a class="btn secondary" href="/clientes?page=<%= paging.page + 1 %>&<%= qsBaseStr %>">Siguiente →</a>
       <% } %>
-      <form method="get" action="/clientes" class="gv-contactos-pagination__limit">
-        <input type="hidden" name="page" value="1" />
-        <input type="hidden" name="order" value="<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" />
-        <% if (typeof q !== 'undefined' && q) { %><input type="hidden" name="q" value="<%= q %>" /><% } %>
-        <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %><input type="hidden" name="tipo" value="<%= tipoContacto %>" /><% } %>
-        <label for="gv-limit-select">Mostrar</label>
-        <select id="gv-limit-select" name="limit" onchange="this.form.submit()">
-          <% [10, 25, 50, 100].forEach(function(n) { %>
-            <option value="<%= n %>" <%= paging.limit === n ? 'selected' : '' %>><%= n %></option>
-          <% }); %>
-        </select>
-        por página
-      </form>
     </div>
 
     <div class="table-wrap gv-contactos-table-wrap">
@@ -240,8 +225,6 @@
 .gv-contactos-pagination__input { width: 56px; padding: 6px 8px; border: 1px solid var(--gv-border); border-radius: 8px; font-size: 13px; text-align: center; }
 .gv-contactos-pagination__input:focus { outline: none; border-color: var(--gv-primary); }
 .gv-contactos-pagination__btn { padding: 6px 10px; min-width: auto; }
-.gv-contactos-pagination__limit { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gv-muted); margin-left: auto; }
-.gv-contactos-pagination__limit select { padding: 6px 10px; border: 1px solid var(--gv-border); border-radius: 8px; font-size: 13px; background: #fff; cursor: pointer; }
 .gv-badge { display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 8px; }
 .gv-badge--empresa { background: rgba(0,139,210,.12); color: var(--gv-primary); }
 .gv-badge--persona { background: rgba(143,174,27,.15); color: var(--gv-green); }

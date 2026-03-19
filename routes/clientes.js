@@ -142,7 +142,7 @@ router.get('/', requireLogin, async (req, res, next) => {
     const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
     const pageClamped = Math.min(page, totalPages);
     if (page > totalPages && totalPages > 0) {
-      const redirectQs = new URLSearchParams({ page: String(totalPages), limit: String(limit), order });
+      const redirectQs = new URLSearchParams({ page: String(totalPages), order });
       if (rawQ) redirectQs.set('q', rawQ);
       if (tipoContacto) redirectQs.set('tipo', tipoContacto);
       return res.redirect('/clientes?' + redirectQs.toString());
