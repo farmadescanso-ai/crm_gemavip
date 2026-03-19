@@ -58,6 +58,14 @@ function ensureTransferTarifaYFormaPago(payload, body, tarifas, formasPago, tipo
   return out;
 }
 
+function filterOutTransferOptions(formasPago, tiposPedido) {
+  const nameOf = (item) => String(item?.formp_nombre ?? item?.Nombre ?? item?.FormaPago ?? item?.nombre ?? item?.tipp_tipo ?? item?.Tipo ?? '');
+  return {
+    formasPago: (formasPago || []).filter((fp) => !/transfer/i.test(nameOf(fp))),
+    tiposPedido: (tiposPedido || []).filter((tp) => !/transfer/i.test(nameOf(tp)))
+  };
+}
+
 const N8N_APROBACION_PEDIDO_WEBHOOK = 'https://farmadescanso-n8n.6f4r35.easypanel.host/webhook/d6977a0f-a949-4fdc-bb45-09083fda4f8b';
 const APROBACION_SECRET = () => (process.env.APROBACION_SECRET || process.env.API_KEY || 'crm-gemavip-aprobacion').trim();
 
@@ -717,13 +725,14 @@ router.get('/new', requireLogin, async (_req, res, next) => {
     const clientesRecent = await db
       .getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' })
       .catch(() => []);
+    const _filtered = filterOutTransferOptions(formasPago, tiposPedido);
     res.render('pedido-form', {
       mode: 'create',
       admin,
       comerciales: Array.isArray(comerciales) ? comerciales : [],
       tarifas: Array.isArray(tarifas) ? tarifas : [],
-      formasPago: Array.isArray(formasPago) ? formasPago : [],
-      tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
+      formasPago: _filtered.formasPago,
+      tiposPedido: _filtered.tiposPedido,
       descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       articulos: Array.isArray(articulos) ? articulos : [],
@@ -766,6 +775,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const body = req.body || {};
     const admin = isAdminUser(res.locals.user);
     const clientesFilters = { comercial: res.locals.user?.id };
+    const _ftCreate = filterOutTransferOptions(formasPago, tiposPedido);
     const esEspecial = body.EsEspecial === '1' || body.EsEspecial === 1 || body.EsEspecial === true || String(body.EsEspecial || '').toLowerCase() === 'on';
     const tarifaIn = Number(body.Id_Tarifa);
     const tarifaId = Number.isFinite(tarifaIn) ? tarifaIn : NaN;
@@ -799,8 +809,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         admin,
         comerciales,
         tarifas,
-        formasPago,
-        tiposPedido: tiposPedido || [],
+        formasPago: _ftCreate.formasPago,
+        tiposPedido: _ftCreate.tiposPedido,
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
@@ -822,8 +832,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         admin,
         comerciales,
         tarifas,
-        formasPago,
-        tiposPedido: tiposPedido || [],
+        formasPago: _ftCreate.formasPago,
+        tiposPedido: _ftCreate.tiposPedido,
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
@@ -842,8 +852,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         admin,
         comerciales,
         tarifas,
-        formasPago,
-        tiposPedido: tiposPedido || [],
+        formasPago: _ftCreate.formasPago,
+        tiposPedido: _ftCreate.tiposPedido,
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
@@ -862,8 +872,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         admin,
         comerciales,
         tarifas,
-        formasPago,
-        tiposPedido: tiposPedido || [],
+        formasPago: _ftCreate.formasPago,
+        tiposPedido: _ftCreate.tiposPedido,
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
@@ -882,8 +892,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         admin,
         comerciales,
         tarifas,
-        formasPago,
-        tiposPedido: tiposPedido || [],
+        formasPago: _ftCreate.formasPago,
+        tiposPedido: _ftCreate.tiposPedido,
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         articulos,
@@ -1391,14 +1401,15 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
             _n(pickRowCI(l, ['pedart_pvp', 'Linea_PVP', 'PVP', 'pvp', 'PrecioUnitario', 'precio_unitario', 'Precio', 'precio', 'PVL', 'pvl']), '')
         }))
       : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
+    const _ftEdit = filterOutTransferOptions(formasPago, tiposPedido);
     res.render('pedido-form', {
       mode: 'edit',
       admin,
       item,
       lineas,
       tarifas,
-      formasPago,
-      tiposPedido: Array.isArray(tiposPedido) ? tiposPedido : [],
+      formasPago: _ftEdit.formasPago,
+      tiposPedido: _ftEdit.tiposPedido,
       descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       comerciales,
@@ -1446,6 +1457,7 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
       loadSimpleCatalogForSelect(db, 'paises')
     ]);
     const articulos = await db.getArticulos({}).catch(() => []);
+    const _ftUpdate = filterOutTransferOptions(formasPago, tiposPedido);
 
     const body = req.body || {};
     const esEspecial = body.EsEspecial === '1' || body.EsEspecial === 1 || body.EsEspecial === true || String(body.EsEspecial || '').toLowerCase() === 'on';
@@ -1478,8 +1490,8 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
         item: { ...existing, ...pedidoPayload },
         lineas: (body.lineas || body.Lineas) ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas)) : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
         tarifas,
-        formasPago,
-        tiposPedido: tiposPedido || [],
+        formasPago: _ftUpdate.formasPago,
+        tiposPedido: _ftUpdate.tiposPedido,
         descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
         estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
         comerciales,
