@@ -6,6 +6,7 @@ const express = require('express');
 const crypto = require('crypto');
 const axios = require('axios');
 const db = require('../config/mysql-crm');
+const { warn } = require('../lib/logger');
 const {
   _n,
   renderErrorPage,
@@ -24,7 +25,7 @@ let sendPushToAdmins = () => Promise.resolve();
 try {
   const wp = require('../lib/web-push');
   if (wp && typeof wp.sendPushToAdmins === 'function') sendPushToAdmins = wp.sendPushToAdmins;
-} catch (_) {}
+} catch (e) { warn('[pedidos] web-push load:', e?.message); }
 const {
   tokenizeSmartQuery,
   parseLineasFromBody,
@@ -90,11 +91,11 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
   try {
     const dirId = Number(_n(_n(item.Id_DireccionEnvio, item.id_direccion_envio), item.ped_direnv_id) || 0);
     if (dirId) direccionEnvio = await db.getDireccionEnvioById(dirId).catch(() => null);
-    if (!direccionEnvio && idCliente) {
+      if (!direccionEnvio && idCliente) {
       const dirs = await db.getDireccionesEnvioByCliente(idCliente, { compact: false }).catch(() => []);
       if (Array.isArray(dirs) && dirs.length === 1) direccionEnvio = dirs[0];
     }
-  } catch (_) {}
+  } catch (e) { warn('[pedidos] dirEnvio:', e?.message); }
 
   let excelBase64 = null;
   let excelFilename = null;
@@ -280,7 +281,7 @@ router.get('/', requireLogin, async (req, res, next) => {
     try {
       const cols = await db._getColumns(pedidosMeta?.tPedidos || 'pedidos').catch(() => []);
       hasEstadoIdCol = (cols || []).some((c) => String(c).toLowerCase() === String(colEstadoId).toLowerCase());
-    } catch (_) {}
+    } catch (e) { warn('[pedidos] estadoIdCol:', e?.message); }
 
     const startYear = 2025;
     const currentYear = new Date().getFullYear();

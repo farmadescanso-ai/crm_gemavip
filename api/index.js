@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const helmet = require('helmet');
 const fs = require('fs').promises;
 const mysql = require('mysql2/promise');
@@ -61,6 +62,7 @@ const app = express();
 // trust proxy: 1 = confiar en el primer proxy (Vercel). Necesario para req.ip correcto en rate limiting.
 app.set('trust proxy', 1);
 
+app.use(compression());
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {

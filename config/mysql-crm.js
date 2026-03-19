@@ -1712,7 +1712,7 @@ class MySQLCRM {
   }
 }
 
-// Fase 3: Lazy loading - dominios y módulos se cargan solo cuando se usan
+// Módulos: carga eager al inicio (evita overhead por request en cold start Vercel)
 const _modulesApplied = new Set();
 const _configDir = __dirname;
 const MODULE_NAMES = ['visitas', 'articulos', 'pedidos', 'comerciales', 'agenda', 'clientes', 'catalogos', 'notificaciones', 'direcciones-envio', 'codigos-postales'];
@@ -1725,6 +1725,8 @@ function ensureModule(name) {
     _modulesApplied.add(name);
   }
 }
+
+MODULE_NAMES.forEach((m) => ensureModule(m));
 
 const domains = createDomains(ensureModule);
 

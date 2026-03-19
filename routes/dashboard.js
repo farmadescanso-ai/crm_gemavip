@@ -8,6 +8,7 @@ const express = require('express');
 const db = require('../config/mysql-crm');
 const { _n } = require('../lib/app-helpers');
 const { isAdminUser, requireLogin } = require('../lib/auth');
+const { warn } = require('../lib/logger');
 const {
   PERIOD_OPTIONS,
   parseDashboardFilters,
@@ -148,7 +149,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       const [ventasRow] = await db.query(ventasSql, ventasParams);
       ventas = Number(_n(ventasRow?.total, 0));
       numPedidos = Number(_n(ventasRow?.n, 0));
-    } catch (_) {}
+    } catch (e) { warn('[dashboard]', e?.message); }
 
     ticketMedio = numPedidos > 0 ? Math.round((ventas / numPedidos) * 100) / 100 : null;
 
@@ -170,7 +171,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       try {
         const [visRow] = await db.query(`SELECT COUNT(*) AS n FROM \`${metaVisitas.table}\` ${visWhereSql}`, visParams);
         numVisitas = Number(_n(visRow?.n, 0));
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
     }
 
     const clientesCols = await db._getColumns(tClientes).catch(() => []);
@@ -198,7 +199,8 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           cliParams
         );
         contactosNuevos = Number(_n(cnRow?.n, 0));
-      } catch (_) {
+      } catch (e) {
+        warn('[dashboard] contactosNuevos', e?.message);
         contactosNuevos = null;
       }
     }
@@ -218,7 +220,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           filters.zone ? [...faParams, ...zoneParams] : faParams
         );
         farmaciasActivas = Number(_n(faRow?.n, 0));
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
 
       try {
         const ccJoin = buildClienteCCAAJoin();
@@ -236,7 +238,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           ccParams
         );
         coberturaCCAA = Number(_n(ccRow?.n, 0));
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
     }
 
     if (!admin && hasUserId) {
@@ -253,7 +255,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           caParams
         );
         clientesActivos = Number(_n(caRow?.n, 0));
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
     }
 
     let numClientes = 0;
@@ -271,7 +273,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         const cliWhereSql = cliWhere.length ? `WHERE ${cliWhere.join(' AND ')}` : '';
         const [cliRow] = await db.query(`SELECT COUNT(*) AS n FROM \`${tClientes}\` ${cliWhereSql}`, cliParams);
         numClientes = Number(_n(cliRow?.n, 0));
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
     } else if (hasUserId) {
       numClientes = await db.countClientesOptimizado({ comercial: userId }).catch(() => 0);
     }
@@ -281,7 +283,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       try {
         const [comRow] = await db.query('SELECT COUNT(*) AS n FROM comerciales');
         numComerciales = Number(_n(comRow?.n, 0));
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
     }
 
     const stats = {
@@ -508,7 +510,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
              ${visWhereSql} ORDER BY v.\`${metaVisitas.pk}\` DESC LIMIT 10`,
             visParams
           );
-        } catch (_) {}
+        } catch (e) { warn('[dashboard]', e?.message); }
       }
     } else {
       try {
@@ -546,7 +548,8 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
            ORDER BY p.ped_id DESC LIMIT ${limitComercial}`,
           [userId, ...(hasDateFilter ? [dateFrom, dateTo] : []), ...pedEstadoParam]
         );
-      } catch (_) {
+      } catch (e) {
+        warn('[dashboard] pedidos comercial', e?.message);
         latest.pedidos = [];
       }
 
@@ -576,7 +579,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
            WHERE ${rpWhere.join(' AND ')} GROUP BY a.art_id, a.art_nombre ORDER BY Ventas DESC LIMIT 10`,
           rpParams
         );
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
 
       if (metaVisitas?.table) {
         try {
@@ -590,7 +593,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
              ORDER BY v.\`${metaVisitas.colFecha}\` ASC LIMIT 10`,
             [userId, hoy]
           );
-        } catch (_) {}
+        } catch (e) { warn('[dashboard]', e?.message); }
       }
     }
 
@@ -603,18 +606,18 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           'SELECT DISTINCT codpos_ComunidadAutonoma AS value FROM codigos_postales WHERE codpos_ComunidadAutonoma IS NOT NULL AND codpos_ComunidadAutonoma != "" ORDER BY codpos_ComunidadAutonoma'
         );
         zonas = Array.isArray(zonasRows) ? zonasRows : [];
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
       try {
         const rows = await db.query(
           `SELECT \`${comercialesMeta?.pk || 'com_id'}\` AS id, \`${comercialesMeta?.colNombre || 'com_nombre'}\` AS nombre FROM \`${comercialesMeta?.table || 'comerciales'}\` ORDER BY \`${comercialesMeta?.colNombre || 'com_nombre'}\``
         );
         comercialesList = Array.isArray(rows) ? rows : [];
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
     }
     try {
       const rows = await db.query('SELECT mar_id AS id, mar_nombre AS nombre FROM marcas ORDER BY mar_nombre');
       marcasList = Array.isArray(rows) ? rows : [];
-    } catch (_) {}
+    } catch (e) { warn('[dashboard]', e?.message); }
 
     await db.ensureEstadosPedidoTable().catch(() => null);
     const estadosPedido = await db.getEstadosPedidoActivos().catch(() => []);
@@ -625,7 +628,7 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
           `SELECT \`${comercialesMeta?.pk || 'com_id'}\` AS id, \`${comercialesMeta?.colNombre || 'com_nombre'}\` AS nombre FROM \`${comercialesMeta?.table || 'comerciales'}\` ORDER BY \`${comercialesMeta?.colNombre || 'com_nombre'}\``
         );
         comercialesList = Array.isArray(comRows) ? comRows : [];
-      } catch (_) {}
+      } catch (e) { warn('[dashboard]', e?.message); }
     }
 
     res.render('dashboard', {

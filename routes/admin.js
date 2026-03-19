@@ -6,6 +6,7 @@ const express = require('express');
 const db = require('../config/mysql-crm');
 const { requireAdmin } = require('../lib/app-helpers');
 const { _n } = require('../lib/app-helpers');
+const { warn } = require('../lib/logger');
 const {
   buildSysVarMergedList,
   loadVariablesSistemaRaw,
@@ -75,7 +76,8 @@ router.get('/importar-holded', requireSystemAdmin, async (req, res, next) => {
           "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pedidos' AND COLUMN_NAME = 'ped_id_holded'"
         );
         needsMigration = !cols?.length;
-      } catch (_) {
+      } catch (e) {
+        warn('[admin] descuentos migration check:', e?.message);
         needsMigration = true;
       }
     }
@@ -202,11 +204,12 @@ router.get('/descuentos-pedido', requireAdmin, async (_req, res, next) => {
     try {
       const r = await db.query('SELECT DATABASE() AS db').catch(() => []);
       diag.database = r && r[0] ? _n(_n(_n(r[0].db, r[0].DB), r[0].database), null) : null;
-    } catch (_) {}
+    } catch (e) { warn('[admin] diag db:', e?.message); }
     try {
       const c = await db.query('SELECT COUNT(*) AS n FROM `descuentos_pedido`').catch(() => []);
       diag.count = c && c[0] ? Number(_n(_n(c[0].n, c[0].N), 0)) : null;
-    } catch (_) {
+    } catch (e) {
+      warn('[admin] diag count:', e?.message);
       diag.count = null;
     }
 

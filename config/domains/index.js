@@ -1,51 +1,43 @@
 /**
- * Dominios del CRM - lazy loading (Fase 3)
- * Cada dominio se carga solo cuando se accede por primera vez.
+ * Dominios del CRM - carga eager al inicio.
  * ensureModule(name) aplica el mysql-crm-* correspondiente al prototipo.
- * @param {function(name: string)} ensureModule - Callback para aplicar módulo mysql-crm-* antes de cargar dominio
+ * @param {function(name: string)} ensureModule - Callback para aplicar módulo mysql-crm-*
  */
 'use strict';
 
-const domainCache = {};
 const MODULE_DEPS = {
   visitas: 'visitas',
   articulos: 'articulos',
   pedidos: 'pedidos',
   comerciales: 'comerciales',
   clientes: 'clientes',
-  clientesCrud: ['clientes', 'codigos-postales'], // clientesCrud usa createCodigoPostal, _getCodigosPostalesTableName
+  clientesCrud: ['clientes', 'codigos-postales'],
   clientesRelacionados: 'clientes',
   catalogos: 'catalogos',
-  notificaciones: ['clientes', 'comerciales', 'pedidos', 'notificaciones'] // múltiples deps
+  notificaciones: ['clientes', 'comerciales', 'pedidos', 'notificaciones']
+};
+
+const LOADERS = {
+  visitas: () => require('./visitas'),
+  articulos: () => require('./articulos'),
+  pedidos: () => require('./pedidos'),
+  comerciales: () => require('./comerciales'),
+  clientes: () => require('./clientes'),
+  clientesCrud: () => require('./clientes-crud'),
+  clientesRelacionados: () => require('./clientes-relacionados'),
+  catalogos: () => require('./catalogos'),
+  notificaciones: () => require('./notificaciones')
 };
 
 function createDomains(ensureModule) {
-  return new Proxy({}, {
-    get(target, prop) {
-      const dep = MODULE_DEPS[prop];
-      if (!dep) return undefined;
-      const deps = Array.isArray(dep) ? dep : [dep];
-      deps.forEach((d) => ensureModule(d));
-      if (!domainCache[prop]) {
-        const loaders = {
-          visitas: () => require('./visitas'),
-          articulos: () => require('./articulos'),
-          pedidos: () => require('./pedidos'),
-          comerciales: () => require('./comerciales'),
-          clientes: () => require('./clientes'),
-          clientesCrud: () => require('./clientes-crud'),
-          clientesRelacionados: () => require('./clientes-relacionados'),
-          catalogos: () => require('./catalogos'),
-          notificaciones: () => require('./notificaciones')
-        };
-        domainCache[prop] = loaders[prop]();
-      }
-      return domainCache[prop];
-    },
-    has(target, prop) {
-      return prop in MODULE_DEPS;
-    }
-  });
+  const cache = {};
+  for (const prop of Object.keys(MODULE_DEPS)) {
+    const dep = MODULE_DEPS[prop];
+    const deps = Array.isArray(dep) ? dep : [dep];
+    deps.forEach((d) => ensureModule(d));
+    cache[prop] = LOADERS[prop]();
+  }
+  return cache;
 }
 
 module.exports = createDomains;

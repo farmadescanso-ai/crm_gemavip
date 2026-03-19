@@ -119,4 +119,14 @@ CALL _add_index_if_not_exists('visitas', 'idx_visitas_cli_fecha_id', '`vis_cli_i
 -- VISITAS: comercial + fecha + PK (listado visitas del comercial, dashboard)
 CALL _add_index_if_not_exists('visitas', 'idx_visitas_com_fecha_id', '`vis_com_id`,`vis_fecha`,`vis_id`', 'BTREE');
 
+-- =============================================================================
+-- FULLTEXT (v2.0 — pre-creados; evita crearlos en cold start de Vercel)
+-- =============================================================================
+-- La app los crea dinámicamente si faltan, pero pre-crearlos evita latencia en cold start.
+-- Nota: la tabla agenda puede llamarse 'contactos' en BD legacy.
+
+-- AGENDA/CONTACTOS: búsqueda textual
+CALL _add_index_if_not_exists('contactos', 'ft_agenda_busqueda', '`Nombre`,`Apellidos`,`Empresa`,`Email`,`Movil`,`Telefono`', 'FULLTEXT');
+CALL _add_index_if_not_exists('contactos', 'idx_agenda_activo_apellidos_nombre', '`Activo`,`Apellidos`,`Nombre`', 'BTREE');
+
 DROP PROCEDURE IF EXISTS _add_index_if_not_exists;
