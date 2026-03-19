@@ -45,7 +45,18 @@ const DEFAULT_TABLE_NAMES = {
   tipos_pedido: 'tipos_pedidos',
   tipos_pedidos: 'tipos_pedidos',
   variables_sistema: 'variables_sistema',
-  visitas: 'visitas'
+  visitas: 'visitas',
+  idiomas: 'idiomas',
+  monedas: 'monedas',
+  notificaciones: 'notificaciones',
+  ventas_hefame: 'ventas_hefame',
+  regimenes_fiscales: 'regimenes_fiscales',
+  tipos_impuesto: 'tipos_impuesto',
+  equivalencias_impuesto: 'equivalencias_impuesto',
+  estados_visita: 'estados_visita',
+  centros_prescriptores: 'centros_prescriptores',
+  tiposcargorol: 'tiposcargorol',
+  push_subscriptions: 'push_subscriptions'
 };
 
 function getTableNames() {

@@ -39,7 +39,10 @@ const SCHEMA_COLUMNS = {
   ventas_hefame: ['venhef_id', 'venhef_material_codigo', 'venhef_material_descripcion', 'venhef_provincia_codigo', 'venhef_provincia_nombre', 'venhef_mes', 'venhef_anio', 'venhef_cantidad', 'venhef_origen_archivo', 'venhef_created_at', 'venhef_updated_at'],
   regimenes_fiscales: ['regfis_id', 'regfis_codigo', 'regfis_nombre', 'regfis_nombre_corto', 'regfis_pais_codigo', 'regfis_activo', 'regfis_creado_en'],
   tipos_impuesto: ['timp_id', 'timp_regfis_id', 'timp_codigo', 'timp_nombre', 'timp_porcentaje', 'timp_es_defecto', 'timp_activo'],
-  equivalencias_impuesto: ['eqimp_id', 'eqimp_timp_origen_id', 'eqimp_timp_destino_id']
+  equivalencias_impuesto: ['eqimp_id', 'eqimp_timp_origen_id', 'eqimp_timp_destino_id'],
+  estados_visita: ['estvis_id', 'estvis_nombre', 'estvis_activo'],
+  tiposcargorol: ['tipcar_id', 'tipcar_nombre', 'tipcar_activo'],
+  centros_prescriptores: ['cent_id', 'cent_nombre', 'cent_direccion', 'cent_poblacion', 'cent_codigo_postal', 'cent_prov_id', 'cent_telefono', 'cent_activo']
 };
 
 const USE_STATIC = process.env.USE_STATIC_SCHEMA !== '0';

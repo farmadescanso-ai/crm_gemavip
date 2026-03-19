@@ -10,7 +10,9 @@ const { warn } = require('../lib/logger');
 const {
   _n,
   renderErrorPage,
-  requireAdmin
+  requireAdmin,
+  pickCI,
+  pickNonZero
 } = require('../lib/app-helpers');
 const {
   isAdminUser,
@@ -127,28 +129,8 @@ async function _sendPedidoAprobacionWebhook(pedidoId, sessionUser) {
   const comercialEmail = comercial?.com_email ?? comercial?.Email ?? comercial?.email ?? sessionUser?.email ?? null;
   const comercialNombre = comercial?.com_nombre ?? comercial?.Nombre ?? comercial?.nombre ?? sessionUser?.nombre ?? '';
 
-  const _pickCI = (obj, keys) => {
-    if (!obj || typeof obj !== 'object') return undefined;
-    const map = new Map(Object.keys(obj).map((k) => [k.toLowerCase(), obj[k]]));
-    for (const k of keys) {
-      const v = map.get(k.toLowerCase());
-      if (v != null && v !== '') return v;
-    }
-    return undefined;
-  };
-  const _pickNonZero = (obj, keys, dflt = 0) => {
-    if (!obj || typeof obj !== 'object') return dflt;
-    const map = new Map(Object.keys(obj).map((k) => [k.toLowerCase(), obj[k]]));
-    let first = undefined;
-    for (const k of keys) {
-      const v = map.get(k.toLowerCase());
-      if (v != null && v !== '') {
-        if (first === undefined) first = v;
-        if (Number(v) > 0) return Number(v);
-      }
-    }
-    return first !== undefined ? Number(first) : dflt;
-  };
+  const _pickCI = pickCI;
+  const _pickNonZero = pickNonZero;
 
   const dtoPedidoPct = _pickNonZero(item, ['ped_dto', 'Dto', 'Descuento'], 0);
 

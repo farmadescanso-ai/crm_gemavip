@@ -72,7 +72,11 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       fontSrc: ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
       connectSrc: ["'self'", "cdn.jsdelivr.net", "https://cdn.jsdelivr.net"],
-      frameSrc: ["'self'", "https://vercel.live"]
+      frameSrc: ["'self'", "https://vercel.live"],
+      workerSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
     }
   }
 }));

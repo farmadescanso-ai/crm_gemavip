@@ -125,8 +125,8 @@ CALL _add_index_if_not_exists('visitas', 'idx_visitas_com_fecha_id', '`vis_com_i
 -- La app los crea dinámicamente si faltan, pero pre-crearlos evita latencia en cold start.
 -- Nota: la tabla agenda puede llamarse 'contactos' en BD legacy.
 
--- AGENDA/CONTACTOS: búsqueda textual
-CALL _add_index_if_not_exists('contactos', 'ft_agenda_busqueda', '`Nombre`,`Apellidos`,`Empresa`,`Email`,`Movil`,`Telefono`', 'FULLTEXT');
-CALL _add_index_if_not_exists('contactos', 'idx_agenda_activo_apellidos_nombre', '`Activo`,`Apellidos`,`Nombre`', 'BTREE');
+-- AGENDA: búsqueda textual
+CALL _add_index_if_not_exists('agenda', 'ft_agenda_busqueda', '`ag_nombre`,`ag_apellidos`,`ag_empresa`,`ag_email`,`ag_movil`,`ag_telefono`', 'FULLTEXT');
+CALL _add_index_if_not_exists('agenda', 'idx_agenda_activo_apellidos_nombre', '`ag_activo`,`ag_apellidos`,`ag_nombre`', 'BTREE');
 
 DROP PROCEDURE IF EXISTS _add_index_if_not_exists;
