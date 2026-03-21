@@ -30,6 +30,7 @@ const {
   getStoredPasswordFromRow,
   makeRequestId,
   wantsHtml,
+  getQueryParam,
   buildSupportDetails,
   renderErrorPage,
   requireApiKeyIfConfigured,
@@ -361,9 +362,9 @@ app.use(async (req, res, next) => {
 });
 
 // Provincia y país por código postal (debe ir DESPUÉS de session para que requireLogin funcione)
-app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
+app.get('/api/provincia-by-cp', requireLoginJson, async (req, res) => {
   try {
-    const cp = String(req.query?.cp ?? '').trim().replace(/\s+/g, '');
+    const cp = String(getQueryParam(req, 'cp') || '').trim().replace(/\s+/g, '');
     if (!cp || cp.length < 2) return res.json({ ok: true, provinciaId: null, provinciaNombre: null, paisId: null, paisNombre: null, poblacion: null, paisCodigo: null });
     let provinciaId = null;
     let provinciaNombre = null;
@@ -474,7 +475,7 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
  */
 app.get('/api/banco-por-entidad', requireLoginJson, async (req, res) => {
   try {
-    const ent = String(req.query?.entidad ?? '')
+    const ent = String(getQueryParam(req, 'entidad') || '')
       .trim()
       .replace(/\D/g, '');
     if (!/^[0-9]{4}$/.test(ent)) {
@@ -483,7 +484,7 @@ app.get('/api/banco-por-entidad', requireLoginJson, async (req, res) => {
     const table = await db._resolveTableNameCaseInsensitive?.('bancos').catch(() => 'bancos');
     const rows = await db
       .query(
-        `SELECT banco_nombre, banco_swift_bic FROM \`${table}\` WHERE banco_entidad = ? LIMIT 1`,
+        `SELECT banco_nombre, banco_swift_bic FROM \`${table}\` WHERE TRIM(banco_entidad) = ? LIMIT 1`,
         [ent]
       )
       .catch(() => []);
