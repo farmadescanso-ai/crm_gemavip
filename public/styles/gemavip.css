@@ -606,6 +606,9 @@ main.container{
 .dash-card-visitas .table-wrap {
   border-radius: 10px;
 }
+.dash-card-visitas .dash-table tbody tr:hover td {
+  background: rgba(0, 139, 210, 0.05);
+}
 
 .btn{
   display:inline-flex;
@@ -1612,6 +1615,13 @@ main.container .gv-pedido-form{
   opacity: .78;
   transition: opacity .15s ease;
 }
+.gv-visitas-calendar-host{
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--gv-border);
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(12, 20, 58, 0.04);
+}
 
 /* Calendario (tabla) */
 table.calendar td{
@@ -1887,6 +1897,14 @@ table.calendar td.is-empty{
   font-weight: 800;
   color: var(--gv-ink);
   cursor:pointer;
+}
+a.gv-tab{
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  box-sizing: border-box;
 }
 .gv-tab:hover{ background: rgba(0,139,210,.06); }
 .gv-tab.is-active{
