@@ -782,6 +782,58 @@
     });
   }
 
+  // IBAN ES → nombre del banco y SWIFT/BIC (código de entidad = 4 dígitos tras ES + DC IBAN)
+  var ibanInput = form.querySelector('input[name="cli_iban"], input[name="cli_IBAN"], input[name="IBAN"]');
+  var bancoInput = form.querySelector('input[name="cli_banco"], input[name="cli_Banco"], input[name="Banco"]');
+  var swiftInput = form.querySelector('input[name="cli_swift"], input[name="cli_Swift"], input[name="SWIFT"]');
+  if (ibanInput) {
+    function normIbanStr(s) {
+      return String(s || '').replace(/\s+/g, '').toUpperCase();
+    }
+    function extractEntidadDesdeIbanEs(ibanNorm) {
+      if (!/^ES[0-9]{2}/.test(ibanNorm) || ibanNorm.length < 8) return null;
+      return ibanNorm.substring(4, 8);
+    }
+    var ibanBancoTimeout = null;
+    function tryBancoSwiftDesdeIban() {
+      var raw = normIbanStr(ibanInput.value);
+      if (raw.length < 8) return;
+      var ent = extractEntidadDesdeIbanEs(raw);
+      if (!ent || !/^[0-9]{4}$/.test(ent)) return;
+      var bancoTiene = bancoInput && String(bancoInput.value || '').trim();
+      var swiftTiene = swiftInput && String(swiftInput.value || '').trim();
+      if (bancoTiene && swiftTiene) return;
+      fetch('/api/banco-por-entidad?entidad=' + encodeURIComponent(ent), {
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
+      })
+        .then(function (r) {
+          if (!r.ok) return null;
+          var ct = (r.headers.get('Content-Type') || '').toLowerCase();
+          if (ct.indexOf('application/json') === -1) return null;
+          return r.json();
+        })
+        .then(function (json) {
+          if (!json || !json.ok) return;
+          if (bancoInput && !String(bancoInput.value || '').trim() && json.bancoNombre) {
+            bancoInput.value = json.bancoNombre;
+          }
+          if (swiftInput && !String(swiftInput.value || '').trim() && json.swiftBic) {
+            swiftInput.value = json.swiftBic;
+          }
+        })
+        .catch(function () {});
+    }
+    ibanInput.addEventListener('blur', tryBancoSwiftDesdeIban);
+    ibanInput.addEventListener('paste', function () {
+      setTimeout(tryBancoSwiftDesdeIban, 0);
+    });
+    ibanInput.addEventListener('input', function () {
+      if (ibanBancoTimeout) clearTimeout(ibanBancoTimeout);
+      ibanBancoTimeout = setTimeout(tryBancoSwiftDesdeIban, 400);
+    });
+  }
+
   // Al seleccionar España: auto-rellenar idioma (Español) y moneda (Euro)
   var idiomSelect = form.querySelector('select[name="cli_idiom_id"], select[name="Id_Idioma"], select[name="id_idioma"]');
   var monSelect = form.querySelector('select[name="cli_mon_id"], select[name="Id_Moneda"], select[name="id_moneda"]');

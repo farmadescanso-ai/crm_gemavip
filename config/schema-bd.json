@@ -98,5 +98,9 @@
     "pk": "eqimp_id",
     "cols": ["eqimp_id", "eqimp_timp_origen_id", "eqimp_timp_destino_id"],
     "fk": { "eqimp_timp_origen_id": "tipos_impuesto", "eqimp_timp_destino_id": "tipos_impuesto" }
+  },
+  "bancos": {
+    "pk": "banco_id",
+    "cols": ["banco_id", "banco_nombre", "banco_entidad", "banco_swift_bic", "banco_fecha_alta"]
   }
 }

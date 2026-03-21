@@ -437,6 +437,69 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/banco-por-entidad:
+ *   get:
+ *     tags:
+ *       - DB
+ *     summary: Nombre y BIC/SWIFT por código de entidad bancaria (4 dígitos, IBAN ES)
+ *     security:
+ *       - SessionCookie: []
+ *     parameters:
+ *       - in: query
+ *         name: entidad
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^[0-9]{4}$'
+ *         description: Código de entidad (cuatro dígitos)
+ *     responses:
+ *       200:
+ *         description: Resultado de búsqueda
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 bancoNombre:
+ *                   type: string
+ *                   nullable: true
+ *                 swiftBic:
+ *                   type: string
+ *                   nullable: true
+ */
+app.get('/api/banco-por-entidad', requireLogin, async (req, res) => {
+  try {
+    const ent = String(req.query?.entidad ?? '')
+      .trim()
+      .replace(/\D/g, '');
+    if (!/^[0-9]{4}$/.test(ent)) {
+      return res.json({ ok: false, bancoNombre: null, swiftBic: null });
+    }
+    const table = await db._resolveTableNameCaseInsensitive?.('bancos').catch(() => 'bancos');
+    const rows = await db
+      .query(
+        `SELECT banco_nombre, banco_swift_bic FROM \`${table}\` WHERE banco_entidad = ? LIMIT 1`,
+        [ent]
+      )
+      .catch(() => []);
+    const r = rows?.[0];
+    if (!r) return res.json({ ok: false, bancoNombre: null, swiftBic: null });
+    const nombre = r.banco_nombre != null ? String(r.banco_nombre).trim() : '';
+    const swift = r.banco_swift_bic != null ? String(r.banco_swift_bic).trim() : '';
+    return res.json({
+      ok: true,
+      bancoNombre: nombre || null,
+      swiftBic: swift || null
+    });
+  } catch (_e) {
+    return res.json({ ok: false, bancoNombre: null, swiftBic: null });
+  }
+});
+
 // Favicon: redirigir al logo de Gemavip
 app.get('/favicon.ico', (req, res) => {
   res.redirect(302, '/assets/images/gemavip-logo.svg');
