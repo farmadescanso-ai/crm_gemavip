@@ -7,6 +7,8 @@
 <% const zonasList = Array.isArray(zonas) ? zonas : []; %>
 <% const comercialesListSafe = Array.isArray(comercialesList) ? comercialesList : []; %>
 <% const marcasListSafe = Array.isArray(marcasList) ? marcasList : []; %>
+<% const qDash = (typeof q === 'string') ? q : ''; %>
+<% const periodoEff = (typeof periodoEfectivo === 'string' && periodoEfectivo) ? periodoEfectivo : ''; %>
 
 <% if (isAdmin && (errs.clientes || errs.pedidos || errs.rankingComerciales || errs.rankingZona || errs.rankingProductos)) { %>
   <section class="card" style="margin-bottom: 16px; border-color: #dc2626;">
@@ -23,12 +25,17 @@
   </section>
 <% } %>
 
-<section class="card">
-  <div class="card-hd">
-    <h1 class="card-title">Dashboard <%= isAdmin ? '· Vista ADMIN' : '· Vista COMERCIAL' %></h1>
-    <p class="card-subtitle">
-      <%= isAdmin ? 'Panel de control general' : 'Panel de gestión operativa' %>.
-      Usuario: <strong><%= user?.nombre ?? user?.name ?? user?.email ?? '—' %></strong>
+<section class="card gv-vista">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-vista-hd__title-row">
+      <h1 class="card-title gv-vista-hd__title">Dashboard <%= isAdmin ? '· Vista ADMIN' : '· Vista COMERCIAL' %></h1>
+      <button type="button" class="gv-vista-hd__info" aria-label="Información" title="Información" data-tooltip="Mismos criterios que en Pedidos: marca, búsqueda inteligente, rango de fechas y periodos. Sin selector de año: el periodo por defecto es el año en curso.">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+      <span class="gv-vista-hd__tooltip" role="tooltip">Mismos criterios que en Pedidos: marca, búsqueda inteligente, rango de fechas y periodos. Sin selector de año: el periodo por defecto es el año en curso.</span>
+    </div>
+    <p class="gv-vista-hd__sub" style="margin-top:0;">
+      <%= isAdmin ? 'Panel de control general' : 'Panel de gestión operativa' %> · Usuario: <strong><%= user?.nombre ?? user?.name ?? user?.email ?? '—' %></strong>
     </p>
   </div>
   <div class="card-bd">
@@ -39,92 +46,94 @@
       const _dEstadoId = typeof selectedEstadoId !== 'undefined' ? Number(selectedEstadoId) : null;
       const _dHasCustomRange = !!(_dDesde || _dHasta);
       const _dEstadosArr = (typeof estadosPedido !== 'undefined' && Array.isArray(estadosPedido)) ? estadosPedido : [];
-      const _dHasFilters = _dPeriodo || _dDesde || _dHasta || _dEstadoId || (f.zone) || (f.comercial) || (f.marca);
+      const _dPeriodoBase = '/dashboard?'
+        + (f.zone ? 'zone=' + encodeURIComponent(f.zone) + '&' : '')
+        + (f.comercial ? 'comercial=' + encodeURIComponent(f.comercial) + '&' : '')
+        + (f.marca ? 'marca=' + encodeURIComponent(f.marca) + '&' : '')
+        + (_dEstadoId ? 'estado=' + _dEstadoId + '&' : '')
+        + (qDash ? 'q=' + encodeURIComponent(qDash) + '&' : '');
     %>
-    <form method="get" action="/dashboard" class="dash-filters" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin: 0 0 10px 0;">
-      <label for="year" style="font-weight:700; color: var(--gv-ink);">Año</label>
-      <select id="year" name="year" class="gv-client-picker__q" style="width:auto; min-width: 120px;">
-        <option value="all" <%= String(selectedYear || '') === 'all' ? 'selected' : '' %>>Todos</option>
-        <% (years || []).forEach((y) => { %>
-          <option value="<%= y %>" <%= Number(selectedYear) === Number(y) ? 'selected' : '' %>><%= y %></option>
-        <% }) %>
-      </select>
-      <% if (isAdmin) { %>
-        <label for="zone" style="font-weight:700; color: var(--gv-ink);">Zona</label>
-        <select id="zone" name="zone" class="gv-client-picker__q" style="width:auto; min-width: 130px;">
+    <div class="gv-vista-hd__bar gv-pedidos-filter-bar" style="margin-top:0; padding-top:0; border-top:0;">
+      <form method="get" action="/dashboard" class="gv-pedidos-search-form">
+        <% if (isAdmin) { %>
+          <label for="zone" class="gv-pedidos-search-form__label">Zona</label>
+          <select id="zone" name="zone" class="gv-client-picker__q gv-pedidos-search-form__select">
+            <option value="">Todas</option>
+            <% (zonasList || []).forEach((z) => { %>
+              <option value="<%= z.value ?? z.codpos_ComunidadAutonoma ?? '' %>" <%= (f.zone || '') === (z.value ?? z.codpos_ComunidadAutonoma ?? '') ? 'selected' : '' %>><%= z.value ?? z.codpos_ComunidadAutonoma ?? '' %></option>
+            <% }) %>
+          </select>
+          <label for="comercial" class="gv-pedidos-search-form__label">Comercial</label>
+          <select id="comercial" name="comercial" class="gv-client-picker__q gv-pedidos-search-form__select">
+            <option value="">Todos</option>
+            <% (comercialesListSafe || []).forEach((co) => { %>
+              <option value="<%= co.id ?? co.com_id %>" <%= (f.comercial || '') === String(co.id ?? co.com_id ?? '') ? 'selected' : '' %>><%= co.nombre ?? co.com_nombre ?? '' %></option>
+            <% }) %>
+          </select>
+        <% } %>
+        <label for="marca" class="gv-pedidos-search-form__label">Marca</label>
+        <select id="marca" name="marca" class="gv-client-picker__q gv-pedidos-search-form__select">
           <option value="">Todas</option>
-          <% (zonasList || []).forEach((z) => { %>
-            <option value="<%= z.value ?? z.codpos_ComunidadAutonoma ?? '' %>" <%= (f.zone || '') === (z.value ?? z.codpos_ComunidadAutonoma ?? '') ? 'selected' : '' %>><%= z.value ?? z.codpos_ComunidadAutonoma ?? '' %></option>
+          <% (marcasListSafe || []).forEach((m) => { %>
+            <option value="<%= m.id ?? m.mar_id %>" <%= (f.marca || '') === String(m.id ?? m.mar_id ?? '') ? 'selected' : '' %>><%= m.nombre ?? m.mar_nombre ?? '' %></option>
           <% }) %>
         </select>
-        <label for="comercial" style="font-weight:700; color: var(--gv-ink);">Comercial</label>
-        <select id="comercial" name="comercial" class="gv-client-picker__q" style="width:auto; min-width: 140px;">
+        <label for="estado" class="gv-pedidos-search-form__label">Estado</label>
+        <select id="estado" name="estado" class="gv-client-picker__q gv-pedidos-search-form__select">
           <option value="">Todos</option>
-          <% (comercialesListSafe || []).forEach((co) => { %>
-            <option value="<%= co.id ?? co.com_id %>" <%= (f.comercial || '') === String(co.id ?? co.com_id ?? '') ? 'selected' : '' %>><%= co.nombre ?? co.com_nombre ?? '' %></option>
+          <% _dEstadosArr.forEach((e) => { %>
+            <option value="<%= e.estped_id ?? e.id %>" <%= _dEstadoId === Number(e.estped_id ?? e.id) ? 'selected' : '' %>><%= e.estped_nombre ?? e.nombre ?? e.Nombre %></option>
           <% }) %>
         </select>
-      <% } %>
-      <label for="marca" style="font-weight:700; color: var(--gv-ink);">Marca</label>
-      <select id="marca" name="marca" class="gv-client-picker__q" style="width:auto; min-width: 120px;">
-        <option value="">Todas</option>
-        <% (marcasListSafe || []).forEach((m) => { %>
-          <option value="<%= m.id ?? m.mar_id %>" <%= (f.marca || '') === String(m.id ?? m.mar_id ?? '') ? 'selected' : '' %>><%= m.nombre ?? m.mar_nombre ?? '' %></option>
-        <% }) %>
-      </select>
-      <label for="estado" style="font-weight:700; color: var(--gv-ink);">Estado</label>
-      <select id="estado" name="estado" class="gv-client-picker__q" style="width:auto; min-width: 130px;">
-        <option value="">Todos</option>
-        <% _dEstadosArr.forEach((e) => { %>
-          <option value="<%= e.estped_id ?? e.id %>" <%= _dEstadoId === Number(e.estped_id ?? e.id) ? 'selected' : '' %>><%= e.estped_nombre ?? e.nombre ?? e.Nombre %></option>
-        <% }) %>
-      </select>
-      <button class="btn" type="submit">Aplicar</button>
-      <a class="btn secondary" href="/dashboard" title="Limpiar todos los filtros">✕ Limpiar</a>
-    </form>
-
-    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
-      <span style="font-weight:700; color:var(--gv-ink); font-size:12px;">Desde</span>
-      <input type="date" id="gv-dash-desde" value="<%= _dDesde %>"
-        class="gv-client-picker__q"
-        style="width:auto; min-width:140px; padding:5px 10px; font-size:12px; border-radius:8px;<%= _dHasCustomRange ? ' border-color:rgba(143,174,27,.6); box-shadow:0 0 0 2px rgba(143,174,27,.12);' : '' %>"
-      />
-      <span style="font-weight:700; color:var(--gv-ink); font-size:12px;">Hasta</span>
-      <input type="date" id="gv-dash-hasta" value="<%= _dHasta %>"
-        class="gv-client-picker__q"
-        style="width:auto; min-width:140px; padding:5px 10px; font-size:12px; border-radius:8px;<%= _dHasCustomRange ? ' border-color:rgba(143,174,27,.6); box-shadow:0 0 0 2px rgba(143,174,27,.12);' : '' %>"
-      />
-      <button type="button" id="gv-dash-date-apply" class="badge ok" style="border:none; cursor:pointer; font-size:11px; padding:5px 12px; font-weight:800;">Aplicar</button>
-      <% if (_dHasCustomRange) { %>
-        <a href="/dashboard?year=<%= selectedYear %>" class="badge danger" style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;">✕</a>
-      <% } %>
+        <label for="q-dash" class="gv-pedidos-search-form__label">Buscar</label>
+        <input type="search" id="q-dash" name="q" class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q" placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre" value="<%= qDash %>" />
+        <button class="btn secondary" type="submit">Ver</button>
+        <% if (qDash || f.zone || f.comercial || f.marca || _dEstadoId || _dPeriodo || _dDesde || _dHasta) { %>
+          <a class="btn secondary" href="/dashboard" title="Limpiar filtros">✕</a>
+        <% } %>
+      </form>
     </div>
 
-    <%
-      const _dPeriodoBase = `/dashboard?year=${encodeURIComponent(String(selectedYear ?? ''))}`
-        + (f.zone ? `&zone=${encodeURIComponent(f.zone)}` : '')
-        + (f.comercial ? `&comercial=${encodeURIComponent(f.comercial)}` : '')
-        + (f.marca ? `&marca=${encodeURIComponent(f.marca)}` : '')
-        + (_dEstadoId ? `&estado=${_dEstadoId}` : '');
-      const _dPeriodos = [
-        { key: '',          label: 'Acumulado' },
-        { key: 'hoy',       label: 'Hoy' },
-        { key: '7d',        label: 'Últimos 7 días' },
-        { key: '30d',       label: 'Últimos 30 días' },
-        { key: '90d',       label: 'Últimos 90 días' },
-        { key: 'mes',       label: 'Mes actual' },
-        { key: 'trimestre', label: 'Trimestre actual' },
-      ];
-    %>
-    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
-      <span style="font-weight:700; color:var(--gv-ink); font-size:12px; margin-right:2px;">Periodo:</span>
-      <% _dPeriodos.forEach((pr) => { %>
-        <% const _isActive = !_dHasCustomRange && _dPeriodo === pr.key; %>
-        <a href="<%= _dPeriodoBase %><%= pr.key ? '&periodo=' + encodeURIComponent(pr.key) : '' %>"
-          class="badge <%= _isActive ? 'ok' : '' %>"
-          style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;<%= _isActive ? ' font-weight:900;' : '' %>"
-        ><%= pr.label %></a>
-      <% }) %>
+    <div class="gv-vista-hd__extras">
+      <div class="gv-pedidos-extras-row">
+        <span style="font-weight:700; color:var(--gv-ink); font-size:12px;">Desde</span>
+        <input type="date" id="gv-dash-desde" value="<%= _dDesde %>"
+          class="gv-client-picker__q"
+          style="width:auto; min-width:140px; padding:5px 10px; font-size:12px; border-radius:8px;<%= _dHasCustomRange ? ' border-color:rgba(143,174,27,.6); box-shadow:0 0 0 2px rgba(143,174,27,.12);' : '' %>"
+        />
+        <span style="font-weight:700; color:var(--gv-ink); font-size:12px;">Hasta</span>
+        <input type="date" id="gv-dash-hasta" value="<%= _dHasta %>"
+          class="gv-client-picker__q"
+          style="width:auto; min-width:140px; padding:5px 10px; font-size:12px; border-radius:8px;<%= _dHasCustomRange ? ' border-color:rgba(143,174,27,.6); box-shadow:0 0 0 2px rgba(143,174,27,.12);' : '' %>"
+        />
+        <button type="button" id="gv-dash-date-apply" class="badge ok" style="border:none; cursor:pointer; font-size:11px; padding:5px 12px; font-weight:800;">Aplicar</button>
+        <% if (_dHasCustomRange) { %>
+          <a href="<%= _dPeriodoBase %>" class="badge danger" style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;">✕</a>
+        <% } %>
+      </div>
+
+      <%
+        const _dPeriodos = [
+          { key: 'anio_actual',   label: 'Año actual' },
+          { key: 'anio_anterior', label: 'Año anterior' },
+          { key: 'hoy',           label: 'Hoy' },
+          { key: '7d',            label: 'Últimos 7 días' },
+          { key: '30d',           label: 'Últimos 30 días' },
+          { key: '90d',           label: 'Últimos 90 días' },
+          { key: 'mes',           label: 'Mes actual' },
+          { key: 'trimestre',     label: 'Trimestre actual' },
+        ];
+      %>
+      <div class="gv-pedidos-extras-row" style="gap:6px;">
+        <span style="font-weight:700; color:var(--gv-ink); font-size:12px; margin-right:2px;">Periodo:</span>
+        <% _dPeriodos.forEach((pr) => { %>
+          <% const _isActive = !_dHasCustomRange && String(periodoEff || '') === String(pr.key); %>
+          <a href="<%= _dPeriodoBase %>periodo=<%= encodeURIComponent(pr.key) %>"
+            class="badge <%= _isActive ? 'ok' : '' %>"
+            style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;<%= _isActive ? ' font-weight:900;' : '' %>"
+          ><%= pr.label %></a>
+        <% }) %>
+      </div>
     </div>
     <script>
     (function(){

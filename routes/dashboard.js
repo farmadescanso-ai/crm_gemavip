@@ -11,8 +11,7 @@ const { isAdminUser, requireLogin } = require('../lib/auth');
 const { warn } = require('../lib/logger');
 const {
   PERIOD_OPTIONS,
-  parseDashboardFilters,
-  getSqlDateRange
+  parseDashboardFilters
 } = require('../lib/dashboard-utils');
 const {
   resolveDashboardMeta,
@@ -38,32 +37,23 @@ const {
   queryProximasVisitasComercialDashboard,
   loadMarcasComercialesParaComercial
 } = require('../lib/dashboard-queries');
+const { buildDashboardPedidoSmartWhere } = require('../lib/dashboard-pedido-filters');
 
 const router = express.Router();
 
 router.get('/dashboard', requireLogin, async (req, res, next) => {
   try {
-    const MIN_YEAR = 2025;
     const now = new Date();
     const currentYear = now.getFullYear();
-    const switchDate = new Date(currentYear, 8, 1, 0, 0, 0, 0);
-    const maxYear = now >= switchDate ? currentYear + 1 : currentYear;
-    const years = [];
-    for (let y = MIN_YEAR; y <= maxYear; y += 1) years.push(y);
+    /** Sin selector de año en la UI: siempre año calendario en curso para periodos relativos. */
+    const selectedYear = currentYear;
+    const rawQ = String(req.query.q || req.query.search || '').trim();
 
     const admin = isAdminUser(res.locals.user);
     const userId = Number(res.locals.user?.id);
     const hasUserId = Number.isFinite(userId) && userId > 0;
 
     const filters = parseDashboardFilters(req.query, admin);
-    const yearRaw = String(req.query?.year || '').trim().toLowerCase();
-    const yearParsed = Number(yearRaw);
-    const selectedYear =
-      yearRaw === 'all' || yearRaw === 'todos'
-        ? 'all'
-        : (Number.isFinite(yearParsed) && yearParsed >= MIN_YEAR && yearParsed <= maxYear
-            ? yearParsed
-            : currentYear);
     filters.year = selectedYear;
 
     const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
@@ -73,28 +63,32 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
     const selectedHasta = isValidDate(rawHasta) ? rawHasta : '';
 
     const selectedPeriodo = String(req.query.periodo || '').trim().toLowerCase();
-    let dateFrom, dateTo;
+    let dateFrom;
+    let dateTo;
+    let periodoEfectivo = selectedPeriodo;
 
     if (selectedDesde || selectedHasta) {
-      dateFrom = selectedDesde || `${selectedYear === 'all' ? new Date().getFullYear() : selectedYear}-01-01`;
-      dateTo = selectedHasta || `${selectedYear === 'all' ? new Date().getFullYear() : selectedYear}-12-31`;
-    } else if (['hoy', '7d', '30d', '90d', 'mes', 'trimestre'].includes(selectedPeriodo)) {
+      dateFrom = selectedDesde || `${currentYear}-01-01`;
+      dateTo = selectedHasta || `${currentYear}-12-31`;
+    } else if (['hoy', '7d', '30d', '90d', 'mes', 'trimestre', 'anio_actual', 'anio_anterior'].includes(selectedPeriodo)) {
       const _now = new Date();
       const _pad = (n) => String(n).padStart(2, '0');
       const _fmt = (d) => `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`;
-      const _yr = selectedYear === 'all' ? _now.getFullYear() : Number(selectedYear);
+      const _yr = currentYear;
       if (selectedPeriodo === 'hoy') { dateFrom = _fmt(_now); dateTo = _fmt(_now); }
       else if (selectedPeriodo === '7d') { const d = new Date(_now); d.setDate(d.getDate() - 6); dateFrom = _fmt(d); dateTo = _fmt(_now); }
       else if (selectedPeriodo === '30d') { const d = new Date(_now); d.setDate(d.getDate() - 29); dateFrom = _fmt(d); dateTo = _fmt(_now); }
       else if (selectedPeriodo === '90d') { const d = new Date(_now); d.setDate(d.getDate() - 89); dateFrom = _fmt(d); dateTo = _fmt(_now); }
       else if (selectedPeriodo === 'mes') { dateFrom = `${_yr}-${_pad(_now.getMonth() + 1)}-01`; dateTo = `${_yr}-${_pad(_now.getMonth() + 1)}-${_pad(new Date(_yr, _now.getMonth() + 1, 0).getDate())}`; }
       else if (selectedPeriodo === 'trimestre') { const q = Math.floor(_now.getMonth() / 3); const m1 = q * 3 + 1; dateFrom = `${_yr}-${_pad(m1)}-01`; dateTo = `${_yr}-${_pad(m1 + 2)}-${_pad(new Date(_yr, q * 3 + 3, 0).getDate())}`; }
+      else if (selectedPeriodo === 'anio_actual') { dateFrom = `${currentYear}-01-01`; dateTo = `${currentYear}-12-31`; }
+      else if (selectedPeriodo === 'anio_anterior') { const py = currentYear - 1; dateFrom = `${py}-01-01`; dateTo = `${py}-12-31`; }
     } else {
-      const range = getSqlDateRange(filters);
-      dateFrom = range.from;
-      dateTo = range.to;
+      periodoEfectivo = 'anio_actual';
+      dateFrom = `${currentYear}-01-01`;
+      dateTo = `${currentYear}-12-31`;
     }
-    const hasDateFilter = dateFrom && dateTo;
+    const hasDateFilter = Boolean(dateFrom && dateTo);
 
     const rawEstadoFilter = String(req.query.estado || '').trim();
     const selectedEstadoId = rawEstadoFilter && /^\d+$/.test(rawEstadoFilter) ? Number(rawEstadoFilter) : null;
@@ -107,26 +101,35 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       colNombreRazon, colPoblacion, colCodigoPostal, colOK_KO,
       pedidosCols } = meta;
 
-    const buildPedidosBaseWhere = (comercialId = null) => {
-      const where = [];
-      const params = [];
-      if (admin && filters.comercial) {
-        where.push(`p.\`${colPedComercial}\` = ?`);
-        params.push(filters.comercial);
-      } else if (!admin && hasUserId) {
-        where.push(`p.\`${colPedComercial}\` = ?`);
-        params.push(userId);
-      }
-      if (hasDateFilter && colPedFecha) {
-        where.push(`p.\`${colPedFecha}\` >= ? AND p.\`${colPedFecha}\` < ? + INTERVAL 1 DAY`);
-        params.push(dateFrom, dateTo);
-      }
-      if (selectedEstadoId && colEstadoId) {
-        where.push(`p.\`${colEstadoId}\` = ?`);
-        params.push(selectedEstadoId);
-      }
-      return { where, params };
-    };
+    const smartPed = await buildDashboardPedidoSmartWhere(db, {
+      admin,
+      filters,
+      userId,
+      hasUserId,
+      hasDateFilter,
+      dateFrom,
+      dateTo,
+      colPedFecha,
+      colPedComercial,
+      colPedCliente: pedidosMeta?.colCliente || colPedCliente || 'ped_cli_id',
+      colEstadoId,
+      selectedEstadoId,
+      pedidosMeta,
+      clientesMeta,
+      tPedidos,
+      tClientes,
+      pkClientes,
+      pedidosCols,
+      comercialesMeta,
+      rawQ,
+      filtersMarca: filters.marca || null
+    });
+
+    const pedWhere = { where: smartPed.where, params: smartPed.params };
+    const pedWhereClause = pedWhere.where.length ? `WHERE ${pedWhere.where.join(' AND ')}` : '';
+    const pedWhereParams = pedWhere.params;
+    const extraJoinsNoZone = smartPed.joinsNoZone || '';
+    const extraJoinsWithZone = smartPed.joinsWithZone || '';
 
     const ccaaJoin = CCAA_JOIN;
     const zoneCondition = admin && filters.zone ? `AND cp.codpos_ComunidadAutonoma = ?` : '';
@@ -141,16 +144,13 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
     let clientesActivos = null;
     let ticketMedio = null;
 
-    const pedWhere = buildPedidosBaseWhere();
-    const pedWhereClause = pedWhere.where.length ? `WHERE ${pedWhere.where.join(' AND ')}` : '';
-    const pedWhereParams = pedWhere.params;
-
     const pedidosWithZone = admin && filters.zone;
 
     try {
       const { total, n } = await queryKpiVentasYPedidos(db, {
         tPedidos, tClientes, pkClientes, colPedCliente, colPedTotal,
-        pedWhereClause, pedWhereParams, pedidosWithZone, ccaaJoin, zoneCondition, zoneParams
+        pedWhereClause, pedWhereParams, pedidosWithZone, ccaaJoin, zoneCondition, zoneParams,
+        extraJoinsNoZone, extraJoinsWithZone
       });
       ventas = Number(_n(total, 0));
       numPedidos = Number(_n(n, 0));
@@ -238,7 +238,8 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
     try {
       desgloseEstado = await queryDesgloseEstadoPedidos(db, pedidosCols, {
         tPedidos, tClientes, pkClientes, colPedCliente, colPedTotal,
-        pedWhere, pedidosWithZone, ccaaJoin, zoneParams
+        pedWhere, pedidosWithZone, ccaaJoin, zoneParams,
+        pedidoExtraJoins: pedidosWithZone ? extraJoinsWithZone : extraJoinsNoZone
       });
     } catch (e) {
       desgloseEstado = [];
@@ -301,12 +302,11 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
         dashboardErrors.clientes = e?.message;
       }
 
-      const pedWhereAdmin = buildPedidosBaseWhere();
-      const pedWhereAdminClause = pedWhereAdmin.where.length ? `WHERE ${pedWhereAdmin.where.join(' AND ')}` : '';
       try {
         latest.pedidos = await queryLatestPedidosAdminDashboard(db, {
           tPedidos, colPedNum, colPedFecha, colPedTotal, colPedEstado,
-          pedWhereClause: pedWhereAdminClause, pedWhereParams: pedWhereAdmin.params, limitAdmin
+          pedWhereClause, pedWhereParams, limitAdmin,
+          extraJoins: extraJoinsNoZone
         });
       } catch (e) {
         latest.pedidos = [];
@@ -390,13 +390,14 @@ router.get('/dashboard', requireLogin, async (req, res, next) => {
       desgloseEstado: Array.isArray(desgloseEstado) ? desgloseEstado : [],
       estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
       dashboardErrors: dashboardErrors || {},
-      years,
       selectedYear,
+      periodoEfectivo,
       selectedPeriodo: (selectedDesde || selectedHasta) ? '' : selectedPeriodo,
       selectedDesde,
       selectedHasta,
       selectedEstadoId,
       filters,
+      q: rawQ,
       periodOptions: PERIOD_OPTIONS,
       zonas,
       comercialesList,
