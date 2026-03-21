@@ -24,7 +24,7 @@
     <h1 class="card-title">Pedidos</h1>
     <p class="card-subtitle">
       <% const _anioCab = (typeof pedidosAnioEtiqueta !== 'undefined') ? pedidosAnioEtiqueta : (selectedYear ?? new Date().getFullYear()); %>
-      Año <strong><%= _anioCab %></strong><% if (typeof selectedPeriodo === 'string' && selectedPeriodo === 'anio_anterior') { %> <span class="badge info" style="font-size:11px; vertical-align:middle;">año completo anterior</span><% } %> · <%= items.length %> en esta página
+      Año <strong><%= _anioCab %></strong><% if (typeof selectedPeriodo === 'string' && selectedPeriodo === 'anio_anterior') { %> <span class="badge info" style="font-size:11px; vertical-align:middle;">01/01–31/12 (año anterior)</span><% } else if (typeof selectedPeriodo === 'string' && selectedPeriodo === 'anio_actual') { %> <span class="badge ok" style="font-size:11px; vertical-align:middle;">01/01–31/12 (año actual)</span><% } %> · <%= items.length %> en esta página
       <% const hasPaging = (typeof paging !== 'undefined' && paging && typeof paging.total !== 'undefined'); %>
       <% if (hasPaging && paging.total) { %>
         · Total <%= paging.total %> · Página <%= paging.page || 1 %>
@@ -120,8 +120,13 @@
             const _hasCustomRange = !!(_selectedDesde || _selectedHasta);
             const _limPed = (typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10;
             const _periodoBase = '/pedidos?limit=' + _limPed + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '');
+            const _hrefAnioActual = '/pedidos?periodo=anio_actual&limit=' + _limPed;
+            const _anioActualActivo = !_hasCustomRange && (
+              _periodoActual === 'anio_actual'
+              || (!_periodoActual && !selectedMarcaId && !(typeof q === 'string' && q && String(q).trim()))
+            );
+            const _anioAnteriorActivo = !_hasCustomRange && _periodoActual === 'anio_anterior';
             const _periodos = [
-              { key: 'anio_anterior', label: 'Año completo' },
               { key: 'hoy',       label: 'Hoy' },
               { key: '7d',        label: 'Últimos 7 días' },
               { key: '30d',       label: 'Últimos 30 días' },
@@ -149,9 +154,19 @@
 
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
             <span style="font-weight:700; color:var(--gv-ink); font-size:12px; margin-right:2px;">Periodo:</span>
+            <a href="<%= _hrefAnioActual %>"
+              class="badge <%= _anioActualActivo ? 'ok' : '' %>"
+              style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;<%= _anioActualActivo ? ' font-weight:900;' : '' %>"
+              title="Quita marca y búsqueda; 1 ene – 31 dic del año en curso"
+            >Año actual</a>
+            <a href="<%= _periodoBase %>&periodo=anio_anterior"
+              class="badge <%= _anioAnteriorActivo ? 'ok' : '' %>"
+              style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;<%= _anioAnteriorActivo ? ' font-weight:900;' : '' %>"
+              title="1 ene – 31 dic del año anterior"
+            >Año anterior</a>
             <% _periodos.forEach((pr) => { %>
               <% const isActive = !_hasCustomRange && String(_periodoActual) === String(pr.key); %>
-              <a href="<%= _periodoBase %><%= pr.key ? '&periodo=' + encodeURIComponent(pr.key) : '' %>"
+              <a href="<%= _periodoBase %>&periodo=<%= encodeURIComponent(pr.key) %>"
                 class="badge <%= isActive ? 'ok' : '' %>"
                 style="text-decoration:none; font-size:11px; padding:4px 10px; cursor:pointer;<%= isActive ? ' font-weight:900;' : '' %>"
               ><%= pr.label %></a>

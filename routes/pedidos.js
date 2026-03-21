@@ -309,6 +309,9 @@ router.get('/', requireLogin, async (req, res, next) => {
         periodoDateFrom = `${selectedYear}-${pad(m1)}-01`;
         const lastDay = new Date(selectedYear, q * 3 + 3, 0).getDate();
         periodoDateTo = `${selectedYear}-${pad(m1 + 2)}-${pad(lastDay)}`;
+      } else if (selectedPeriodo === 'anio_actual') {
+        periodoDateFrom = `${currentYear}-01-01`;
+        periodoDateTo = `${currentYear}-12-31`;
       } else if (selectedPeriodo === 'anio_anterior') {
         const py = currentYear - 1;
         periodoDateFrom = `${py}-01-01`;
@@ -591,8 +594,9 @@ router.get('/', requireLogin, async (req, res, next) => {
 
     const sessionUser = res.locals.user;
     const sessionUserId = sessionUser?.id != null ? Number(sessionUser.id) : null;
+    const _per = String(selectedPeriodo).toLowerCase();
     const pedidosAnioEtiqueta =
-      !selectedDesde && !selectedHasta && String(selectedPeriodo).toLowerCase() === 'anio_anterior'
+      !selectedDesde && !selectedHasta && _per === 'anio_anterior'
         ? currentYear - 1
         : currentYear;
     res.render('pedidos', {
