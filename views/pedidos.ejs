@@ -19,22 +19,8 @@
   }
 </style>
 
-<section class="card">
-  <div class="card-hd">
-    <h1 class="card-title">Pedidos</h1>
-    <p class="card-subtitle">
-      <% const _anioCab = (typeof pedidosAnioEtiqueta !== 'undefined') ? pedidosAnioEtiqueta : (selectedYear ?? new Date().getFullYear()); %>
-      Año <strong><%= _anioCab %></strong><% if (typeof selectedPeriodo === 'string' && selectedPeriodo === 'anio_anterior') { %> <span class="badge info" style="font-size:11px; vertical-align:middle;">01/01–31/12 (año anterior)</span><% } else if (typeof selectedPeriodo === 'string' && selectedPeriodo === 'anio_actual') { %> <span class="badge ok" style="font-size:11px; vertical-align:middle;">01/01–31/12 (año actual)</span><% } %> · <%= items.length %> en esta página
-      <% const hasPaging = (typeof paging !== 'undefined' && paging && typeof paging.total !== 'undefined'); %>
-      <% if (hasPaging && paging.total) { %>
-        · Total <%= paging.total %> · Página <%= paging.page || 1 %>
-      <% } %>
-      (vista ligera).
-    </p>
-  </div>
-  <div class="card-bd">
-    <%
-      const toNum = (v, dflt = 0) => {
+<%
+  const toNum = (v, dflt = 0) => {
         if (v === null || v === undefined) return dflt;
         const s = String(v).trim();
         if (!s) return dflt;
@@ -74,68 +60,90 @@
       _seguimientoEstados.forEach((e) => {
         _byEstadoSeg[e.key] = itemsArr.filter((p) => estadoNorm(p) === e.key);
       });
-    %>
 
-    <div id="gvPedidosTabs">
-      <div class="gv-form-actions-sticky gv-no-print" style="margin-bottom: 10px;">
-        <div class="gv-form-actions-sticky__inner" style="flex-direction: column; align-items: stretch; gap: 10px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap:wrap;">
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-              <a class="btn" href="/pedidos/new">Nuevo pedido</a>
-              <a class="btn secondary" href="/pedidos<%= selectedMarcaId ? `?marca=${encodeURIComponent(String(selectedMarcaId))}` : '' %>">Limpiar búsqueda</a>
-            </div>
-            <div style="color: var(--gv-muted); font-weight:800;">
-              Total: <%= (typeof fmtEurES === 'function') ? fmtEurES(ventasTotal) : ventasTotal %>
-            </div>
-          </div>
+      const hasPaging = (typeof paging !== 'undefined' && paging && typeof paging.total !== 'undefined');
+      const pedLim = (typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10;
+      const pedTotal = hasPaging ? Number(paging.total) : 0;
+      const pedPage = hasPaging ? (Number(paging.page) || 1) : 1;
+      const pedTotalPages = pedLim > 0 ? Math.max(1, Math.ceil(pedTotal / pedLim)) : 1;
+      const _anioCab = (typeof pedidosAnioEtiqueta !== 'undefined') ? pedidosAnioEtiqueta : (selectedYear ?? new Date().getFullYear());
 
-          <form method="get" action="/pedidos" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 0;">
-            <input type="hidden" name="limit" value="<%= (typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10 %>" />
-            <input type="hidden" name="periodo" id="gv-periodo-hidden" value="<%= typeof selectedPeriodo === 'string' ? selectedPeriodo : '' %>" />
-            <label for="marca" style="font-weight:700; color: var(--gv-ink);">Marca</label>
-            <select id="marca" name="marca" class="gv-client-picker__q" style="width:auto; min-width: 220px;">
-              <option value="" <%= !selectedMarcaId ? 'selected' : '' %>>Todas</option>
-              <% (marcas || []).forEach((m) => { %>
-                <option value="<%= m.id %>" <%= Number(selectedMarcaId) === Number(m.id) ? 'selected' : '' %>><%= m.nombre ?? m.Nombre ?? m.marca ?? m.Marca ?? m.id %></option>
-              <% }) %>
-            </select>
-            <label for="q" style="font-weight:700; color: var(--gv-ink);">Buscar</label>
-            <input
-              id="q"
-              name="q"
-              type="search"
-              class="gv-client-picker__q"
-              style="min-width: 260px; flex: 1 1 340px;"
-              placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre"
-              value="<%= typeof q === 'string' ? q : '' %>"
-            />
-            <button class="btn secondary" type="submit">Ver</button>
-            <% if ((typeof q === 'string' && q) || selectedMarcaId || (typeof selectedPeriodo === 'string' && selectedPeriodo) || (typeof selectedDesde === 'string' && selectedDesde) || (typeof selectedHasta === 'string' && selectedHasta) || (typeof selectedEstadoId !== 'undefined' && selectedEstadoId) || (typeof selectedComercialId !== 'undefined' && selectedComercialId)) { %><a class="btn secondary" href="/pedidos" title="Limpiar filtros">✕</a><% } %>
-          </form>
+      const _periodoActual = typeof selectedPeriodo === 'string' ? selectedPeriodo : '';
+      const _selectedDesde = typeof selectedDesde === 'string' ? selectedDesde : '';
+      const _selectedHasta = typeof selectedHasta === 'string' ? selectedHasta : '';
+      const _hasCustomRange = !!(_selectedDesde || _selectedHasta);
+      const _periodoBase = '/pedidos?limit=' + pedLim + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '');
+      const _hrefAnioActual = '/pedidos?periodo=anio_actual&limit=' + pedLim;
+      const _anioActualActivo = !_hasCustomRange && (
+        _periodoActual === 'anio_actual'
+        || (!_periodoActual && !selectedMarcaId && !(typeof q === 'string' && q && String(q).trim()))
+      );
+      const _anioAnteriorActivo = !_hasCustomRange && _periodoActual === 'anio_anterior';
+      const _periodos = [
+        { key: 'hoy',       label: 'Hoy' },
+        { key: '7d',        label: 'Últimos 7 días' },
+        { key: '30d',       label: 'Últimos 30 días' },
+        { key: '90d',       label: 'Últimos 90 días' },
+        { key: 'mes',       label: 'Mes actual' },
+        { key: 'trimestre', label: 'Trimestre actual' },
+      ];
 
-          <%
-            const _periodoActual = typeof selectedPeriodo === 'string' ? selectedPeriodo : '';
-            const _selectedDesde = typeof selectedDesde === 'string' ? selectedDesde : '';
-            const _selectedHasta = typeof selectedHasta === 'string' ? selectedHasta : '';
-            const _hasCustomRange = !!(_selectedDesde || _selectedHasta);
-            const _limPed = (typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10;
-            const _periodoBase = '/pedidos?limit=' + _limPed + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '');
-            const _hrefAnioActual = '/pedidos?periodo=anio_actual&limit=' + _limPed;
-            const _anioActualActivo = !_hasCustomRange && (
-              _periodoActual === 'anio_actual'
-              || (!_periodoActual && !selectedMarcaId && !(typeof q === 'string' && q && String(q).trim()))
-            );
-            const _anioAnteriorActivo = !_hasCustomRange && _periodoActual === 'anio_anterior';
-            const _periodos = [
-              { key: 'hoy',       label: 'Hoy' },
-              { key: '7d',        label: 'Últimos 7 días' },
-              { key: '30d',       label: 'Últimos 30 días' },
-              { key: '90d',       label: 'Últimos 90 días' },
-              { key: 'mes',       label: 'Mes actual' },
-              { key: 'trimestre', label: 'Trimestre actual' },
-            ];
-          %>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      const pedBasePag = '/pedidos?limit=' + pedLim
+        + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '')
+        + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '')
+        + (_periodoActual ? `&periodo=${encodeURIComponent(_periodoActual)}` : '')
+        + (_selectedDesde ? `&desde=${encodeURIComponent(_selectedDesde)}` : '')
+        + (_selectedHasta ? `&hasta=${encodeURIComponent(_selectedHasta)}` : '')
+        + ((typeof selectedEstadoId !== 'undefined' && selectedEstadoId) ? `&estado=${selectedEstadoId}` : '')
+        + ((typeof selectedComercialId !== 'undefined' && selectedComercialId) ? `&comercial=${selectedComercialId}` : '');
+%>
+
+<section class="card gv-vista" id="gvPedidosTabs">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-vista-hd__title-row">
+      <h1 class="card-title gv-vista-hd__title">Pedidos</h1>
+      <button type="button" class="gv-vista-hd__info" aria-label="Información" title="Información" data-tooltip="Filtra por marca, búsqueda inteligente (provincia, comercial, estado…), rango de fechas o periodos. Vista ligera paginada; el total € es la suma de los pedidos en esta página.">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+      <span class="gv-vista-hd__tooltip" role="tooltip" id="pedidos-tooltip">Filtra por marca, búsqueda inteligente (provincia, comercial, estado…), rango de fechas o periodos. Vista ligera paginada; el total € es la suma de los pedidos en esta página.</span>
+    </div>
+    <div class="gv-vista-hd__bar">
+      <nav class="gv-vista-tabs" role="tablist" aria-label="Vistas de pedidos">
+        <button type="button" class="gv-vista-tab is-active" role="tab" aria-selected="true" aria-controls="tab_listado" data-tab="listado">Listado</button>
+        <button type="button" class="gv-vista-tab" role="tab" aria-selected="false" aria-controls="tab_seguimiento" data-tab="seguimiento">Seguimiento</button>
+      </nav>
+      <div class="gv-vista-hd__actions gv-vista-hd__actions--pedidos">
+        <a class="btn" href="/pedidos/new">Nuevo pedido</a>
+        <a class="btn secondary" href="/pedidos<%= selectedMarcaId ? `?marca=${encodeURIComponent(String(selectedMarcaId))}` : '' %>">Limpiar búsqueda</a>
+        <span class="gv-vista-pedidos-total">Total: <%= (typeof fmtEurES === 'function') ? fmtEurES(ventasTotal) : ventasTotal %></span>
+      </div>
+    </div>
+    <div class="gv-vista-hd__bar gv-pedidos-filter-bar">
+      <form method="get" action="/pedidos" class="gv-pedidos-search-form">
+        <input type="hidden" name="limit" value="<%= pedLim %>" />
+        <input type="hidden" name="periodo" id="gv-periodo-hidden" value="<%= typeof selectedPeriodo === 'string' ? selectedPeriodo : '' %>" />
+        <label for="marca" class="gv-pedidos-search-form__label">Marca</label>
+        <select id="marca" name="marca" class="gv-client-picker__q gv-pedidos-search-form__select">
+          <option value="" <%= !selectedMarcaId ? 'selected' : '' %>>Todas</option>
+          <% (marcas || []).forEach((m) => { %>
+            <option value="<%= m.id %>" <%= Number(selectedMarcaId) === Number(m.id) ? 'selected' : '' %>><%= m.nombre ?? m.Nombre ?? m.marca ?? m.Marca ?? m.id %></option>
+          <% }) %>
+        </select>
+        <label for="q" class="gv-pedidos-search-form__label">Buscar</label>
+        <input
+          id="q"
+          name="q"
+          type="search"
+          class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q"
+          placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre"
+          value="<%= typeof q === 'string' ? q : '' %>"
+        />
+        <button class="btn secondary" type="submit">Ver</button>
+        <% if ((typeof q === 'string' && q) || selectedMarcaId || (typeof selectedPeriodo === 'string' && selectedPeriodo) || (typeof selectedDesde === 'string' && selectedDesde) || (typeof selectedHasta === 'string' && selectedHasta) || (typeof selectedEstadoId !== 'undefined' && selectedEstadoId) || (typeof selectedComercialId !== 'undefined' && selectedComercialId)) { %><a class="btn secondary" href="/pedidos" title="Limpiar filtros">✕</a><% } %>
+      </form>
+    </div>
+    <div class="gv-vista-hd__extras">
+          <div class="gv-pedidos-extras-row">
             <span style="font-weight:700; color:var(--gv-ink); font-size:12px;">Desde</span>
             <input type="date" id="gv-fecha-desde" value="<%= _selectedDesde %>"
               class="gv-client-picker__q"
@@ -152,7 +160,7 @@
             <% } %>
           </div>
 
-          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <div class="gv-pedidos-extras-row" style="gap:6px;">
             <span style="font-weight:700; color:var(--gv-ink); font-size:12px; margin-right:2px;">Periodo:</span>
             <a href="<%= _hrefAnioActual %>"
               class="badge <%= _anioActualActivo ? 'ok' : '' %>"
@@ -199,7 +207,7 @@
               const _selComercialId = typeof selectedComercialId !== 'undefined' ? Number(selectedComercialId) : null;
               const _estadosArr = (typeof estadosPedido !== 'undefined' && Array.isArray(estadosPedido)) ? estadosPedido : [];
               const _comercialesArr = (typeof comercialesList !== 'undefined' && Array.isArray(comercialesList)) ? comercialesList : [];
-              const _filtroBase = '/pedidos?limit=' + ((typeof paging !== 'undefined' && paging && paging.limit) ? paging.limit : 10)
+              const _filtroBase = '/pedidos?limit=' + pedLim
                 + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '')
                 + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '')
                 + (_periodoActual ? `&periodo=${encodeURIComponent(_periodoActual)}` : '')
@@ -230,29 +238,42 @@
               <% } %>
             </div>
           <% } %>
-
-          <% if (typeof paging !== 'undefined' && paging && paging.total && paging.total > (paging.limit || 10)) { %>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
-              <% const prev = (paging.page || 1) > 1 ? (paging.page || 1) - 1 : null; %>
-              <% const next = ((paging.page || 1) * (paging.limit || 10)) < paging.total ? (paging.page || 1) + 1 : null; %>
-              <% const base = `/pedidos?limit=${paging.limit || 10}` + (selectedMarcaId ? `&marca=${encodeURIComponent(String(selectedMarcaId))}` : '') + (typeof q === 'string' && q ? `&q=${encodeURIComponent(q)}` : '') + (_periodoActual ? `&periodo=${encodeURIComponent(_periodoActual)}` : '') + (_selectedDesde ? `&desde=${encodeURIComponent(_selectedDesde)}` : '') + (_selectedHasta ? `&hasta=${encodeURIComponent(_selectedHasta)}` : '') + ((typeof selectedEstadoId !== 'undefined' && selectedEstadoId) ? `&estado=${selectedEstadoId}` : '') + ((typeof selectedComercialId !== 'undefined' && selectedComercialId) ? `&comercial=${selectedComercialId}` : ''); %>
-              <% if (prev) { %>
-                <a class="btn secondary" href="<%= base %>&page=<%= prev %>">Anterior</a>
-              <% } %>
-              <% if (next) { %>
-                <a class="btn secondary" href="<%= base %>&page=<%= next %>">Siguiente</a>
-              <% } %>
-            </div>
-          <% } %>
-
-          <div class="gv-tabs" role="tablist" aria-label="Vistas de pedidos">
-            <button type="button" class="gv-tab is-active" role="tab" aria-selected="true" aria-controls="tab_listado" data-tab="listado">Listado</button>
-            <button type="button" class="gv-tab" role="tab" aria-selected="false" aria-controls="tab_seguimiento" data-tab="seguimiento">Seguimiento</button>
-          </div>
-        </div>
-      </div>
+    </div>
+    <p class="gv-vista-hd__sub">
+      Año <strong><%= _anioCab %></strong><% if (typeof selectedPeriodo === 'string' && selectedPeriodo === 'anio_anterior') { %> <span class="badge info" style="font-size:11px; vertical-align:middle;">01/01–31/12 (año anterior)</span><% } else if (typeof selectedPeriodo === 'string' && selectedPeriodo === 'anio_actual') { %> <span class="badge ok" style="font-size:11px; vertical-align:middle;">01/01–31/12 (año actual)</span><% } %>
+      · <%= items.length %> en esta página<% if (hasPaging && pedTotal) { %> · Total <%= pedTotal %> · Página <%= pedPage %> de <%= pedTotalPages %><% } %>
+      <span style="color: var(--gv-muted); font-weight: 700;"> (vista ligera).</span>
+    </p>
+  </div>
+  <div class="card-bd">
 
       <section id="tab_listado" class="gv-tabpanel is-active" role="tabpanel" data-tabpanel="listado">
+        <% if (hasPaging && pedTotal > 0) { %>
+        <div class="gv-vista-pagination">
+          <% if (pedPage > 1) { %>
+            <a class="btn secondary" href="<%= pedBasePag %>&page=<%= pedPage - 1 %>">← Anterior</a>
+          <% } %>
+          <span class="gv-vista-pagination__info">
+            Página
+            <form method="get" action="/pedidos" class="gv-vista-pagination__goto" style="display:inline;">
+              <input type="hidden" name="limit" value="<%= pedLim %>" />
+              <% if (selectedMarcaId) { %><input type="hidden" name="marca" value="<%= selectedMarcaId %>" /><% } %>
+              <% if (typeof q === 'string' && q) { %><input type="hidden" name="q" value="<%= q %>" /><% } %>
+              <% if (_periodoActual) { %><input type="hidden" name="periodo" value="<%= _periodoActual %>" /><% } %>
+              <% if (_selectedDesde) { %><input type="hidden" name="desde" value="<%= _selectedDesde %>" /><% } %>
+              <% if (_selectedHasta) { %><input type="hidden" name="hasta" value="<%= _selectedHasta %>" /><% } %>
+              <% if (typeof selectedEstadoId !== 'undefined' && selectedEstadoId) { %><input type="hidden" name="estado" value="<%= selectedEstadoId %>" /><% } %>
+              <% if (typeof selectedComercialId !== 'undefined' && selectedComercialId) { %><input type="hidden" name="comercial" value="<%= selectedComercialId %>" /><% } %>
+              <input type="number" name="page" min="1" max="<%= pedTotalPages %>" value="<%= pedPage %>" class="gv-vista-pagination__input" aria-label="Ir a página" title="Ir a página" />
+              <button type="submit" class="btn secondary icon gv-vista-pagination__btn">Ir</button>
+            </form>
+            de <%= pedTotalPages %>
+          </span>
+          <% if ((pedPage * pedLim) < pedTotal) { %>
+            <a class="btn secondary" href="<%= pedBasePag %>&page=<%= pedPage + 1 %>">Siguiente →</a>
+          <% } %>
+        </div>
+        <% } %>
         <div class="table-wrap">
           <table>
             <thead>
@@ -807,7 +828,6 @@
         })();
         </script>
       <% } %>
-    </div>
   </div>
 </section>
 
@@ -815,7 +835,7 @@
 (function () {
   var root = document.getElementById('gvPedidosTabs');
   if (!root) return;
-  var tabButtons = Array.prototype.slice.call(root.querySelectorAll('.gv-tab[data-tab]'));
+  var tabButtons = Array.prototype.slice.call(root.querySelectorAll('.gv-vista-tab[data-tab]'));
   var panels = Array.prototype.slice.call(root.querySelectorAll('.gv-tabpanel[data-tabpanel]'));
   if (!tabButtons.length || !panels.length) return;
   function setTab(id) {

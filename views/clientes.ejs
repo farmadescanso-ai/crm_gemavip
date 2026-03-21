@@ -1,28 +1,28 @@
 <%- include('partials/header', { title: 'Contactos' }) %>
 
-<section class="card gv-contactos">
-  <div class="card-hd gv-contactos-hd">
-    <div class="gv-contactos-hd__title-row">
-      <h1 class="card-title gv-contactos-hd__title">Contactos</h1>
-      <button type="button" class="gv-contactos-hd__info" aria-label="Información" title="Información" data-tooltip="Gestiona tus clientes y proveedores: empresas y personas. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.">
+<section class="card gv-contactos gv-vista">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-vista-hd__title-row">
+      <h1 class="card-title gv-vista-hd__title">Contactos</h1>
+      <button type="button" class="gv-vista-hd__info" aria-label="Información" title="Información" data-tooltip="Gestiona tus clientes y proveedores: empresas y personas. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
       </button>
-      <span class="gv-contactos-hd__tooltip" role="tooltip" id="contactos-tooltip">Gestiona tus clientes y proveedores: empresas y personas. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.</span>
+      <span class="gv-vista-hd__tooltip" role="tooltip" id="contactos-tooltip">Gestiona tus clientes y proveedores: empresas y personas. Solo los contactos con DNI/CIF y estado activo pueden recibir pedidos.</span>
     </div>
-    <div class="gv-contactos-hd__bar">
-      <nav class="gv-contactos-tabs" aria-label="Filtrar por tipo">
-        <a class="gv-contactos-tab <%= (typeof tipoContacto === 'undefined' || tipoContacto === '') ? 'is-active' : '' %>" href="/clientes?<%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>">Todos</a>
-        <% if (typeof admin !== 'undefined' && admin) { %><a class="gv-contactos-tab" href="/clientes/duplicados" title="Ver grupos de contactos duplicados">Duplicados</a><% } %>
-        <a class="gv-contactos-tab <%= tipoContacto === 'Empresa' ? 'is-active' : '' %>" href="/clientes?tipo=Empresa&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Empresas</a>
-        <a class="gv-contactos-tab <%= tipoContacto === 'Persona' ? 'is-active' : '' %>" href="/clientes?tipo=Persona&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Personas</a>
-        <a class="gv-contactos-tab <%= tipoContacto === 'Otros' ? 'is-active' : '' %>" href="/clientes?tipo=Otros&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Otros</a>
+    <div class="gv-vista-hd__bar">
+      <nav class="gv-vista-tabs" aria-label="Filtrar por tipo">
+        <a class="gv-vista-tab <%= (typeof tipoContacto === 'undefined' || tipoContacto === '') ? 'is-active' : '' %>" href="/clientes?<%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>">Todos</a>
+        <% if (typeof admin !== 'undefined' && admin) { %><a class="gv-vista-tab" href="/clientes/duplicados" title="Ver grupos de contactos duplicados">Duplicados</a><% } %>
+        <a class="gv-vista-tab <%= tipoContacto === 'Empresa' ? 'is-active' : '' %>" href="/clientes?tipo=Empresa&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Empresas</a>
+        <a class="gv-vista-tab <%= tipoContacto === 'Persona' ? 'is-active' : '' %>" href="/clientes?tipo=Persona&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Personas</a>
+        <a class="gv-vista-tab <%= tipoContacto === 'Otros' ? 'is-active' : '' %>" href="/clientes?tipo=Otros&amp;order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %><%= (typeof q !== 'undefined' && q) ? '&q=' + encodeURIComponent(q) : '' %>">Otros</a>
       </nav>
-      <div class="gv-contactos-hd__actions">
-        <a class="gv-contactos-order gv-contactos-order-link" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %><%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= (typeof orderNombre !== 'undefined' && orderNombre === 'asc') ? 'desc' : 'asc' %>" title="Ordenar por nombre (clic para alternar A–Z / Z–A)"><%= (typeof orderNombre !== 'undefined' && orderNombre === 'desc') ? 'Contactos Z–A' : 'Contactos A–Z' %></a>
-        <form method="get" action="/clientes" class="gv-contactos-search">
+      <div class="gv-vista-hd__actions">
+        <a class="gv-vista-order gv-vista-order-link" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %><%= (typeof q !== 'undefined' && q) ? 'q=' + encodeURIComponent(q) + '&' : '' %>order=<%= (typeof orderNombre !== 'undefined' && orderNombre === 'asc') ? 'desc' : 'asc' %>" title="Ordenar por nombre (clic para alternar A–Z / Z–A)"><%= (typeof orderNombre !== 'undefined' && orderNombre === 'desc') ? 'Contactos Z–A' : 'Contactos A–Z' %></a>
+        <form method="get" action="/clientes" class="gv-vista-search">
           <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %><input type="hidden" name="tipo" value="<%= tipoContacto %>" /><% } %>
           <input type="hidden" name="order" value="<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" />
-          <input type="search" name="q" placeholder="Ej: provincia:Murcia estado:activos tipo:Farmacia · o texto libre" value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" />
+          <input type="search" name="q" placeholder="Ej: provincia:Murcia estado:activos tipo:Farmacia · o texto libre" value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-vista-search__input" />
           <button class="btn secondary" type="submit">Buscar</button>
           <% if (typeof q !== 'undefined' && q) { %>
             <a class="btn secondary" href="/clientes?<%= (typeof tipoContacto !== 'undefined' && tipoContacto) ? 'tipo=' + encodeURIComponent(tipoContacto) + '&' : '' %>order=<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" title="Limpiar búsqueda">✕</a>
@@ -31,7 +31,7 @@
         <a class="btn" href="/clientes/new">Nuevo contacto</a>
       </div>
     </div>
-    <p class="gv-contactos-hd__sub">
+    <p class="gv-vista-hd__sub">
       Página <%= paging.page %> de <%= paging.totalPages || 1 %> · Mostrando <%= items.length %> de <%= paging.total %>
       <% if (typeof q !== 'undefined' && q) { %> · Buscando: "<%= q %>"<% } %>
       <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %> · Tipo: <%= tipoContacto %><% } %>
@@ -39,18 +39,18 @@
   </div>
   <div class="card-bd">
     <% const qsBase = []; if (typeof q !== 'undefined' && q) qsBase.push('q=' + encodeURIComponent(q)); if (typeof tipoContacto !== 'undefined' && tipoContacto) qsBase.push('tipo=' + encodeURIComponent(tipoContacto)); qsBase.push('order=' + (typeof orderNombre !== 'undefined' ? orderNombre : 'asc')); const qsBaseStr = qsBase.join('&'); %>
-    <div class="gv-contactos-pagination">
+    <div class="gv-vista-pagination">
       <% if (paging.page > 1) { %>
         <a class="btn secondary" href="/clientes?page=<%= paging.page - 1 %>&<%= qsBaseStr %>">← Anterior</a>
       <% } %>
-      <span class="gv-contactos-pagination__info">
+      <span class="gv-vista-pagination__info">
         Página
-        <form method="get" action="/clientes" class="gv-contactos-pagination__goto" style="display:inline;">
+        <form method="get" action="/clientes" class="gv-vista-pagination__goto" style="display:inline;">
           <input type="hidden" name="order" value="<%= typeof orderNombre !== 'undefined' ? orderNombre : 'asc' %>" />
           <% if (typeof q !== 'undefined' && q) { %><input type="hidden" name="q" value="<%= q %>" /><% } %>
           <% if (typeof tipoContacto !== 'undefined' && tipoContacto) { %><input type="hidden" name="tipo" value="<%= tipoContacto %>" /><% } %>
-          <input type="number" name="page" min="1" max="<%= paging.totalPages || 1 %>" value="<%= paging.page %>" class="gv-contactos-pagination__input" aria-label="Ir a página" title="Ir a página" />
-          <button type="submit" class="btn secondary icon gv-contactos-pagination__btn">Ir</button>
+          <input type="number" name="page" min="1" max="<%= paging.totalPages || 1 %>" value="<%= paging.page %>" class="gv-vista-pagination__input" aria-label="Ir a página" title="Ir a página" />
+          <button type="submit" class="btn secondary icon gv-vista-pagination__btn">Ir</button>
         </form>
         de <%= paging.totalPages || 1 %>
       </span>
@@ -191,124 +191,6 @@
     </div>
   </div>
 </div>
-
-<style>
-/* Vista Contactos – estilo Gemavip */
-.gv-contactos .card-hd {
-  background: linear-gradient(180deg, rgba(0,139,210,.06), transparent 70%);
-  border-bottom: 1px solid rgba(229,229,229,.9);
-}
-.gv-contactos-hd { margin-bottom: 0; }
-.gv-contactos-hd__title-row { display: flex; align-items: center; gap: 8px; position: relative; }
-.gv-contactos-hd__title { margin: 0 0 6px 0; font-size: 18px; }
-.gv-contactos-hd__info { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%; background: rgba(0,139,210,.12); color: var(--gv-primary); cursor: pointer; }
-.gv-contactos-hd__info:hover { background: var(--gv-primary); color: #fff; }
-.gv-contactos-hd__tooltip { position: absolute; left: 0; top: 100%; margin-top: 6px; padding: 10px 14px; max-width: 360px; font-size: 13px; line-height: 1.45; color: #fff; background: var(--gv-ink); border-radius: 10px; box-shadow: var(--gv-shadow); opacity: 0; visibility: hidden; pointer-events: none; z-index: 10; transition: opacity .15s, visibility .15s; }
-.gv-contactos-hd__info:hover + .gv-contactos-hd__tooltip,
-.gv-contactos-hd__info:focus + .gv-contactos-hd__tooltip { opacity: 1; visibility: visible; }
-.gv-contactos-hd__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 5px 0; border-top: 1px solid var(--gv-border); }
-.gv-contactos-tabs { display: flex; gap: 4px; }
-.gv-contactos-tab { padding: 8px 14px; font-size: 14px; font-weight: 500; color: var(--gv-muted); text-decoration: none; border-radius: 10px; }
-.gv-contactos-tab:hover { color: var(--gv-ink); background: rgba(0,139,210,.08); text-decoration: none; }
-.gv-contactos-tab.is-active { color: var(--gv-primary); background: rgba(0,139,210,.12); font-weight: 600; }
-.gv-contactos-hd__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.gv-contactos-order { font-size: 13px; color: var(--gv-muted); }
-.gv-contactos-order-link { text-decoration: none; font-weight: 500; color: var(--gv-primary); }
-.gv-contactos-order-link:hover { color: var(--gv-primary-hover); text-decoration: underline; }
-.gv-contactos-search { display: inline-flex; align-items: center; gap: 8px; }
-.gv-contactos-search__input { min-width: 200px; padding: 8px 12px; border: 1px solid var(--gv-border); border-radius: 10px; font-size: 14px; }
-.gv-contactos-search__input:focus { outline: none; border-color: var(--gv-primary); box-shadow: 0 0 0 2px rgba(0,139,210,.15); }
-.gv-contactos-hd__sub { margin: 10px 0 0; padding: 0 5px; font-size: 13px; color: var(--gv-muted); }
-.gv-contactos-pagination { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-.gv-contactos-pagination__info { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gv-muted); }
-.gv-contactos-pagination__goto { display: inline-flex; align-items: center; gap: 4px; }
-.gv-contactos-pagination__input { width: 56px; padding: 6px 8px; border: 1px solid var(--gv-border); border-radius: 8px; font-size: 13px; text-align: center; }
-.gv-contactos-pagination__input:focus { outline: none; border-color: var(--gv-primary); }
-.gv-contactos-pagination__btn { padding: 6px 10px; min-width: auto; }
-.gv-badge { display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 8px; }
-.gv-badge--empresa { background: rgba(0,139,210,.12); color: var(--gv-primary); }
-.gv-badge--persona { background: rgba(143,174,27,.15); color: var(--gv-green); }
-.gv-badge--otros { background: rgba(91,102,122,.15); color: var(--gv-muted); }
-/* Tabla contactos: columnas ajustadas, iconos compactos */
-.gv-contactos .gv-contactos-table-wrap { margin: 0 2px; }
-.gv-contactos .gv-contactos-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 6px 0; font-size: 0.8125rem; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 13%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 21%; }
-.gv-contactos .gv-contactos-table th.gv-contactos-col-nombre,
-.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { text-align: left; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 8%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-relaciones { width: 4%; text-align: center; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-telefono { width: 17%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-email { width: 14%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-contacto { width: 9%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 9%; }
-.gv-contactos .gv-contactos-table col.gv-contactos-col-estado { width: 7%; }
-.gv-contactos .gv-contactos-table th.gv-contactos-col-estado,
-.gv-contactos .gv-contactos-table td.gv-contactos-col-estado { white-space: nowrap; }
-.gv-contactos-link { color: var(--gv-primary); text-decoration: none; }
-.gv-contactos-link:hover { color: var(--gv-primary-hover); text-decoration: underline; }
-.gv-relaciones-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; height: 22px; padding: 0 6px;
-  font-size: 12px; font-weight: 700;
-  color: #fff; background: linear-gradient(135deg, var(--gv-primary), var(--gv-primary-2));
-  border-radius: 10px; text-decoration: none;
-  box-shadow: 0 2px 6px rgba(0,139,210,.25);
-}
-.gv-relaciones-badge:hover { filter: brightness(1.08); text-decoration: none; color: #fff; }
-.gv-contactos .gv-contactos-table td.gv-contactos-col-relaciones { text-align: center; }
-/* Cabecera tabla – estilo Gemavip */
-.gv-contactos .gv-contactos-table thead th {
-  background: linear-gradient(180deg, rgba(0,139,210,.04), transparent);
-  color: var(--gv-ink);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: .4px;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--gv-border);
-  padding: 12px 5px;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-.gv-contactos .gv-contactos-table th,
-.gv-contactos .gv-contactos-table td {
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  min-width: 0;
-  box-sizing: border-box;
-  padding-left: 5px;
-  padding-right: 5px;
-}
-.gv-contactos .gv-contactos-table tbody td {
-  padding: 12px 5px;
-  border-bottom: 1px solid var(--gv-border);
-  color: var(--gv-text);
-}
-.gv-contactos .gv-contactos-table tbody tr:hover td {
-  background: rgba(0,139,210,.03);
-}
-.gv-contactos .gv-contactos-table th:first-child,
-.gv-contactos .gv-contactos-table td:first-child { padding-left: 0; padding-right: 4px; overflow: hidden; }
-.gv-contactos .gv-contactos-table td:first-child .gv-actions {
-  display: inline-flex;
-  gap: 4px;
-  flex-wrap: nowrap;
-  max-width: 100%;
-}
-.gv-contactos .gv-contactos-table td:first-child .gv-actions .btn.icon {
-  padding: 4px 6px;
-  min-width: 28px;
-}
-.gv-contactos .gv-contactos-table td:first-child .gv-actions .btn.icon svg {
-  width: 14px;
-  height: 14px;
-}
-.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { white-space: normal; overflow-wrap: break-word; }
-.gv-contactos .gv-contactos-table td { white-space: normal; }
-.gv-solicitar-icon--pendiente { color: #ea580c !important; }
-</style>
 
 <script>
 (function () {

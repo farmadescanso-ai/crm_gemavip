@@ -2,44 +2,39 @@
 
 <% /* fmtDateES y fmtTimeHM vienen de res.locals (helpers globales) */ %>
 <% const hasPaging = (typeof paging !== 'undefined' && paging && typeof paging.total !== 'undefined'); %>
+<% const lim = hasPaging && paging.limit ? Number(paging.limit) : 10; %>
+<% const tot = hasPaging ? Number(paging.total) : 0; %>
+<% const totalPages = hasPaging && lim > 0 ? Math.max(1, Math.ceil(tot / lim)) : 1; %>
+<% const pg = hasPaging ? Number(paging.page) || 1 : 1; %>
+<% const baseQs = 'view=list&limit=' + encodeURIComponent(String(lim)) + (selectedDate ? '&date=' + encodeURIComponent(selectedDate) : '') + ((typeof id !== 'undefined' && id) ? '&id=' + encodeURIComponent(String(id)) : ''); %>
 
-<section class="card dash-card-visitas">
-  <div class="card-hd">
-    <h1 class="card-title">Visitas</h1>
-    <p class="card-subtitle" style="color: var(--gv-muted); font-weight: 700;">
-      Vista lista
-      <% if (hasPaging) { %>
-        · <%= items.length %> en esta página · Total <%= paging.total %> · Página <%= paging.page %>
-      <% } else { %>
-        · <%= items.length %> resultados
-      <% } %>
-      <% if (selectedDate) { %> · <span class="badge info"><%= selectedDate %></span><% } %>
-    </p>
-  </div>
-  <div class="card-bd">
-    <div class="gv-form-actions-sticky gv-no-print" style="margin-bottom: 12px;">
-      <div class="gv-form-actions-sticky__inner" style="flex-direction: column; align-items: stretch; gap: 12px;">
-        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
-          <nav class="gv-tabs" role="tablist" aria-label="Vista de visitas">
-            <a class="gv-tab is-active" href="/visitas?view=list" role="tab" aria-selected="true">Lista</a>
-            <a class="gv-tab" href="/visitas?view=calendar" role="tab" aria-selected="false">Calendario</a>
-          </nav>
-          <a class="btn" href="/visitas/new">Nueva visita</a>
-        </div>
-
-        <form method="get" action="/visitas" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0;">
+<section class="card gv-vista dash-card-visitas">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-vista-hd__title-row">
+      <h1 class="card-title gv-vista-hd__title">Visitas</h1>
+      <button type="button" class="gv-vista-hd__info" aria-label="Información" title="Información" data-tooltip="Filtra por fecha o por ID de visita. La lista está paginada; usa el calendario para ver el mes completo.">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+      <span class="gv-vista-hd__tooltip" role="tooltip" id="visitas-tooltip">Filtra por fecha o por ID de visita. La lista está paginada; usa el calendario para ver el mes completo.</span>
+    </div>
+    <div class="gv-vista-hd__bar">
+      <nav class="gv-vista-tabs" role="tablist" aria-label="Vista de visitas">
+        <a class="gv-vista-tab is-active" href="/visitas?view=list" role="tab" aria-selected="true">Lista</a>
+        <a class="gv-vista-tab" href="/visitas?view=calendar" role="tab" aria-selected="false">Calendario</a>
+      </nav>
+      <div class="gv-vista-hd__actions gv-vista-hd__actions--visitas">
+        <form method="get" action="/visitas" class="gv-vista-visitas-filter-form">
           <input type="hidden" name="view" value="list" />
-          <input type="hidden" name="limit" value="<%= (hasPaging && paging.limit) ? paging.limit : 10 %>" />
-          <label for="gv-vis-date" style="font-weight: 700; color: var(--gv-ink);">Fecha</label>
+          <input type="hidden" name="limit" value="<%= lim %>" />
+          <label for="gv-vis-date" class="gv-vista-visitas-filter-form__label">Fecha</label>
           <input
             id="gv-vis-date"
             type="date"
             name="date"
             value="<%= selectedDate ? selectedDate : '' %>"
-            class="gv-client-picker__q"
-            style="width: auto; min-width: 170px;"
+            class="gv-client-picker__q gv-vista-visitas-filter-form__input"
           />
-          <label for="gv-vis-id" style="font-weight: 700; color: var(--gv-ink);">ID visita</label>
+          <label for="gv-vis-id" class="gv-vista-visitas-filter-form__label">ID visita</label>
           <input
             id="gv-vis-id"
             type="number"
@@ -47,31 +42,47 @@
             min="1"
             placeholder="Ej. 1234"
             value="<%= (typeof id !== 'undefined' && id) ? id : '' %>"
-            class="gv-client-picker__q"
-            style="width: auto; min-width: 140px;"
+            class="gv-client-picker__q gv-vista-visitas-filter-form__input"
           />
           <button class="btn secondary" type="submit">Filtrar</button>
           <a class="btn secondary" href="/visitas?view=list">Limpiar</a>
         </form>
-
-        <% if (hasPaging && paging.total && paging.total > paging.limit) { %>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-            <% const prev = paging.page > 1 ? paging.page - 1 : null; %>
-            <% const next = (paging.page * paging.limit) < paging.total ? paging.page + 1 : null; %>
-            <% const base = `/visitas?view=list&limit=${paging.limit}` + (selectedDate ? `&date=${encodeURIComponent(selectedDate)}` : '') + ((typeof id !== 'undefined' && id) ? `&id=${encodeURIComponent(id)}` : ''); %>
-            <% if (prev) { %>
-              <a class="btn secondary" href="<%= base %>&page=<%= prev %>">Anterior</a>
-            <% } %>
-            <% if (next) { %>
-              <a class="btn secondary" href="<%= base %>&page=<%= next %>">Siguiente</a>
-            <% } %>
-            <span style="font-size: 12px; font-weight: 800; color: var(--gv-muted);">
-              Página <%= paging.page %> · <%= paging.total %> visitas
-            </span>
-          </div>
-        <% } %>
+        <a class="btn" href="/visitas/new">Nueva visita</a>
       </div>
     </div>
+    <p class="gv-vista-hd__sub">
+      Vista lista
+      <% if (hasPaging) { %>
+        · Página <%= pg %> de <%= totalPages %> · <%= items.length %> en esta página · Total <%= tot %>
+      <% } else { %>
+        · <%= items.length %> resultados
+      <% } %>
+      <% if (selectedDate) { %> · <span class="badge info"><%= selectedDate %></span><% } %>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (hasPaging && tot > 0) { %>
+    <div class="gv-vista-pagination">
+      <% if (pg > 1) { %>
+        <a class="btn secondary" href="/visitas?<%= baseQs %>&page=<%= pg - 1 %>">← Anterior</a>
+      <% } %>
+      <span class="gv-vista-pagination__info">
+        Página
+        <form method="get" action="/visitas" class="gv-vista-pagination__goto" style="display:inline;">
+          <input type="hidden" name="view" value="list" />
+          <input type="hidden" name="limit" value="<%= lim %>" />
+          <% if (selectedDate) { %><input type="hidden" name="date" value="<%= selectedDate %>" /><% } %>
+          <% if (typeof id !== 'undefined' && id) { %><input type="hidden" name="id" value="<%= id %>" /><% } %>
+          <input type="number" name="page" min="1" max="<%= totalPages %>" value="<%= pg %>" class="gv-vista-pagination__input" aria-label="Ir a página" title="Ir a página" />
+          <button type="submit" class="btn secondary icon gv-vista-pagination__btn">Ir</button>
+        </form>
+        de <%= totalPages %>
+      </span>
+      <% if ((pg * lim) < tot) { %>
+        <a class="btn secondary" href="/visitas?<%= baseQs %>&page=<%= pg + 1 %>">Siguiente →</a>
+      <% } %>
+    </div>
+    <% } %>
 
     <div class="table-wrap">
       <table class="dash-table">

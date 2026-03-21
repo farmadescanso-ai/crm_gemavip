@@ -8,55 +8,76 @@
 <% if (articuloMsg === 'deactivated') { %>
   <div class="gv-alert gv-alert--success" style="margin-bottom: 1rem;">El artículo está en pedidos; se ha desactivado en lugar de eliminarlo.</div>
 <% } %>
-<section class="card">
-  <div class="card-hd">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; flex-wrap:wrap;">
-      <div>
-        <h1 class="card-title">Artículos</h1>
-        <p class="card-subtitle">
-          <% if (typeof total === 'number' && total > 0) { %>
-            <% const from = (page - 1) * limit + 1; %>
-            <% const to = Math.min(page * limit, total); %>
-            Mostrando <%= from %>-<%= to %> de <%= total %> artículos
-          <% } else { %>
-            <%= typeof total === 'number' ? total : (items || []).length %> artículos
-          <% } %>
-        </p>
-      </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        <% if (filtroMarcaFijo) { %>
-          <span style="font-weight:700; color: var(--gv-ink);">Marca: <span style="color: var(--gv-muted); font-weight: 600;">Todas</span></span>
-        <% } else { %>
-        <form method="get" action="/articulos" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0;">
+<section class="card gv-vista">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-vista-hd__title-row">
+      <h1 class="card-title gv-vista-hd__title">Artículos</h1>
+      <button type="button" class="gv-vista-hd__info" aria-label="Información" title="Información">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+      <span class="gv-vista-hd__tooltip" role="tooltip">Catálogo de artículos: busca por C.N., nombre o código interno. El filtro por marca puede estar desactivado según configuración.</span>
+    </div>
+    <div class="gv-vista-hd__bar">
+      <nav class="gv-vista-tabs" aria-label="Vista">
+        <a class="gv-vista-tab is-active" href="/articulos">Catálogo</a>
+      </nav>
+      <div class="gv-vista-hd__actions">
+        <form method="get" action="/articulos" class="gv-vista-search" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
           <input type="hidden" name="page" value="1" />
-          <label for="marca" style="font-weight:700; color: var(--gv-ink);">Marca</label>
-          <select id="marca" name="marca" class="gv-client-picker__q" style="width:auto; min-width: 220px;">
-            <option value="" <%= !selectedMarcaId ? 'selected' : '' %>>Todas</option>
-            <% (marcas || []).forEach((m) => { %>
-              <option value="<%= m.id ?? m.mar_id %>" <%= Number(selectedMarcaId) === Number(m.id ?? m.mar_id) ? 'selected' : '' %>><%= m.nombre ?? m.mar_nombre ?? m.id ?? m.mar_id %></option>
-            <% }) %>
-          </select>
-          <button class="btn secondary" type="submit">Filtrar</button>
-          <a class="btn secondary" href="/articulos">Todas</a>
+          <% if (!filtroMarcaFijo) { %>
+            <label for="marca-art" style="font-weight: 700; color: var(--gv-ink);">Marca</label>
+            <select id="marca-art" name="marca" class="gv-client-picker__q" style="width: auto; min-width: 200px;">
+              <option value="" <%= !selectedMarcaId ? 'selected' : '' %>>Todas</option>
+              <% (marcas || []).forEach((m) => { %>
+                <option value="<%= m.id ?? m.mar_id %>" <%= Number(selectedMarcaId) === Number(m.id ?? m.mar_id) ? 'selected' : '' %>><%= m.nombre ?? m.mar_nombre ?? m.id ?? m.mar_id %></option>
+              <% }) %>
+            </select>
+          <% } %>
+          <label for="q-art" class="visually-hidden">Buscar artículos</label>
+          <input type="search" id="q-art" name="q" class="gv-vista-search__input" placeholder="C.N., nombre, código interno…" value="<%= typeof searchQuery === 'string' ? searchQuery : '' %>" style="min-width: 220px;" />
+          <button class="btn secondary" type="submit">Buscar</button>
+          <% if (typeof searchQuery === 'string' && searchQuery) { %>
+            <a class="btn secondary" href="/articulos<%= selectedMarcaId ? '?marca=' + selectedMarcaId : '' %>" title="Limpiar búsqueda">✕</a>
+          <% } %>
         </form>
-        <% } %>
         <% if (admin) { %>
           <a class="btn" href="/articulos/new">Nuevo artículo</a>
         <% } %>
       </div>
     </div>
+    <p class="gv-vista-hd__sub">
+      <% if (typeof total === 'number' && total > 0) { %>
+        <% const from = (page - 1) * limit + 1; %>
+        <% const to = Math.min(page * limit, total); %>
+        Mostrando <%= from %>–<%= to %> de <%= total %> artículos
+      <% } else { %>
+        <%= typeof total === 'number' ? total : (items || []).length %> artículos
+      <% } %>
+      <% if (filtroMarcaFijo) { %> · Marca: todas<% } else if (selectedMarcaId) { %> · Marca filtrada<% } %>
+      <% if (typeof searchQuery === 'string' && searchQuery) { %> · Buscando: &ldquo;<%= searchQuery %>&rdquo;<% } %>
+    </p>
   </div>
   <div class="card-bd">
-    <form method="get" action="/articulos" style="margin-bottom: 1rem; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <input type="hidden" name="page" value="1" />
-      <% if (selectedMarcaId) { %><input type="hidden" name="marca" value="<%= selectedMarcaId %>" /><% } %>
-      <label for="q" style="font-weight:700;">Buscar</label>
-      <input type="search" id="q" name="q" class="gv-client-picker__q" placeholder="C.N., Nombre, Código interno..." value="<%= typeof searchQuery === 'string' ? searchQuery : '' %>" style="min-width: 220px;" />
-      <button class="btn secondary" type="submit">Buscar</button>
-      <% if (typeof searchQuery === 'string' && searchQuery) { %>
-        <a class="btn secondary" href="/articulos<%= selectedMarcaId ? '?marca=' + selectedMarcaId : '' %>">Limpiar</a>
+    <% const qsArt = []; if (selectedMarcaId) qsArt.push('marca=' + selectedMarcaId); if (typeof searchQuery === 'string' && searchQuery) qsArt.push('q=' + encodeURIComponent(searchQuery)); const qsArtStr = qsArt.join('&'); %>
+    <div class="gv-vista-pagination">
+      <% if (page > 1) { %>
+        <a class="btn secondary" href="/articulos?page=<%= page - 1 %><%= qsArtStr ? '&' + qsArtStr : '' %>">← Anterior</a>
       <% } %>
-    </form>
+      <span class="gv-vista-pagination__info">
+        Página
+        <form method="get" action="/articulos" class="gv-vista-pagination__goto" style="display: inline;">
+          <% if (selectedMarcaId) { %><input type="hidden" name="marca" value="<%= selectedMarcaId %>" /><% } %>
+          <% if (typeof searchQuery === 'string' && searchQuery) { %><input type="hidden" name="q" value="<%= searchQuery %>" /><% } %>
+          <input type="number" name="page" min="1" max="<%= totalPages || 1 %>" value="<%= page %>" class="gv-vista-pagination__input" aria-label="Ir a página" title="Ir a página" />
+          <button type="submit" class="btn secondary icon gv-vista-pagination__btn">Ir</button>
+        </form>
+        de <%= totalPages || 1 %>
+      </span>
+      <% if (page < totalPages) { %>
+        <a class="btn secondary" href="/articulos?page=<%= page + 1 %><%= qsArtStr ? '&' + qsArtStr : '' %>">Siguiente →</a>
+      <% } %>
+    </div>
+
     <div class="table-wrap gv-articulos-table-wrap">
       <table class="gv-articulos-table">
         <colgroup>
@@ -115,22 +136,7 @@
         </tbody>
       </table>
     </div>
-    <% if (totalPages > 1) { %>
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--gv-border, #ddd);">
-        <span style="color: var(--gv-muted);">Página <%= page %> de <%= totalPages %></span>
-        <div style="display:flex; gap:8px;">
-          <% const qs = []; if (selectedMarcaId) qs.push('marca=' + selectedMarcaId); if (typeof searchQuery === 'string' && searchQuery) qs.push('q=' + encodeURIComponent(searchQuery)); const qsStr = qs.length ? qs.join('&') : ''; %>
-          <% if (page > 1) { %>
-            <a class="btn secondary" href="/articulos?page=<%= page - 1 %><%= qsStr ? '&' + qsStr : '' %>">← Anterior</a>
-          <% } %>
-          <% if (page < totalPages) { %>
-            <a class="btn secondary" href="/articulos?page=<%= page + 1 %><%= qsStr ? '&' + qsStr : '' %>">Siguiente →</a>
-          <% } %>
-        </div>
-      </div>
-    <% } %>
   </div>
 </section>
 
 <%- include('partials/footer') %>
-

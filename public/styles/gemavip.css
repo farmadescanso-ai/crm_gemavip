@@ -2038,59 +2038,7 @@ a.gv-tab{
   box-shadow: 0 10px 18px rgba(0,139,210,.20);
   margin-top: 12px;
 }
-/* Header vista Comerciales / Contactos – estilo Gemavip */
-.gv-contactos-hd__title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.gv-contactos-hd__title { margin: 0; }
-.gv-contactos-hd__info {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--gv-border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--gv-muted);
-  cursor: pointer;
-}
-.gv-contactos-hd__info:hover { background: rgba(0,139,210,.08); color: var(--gv-primary); }
-.gv-contactos-hd__bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.gv-contactos-search { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.gv-contactos-search__input {
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--gv-border);
-  background: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--gv-ink);
-  min-width: 200px;
-}
-.gv-contactos-search__input:focus {
-  outline: none;
-  border-color: rgba(0,139,210,.55);
-  box-shadow: 0 0 0 4px rgba(0,139,210,.10);
-}
-.gv-contactos-hd__sub {
-  margin: 0 0 14px 0;
-  font-size: 13px;
-  color: var(--gv-muted);
-  font-weight: 700;
-}
-
-/* Tabla Comerciales / Contactos – estilo Gemavip */
+/* Tabla Comerciales / Contactos – estilo Gemavip (listados genéricos: ver bloque gv-vista al final) */
 .gv-contactos-table-wrap { margin: 0; width: 100%; }
 .gv-contactos-table-wrap .gv-contactos-table {
   table-layout: fixed;
@@ -2414,5 +2362,357 @@ button.gv-telefono-btn--call {
 }
 .gv-telefono-btn--wa {
   background: linear-gradient(135deg, #25d366, #128c7e);
+}
+
+/* ===========================
+   Vista listas CRM (gv-vista)
+   Contactos, Artículos, Pedidos, Visitas
+   =========================== */
+.gv-vista .card-hd {
+  background: linear-gradient(180deg, rgba(0, 139, 210, 0.06), transparent 70%);
+  border-bottom: 1px solid rgba(229, 229, 229, 0.9);
+}
+.gv-vista-hd { margin-bottom: 0; }
+.gv-vista-hd__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.gv-vista-hd__title { margin: 0 0 6px 0; font-size: 18px; }
+.gv-vista-hd__info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 139, 210, 0.12);
+  color: var(--gv-primary);
+  cursor: pointer;
+}
+.gv-vista-hd__info:hover { background: var(--gv-primary); color: #fff; }
+.gv-vista-hd__tooltip {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 6px;
+  padding: 10px 14px;
+  max-width: 360px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #fff;
+  background: var(--gv-ink);
+  border-radius: 10px;
+  box-shadow: var(--gv-shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.15s, visibility 0.15s;
+}
+.gv-vista-hd__info:hover + .gv-vista-hd__tooltip,
+.gv-vista-hd__info:focus + .gv-vista-hd__tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+.gv-vista-hd__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 5px 0;
+  border-top: 1px solid var(--gv-border);
+}
+.gv-vista-tabs { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+a.gv-vista-tab,
+button.gv-vista-tab {
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gv-muted);
+  text-decoration: none;
+  border-radius: 10px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+button.gv-vista-tab { appearance: none; }
+a.gv-vista-tab:hover,
+button.gv-vista-tab:hover {
+  color: var(--gv-ink);
+  background: rgba(0, 139, 210, 0.08);
+  text-decoration: none;
+}
+a.gv-vista-tab.is-active,
+button.gv-vista-tab.is-active {
+  color: var(--gv-primary);
+  background: rgba(0, 139, 210, 0.12);
+  font-weight: 600;
+}
+.gv-vista-hd__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.gv-vista-order { font-size: 13px; color: var(--gv-muted); }
+.gv-vista-order-link {
+  text-decoration: none;
+  font-weight: 500;
+  color: var(--gv-primary);
+}
+.gv-vista-order-link:hover { color: var(--gv-primary-hover); text-decoration: underline; }
+.gv-vista-search { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gv-vista-search__input {
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid var(--gv-border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gv-ink);
+  background: #fff;
+}
+.gv-vista-search__input:focus {
+  outline: none;
+  border-color: var(--gv-primary);
+  box-shadow: 0 0 0 2px rgba(0, 139, 210, 0.15);
+}
+.gv-vista-hd__sub {
+  margin: 10px 0 0;
+  padding: 0 5px;
+  font-size: 13px;
+  color: var(--gv-muted);
+  font-weight: 700;
+}
+.gv-vista-hd__extras {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gv-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gv-vista-pagination {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.gv-vista-pagination__info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--gv-muted);
+}
+.gv-vista-pagination__goto { display: inline-flex; align-items: center; gap: 4px; }
+.gv-vista-pagination__input {
+  width: 56px;
+  padding: 6px 8px;
+  border: 1px solid var(--gv-border);
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+}
+.gv-vista-pagination__input:focus {
+  outline: none;
+  border-color: var(--gv-primary);
+}
+.gv-vista-pagination__btn { padding: 6px 10px; min-width: auto; }
+
+/* Contactos: badges tipo + tabla (antes inline en clientes.ejs) */
+.gv-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+.gv-badge--empresa { background: rgba(0, 139, 210, 0.12); color: var(--gv-primary); }
+.gv-badge--persona { background: rgba(143, 174, 27, 0.15); color: var(--gv-green); }
+.gv-badge--otros { background: rgba(91, 102, 122, 0.15); color: var(--gv-muted); }
+.gv-contactos .gv-contactos-table-wrap { margin: 0 2px; }
+.gv-contactos .gv-contactos-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 6px 0;
+  font-size: 0.8125rem;
+}
+.gv-contactos .gv-contactos-table col.gv-contactos-col-acciones { width: 13%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-nombre { width: 21%; }
+.gv-contactos .gv-contactos-table th.gv-contactos-col-nombre,
+.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { text-align: left; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-tipo { width: 8%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-relaciones { width: 4%; text-align: center; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-telefono { width: 17%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-email { width: 14%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-contacto { width: 9%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-provincia { width: 9%; }
+.gv-contactos .gv-contactos-table col.gv-contactos-col-estado { width: 7%; }
+.gv-contactos .gv-contactos-table th.gv-contactos-col-estado,
+.gv-contactos .gv-contactos-table td.gv-contactos-col-estado { white-space: nowrap; }
+.gv-contactos-link { color: var(--gv-primary); text-decoration: none; }
+.gv-contactos-link:hover { color: var(--gv-primary-hover); text-decoration: underline; }
+.gv-relaciones-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--gv-primary), var(--gv-primary-2));
+  border-radius: 10px;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 139, 210, 0.25);
+}
+.gv-relaciones-badge:hover {
+  filter: brightness(1.08);
+  text-decoration: none;
+  color: #fff;
+}
+.gv-contactos .gv-contactos-table td.gv-contactos-col-relaciones { text-align: center; }
+.gv-contactos .gv-contactos-table thead th {
+  background: linear-gradient(180deg, rgba(0, 139, 210, 0.04), transparent);
+  color: var(--gv-ink);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gv-border);
+  padding: 12px 5px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.gv-contactos .gv-contactos-table th,
+.gv-contactos .gv-contactos-table td {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+.gv-contactos .gv-contactos-table tbody td {
+  padding: 12px 5px;
+  border-bottom: 1px solid var(--gv-border);
+  color: var(--gv-text);
+}
+.gv-contactos .gv-contactos-table tbody tr:hover td { background: rgba(0, 139, 210, 0.03); }
+.gv-contactos .gv-contactos-table th:first-child,
+.gv-contactos .gv-contactos-table td:first-child { padding-left: 0; padding-right: 4px; overflow: hidden; }
+.gv-contactos .gv-contactos-table td:first-child .gv-actions {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+.gv-contactos .gv-contactos-table td:first-child .gv-actions .btn.icon {
+  padding: 4px 6px;
+  min-width: 28px;
+}
+.gv-contactos .gv-contactos-table td:first-child .gv-actions .btn.icon svg {
+  width: 14px;
+  height: 14px;
+}
+.gv-contactos .gv-contactos-table td.gv-contactos-col-nombre { white-space: normal; overflow-wrap: break-word; }
+.gv-contactos .gv-contactos-table td { white-space: normal; }
+.gv-solicitar-icon--pendiente { color: #ea580c !important; }
+
+/* Accesibilidad: etiquetas ocultas visualmente */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Visitas: filtros en cabecera (lista) */
+.gv-vista-hd__actions--visitas {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.gv-vista-visitas-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.gv-vista-visitas-filter-form__label {
+  font-weight: 700;
+  color: var(--gv-ink);
+  font-size: 14px;
+}
+.gv-vista-visitas-filter-form__input {
+  width: auto;
+  min-width: 140px;
+}
+#gv-vis-date.gv-vista-visitas-filter-form__input {
+  min-width: 170px;
+}
+
+/* Pedidos: cabecera unificada */
+.gv-vista-hd__actions--pedidos {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.gv-vista-pedidos-total {
+  color: var(--gv-muted);
+  font-weight: 800;
+  font-size: 14px;
+}
+.gv-pedidos-filter-bar {
+  justify-content: stretch;
+}
+.gv-pedidos-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  width: 100%;
+}
+.gv-pedidos-search-form__label {
+  font-weight: 700;
+  color: var(--gv-ink);
+  font-size: 14px;
+}
+.gv-pedidos-search-form__select {
+  width: auto;
+  min-width: 220px;
+}
+.gv-pedidos-search-form__q {
+  min-width: 260px;
+  flex: 1 1 340px;
+}
+.gv-vista-hd__extras .gv-pedidos-extras-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
