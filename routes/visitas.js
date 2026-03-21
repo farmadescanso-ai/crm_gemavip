@@ -6,10 +6,10 @@ const express = require('express');
 const db = require('../config/mysql-crm');
 const { requireLogin } = require('../lib/auth');
 const { isAdminUser } = require('../lib/auth');
-const { _n } = require('../lib/app-helpers');
 const { parsePagination } = require('../lib/pagination');
 const { addMinutesHHMM } = require('../lib/time-utils');
 const { getClientesForSelect, visitaTipoColumnaEsId } = require('../lib/cliente-helpers');
+const { queryVisitasListPage, queryVisitasCalendarMonthCount } = require('../lib/visita-queries');
 
 const router = express.Router();
 
@@ -59,21 +59,6 @@ router.get('/', requireLogin, async (req, res, next) => {
       params.push(qDate, qDate);
     }
 
-    const tClientes = clientesMeta?.tClientes ? `\`${clientesMeta.tClientes}\`` : '`clientes`';
-    const pkClientes = clientesMeta?.pk || 'Id';
-    const tComerciales = comercialesMeta?.table ? `\`${comercialesMeta.table}\`` : '`comerciales`';
-    const pkComerciales = comercialesMeta?.pk || 'id';
-
-    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
-    const colComercialNombre = comercialesMeta?.colNombre || 'com_nombre';
-    const joinCliente = meta.colCliente ? `LEFT JOIN ${tClientes} c ON v.\`${meta.colCliente}\` = c.\`${pkClientes}\`` : '';
-    const joinComercial = meta.colComercial ? `LEFT JOIN ${tComerciales} co ON v.\`${meta.colComercial}\` = co.\`${pkComerciales}\`` : '';
-    const selectClienteNombre = meta.colCliente ? `c.\`${colNombreRazon}\` as ClienteNombre` : 'NULL as ClienteNombre';
-    const selectClienteRazon = meta.colCliente ? `c.\`${colNombreRazon}\` as ClienteRazonSocial` : 'NULL as ClienteRazonSocial';
-    const selectComercialNombre = meta.colComercial ? `co.\`${colComercialNombre}\` as ComercialNombre` : 'NULL as ComercialNombre';
-
-    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-
     if (view === 'calendar') {
       const now = new Date();
       const month = qMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -86,21 +71,12 @@ router.get('/', requireLogin, async (req, res, next) => {
           const mo = m ? Number(m[2]) - 1 : now.getMonth();
           const start = `${y}-${String(mo + 1).padStart(2, '0')}-01`;
           const end = new Date(Date.UTC(y, mo + 1, 1)).toISOString().slice(0, 10);
-
-          const whereCal = [];
-          const paramsCal = [];
-          if (!admin) {
-            const uIdNum = Number(res.locals.user?.id);
-            if (meta.colComercial && Number.isFinite(uIdNum) && uIdNum > 0) {
-              whereCal.push(`v.\`${meta.colComercial}\` = ?`);
-              paramsCal.push(uIdNum);
-            }
-          }
-          whereCal.push(`v.\`${meta.colFecha}\` >= ? AND v.\`${meta.colFecha}\` < ?`);
-          paramsCal.push(start, end);
-          const whereCalSql = whereCal.length ? `WHERE ${whereCal.join(' AND ')}` : '';
-          const rows = await db.query(`SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereCalSql}`, paramsCal);
-          totalMes = Number(_n(rows && rows[0] && rows[0].total, 0));
+          totalMes = await queryVisitasCalendarMonthCount(db, meta, {
+            admin,
+            userId: res.locals.user?.id,
+            start,
+            end
+          });
         }
       } catch (_) {
         totalMes = 0;
@@ -111,42 +87,18 @@ router.get('/', requireLogin, async (req, res, next) => {
 
     const { limit, page, offset } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 200 });
     const idFilter = Number(req.query.id || 0) || null;
-    const whereList = [...where];
-    const paramsList = [...params];
-    if (idFilter && meta.pk) {
-      whereList.push(`v.\`${meta.pk}\` = ?`);
-      paramsList.push(idFilter);
-    }
 
-    const whereListSql = whereList.length ? `WHERE ${whereList.join(' AND ')}` : '';
-
-    const sql = `
-      SELECT
-        v.\`${meta.pk}\` as Id,
-        ${meta.colFecha ? `v.\`${meta.colFecha}\` as Fecha,` : 'NULL as Fecha,'}
-        ${meta.colHora ? `v.\`${meta.colHora}\` as Hora,` : "'' as Hora,"}
-        ${meta.colHoraFinal ? `v.\`${meta.colHoraFinal}\` as HoraFinal,` : "'' as HoraFinal,"}
-        ${meta.colTipo ? `v.\`${meta.colTipo}\` as TipoVisita,` : "'' as TipoVisita,"}
-        ${meta.colEstado ? `v.\`${meta.colEstado}\` as Estado,` : "'' as Estado,"}
-        ${meta.colCliente ? `v.\`${meta.colCliente}\` as ClienteId,` : 'NULL as ClienteId,'}
-        ${meta.colComercial ? `v.\`${meta.colComercial}\` as ComercialId,` : 'NULL as ComercialId,'}
-        ${selectClienteNombre},
-        ${selectClienteRazon},
-        ${selectComercialNombre}
-      FROM \`${meta.table}\` v
-      ${joinCliente}
-      ${joinComercial}
-      ${whereListSql}
-      ORDER BY ${
-        meta.colFecha
-          ? `v.\`${meta.colFecha}\` DESC, v.\`${meta.pk}\` DESC`
-          : 'v.`' + meta.pk + '` DESC'
-      }
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    const countSql = `SELECT COUNT(*) as total FROM \`${meta.table}\` v ${whereListSql}`;
-    const [items, countRows] = await Promise.all([db.query(sql, paramsList), db.query(countSql, paramsList)]);
-    const total = Number(_n(countRows && countRows[0] && countRows[0].total, 0));
+    const { items, total } = await queryVisitasListPage(
+      db,
+      meta,
+      clientesMeta,
+      comercialesMeta,
+      where,
+      params,
+      idFilter,
+      limit,
+      offset
+    );
     return res.render('visitas', {
       items: items || [],
       admin,

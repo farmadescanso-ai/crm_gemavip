@@ -9,9 +9,9 @@ const multer = require('multer');
 const path = require('path');
 const { requireLogin } = require('../lib/auth');
 const { requireAdmin } = require('../lib/app-helpers');
-const { parseVentasPdf, mergeVentasResults } = require('../lib/ventas-pdf-parser');
+const { parseVentasPdf } = require('../lib/ventas-pdf-parser');
 const { savePdf, getCache, saveCache, listSavedPdfs, readSavedPdf, removePdf } = require('../lib/ventas-storage');
-const { insertOrUpdateVentas, getVentasFiltradas, getCatalogos, clearAllVentas } = require('../lib/ventas-hefame-db');
+const { insertOrUpdateVentasMulti, getVentasFiltradas, getCatalogos, clearAllVentas } = require('../lib/ventas-hefame-db');
 
 const router = express.Router();
 
@@ -306,16 +306,14 @@ router.post('/ventas-gemavip/upload', requireLogin, (req, res, next) => {
       }
     }
 
-    const newMerged = mergeVentasResults(results);
-
-    // Insertar en BD (ON DUPLICATE KEY suma cantidades)
+    // Insertar en BD (INSERT IGNORE; lotes de hasta 200 filas por query)
+    const batches = [];
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       const origen = r.filename || savedNames[i] || files[i]?.originalname;
-      if (r.ventas?.length) {
-        await insertOrUpdateVentas(r.ventas, origen);
-      }
+      if (r.ventas?.length) batches.push({ ventas: r.ventas, origen });
     }
+    await insertOrUpdateVentasMulti(batches);
 
     // Actualizar caché de nombres de archivos (para lista PDFs guardados)
     const cache = await getCache();
@@ -377,16 +375,13 @@ router.post('/ventas-gemavip/reprocess', requireAdmin, async (req, res, next) =>
       }
     }
 
-    const merged = mergeVentasResults(results);
-
-    // Insertar en BD
+    const batches = [];
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       const origen = r.filename || files[i];
-      if (r.ventas?.length) {
-        await insertOrUpdateVentas(r.ventas, origen);
-      }
+      if (r.ventas?.length) batches.push({ ventas: r.ventas, origen });
     }
+    await insertOrUpdateVentasMulti(batches);
 
     await saveCache({ files, parsed: null, lastUpdated: new Date().toISOString() });
 
