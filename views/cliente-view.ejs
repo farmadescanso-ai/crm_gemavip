@@ -168,12 +168,19 @@
           <p style="color:var(--gv-muted); font-size:14px;">No hay mayoristas asociados.</p>
           <% } %>
         <% } else { %>
-        <div class="grid cols-2" style="gap: 12px;">
+        <div class="grid cols-2<%= t.id === 'datos_banco' ? ' gv-datos-banco-stack' : '' %>" style="gap: 12px;">
             <% (t.fields || []).forEach((f) => { %>
               <% if (f.spec && f.spec.kind === 'mayoristas') return; %>
               <% const isAdminOnly = !!f.adminOnly; %>
               <% const showSoloAdmin = isAdminOnly && (typeof admin === 'undefined' || !admin); %>
-              <div class="<%= showSoloAdmin ? 'gv-field-admin-only' : '' %>" style="display:grid; gap: 6px;">
+              <% const nl = String(f.name || '').toLowerCase(); %>
+              <% let datBancoCls = ''; %>
+              <% if (t.id === 'datos_banco') { %>
+              <%   if (nl.includes('iban')) datBancoCls = ' gv-datbanco-iban'; %>
+              <%   else if (nl.includes('banco')) datBancoCls = ' gv-datbanco-banco'; %>
+              <%   else datBancoCls = ' gv-datbanco-rest'; %>
+              <% } %>
+              <div class="<%= showSoloAdmin ? 'gv-field-admin-only' : '' %><%= datBancoCls %>" style="display:grid; gap: 6px;">
                 <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= f.label %><% if (showSoloAdmin) { %> <span class="gv-badge-admin" title="Solo puede editar un administrador">Solo admin</span><% } %></span>
                 <div class="gv-readonly" style="<%= (f.spec && f.spec.kind === 'textarea') ? 'white-space:pre-wrap;' : '' %>">
                   <% const isTelField = (f.spec && (f.spec.type === 'tel' || ['telefono','movil','cli_telefono','cli_movil'].includes(String(f.name || '').toLowerCase()))); %>

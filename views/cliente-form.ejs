@@ -229,7 +229,7 @@
               </p>
             </div>
           <% } else { %>
-          <div class="grid cols-2 gv-form-grid" style="gap: 12px;">
+          <div class="grid cols-2 gv-form-grid<%= t.id === 'datos_banco' ? ' gv-datos-banco-stack' : '' %>" style="gap: 12px;">
               <% (t.fields || []).forEach((f) => { %>
                 <% const name = f.name; %>
                 <% const label = f.label; %>
@@ -239,11 +239,18 @@
                 <% if (spec.options === 'comerciales') return; %>
                 <% const isMissing = missingFieldsList.indexOf(name) !== -1; %>
                 <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
+                <% const nl = String(name || '').toLowerCase(); %>
+                <% let datBancoCls = ''; %>
+                <% if (t.id === 'datos_banco') { %>
+                <%   if (nl.includes('iban')) datBancoCls = ' gv-datbanco-iban'; %>
+                <%   else if (nl.includes('banco')) datBancoCls = ' gv-datbanco-banco'; %>
+                <%   else datBancoCls = ' gv-datbanco-rest'; %>
+                <% } %>
 
                 <% const isTipoEspField = (spec.options === 'tipos_clientes' || spec.options === 'especialidades' || spec.options === 'tipos_clientes_nombre'); %>
                 <% const isAdminOnly = !!f.adminOnly; %>
                 <% const forceReadonly = isAdminOnly && !(typeof admin !== 'undefined' && admin); %>
-                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %><%= isAdminOnly ? ' gv-field-admin-only' : '' %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="persona"' : '' %>>
+                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %><%= isAdminOnly ? ' gv-field-admin-only' : '' %><%= datBancoCls %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="persona"' : '' %>>
                   <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %><% if (isAdminOnly) { %> <span class="gv-badge-admin" title="Solo puede editar un administrador">Solo admin</span><% } %></span>
 
                   <% if (forceReadonly) { %>

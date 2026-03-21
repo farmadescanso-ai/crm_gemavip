@@ -530,6 +530,23 @@ main.container{
 }
 @media (min-width: 960px){
   .grid.cols-2{ grid-template-columns: 1.2fr .8fr; }
+  /* Datos Banco: columna izquierda IBAN arriba, Banco debajo; derecha SWIFT/BIC */
+  .grid.cols-2.gv-datos-banco-stack{
+    grid-template-columns: 1fr 1fr;
+  }
+  .grid.cols-2.gv-datos-banco-stack .gv-datbanco-iban{
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .grid.cols-2.gv-datos-banco-stack .gv-datbanco-banco{
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .grid.cols-2.gv-datos-banco-stack .gv-datbanco-rest{
+    grid-column: 2;
+    grid-row: 1 / -1;
+    align-self: start;
+  }
 }
 
 /* Dashboard: dos bloques que caben en el contenedor sin desbordar */
