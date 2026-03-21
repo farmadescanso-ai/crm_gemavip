@@ -175,11 +175,11 @@
               <% const showSoloAdmin = isAdminOnly && (typeof admin === 'undefined' || !admin); %>
               <% const nl = String(f.name || '').toLowerCase(); %>
               <% let datBancoCls = ''; %>
-              <% if (t.id === 'datos_banco') { %>
-              <%   if (nl.includes('iban')) datBancoCls = ' gv-datbanco-iban'; %>
-              <%   else if (nl.includes('banco')) datBancoCls = ' gv-datbanco-banco'; %>
-              <%   else datBancoCls = ' gv-datbanco-rest'; %>
-              <% } %>
+              <% if (t.id === 'datos_banco') {
+                if (nl.includes('iban')) datBancoCls = ' gv-datbanco-iban';
+                else if (nl.includes('banco')) datBancoCls = ' gv-datbanco-banco';
+                else datBancoCls = ' gv-datbanco-rest';
+              } %>
               <div class="<%= showSoloAdmin ? 'gv-field-admin-only' : '' %><%= datBancoCls %>" style="display:grid; gap: 6px;">
                 <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= f.label %><% if (showSoloAdmin) { %> <span class="gv-badge-admin" title="Solo puede editar un administrador">Solo admin</span><% } %></span>
                 <div class="gv-readonly" style="<%= (f.spec && f.spec.kind === 'textarea') ? 'white-space:pre-wrap;' : '' %>">

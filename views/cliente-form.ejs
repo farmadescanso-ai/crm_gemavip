@@ -241,11 +241,11 @@
                 <% const inputId = `gv_${String(name).replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
                 <% const nl = String(name || '').toLowerCase(); %>
                 <% let datBancoCls = ''; %>
-                <% if (t.id === 'datos_banco') { %>
-                <%   if (nl.includes('iban')) datBancoCls = ' gv-datbanco-iban'; %>
-                <%   else if (nl.includes('banco')) datBancoCls = ' gv-datbanco-banco'; %>
-                <%   else datBancoCls = ' gv-datbanco-rest'; %>
-                <% } %>
+                <% if (t.id === 'datos_banco') {
+                  if (nl.includes('iban')) datBancoCls = ' gv-datbanco-iban';
+                  else if (nl.includes('banco')) datBancoCls = ' gv-datbanco-banco';
+                  else datBancoCls = ' gv-datbanco-rest';
+                } %>
 
                 <% const isTipoEspField = (spec.options === 'tipos_clientes' || spec.options === 'especialidades' || spec.options === 'tipos_clientes_nombre'); %>
                 <% const isAdminOnly = !!f.adminOnly; %>
