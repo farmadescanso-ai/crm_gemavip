@@ -14,6 +14,7 @@ const DEFAULT_TABLE_NAMES = {
   agenda_roles: 'agenda_roles',
   api_keys: 'api_keys',
   articulos: 'articulos',
+  bancos: 'bancos',
   clientes: 'clientes',
   clientes_contactos: 'clientes_contactos',
   clientes_cooperativas: 'clientes_cooperativas',

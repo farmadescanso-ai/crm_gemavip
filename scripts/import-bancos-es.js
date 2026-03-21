@@ -77,6 +77,12 @@ async function run() {
     rows.push({ banco_entidad: entidad, banco_nombre: nombre, banco_swift_bic: bic });
   }
 
+  const byEnt = new Map();
+  for (const r of rows) {
+    byEnt.set(r.banco_entidad, r);
+  }
+  const deduped = Array.from(byEnt.values());
+
   const config = {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 3306,
@@ -95,7 +101,7 @@ async function run() {
         \`banco_swift_bic\` = VALUES(\`banco_swift_bic\`)
     `;
     let n = 0;
-    for (const r of rows) {
+    for (const r of deduped) {
       await conn.execute(sql, [r.banco_entidad, r.banco_nombre, r.banco_swift_bic]);
       n++;
     }

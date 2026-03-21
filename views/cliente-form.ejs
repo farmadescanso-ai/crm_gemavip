@@ -461,6 +461,7 @@
                   <% const isNombreField = (label && String(label).indexOf('Nombre / Razón social') !== -1); %>
                   <% const isTelField = (spec.type === 'tel' || /telefono|movil/i.test(String(name))); %>
                   <% const displayVal = (type === 'number') ? numVal(name) : (isTelField && typeof fmtTelefono === 'function') ? fmtTelefono(_pickVal(name)) : _pickVal(name); %>
+                  <% const gvBankData = (t.id === 'datos_banco' && !forceReadonly) ? (nl.includes('iban') ? ' data-gv-iban-field=1' : nl.includes('banco') ? ' data-gv-banco-field=1' : (nl.includes('swift') || nl.includes('bic') || nl.includes('swift_bic')) ? ' data-gv-swift-field=1' : '') : ''; %>
                   <input
                     id="<%= inputId %>"
                     name="<%= name %>"
@@ -470,6 +471,7 @@
                     aria-invalid="<%= isMissing ? 'true' : 'false' %>"
                     <%= type === 'number' ? 'step="0.01"' : '' %>
                     <%= isNombreField ? 'data-gv-nombre-field="1"' : '' %>
+                    <%= gvBankData %>
                   />
                 <% } %>
 
@@ -783,9 +785,33 @@
   }
 
   // IBAN ES → nombre del banco y SWIFT/BIC (código de entidad = 4 dígitos tras ES + DC IBAN)
-  var ibanInput = form.querySelector('input[name="cli_iban"], input[name="cli_IBAN"], input[name="IBAN"]');
-  var bancoInput = form.querySelector('input[name="cli_banco"], input[name="cli_Banco"], input[name="Banco"]');
-  var swiftInput = form.querySelector('input[name="cli_swift"], input[name="cli_Swift"], input[name="SWIFT"]');
+  function gvFindBankInputs() {
+    var iban =
+      form.querySelector('[data-gv-iban-field="1"], [data-gv-iban-field=1]') ||
+      form.querySelector('.gv-datbanco-iban input') ||
+      form.querySelector('input[name="cli_iban"], input[name="cli_IBAN"], input[name="IBAN"], input[name="Cli_Iban"], input[name="Cli_IBAN"]');
+    var banco =
+      form.querySelector('[data-gv-banco-field="1"], [data-gv-banco-field=1]') ||
+      form.querySelector('.gv-datbanco-banco input') ||
+      form.querySelector('input[name="cli_banco"], input[name="cli_Banco"], input[name="Banco"], input[name="Cli_Banco"]');
+    var swift =
+      form.querySelector('[data-gv-swift-field="1"], [data-gv-swift-field=1]') ||
+      (function () {
+        var rest = form.querySelectorAll('.gv-datbanco-rest input');
+        if (rest.length === 1) return rest[0];
+        for (var i = 0; i < rest.length; i++) {
+          var nm = String(rest[i].getAttribute('name') || '').toLowerCase();
+          if (nm.indexOf('swift') !== -1 || nm.indexOf('bic') !== -1) return rest[i];
+        }
+        return rest[0] || null;
+      })() ||
+      form.querySelector('input[name="cli_swift"], input[name="cli_Swift"], input[name="SWIFT"], input[name="SWIFT_BIC"], input[name="Cli_Swift"]');
+    return { iban: iban, banco: banco, swift: swift };
+  }
+  var _gvBank = gvFindBankInputs();
+  var ibanInput = _gvBank.iban;
+  var bancoInput = _gvBank.banco;
+  var swiftInput = _gvBank.swift;
   if (ibanInput) {
     function normIbanStr(s) {
       return String(s || '').replace(/\s+/g, '').toUpperCase();
@@ -796,15 +822,20 @@
     }
     var ibanBancoTimeout = null;
     function tryBancoSwiftDesdeIban() {
-      var raw = normIbanStr(ibanInput.value);
+      var bank = gvFindBankInputs();
+      var ib = bank.iban;
+      var bIn = bank.banco;
+      var sIn = bank.swift;
+      if (!ib) return;
+      var raw = normIbanStr(ib.value);
       if (raw.length < 8) return;
       var ent = extractEntidadDesdeIbanEs(raw);
       if (!ent || !/^[0-9]{4}$/.test(ent)) return;
-      var bancoTiene = bancoInput && String(bancoInput.value || '').trim();
-      var swiftTiene = swiftInput && String(swiftInput.value || '').trim();
+      var bancoTiene = bIn && String(bIn.value || '').trim();
+      var swiftTiene = sIn && String(sIn.value || '').trim();
       if (bancoTiene && swiftTiene) return;
       fetch('/api/banco-por-entidad?entidad=' + encodeURIComponent(ent), {
-        credentials: 'include',
+        credentials: 'same-origin',
         headers: { Accept: 'application/json' }
       })
         .then(function (r) {
@@ -815,18 +846,23 @@
         })
         .then(function (json) {
           if (!json || !json.ok) return;
-          if (bancoInput && !String(bancoInput.value || '').trim() && json.bancoNombre) {
-            bancoInput.value = json.bancoNombre;
+          var bank2 = gvFindBankInputs();
+          if (json.bancoNombre && bank2.banco && !String(bank2.banco.value || '').trim()) {
+            bank2.banco.value = json.bancoNombre;
           }
-          if (swiftInput && !String(swiftInput.value || '').trim() && json.swiftBic) {
-            swiftInput.value = json.swiftBic;
+          if (json.swiftBic && bank2.swift && !String(bank2.swift.value || '').trim()) {
+            bank2.swift.value = json.swiftBic;
           }
         })
         .catch(function () {});
     }
-    ibanInput.addEventListener('blur', tryBancoSwiftDesdeIban);
-    ibanInput.addEventListener('paste', function () {
+    function onIbanBlurOrChange() {
       setTimeout(tryBancoSwiftDesdeIban, 0);
+    }
+    ibanInput.addEventListener('blur', onIbanBlurOrChange);
+    ibanInput.addEventListener('change', onIbanBlurOrChange);
+    ibanInput.addEventListener('paste', function () {
+      setTimeout(tryBancoSwiftDesdeIban, 10);
     });
     ibanInput.addEventListener('input', function () {
       if (ibanBancoTimeout) clearTimeout(ibanBancoTimeout);
