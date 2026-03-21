@@ -51,26 +51,6 @@
       const especialEstado = (p) => String(p?.EspecialEstado ?? p?.especial_estado ?? '').trim().toLowerCase();
       const totalPedidoNum = (p) => toNum(p?.TotalPedido ?? p?.ped_total ?? p?.Total ?? p?.ImporteTotal ?? 0, 0);
       const ventasTotal = round2(itemsArr.reduce((s, p) => s + totalPedidoNum(p), 0));
-      const ticketMedio = itemsArr.length ? round2(ventasTotal / itemsArr.length) : 0;
-      const pendientesCount = itemsArr.filter(isPendiente).length;
-      const especialesCount = itemsArr.filter(isEspecial).length;
-
-      const groupSum = (rows, getKey, getValue) => {
-        const map = new Map();
-        (rows || []).forEach((r) => {
-          const k = String(getKey(r) || '').trim() || '—';
-          const cur = map.get(k) || { key: k, count: 0, sum: 0 };
-          cur.count += 1;
-          cur.sum += getValue(r);
-          map.set(k, cur);
-        });
-        return Array.from(map.values()).sort((a, b) => b.sum - a.sum);
-      };
-
-      const byEstado = groupSum(itemsArr, (p) => (p?.EstadoPedidoNombre ?? p?.EstadoPedido ?? p?.Estado ?? p?.ped_estado_txt ?? '—'), totalPedidoNum);
-      const byComercial = groupSum(itemsArr, (p) => (p?.ComercialNombre ?? p?.Id_Cial ?? p?.id_cial ?? '—'), totalPedidoNum);
-      const byProvincia = groupSum(itemsArr, (p) => (p?.ProvinciaNombre ?? '—'), totalPedidoNum);
-      const byTipoCliente = groupSum(itemsArr, (p) => (p?.TipoClienteNombre ?? '—'), totalPedidoNum);
 
       const incompletos = itemsArr.filter((p) => {
         const idDir = Number(p?.Id_DireccionEnvio ?? p?.id_direccion_envio ?? p?.ped_direnv_id ?? 0) || 0;
@@ -79,7 +59,6 @@
         const tp = Number(p?.Id_TipoPedido ?? p?.id_tipo_pedido ?? p?.ped_tipp_id ?? 0) || 0;
         return (!idDir) || (!ref) || (!fp) || (!tp);
       });
-      const pendientes = itemsArr.filter(isPendiente);
       const especialesPend = itemsArr.filter((p) => isEspecial(p) && (especialEstado(p) === 'pendiente' || especialEstado(p) === '' || especialEstado(p) === 'pending'));
 
       const _seguimientoEstados = [
@@ -258,7 +237,6 @@
 
           <div class="gv-tabs" role="tablist" aria-label="Vistas de pedidos">
             <button type="button" class="gv-tab is-active" role="tab" aria-selected="true" aria-controls="tab_listado" data-tab="listado">Listado</button>
-            <button type="button" class="gv-tab" role="tab" aria-selected="false" aria-controls="tab_resumen" data-tab="resumen">Resumen</button>
             <button type="button" class="gv-tab" role="tab" aria-selected="false" aria-controls="tab_seguimiento" data-tab="seguimiento">Seguimiento</button>
           </div>
         </div>
@@ -369,130 +347,6 @@
               <% }) %>
             </tbody>
           </table>
-        </div>
-      </section>
-
-      <section id="tab_resumen" class="gv-tabpanel" role="tabpanel" data-tabpanel="resumen">
-        <div class="dash-stats" style="margin-top: 4px;">
-          <div class="dash-stat" data-variant="navy">
-            <div class="dash-stat-label">Pedidos</div>
-            <div class="dash-stat-value"><%= itemsArr.length %></div>
-            <div class="dash-stat-foot">Resultados filtrados</div>
-          </div>
-          <div class="dash-stat" data-variant="yellow">
-            <div class="dash-stat-label">Ventas</div>
-            <div class="dash-stat-value"><%= fmtEurES(ventasTotal) %></div>
-            <div class="dash-stat-foot">Suma de totales</div>
-          </div>
-          <div class="dash-stat" data-variant="blue">
-            <div class="dash-stat-label">Ticket medio</div>
-            <div class="dash-stat-value"><%= fmtEurES(ticketMedio) %></div>
-            <div class="dash-stat-foot">Media por pedido</div>
-          </div>
-          <div class="dash-stat" data-variant="green">
-            <div class="dash-stat-label">Pendientes</div>
-            <div class="dash-stat-value"><%= pendientesCount %></div>
-            <div class="dash-stat-foot"><%= itemsArr.length ? `${Math.round((pendientesCount / itemsArr.length) * 100)}%` : '—' %></div>
-          </div>
-          <div class="dash-stat" data-variant="navy">
-            <div class="dash-stat-label">Especiales</div>
-            <div class="dash-stat-value"><%= especialesCount %></div>
-            <div class="dash-stat-foot"><%= itemsArr.length ? `${Math.round((especialesCount / itemsArr.length) * 100)}%` : '—' %></div>
-          </div>
-        </div>
-
-        <div class="dash-grid" style="margin-top: 14px;">
-          <section class="card dash-card">
-            <div class="card-hd">
-              <h2 class="card-title">Por estado</h2>
-              <p class="card-subtitle">Pedidos y ventas</p>
-            </div>
-            <div class="card-bd">
-              <div class="table-wrap">
-                <table class="dash-table">
-                  <thead><tr><th>Estado</th><th>Pedidos</th><th>Ventas</th></tr></thead>
-                  <tbody>
-                    <% (byEstado || []).forEach((r) => { %>
-                      <tr>
-                        <td><%= r.key %></td>
-                        <td><%= r.count %></td>
-                        <td><%= fmtEurES(round2(r.sum)) %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section class="card dash-card">
-            <div class="card-hd">
-              <h2 class="card-title">Por comercial</h2>
-              <p class="card-subtitle">Top por ventas</p>
-            </div>
-            <div class="card-bd">
-              <div class="table-wrap">
-                <table class="dash-table">
-                  <thead><tr><th>Comercial</th><th>Pedidos</th><th>Ventas</th></tr></thead>
-                  <tbody>
-                    <% (byComercial || []).slice(0, 12).forEach((r) => { %>
-                      <tr>
-                        <td><%= r.key %></td>
-                        <td><%= r.count %></td>
-                        <td><%= fmtEurES(round2(r.sum)) %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section class="card dash-card">
-            <div class="card-hd">
-              <h2 class="card-title">Por provincia</h2>
-              <p class="card-subtitle">Top por ventas</p>
-            </div>
-            <div class="card-bd">
-              <div class="table-wrap">
-                <table class="dash-table">
-                  <thead><tr><th>Provincia</th><th>Pedidos</th><th>Ventas</th></tr></thead>
-                  <tbody>
-                    <% (byProvincia || []).slice(0, 12).forEach((r) => { %>
-                      <tr>
-                        <td><%= r.key %></td>
-                        <td><%= r.count %></td>
-                        <td><%= fmtEurES(round2(r.sum)) %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section class="card dash-card">
-            <div class="card-hd">
-              <h2 class="card-title">Por tipo de cliente</h2>
-              <p class="card-subtitle">Top por ventas</p>
-            </div>
-            <div class="card-bd">
-              <div class="table-wrap">
-                <table class="dash-table">
-                  <thead><tr><th>Tipo</th><th>Pedidos</th><th>Ventas</th></tr></thead>
-                  <tbody>
-                    <% (byTipoCliente || []).slice(0, 12).forEach((r) => { %>
-                      <tr>
-                        <td><%= r.key %></td>
-                        <td><%= r.count %></td>
-                        <td><%= fmtEurES(round2(r.sum)) %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
         </div>
       </section>
 
@@ -971,7 +825,8 @@
     });
   });
   var hash = String(window.location.hash || '').replace('#', '').trim().toLowerCase();
-  if (hash === 'listado' || hash === 'resumen' || hash === 'seguimiento') setTab(hash);
+  if (hash === 'resumen') hash = 'listado';
+  if (hash === 'listado' || hash === 'seguimiento') setTab(hash);
 })();
 </script>
 
