@@ -40,7 +40,8 @@ const {
   normalizeRoles,
   getCommonNavLinksForRoles,
   getRoleNavLinksForRoles,
-  requireLogin
+  requireLogin,
+  requireLoginJson
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { parsePagination } = require('../lib/pagination');
@@ -471,7 +472,7 @@ app.get('/api/provincia-by-cp', requireLogin, async (req, res) => {
  *                   type: string
  *                   nullable: true
  */
-app.get('/api/banco-por-entidad', requireLogin, async (req, res) => {
+app.get('/api/banco-por-entidad', requireLoginJson, async (req, res) => {
   try {
     const ent = String(req.query?.entidad ?? '')
       .trim()

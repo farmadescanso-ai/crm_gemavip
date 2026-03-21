@@ -839,6 +839,7 @@
         headers: { Accept: 'application/json' }
       })
         .then(function (r) {
+          if (r.status === 401) return null;
           if (!r.ok) return null;
           var ct = (r.headers.get('Content-Type') || '').toLowerCase();
           if (ct.indexOf('application/json') === -1) return null;
@@ -866,7 +867,19 @@
     });
     ibanInput.addEventListener('input', function () {
       if (ibanBancoTimeout) clearTimeout(ibanBancoTimeout);
+      var rawQuick = normIbanStr(ibanInput.value);
+      if (rawQuick.length === 24 && /^ES[0-9]/.test(rawQuick)) {
+        tryBancoSwiftDesdeIban();
+        return;
+      }
       ibanBancoTimeout = setTimeout(tryBancoSwiftDesdeIban, 400);
+    });
+    // Intro en un input de formulario suele enviar el formulario antes del blur; evitar y rellenar banco/SWIFT
+    ibanInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        tryBancoSwiftDesdeIban();
+      }
     });
   }
 
