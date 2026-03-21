@@ -824,16 +824,11 @@
     function tryBancoSwiftDesdeIban() {
       var bank = gvFindBankInputs();
       var ib = bank.iban;
-      var bIn = bank.banco;
-      var sIn = bank.swift;
       if (!ib) return;
       var raw = normIbanStr(ib.value);
       if (raw.length < 8) return;
       var ent = extractEntidadDesdeIbanEs(raw);
       if (!ent || !/^[0-9]{4}$/.test(ent)) return;
-      var bancoTiene = bIn && String(bIn.value || '').trim();
-      var swiftTiene = sIn && String(sIn.value || '').trim();
-      if (bancoTiene && swiftTiene) return;
       fetch('/api/banco-por-entidad?entidad=' + encodeURIComponent(ent), {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' }
@@ -848,10 +843,10 @@
         .then(function (json) {
           if (!json || !json.ok) return;
           var bank2 = gvFindBankInputs();
-          if (json.bancoNombre && bank2.banco && !String(bank2.banco.value || '').trim()) {
+          if (json.bancoNombre && bank2.banco) {
             bank2.banco.value = json.bancoNombre;
           }
-          if (json.swiftBic && bank2.swift && !String(bank2.swift.value || '').trim()) {
+          if (json.swiftBic && bank2.swift) {
             bank2.swift.value = json.swiftBic;
           }
         })
