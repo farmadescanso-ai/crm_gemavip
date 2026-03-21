@@ -9,6 +9,7 @@ const { isAdminUser } = require('../lib/auth');
 const { _n } = require('../lib/app-helpers');
 const { parsePagination } = require('../lib/pagination');
 const { addMinutesHHMM } = require('../lib/time-utils');
+const { getClientesForSelect, visitaTipoColumnaEsId } = require('../lib/cliente-helpers');
 
 const router = express.Router();
 
@@ -165,14 +166,8 @@ router.get('/new', requireLogin, async (req, res, next) => {
     const tiposVisita = await db.getTiposVisita().catch(() => []);
     const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const comerciales = admin ? await db.getComerciales() : [];
-    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
-    const tClientes = clientesMeta?.tClientes || 'clientes';
-    const pkClientes = clientesMeta?.pk || 'Id';
-    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
-    const clientes = await db.query(`SELECT \`${pkClientes}\` AS Id, \`${colNombreRazon}\` AS Nombre_Razon_Social FROM \`${tClientes}\` ORDER BY \`${pkClientes}\` DESC LIMIT 200`).catch(() => []);
-
-    const colTipoLower = String(meta.colTipo || '').toLowerCase();
-    const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
+    const clientes = await getClientesForSelect(db);
+    const tipoIsId = visitaTipoColumnaEsId(meta);
 
     res.render('visita-form', {
       mode: 'create',
@@ -206,11 +201,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const tiposVisita = await db.getTiposVisita().catch(() => []);
     const estadosVisita = await db.getEstadosVisita().catch(() => []);
     const comerciales = admin ? await db.getComerciales() : [];
-    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
-    const tClientes = clientesMeta?.tClientes || 'clientes';
-    const pkClientes = clientesMeta?.pk || 'Id';
-    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
-    const clientes = await db.query(`SELECT \`${pkClientes}\` AS Id, \`${colNombreRazon}\` AS Nombre_Razon_Social FROM \`${tClientes}\` ORDER BY \`${pkClientes}\` DESC LIMIT 200`).catch(() => []);
+    const clientes = await getClientesForSelect(db);
+    const tipoIsId = visitaTipoColumnaEsId(meta);
 
     const fecha = String(req.body?.Fecha || req.body?.fecha || '').slice(0, 10);
     const hora = String(req.body?.Hora || req.body?.hora || '').slice(0, 5);
@@ -224,8 +216,6 @@ router.post('/new', requireLogin, async (req, res, next) => {
     const horaFinal = horaFinalRaw || (hora ? addMinutesHHMM(hora, 30) : '');
 
     const renderError = (message) => {
-      const colTipoLower = String(meta.colTipo || '').toLowerCase();
-      const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
       return res.status(400).render('visita-form', {
         mode: 'create',
         admin,
@@ -258,8 +248,6 @@ router.post('/new', requireLogin, async (req, res, next) => {
     if (meta.colHora) payload[meta.colHora] = hora;
     if (meta.colHoraFinal && horaFinal) payload[meta.colHoraFinal] = horaFinal;
     if (meta.colTipo) {
-      const colTipoLower = String(meta.colTipo || '').toLowerCase();
-      const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
       payload[meta.colTipo] = tipoIsId ? (Number(tipoRaw) || null) : tipoRaw.slice(0, 80);
     }
     if (meta.colEstado && estado) payload[meta.colEstado] = estado;
@@ -307,15 +295,10 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     }
 
     const comerciales = admin ? await db.getComerciales() : [];
-    const clientesMeta = await db._ensureClientesMeta().catch(() => null);
-    const tClientes = clientesMeta?.tClientes || 'clientes';
-    const pkClientes = clientesMeta?.pk || 'Id';
-    const colNombreRazon = clientesMeta?.colNombreRazonSocial || 'cli_nombre_razon_social';
-    const clientes = await db.query(`SELECT \`${pkClientes}\` AS Id, \`${colNombreRazon}\` AS Nombre_Razon_Social FROM \`${tClientes}\` ORDER BY \`${pkClientes}\` DESC LIMIT 200`).catch(() => []);
+    const clientes = await getClientesForSelect(db);
     const tiposVisita = await db.getTiposVisita().catch(() => []);
     const estadosVisita = await db.getEstadosVisita().catch(() => []);
-    const colTipoLower = String(meta.colTipo || '').toLowerCase();
-    const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
+    const tipoIsId = visitaTipoColumnaEsId(meta);
 
     res.render('visita-form', {
       mode: 'edit',
@@ -358,14 +341,13 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
 
     const currentHoraFinal = meta.colHoraFinal ? String(row?.[meta.colHoraFinal] || '').slice(0, 5) : '';
     const horaFinal = horaFinalRaw || (hora ? addMinutesHHMM(hora, 30) : currentHoraFinal);
+    const tipoIsId = visitaTipoColumnaEsId(meta);
 
     const payload = {};
     if (meta.colFecha && fecha) payload[meta.colFecha] = fecha;
     if (meta.colHora) payload[meta.colHora] = hora || null;
     if (meta.colHoraFinal) payload[meta.colHoraFinal] = horaFinal || null;
     if (meta.colTipo) {
-      const colTipoLower = String(meta.colTipo || '').toLowerCase();
-      const tipoIsId = colTipoLower.includes('id_') || colTipoLower.endsWith('id');
       payload[meta.colTipo] = tipoRaw ? (tipoIsId ? (Number(tipoRaw) || null) : tipoRaw.slice(0, 80)) : null;
     }
     if (meta.colEstado) payload[meta.colEstado] = estado || null;

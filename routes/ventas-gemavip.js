@@ -7,6 +7,8 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const { requireLogin } = require('../lib/auth');
+const { requireAdmin } = require('../lib/app-helpers');
 const { parseVentasPdf, mergeVentasResults } = require('../lib/ventas-pdf-parser');
 const { savePdf, getCache, saveCache, listSavedPdfs, readSavedPdf, removePdf } = require('../lib/ventas-storage');
 const { insertOrUpdateVentas, getVentasFiltradas, getCatalogos, clearAllVentas } = require('../lib/ventas-hefame-db');
@@ -151,12 +153,12 @@ function buildDashboardData(merged) {
 }
 
 // GET /ventas-gemavip - Redirige a subir
-router.get('/ventas-gemavip', (req, res) => {
+router.get('/ventas-gemavip', requireLogin, (req, res) => {
   res.redirect(302, '/ventas-gemavip/subir');
 });
 
 // GET /ventas-gemavip/subir - Página para subir PDFs (formulario tradicional, sin JS)
-router.get('/ventas-gemavip/subir', async (req, res, next) => {
+router.get('/ventas-gemavip/subir', requireLogin, async (req, res, next) => {
   try {
     const uploadSuccess = req.query.upload === 'ok' ? 'PDFs subidos y guardados correctamente.' : null;
     const uploadError = req.query.error ? decodeURIComponent(req.query.error) : null;
@@ -173,7 +175,7 @@ router.get('/ventas-gemavip/subir', async (req, res, next) => {
 });
 
 // GET /ventas-gemavip/informes - Dashboard con gráficos (datos desde BD)
-router.get('/ventas-gemavip/informes', async (req, res, next) => {
+router.get('/ventas-gemavip/informes', requireLogin, async (req, res, next) => {
   try {
     const anio = req.query.anio ? Number(req.query.anio) : null;
     const mes = req.query.mes ? Number(req.query.mes) : null;
@@ -230,7 +232,7 @@ router.get('/ventas-gemavip/informes', async (req, res, next) => {
 });
 
 // GET /ventas-gemavip/api/data - Obtener datos desde BD con filtros (anio, mes, provincia, articulo)
-router.get('/ventas-gemavip/api/data', async (req, res, next) => {
+router.get('/ventas-gemavip/api/data', requireLogin, async (req, res, next) => {
   try {
     const anio = req.query.anio ? Number(req.query.anio) : null;
     const mes = req.query.mes ? Number(req.query.mes) : null;
@@ -258,7 +260,7 @@ router.get('/ventas-gemavip/api/data', async (req, res, next) => {
 });
 
 // POST /ventas-gemavip/upload - Subir y procesar PDFs (guarda en disco)
-router.post('/ventas-gemavip/upload', (req, res, next) => {
+router.post('/ventas-gemavip/upload', requireLogin, (req, res, next) => {
   upload.array('pdfs', 5)(req, res, (err) => {
     if (err) {
       const msg = err.code === 'LIMIT_FILE_SIZE' ? 'Archivo demasiado grande (máx. 15 MB)' : (err.message || 'Error al subir');
@@ -350,7 +352,7 @@ router.post('/ventas-gemavip/upload', (req, res, next) => {
 });
 
 // POST /ventas-gemavip/reprocess - Reprocesar todos los PDFs guardados e insertar en BD
-router.post('/ventas-gemavip/reprocess', async (req, res, next) => {
+router.post('/ventas-gemavip/reprocess', requireAdmin, async (req, res, next) => {
   try {
     const cache = await getCache();
     const files = cache?.files?.length ? cache.files : (await listSavedPdfs()).map((f) => f.name);
@@ -400,7 +402,7 @@ router.post('/ventas-gemavip/reprocess', async (req, res, next) => {
 });
 
 // POST /ventas-gemavip/clear - Vaciar todos los datos de ventas_hefame, caché y PDFs en disco
-router.post('/ventas-gemavip/clear', async (req, res, next) => {
+router.post('/ventas-gemavip/clear', requireAdmin, async (req, res, next) => {
   try {
     await clearAllVentas();
     await saveCache({ files: [], parsed: null, lastUpdated: new Date().toISOString() });
@@ -417,7 +419,7 @@ router.post('/ventas-gemavip/clear', async (req, res, next) => {
 });
 
 // DELETE /ventas-gemavip/api/file/:name - Eliminar un PDF guardado (solo disco; datos en BD se mantienen)
-router.delete('/ventas-gemavip/api/file/:name', async (req, res, next) => {
+router.delete('/ventas-gemavip/api/file/:name', requireAdmin, async (req, res, next) => {
   try {
     const name = decodeURIComponent(req.params.name || '');
     if (!name || !name.endsWith('.pdf')) {
