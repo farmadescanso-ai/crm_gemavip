@@ -259,15 +259,9 @@ router.get('/', requireLogin, async (req, res, next) => {
       hasEstadoIdCol = (cols || []).some((c) => String(c).toLowerCase() === String(colEstadoId).toLowerCase());
     } catch (e) { warn('[pedidos] estadoIdCol:', e?.message); }
 
-    const startYear = 2025;
     const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let y = currentYear; y >= startYear; y--) years.push(y);
-
-    const rawYear = String(req.query.year || '').trim();
-    const parsedYear = rawYear && /^\d{4}$/.test(rawYear) ? Number(rawYear) : NaN;
-    const selectedYear =
-      Number.isFinite(parsedYear) && parsedYear >= startYear && parsedYear <= currentYear ? parsedYear : currentYear;
+    /** Siempre año calendario en curso (sin desplegable de año en la vista). */
+    const selectedYear = currentYear;
 
     const rawMarca = String(req.query.marca || req.query.brand || '').trim();
     const parsedMarca = rawMarca && /^\d+$/.test(rawMarca) ? Number(rawMarca) : NaN;
@@ -315,6 +309,10 @@ router.get('/', requireLogin, async (req, res, next) => {
         periodoDateFrom = `${selectedYear}-${pad(m1)}-01`;
         const lastDay = new Date(selectedYear, q * 3 + 3, 0).getDate();
         periodoDateTo = `${selectedYear}-${pad(m1 + 2)}-${pad(lastDay)}`;
+      } else if (selectedPeriodo === 'anio_anterior') {
+        const py = currentYear - 1;
+        periodoDateFrom = `${py}-01-01`;
+        periodoDateTo = `${py}-12-31`;
       }
     }
 
@@ -593,10 +591,14 @@ router.get('/', requireLogin, async (req, res, next) => {
 
     const sessionUser = res.locals.user;
     const sessionUserId = sessionUser?.id != null ? Number(sessionUser.id) : null;
+    const pedidosAnioEtiqueta =
+      !selectedDesde && !selectedHasta && String(selectedPeriodo).toLowerCase() === 'anio_anterior'
+        ? currentYear - 1
+        : currentYear;
     res.render('pedidos', {
       items: items || [],
-      years,
       selectedYear,
+      pedidosAnioEtiqueta,
       marcas: Array.isArray(marcas) ? marcas : [],
       selectedMarcaId,
       selectedPeriodo: (selectedDesde || selectedHasta) ? '' : (selectedPeriodo || ''),
