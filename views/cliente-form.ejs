@@ -243,7 +243,7 @@
                 <% const isTipoEspField = (spec.options === 'tipos_clientes' || spec.options === 'especialidades' || spec.options === 'tipos_clientes_nombre'); %>
                 <% const isAdminOnly = !!f.adminOnly; %>
                 <% const forceReadonly = isAdminOnly && !(typeof admin !== 'undefined' && admin); %>
-                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %><%= isAdminOnly ? ' gv-field-admin-only' : '' %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="empresa"' : '' %>>
+                <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %><%= isAdminOnly ? ' gv-field-admin-only' : '' %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="persona"' : '' %>>
                   <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %><% if (isAdminOnly) { %> <span class="gv-badge-admin" title="Solo puede editar un administrador">Solo admin</span><% } %></span>
 
                   <% if (forceReadonly) { %>
@@ -579,12 +579,12 @@
     setTab(tabToOpen);
   }
 
-  // Tipo Cliente y Especialidad: solo visibles cuando Tipo de contacto = Empresa
+  // Tipo Cliente y Especialidad: solo visibles cuando Tipo de contacto = Persona
   var tipoContactoSelect = document.getElementById('gv-tipo-contacto');
   var tipoEspFields = form.querySelectorAll('.gv-field-tipo-esp');
   function toggleTipoEspVisibility() {
     var val = tipoContactoSelect ? String((tipoContactoSelect.options[tipoContactoSelect.selectedIndex] || {}).value || '').trim().toLowerCase() : '';
-    var show = val === 'empresa';
+    var show = val === 'persona';
     tipoEspFields.forEach(function (el) {
       el.style.display = show ? '' : 'none';
     });
