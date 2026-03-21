@@ -2372,6 +2372,13 @@ button.gv-telefono-btn--call {
   background: linear-gradient(180deg, rgba(0, 139, 210, 0.06), transparent 70%);
   border-bottom: 1px solid rgba(229, 229, 229, 0.9);
 }
+/* Inset principal del listado (solo el bloque raíz; tarjetas anidadas siguen con .card-bd) */
+.gv-vista > .card-hd {
+  padding: 20px 20px 0 20px;
+}
+.gv-vista > .card-bd {
+  padding: 0 20px 20px 20px;
+}
 .gv-vista-hd { margin-bottom: 0; }
 .gv-vista-hd__title-row {
   display: flex;
@@ -2425,7 +2432,7 @@ button.gv-telefono-btn--call {
   justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
-  padding: 12px 5px 0;
+  padding: 12px 0 0;
   border-top: 1px solid var(--gv-border);
 }
 .gv-vista-tabs { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
@@ -2486,7 +2493,7 @@ button.gv-vista-tab.is-active {
 }
 .gv-vista-hd__sub {
   margin: 10px 0 0;
-  padding: 0 5px;
+  padding: 0;
   font-size: 13px;
   color: var(--gv-muted);
   font-weight: 700;
