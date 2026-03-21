@@ -14,6 +14,7 @@ const {
   loadEstadosClienteForSelect,
   applySpainDefaultsIfEmpty,
   buildClienteFormModel,
+  clienteColumnTabId,
   coerceClienteValue,
   loadClienteFormCatalogs
 } = require('../lib/cliente-helpers');
@@ -35,6 +36,14 @@ function normalizeRelacionRow(r) {
   const lower = {};
   for (const k of Object.keys(r)) lower[k.toLowerCase()] = r[k];
   return { ...r, ...lower };
+}
+
+/** Quita del payload columnas de la pestaña Avanzado si el usuario no es administrador (evita manipulación POST). */
+function stripClienteAvanzadoFieldsFromPayload(payload, meta) {
+  if (!payload || !meta) return;
+  for (const k of Object.keys(payload)) {
+    if (clienteColumnTabId(k, meta) === 'avanzado') delete payload[k];
+  }
 }
 
 let sendPushToAdmins = () => Promise.resolve();
@@ -183,7 +192,8 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       estadosCliente: Array.isArray(estadosCliente) ? estadosCliente : [],
       cooperativas: Array.isArray(cooperativas) ? cooperativas : [],
       gruposCompras: Array.isArray(gruposCompras) ? gruposCompras : [],
-      canChangeComercial: !!isAdmin
+      canChangeComercial: !!isAdmin,
+      isAdmin: !!isAdmin
     });
     res.render('cliente-form', { ...model, error: null, admin: isAdmin, canChangeComercial: !!isAdmin });
   } catch (e) {
@@ -254,7 +264,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         cooperativas,
         gruposCompras,
         canChangeComercial: !!isAdmin,
-        missingFields: []
+        missingFields: [],
+        isAdmin: !!isAdmin
       });
       return res.status(409).render('cliente-form', {
         ...model,
@@ -289,10 +300,13 @@ router.post('/new', requireLogin, async (req, res, next) => {
         cooperativas,
         gruposCompras,
         canChangeComercial: !!isAdmin,
-        missingFields: missingFieldsNew
+        missingFields: missingFieldsNew,
+        isAdmin: !!isAdmin
       });
       return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin: isAdmin, canChangeComercial: !!isAdmin });
     }
+
+    if (!isAdmin) stripClienteAvanzadoFieldsFromPayload(payload, meta);
 
     await db.createCliente(payload);
     return res.redirect('/clientes');
@@ -402,7 +416,8 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       estadosCliente,
       cooperativas,
       gruposCompras,
-      canChangeComercial: false
+      canChangeComercial: false,
+      isAdmin: !!admin
     });
     res.render('cliente-view', {
       ...model,
@@ -460,7 +475,8 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       estadosCliente,
       cooperativas,
       gruposCompras,
-      canChangeComercial: admin
+      canChangeComercial: admin,
+      isAdmin: !!admin
     });
     res.render('cliente-form', {
       ...model,
@@ -546,10 +562,13 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
         cooperativas,
         gruposCompras,
         canChangeComercial: !!admin,
-        missingFields
+        missingFields,
+        isAdmin: !!admin
       });
       return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, canChangeComercial: admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false, cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : [] });
     }
+
+    if (!admin) stripClienteAvanzadoFieldsFromPayload(payload, meta);
 
     await db.updateCliente(id, payload);
     return res.redirect(`/clientes/${id}`);
