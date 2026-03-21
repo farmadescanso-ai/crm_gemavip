@@ -432,6 +432,23 @@
                       <option value="<%= rid %>" <%= rid === curId ? 'selected' : '' %>><%= rlabel %></option>
                     <% }) %>
                   </select>
+                <% } else if (spec.kind === 'input' && spec.pctDescuento) { %>
+                  <% const displayVal = numVal(name); %>
+                  <span class="gv-pct-descuento-wrap" style="display:inline-flex; align-items:center; gap:6px; max-width:100%;">
+                    <input
+                      id="<%= inputId %>"
+                      name="<%= name %>"
+                      type="text"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      class="gv-input-pct-descuento"
+                      value="<%= displayVal %>"
+                      placeholder="0"
+                      aria-invalid="<%= isMissing ? 'true' : 'false' %>"
+                      title="Solo números y separador decimal (porcentaje)"
+                    />
+                    <span style="font-weight:800; color:var(--gv-muted); font-size:14px;">%</span>
+                  </span>
                 <% } else { %>
                   <% const type = spec.type || 'text'; %>
                   <% const isNombreField = (label && String(label).indexOf('Nombre / Razón social') !== -1); %>
@@ -595,6 +612,35 @@
   } else if (tipoEspFields.length) {
     tipoEspFields.forEach(function (el) { el.style.display = ''; });
   }
+
+  // Descuento %: solo dígitos y un separador decimal (no letras)
+  function sanitizePctDescuento(raw) {
+    var s = String(raw || '').replace(/\s/g, '');
+    var out = '';
+    var hasSep = false;
+    for (var i = 0; i < s.length; i++) {
+      var ch = s[i];
+      if (ch >= '0' && ch <= '9') out += ch;
+      else if ((ch === '.' || ch === ',') && !hasSep) {
+        hasSep = true;
+        out += '.';
+      }
+    }
+    if (out === '.') return '0.';
+    return out;
+  }
+  form.querySelectorAll('.gv-input-pct-descuento').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var before = el.value;
+      var next = sanitizePctDescuento(before);
+      if (next !== before) el.value = next;
+    });
+    el.addEventListener('paste', function (e) {
+      e.preventDefault();
+      var t = (e.clipboardData || window.clipboardData).getData('text');
+      el.value = sanitizePctDescuento(t);
+    });
+  });
 
   // Barra de nombre del cliente (encima de pestañas)
   var nameBar = document.getElementById('gvClienteNameBar');

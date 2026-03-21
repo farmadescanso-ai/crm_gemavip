@@ -132,6 +132,12 @@
         }
         if (spec.kind === 'select' && spec.options === 'tipos_clientes_nombre') return rawStr || '—';
         if (spec.type === 'date') return (typeof fmtDateES === 'function') ? (fmtDateES(raw) || '—') : (rawStr || '—');
+        if (spec.pctDescuento) {
+          const t = rawStr.trim();
+          if (!t) return '—';
+          const n = parseFloat(String(t).replace(',', '.'));
+          return (Number.isFinite(n) ? String(n) : t) + ' %';
+        }
         const out = rawStr.trim();
         return out ? out : '—';
       };
