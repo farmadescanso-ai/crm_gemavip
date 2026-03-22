@@ -125,6 +125,23 @@ function readVercelPathParam(req) {
   return null;
 }
 
+/** Quita `__path` del query (Vercel) cuando ya no hace falta; evita URLs duplicadas en barra y en reportes. */
+function stripVercelPathFromQueryString(urlLike) {
+  if (typeof urlLike !== 'string' || !urlLike) return urlLike;
+  const qi = urlLike.indexOf('?');
+  if (qi === -1) return urlLike;
+  const pathPart = urlLike.slice(0, qi);
+  try {
+    const sp = new URLSearchParams(urlLike.slice(qi + 1));
+    if (!sp.has('__path')) return urlLike;
+    sp.delete('__path');
+    const rest = sp.toString();
+    return rest ? `${pathPart}?${rest}` : pathPart;
+  } catch (_) {
+    return urlLike;
+  }
+}
+
 app.use((req, _res, next) => {
   const raw = readVercelPathParam(req);
   if (typeof raw === 'string' && raw.trim()) {
@@ -145,6 +162,10 @@ app.use((req, _res, next) => {
     } else {
       req.url = rest || '/';
     }
+  }
+  if (typeof req.url === 'string') {
+    req.url = stripVercelPathFromQueryString(req.url);
+    req.originalUrl = req.url;
   }
   next();
 });
@@ -184,7 +205,8 @@ app.use((req, _res, next) => {
   const hit = htmlUiPrefixes.some((re) => re.test(rest));
   if (!hit) return next();
 
-  req.url = `/${rest}${qs}`;
+  req.url = stripVercelPathFromQueryString(`/${rest}${qs}`);
+  req.originalUrl = req.url;
   next();
 });
 
