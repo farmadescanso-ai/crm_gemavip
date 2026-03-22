@@ -188,14 +188,31 @@ module.exports = {
   async getClienteById(id) {
     if (!id || !Number.isFinite(Number(id))) return null;
     const numId = Number(id);
+    let baseRow = null;
     try {
       const meta = await this._ensureClientesMeta();
       const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
       const colsLower = new Set(colsClientes.map((c) => String(c).toLowerCase()));
       const hasCol = (name) => colsLower.has(String(name).toLowerCase());
 
-      const t = meta?.tClientes || 'clientes';
-      const pk = meta?.pk || 'cli_id';
+      // PK: preferir cli_id si existe en columnas (evita meta.pk apuntando a otro candidato)
+      const pkResolved = this._pickCIFromColumns(colsClientes, ['cli_id', 'Id', 'id']) || meta?.pk || 'cli_id';
+      let tResolved = meta?.tClientes || 'clientes';
+
+      const tryBareCliente = async (tbl, pkCol) => {
+        const r = await this.query(`SELECT * FROM \`${tbl}\` WHERE \`${pkCol}\` = ? LIMIT 1`, [numId]).catch(() => []);
+        return r && r.length ? r[0] : null;
+      };
+
+      baseRow = await tryBareCliente(tResolved, pkResolved);
+      if (!baseRow) {
+        baseRow = await tryBareCliente('clientes', 'cli_id');
+        if (baseRow) tResolved = 'clientes';
+      }
+      if (!baseRow) return null;
+
+      const t = tResolved;
+      const pk = pkResolved;
       const colComercial = meta?.colComercial || null;
       // Mismos fallbacks que getClientesOptimizadoPaged (Id_Provincia / Id_TipoCliente no existen en esquema cli_*)
       const colProvincia = meta?.colProvincia || 'cli_prov_id';
@@ -275,19 +292,21 @@ module.exports = {
         LIMIT 1
       `;
       const rows = await this.query(sql, [numId]);
-      if (rows.length > 0) return rows[0];
-      // Fallback: consulta simple con la PK resuelta (sin JOINs, por si hay desajuste de FK)
-      const fallback = await this.query(`SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [numId]).catch(() => []);
-      return (fallback && fallback.length > 0) ? fallback[0] : null;
+      if (rows && rows.length > 0) return rows[0];
+      // JOIN grande vacío o sin filas: ya tenemos la fila base comprobada arriba
+      return baseRow;
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
+      if (baseRow) return baseRow;
       try {
+        const bare = await this.query('SELECT * FROM `clientes` WHERE `cli_id` = ? LIMIT 1', [numId]).catch(() => []);
+        if (bare && bare.length) return bare[0];
         const metaCatch = this._metaCache?.clientesMeta || (await this._ensureClientesMeta().catch(() => null));
         const tClientes = metaCatch?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
-        const fallbackPk = metaCatch?.pk || this._pickCIFromColumns(
-          await this._getColumns(tClientes).catch(() => []),
-          ['cli_id', 'id', 'Id']
-        ) || 'cli_id';
+        const fallbackPk = this._pickCIFromColumns(metaCatch?.cols || [], ['cli_id', 'id', 'Id']) ||
+          metaCatch?.pk ||
+          this._pickCIFromColumns(await this._getColumns(tClientes).catch(() => []), ['cli_id', 'id', 'Id']) ||
+          'cli_id';
         const rows = await this.query(`SELECT * FROM \`${tClientes}\` WHERE \`${fallbackPk}\` = ? LIMIT 1`, [numId]);
         return (rows && rows.length > 0) ? rows[0] : null;
       } catch (_) {
