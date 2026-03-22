@@ -345,7 +345,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
   }
 });
 
-router.get('/:id(\\d+)/direcciones/new', requireLogin, async (req, res, next) => {
+router.get('/:id([0-9]+)/direcciones/new', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -372,7 +372,7 @@ router.get('/:id(\\d+)/direcciones/new', requireLogin, async (req, res, next) =>
   }
 });
 
-router.post('/:id(\\d+)/direcciones/new', requireLogin, async (req, res, next) => {
+router.post('/:id([0-9]+)/direcciones/new', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -409,7 +409,7 @@ router.post('/:id(\\d+)/direcciones/new', requireLogin, async (req, res, next) =
 });
 
 /** Rutas con path fijo /edit deben ir antes de /:id (vista), si no Express puede enlazar mal el handler. */
-router.get('/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
+router.get('/:id([0-9]+)/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -464,7 +464,7 @@ router.get('/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-router.post('/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
+router.post('/:id([0-9]+)/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -597,7 +597,7 @@ router.post('/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-router.get('/:id(\\d+)', requireLogin, async (req, res, next) => {
+router.get('/:id([0-9]+)', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -660,7 +660,7 @@ router.get('/:id(\\d+)', requireLogin, async (req, res, next) => {
   }
 });
 
-router.post('/:id(\\d+)/solicitar-asignacion', requireLogin, async (req, res, next) => {
+router.post('/:id([0-9]+)/solicitar-asignacion', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -745,7 +745,7 @@ router.post('/:id(\\d+)/solicitar-asignacion', requireLogin, async (req, res, ne
   }
 });
 
-router.post('/:id(\\d+)/delete', requireAdmin, async (req, res, next) => {
+router.post('/:id([0-9]+)/delete', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');

@@ -290,7 +290,7 @@ router.post('/descuentos-pedido/new', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.get('/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+router.get('/descuentos-pedido/:id([0-9]+)/edit', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const item = await db.getDescuentoPedidoById(id);
@@ -301,7 +301,7 @@ router.get('/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, res, n
   }
 });
 
-router.post('/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+router.post('/descuentos-pedido/:id([0-9]+)/edit', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const existing = await db.getDescuentoPedidoById(id);
@@ -353,7 +353,7 @@ router.post('/descuentos-pedido/:id(\\d+)/edit', requireAdmin, async (req, res, 
   }
 });
 
-router.post('/descuentos-pedido/:id(\\d+)/toggle', requireAdmin, async (req, res, next) => {
+router.post('/descuentos-pedido/:id([0-9]+)/toggle', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     await db.toggleDescuentoPedidoActivo(id);
@@ -363,7 +363,7 @@ router.post('/descuentos-pedido/:id(\\d+)/toggle', requireAdmin, async (req, res
   }
 });
 
-router.post('/descuentos-pedido/:id(\\d+)/delete', requireAdmin, async (req, res, next) => {
+router.post('/descuentos-pedido/:id([0-9]+)/delete', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     await db.deleteDescuentoPedido(id);

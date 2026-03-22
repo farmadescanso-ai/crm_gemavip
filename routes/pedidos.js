@@ -624,7 +624,7 @@ router.get('/', requireLogin, async (req, res, next) => {
 });
 
 // Cambiar estado del pedido: admin puede cambiar a cualquiera; comercial solo de Pendiente→Revisando
-router.post('/:id(\\d+)/estado', requireLogin, async (req, res, next) => {
+router.post('/:id([0-9]+)/estado', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -930,7 +930,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
   }
 });
 
-router.get('/:id(\\d+)/duplicate', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.get('/:id([0-9]+)/duplicate', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     const id = Number(req.params.id);
@@ -960,7 +960,7 @@ router.get('/:id(\\d+)/duplicate', requireLogin, loadPedidoAndCheckOwner, async 
   }
 });
 
-router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.get('/:id([0-9]+)', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
@@ -1068,7 +1068,7 @@ router.get('/:id(\\d+)', requireLogin, loadPedidoAndCheckOwner, async (req, res,
   }
 });
 
-router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.get('/:id([0-9]+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     const id = Number(req.params.id);
@@ -1143,7 +1143,7 @@ router.get('/:id(\\d+).xlsx', requireLogin, loadPedidoAndCheckOwner, async (req,
 });
 
 // Página Hefame: envío por email deshabilitado; enlace a descargar Excel (se intentará en otro momento)
-router.get('/:id(\\d+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner, async (req, res) => {
+router.get('/:id([0-9]+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner, async (req, res) => {
   const item = res.locals.pedido;
   if (!(await canShowHefameForPedido(db, item))) {
     res.status(403).send('HEFAME solo disponible para pedidos con forma de pago Transfer y tipo HEFAME.');
@@ -1154,7 +1154,7 @@ router.get('/:id(\\d+)/hefame-send-email', requireLogin, loadPedidoAndCheckOwner
   res.send(renderHefameInfoPage(true, 'El envío por email está temporalmente deshabilitado.\n\nPuede descargar la plantilla Excel con los datos del pedido para Hefame usando el enlace siguiente.', id));
 });
 
-router.get('/:id(\\d+)/transfer-imprimir', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.get('/:id([0-9]+)/transfer-imprimir', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     if (!(await isTransferPedido(db, item))) {
@@ -1189,7 +1189,7 @@ router.get('/:id(\\d+)/transfer-imprimir', requireLogin, loadPedidoAndCheckOwner
   }
 });
 
-router.get('/:id(\\d+)/transfer.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.get('/:id([0-9]+)/transfer.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     if (!(await isTransferPedido(db, item))) {
@@ -1225,7 +1225,7 @@ router.get('/:id(\\d+)/transfer.xlsx', requireLogin, loadPedidoAndCheckOwner, as
   }
 });
 
-router.get('/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.get('/:id([0-9]+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     if (!(await canShowHefameForPedido(db, item))) {
@@ -1250,7 +1250,7 @@ router.get('/:id(\\d+)/hefame.xlsx', requireLogin, loadPedidoAndCheckOwner, asyn
   }
 });
 
-router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.get('/:id([0-9]+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const item = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
@@ -1355,7 +1355,7 @@ router.get('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req,
   }
 });
 
-router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.post('/:id([0-9]+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const existing = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
@@ -1468,7 +1468,7 @@ router.post('/:id(\\d+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req
   }
 });
 
-router.post('/:id(\\d+)/delete', requireLogin, requireAdmin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.post('/:id([0-9]+)/delete', requireLogin, requireAdmin, loadPedidoAndCheckOwner, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     await db.deletePedido(id);

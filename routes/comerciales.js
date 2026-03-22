@@ -170,7 +170,7 @@ router.post('/new', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.get('/:id(\\d+)', requireAdmin, async (req, res, next) => {
+router.get('/:id([0-9]+)', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -184,7 +184,7 @@ router.get('/:id(\\d+)', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.get('/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+router.get('/:id([0-9]+)/edit', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -208,7 +208,7 @@ router.get('/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.post('/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
+router.post('/:id([0-9]+)/edit', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -279,7 +279,7 @@ router.post('/:id(\\d+)/edit', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.post('/:id(\\d+)/delete', requireAdmin, async (req, res, next) => {
+router.post('/:id([0-9]+)/delete', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
