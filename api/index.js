@@ -88,31 +88,40 @@ app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
 /**
  * Vercel rewrites: /foo -> /api/index?__path=/foo
- * En algunos despliegues `req.query.__path` llega vacío aunque la query exista en `originalUrl`;
- * sin esto Express no enruta y cae en el 404 global (título "No encontrado").
+ * En Vercel a veces `req.query` no incluye __path pero `req.url` sí trae ?__path=...
+ * Si no extraemos __path y caemos en el else, req.url queda como "?__path=..." (inválido) → 404 global.
  */
+function parsePathFromQueryString(urlLike) {
+  if (typeof urlLike !== 'string' || !urlLike) return null;
+  const q = urlLike.indexOf('?');
+  if (q === -1) return null;
+  try {
+    const params = new URLSearchParams(urlLike.slice(q + 1));
+    const v = params.get('__path');
+    if (v && v.trim()) return v.trim();
+  } catch (_) {}
+  const m = urlLike.match(/[?&]__path=([^&]+)/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1].replace(/\+/g, ' '));
+  } catch (_) {
+    return m[1];
+  }
+}
+
 function readVercelPathParam(req) {
   let pathParam = req.query && req.query.__path;
   if (Array.isArray(pathParam)) pathParam = pathParam[0];
   if (typeof pathParam === 'string' && pathParam.trim()) return pathParam;
 
   const ou = typeof req.originalUrl === 'string' ? req.originalUrl : '';
-  const q = ou.indexOf('?');
-  if (q !== -1) {
-    try {
-      const params = new URLSearchParams(ou.slice(q + 1));
-      const v = params.get('__path');
-      if (v && v.trim()) return v;
-    } catch (_) {}
-    const m = ou.match(/[?&]__path=([^&]+)/);
-    if (m) {
-      try {
-        return decodeURIComponent(m[1].replace(/\+/g, ' '));
-      } catch (_) {
-        return m[1];
-      }
-    }
-  }
+  const fromOu = parsePathFromQueryString(ou);
+  if (fromOu) return fromOu;
+
+  const u = typeof req.url === 'string' ? req.url : '';
+  const fromUrl = parsePathFromQueryString(u);
+  if (fromUrl) return fromUrl;
+
   return null;
 }
 
@@ -123,7 +132,19 @@ app.use((req, _res, next) => {
     if (!p.startsWith('/')) p = `/${p}`;
     req.url = p;
   } else if (typeof req.url === 'string' && req.url.startsWith('/api/index')) {
-    req.url = req.url.replace(/^\/api\/index/, '') || '/';
+    const rest = req.url.slice('/api/index'.length);
+    if (rest.startsWith('?')) {
+      const parsed = parsePathFromQueryString(rest);
+      if (parsed && parsed.trim()) {
+        let p = parsed.trim();
+        if (!p.startsWith('/')) p = `/${p}`;
+        req.url = p;
+      } else {
+        req.url = '/';
+      }
+    } else {
+      req.url = rest || '/';
+    }
   }
   next();
 });
