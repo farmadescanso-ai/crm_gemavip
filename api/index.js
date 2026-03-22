@@ -86,12 +86,40 @@ app.use(helmet({
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
-// Vercel rewrites: /login -> /api/index?__path=/login; usar __path para routing
-app.use((req, _res, next) => {
+/**
+ * Vercel rewrites: /foo -> /api/index?__path=/foo
+ * En algunos despliegues `req.query.__path` llega vacío aunque la query exista en `originalUrl`;
+ * sin esto Express no enruta y cae en el 404 global (título "No encontrado").
+ */
+function readVercelPathParam(req) {
   let pathParam = req.query && req.query.__path;
   if (Array.isArray(pathParam)) pathParam = pathParam[0];
-  if (typeof pathParam === 'string' && pathParam.trim()) {
-    let p = pathParam.trim();
+  if (typeof pathParam === 'string' && pathParam.trim()) return pathParam;
+
+  const ou = typeof req.originalUrl === 'string' ? req.originalUrl : '';
+  const q = ou.indexOf('?');
+  if (q !== -1) {
+    try {
+      const params = new URLSearchParams(ou.slice(q + 1));
+      const v = params.get('__path');
+      if (v && v.trim()) return v;
+    } catch (_) {}
+    const m = ou.match(/[?&]__path=([^&]+)/);
+    if (m) {
+      try {
+        return decodeURIComponent(m[1].replace(/\+/g, ' '));
+      } catch (_) {
+        return m[1];
+      }
+    }
+  }
+  return null;
+}
+
+app.use((req, _res, next) => {
+  const raw = readVercelPathParam(req);
+  if (typeof raw === 'string' && raw.trim()) {
+    let p = raw.trim();
     if (!p.startsWith('/')) p = `/${p}`;
     req.url = p;
   } else if (typeof req.url === 'string' && req.url.startsWith('/api/index')) {
