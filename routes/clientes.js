@@ -238,6 +238,36 @@ router.post('/new', requireLogin, async (req, res, next) => {
     applySpainDefaultsIfEmpty(payload, { meta, paises, idiomas, monedas });
     normalizePayloadTelefonos(payload);
 
+    const dniChkNew = await db.findConflictoDniCifCliente({ dniCif: payload.DNI_CIF ?? payload.cli_dni_cif });
+    if (dniChkNew.conflict) {
+      const model = buildClienteFormModel({
+        mode: 'create',
+        meta,
+        item: payload,
+        comerciales,
+        tarifas,
+        provincias,
+        paises,
+        formasPago,
+        tiposClientes,
+        idiomas,
+        monedas,
+        estadosCliente,
+        cooperativas,
+        gruposCompras,
+        canChangeComercial: !!isAdmin,
+        missingFields: [],
+        isAdmin: !!isAdmin
+      });
+      return res.status(400).render('cliente-form', {
+        ...model,
+        error: 'Este DNI/CIF ya está registrado en otro contacto. No se puede crear un duplicado: cada cliente debe tener un identificador fiscal único.',
+        dupDniMatches: dniChkNew.matches || [],
+        admin: isAdmin,
+        canChangeComercial: !!isAdmin
+      });
+    }
+
     const dup = await db.findPosiblesDuplicadosClientes(
       {
         dniCif: payload.DNI_CIF ?? payload.cli_dni_cif,
@@ -569,6 +599,58 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     }
 
     if (!admin) stripClienteAvanzadoFieldsFromPayload(payload, meta);
+
+    const dniRaw = payload.cli_dni_cif ?? payload.DNI_CIF;
+    const dniEfectivo =
+      dniRaw !== undefined && dniRaw !== null && String(dniRaw).trim() !== ''
+        ? dniRaw
+        : (item.cli_dni_cif ?? item.DNI_CIF);
+    const pendLow = String(dniEfectivo || '').trim().toLowerCase();
+    const dniParaCheck = !pendLow || pendLow === 'pendiente' ? null : dniEfectivo;
+    if (dniParaCheck) {
+      const dniChkEdit = await db.findConflictoDniCifCliente({ dniCif: dniParaCheck, excludeClienteId: id });
+      if (dniChkEdit.conflict) {
+        const relacionesData = await db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }));
+        const relacionesEditErr = [
+          ...(relacionesData.comoOrigen || []).map(normalizeRelacionRow),
+          ...(relacionesData.comoRelacionado || []).map(normalizeRelacionRow)
+        ];
+        const puedeSolicitar = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
+        const model = buildClienteFormModel({
+          mode: 'edit',
+          meta,
+          item: { ...item, ...payload },
+          comerciales,
+          tarifas,
+          provincias,
+          paises,
+          formasPago,
+          tiposClientes,
+          especialidades: especialidades || [],
+          idiomas,
+          monedas,
+          estadosCliente,
+          cooperativas,
+          gruposCompras,
+          canChangeComercial: !!admin,
+          isAdmin: !!admin
+        });
+        return res.status(400).render('cliente-form', {
+          ...model,
+          error: 'Este DNI/CIF ya está registrado en otro contacto. No se puede guardar mientras coincida con otro cliente.',
+          dupDniMatches: dniChkEdit.matches || [],
+          admin,
+          canChangeComercial: admin,
+          puedeSolicitarAsignacion: puedeSolicitar,
+          clienteId: id,
+          contactoId: id,
+          agendaContactos: [],
+          agendaIncludeHistorico: false,
+          relaciones: relacionesEditErr,
+          cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
+        });
+      }
+    }
 
     await db.updateCliente(id, payload);
     return res.redirect(`/clientes/${id}`);

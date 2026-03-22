@@ -262,6 +262,12 @@ module.exports = {
         console.warn('⚠️  [UPDATE] No se pudo calcular Id_EstdoCliente:', e?.message || e);
       }
 
+      const dniEfectivoUpdate = payload.DNI_CIF ?? payload.cli_dni_cif ?? clienteActual?.DNI_CIF ?? clienteActual?.cli_dni_cif;
+      const dupDniUp = await this.findConflictoDniCifCliente({ dniCif: dniEfectivoUpdate, excludeClienteId: id });
+      if (dupDniUp.conflict) {
+        throw new Error('Ya existe otro contacto con el mismo DNI/CIF. No se puede guardar.');
+      }
+
       if (payload.CodigoPostal && (provinciaId || paisId)) {
         try {
           const { validarCodigoPostalProvinciaPais } = require('../../scripts/validar-codigo-postal-provincia-pais');
@@ -498,6 +504,11 @@ module.exports = {
         if (dniValue === '' || dniValue.toLowerCase() === 'pendiente') {
           payload.DNI_CIF = 'Pendiente';
         }
+      }
+
+      const dupDniCreate = await this.findConflictoDniCifCliente({ dniCif: payload.DNI_CIF ?? payload.cli_dni_cif });
+      if (dupDniCreate.conflict) {
+        throw new Error('Ya existe otro contacto con el mismo DNI/CIF. No se puede crear el registro.');
       }
 
       const meta = await this._ensureClientesMeta().catch(() => null);

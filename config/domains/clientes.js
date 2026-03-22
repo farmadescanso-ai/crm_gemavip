@@ -318,6 +318,52 @@ module.exports = {
     return poolId != null && asignado === Number(poolId);
   },
 
+  /**
+   * Mismo DNI/CIF que otro contacto (comparación normalizada). Excluye "Pendiente" y valores cortos.
+   * La unicidad de DNI/CIF es global en el CRM (no depende del comercial).
+   */
+  async findConflictoDniCifCliente({ dniCif, excludeClienteId = null } = {}) {
+    const out = { conflict: false, matches: [] };
+    try {
+      const norm = this._normalizeDniCif ? this._normalizeDniCif(dniCif) : String(dniCif ?? '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+      if (!norm || norm.length < 8 || norm === 'PENDIENTE') return out;
+
+      const meta = await this._ensureClientesMeta().catch(() => null);
+      const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
+      const pk = meta?.pk || 'cli_id';
+      const cols = await this._getColumns(tClientes).catch(() => []);
+      const colDni = this._pickCIFromColumns(cols, ['cli_dni_cif', 'DNI_CIF', 'DniCif']) || 'cli_dni_cif';
+      const colNombreRazon = meta?.colNombreRazonSocial || this._pickCIFromColumns(cols, ['cli_nombre_razon_social', 'Nombre_Razon_Social']) || 'cli_nombre_razon_social';
+      const colNombreCial = this._pickCIFromColumns(cols, ['cli_nombre_cial', 'Nombre_Cial', 'NombreCial']) || 'cli_nombre_cial';
+      const colCp = this._pickCIFromColumns(cols, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
+      const colPob = this._pickCIFromColumns(cols, ['cli_poblacion', 'Poblacion', 'poblacion']) || 'cli_poblacion';
+
+      const dniExpr = `REPLACE(REPLACE(UPPER(COALESCE(c.\`${colDni}\`,'')),' ',''),'-','')`;
+      const params = [norm];
+      let excludeSql = '';
+      const ex = excludeClienteId != null ? Number(excludeClienteId) : null;
+      if (ex && Number.isFinite(ex) && ex > 0) {
+        excludeSql = ` AND c.\`${pk}\` <> ?`;
+        params.push(ex);
+      }
+
+      const lim = 8;
+      const selectSql =
+        `SELECT c.\`${pk}\` as Id, c.\`${colNombreRazon}\` as Nombre_Razon_Social, c.\`${colNombreCial}\` as Nombre_Cial, c.\`${colDni}\` as DNI_CIF, c.\`${colCp}\` as CodigoPostal, c.\`${colPob}\` as Poblacion ` +
+        `FROM \`${tClientes}\` c WHERE ${dniExpr} = ?${excludeSql} ORDER BY c.\`${pk}\` DESC LIMIT ?`;
+
+      const rows = await this.query(selectSql, [...params, lim]);
+      const list = Array.isArray(rows) ? rows : [];
+      out.matches = list;
+      out.conflict = list.length > 0;
+      return out;
+    } catch (e) {
+      console.warn('⚠️ [DNI CIF DUPLICADO] No se pudo comprobar:', e?.message || e);
+      return out;
+    }
+  },
+
+  /** Coincidencias por nombre comercial / razón social (no usa DNI; el DNI va en findConflictoDniCifCliente). */
   async findPosiblesDuplicadosClientes({ dniCif, nombre, nombreCial } = {}, { limit = 6, userId = null, isAdmin = false } = {}) {
     const out = { matches: [], otherCount: 0 };
     try {
@@ -325,8 +371,13 @@ module.exports = {
       const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
       const pk = meta?.pk || 'Id';
       const colComercial = meta?.colComercial || null;
+      const cols = await this._getColumns(tClientes).catch(() => []);
+      const colNombreRazon = meta?.colNombreRazonSocial || this._pickCIFromColumns(cols, ['cli_nombre_razon_social', 'Nombre_Razon_Social']) || 'cli_nombre_razon_social';
+      const colNombreCial = this._pickCIFromColumns(cols, ['cli_nombre_cial', 'Nombre_Cial', 'NombreCial']) || 'cli_nombre_cial';
+      const colDni = this._pickCIFromColumns(cols, ['cli_dni_cif', 'DNI_CIF', 'DniCif']) || 'cli_dni_cif';
+      const colCp = this._pickCIFromColumns(cols, ['cli_codigo_postal', 'CodigoPostal']) || 'cli_codigo_postal';
+      const colPob = this._pickCIFromColumns(cols, ['cli_poblacion', 'Poblacion']) || 'cli_poblacion';
 
-      const normDni = (s) => String(s ?? '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
       const normName = (s) => {
         try {
           return String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
@@ -335,23 +386,18 @@ module.exports = {
         }
       };
 
-      const dni = normDni(dniCif);
       const n1 = normName(nombre);
       const n2 = normName(nombreCial);
 
       const whereOr = [];
       const paramsOr = [];
 
-      if (dni && dni.length >= 8) {
-        whereOr.push(`REPLACE(REPLACE(UPPER(COALESCE(c.DNI_CIF,'')),' ',''),'-','') = ?`);
-        paramsOr.push(dni);
-      }
       if (n1 && n1.length >= 6) {
-        whereOr.push(`LOWER(TRIM(COALESCE(c.cli_nombre_razon_social,''))) LIKE ?`);
+        whereOr.push(`LOWER(TRIM(COALESCE(c.\`${colNombreRazon}\`,''))) LIKE ?`);
         paramsOr.push(`%${n1}%`);
       }
       if (n2 && n2.length >= 6) {
-        whereOr.push(`LOWER(TRIM(COALESCE(c.Nombre_Cial,''))) LIKE ?`);
+        whereOr.push(`LOWER(TRIM(COALESCE(c.\`${colNombreCial}\`,''))) LIKE ?`);
         paramsOr.push(`%${n2}%`);
       }
 
@@ -360,9 +406,12 @@ module.exports = {
       const baseWhere = `(${whereOr.join(' OR ')})`;
       const lim = Math.max(1, Math.min(20, Number(limit) || 6));
 
+      const selectCols =
+        `c.\`${pk}\` as Id, c.\`${colNombreRazon}\` as Nombre_Razon_Social, c.\`${colNombreCial}\` as Nombre_Cial, c.\`${colDni}\` as DNI_CIF, c.\`${colCp}\` as CodigoPostal, c.\`${colPob}\` as Poblacion`;
+
       if (isAdmin || !userId || !colComercial) {
         const rows = await this.query(
-          `SELECT c.\`${pk}\` as Id, c.cli_nombre_razon_social, c.Nombre_Cial, c.DNI_CIF, c.CodigoPostal, c.Poblacion
+          `SELECT ${selectCols}
            FROM \`${tClientes}\` c WHERE ${baseWhere} ORDER BY c.\`${pk}\` DESC LIMIT ?`,
           [...paramsOr, lim]
         );
@@ -375,7 +424,7 @@ module.exports = {
       const allowedPlaceholders = allowed.map(() => '?').join(',');
 
       const rows = await this.query(
-        `SELECT c.\`${pk}\` as Id, c.cli_nombre_razon_social, c.Nombre_Cial, c.DNI_CIF, c.CodigoPostal, c.Poblacion
+        `SELECT ${selectCols}
          FROM \`${tClientes}\` c
          WHERE ${baseWhere} AND (c.\`${colComercial}\` IN (${allowedPlaceholders}) OR c.\`${colComercial}\` IS NULL)
          ORDER BY c.\`${pk}\` DESC LIMIT ?`,

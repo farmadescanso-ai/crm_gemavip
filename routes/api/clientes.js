@@ -7,6 +7,29 @@ const router = express.Router();
 
 const { isAdminUser } = require('../../lib/auth');
 
+/** Errores de negocio por DNI/CIF duplicado (createCliente / updateCliente). */
+function isDniCifDuplicateApiError(err) {
+  const msg = err && err.message ? String(err.message) : '';
+  return msg.includes('mismo DNI/CIF');
+}
+
+async function jsonDniCifDuplicado(res, err, req, excludeClienteId) {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const dni = body.DNI_CIF ?? body.cli_dni_cif;
+  let matches = [];
+  try {
+    const ex = excludeClienteId != null && Number(excludeClienteId) > 0 ? Number(excludeClienteId) : null;
+    const dup = await db.findConflictoDniCifCliente({ dniCif: dni, excludeClienteId: ex });
+    if (dup.conflict) matches = dup.matches || [];
+  } catch (_) {}
+  return res.status(400).json({
+    ok: false,
+    code: 'DNI_CIF_DUPLICADO',
+    error: err.message,
+    matches
+  });
+}
+
 function normalizePayloadTelefonos(payload) {
   for (const col of ['Telefono', 'Movil', 'cli_telefono', 'cli_movil']) {
     if (payload[col] != null && String(payload[col]).trim()) {
@@ -218,13 +241,22 @@ router.get(
     const dni = typeof req.query.dni === 'string' ? String(req.query.dni) : '';
     const nombre = typeof req.query.nombre === 'string' ? String(req.query.nombre) : '';
     const nombreCial = typeof req.query.nombreCial === 'string' ? String(req.query.nombreCial) : '';
+    const excludeRaw = req.query.exclude != null ? Number(req.query.exclude) : null;
+    const excludeId = Number.isFinite(excludeRaw) && excludeRaw > 0 ? excludeRaw : null;
+
+    const dniConflict = await db.findConflictoDniCifCliente({ dniCif: dni, excludeClienteId: excludeId });
 
     const result = await db.findPosiblesDuplicadosClientes(
       { dniCif: dni, nombre, nombreCial },
       { limit, userId: sessionUser?.id ?? null, isAdmin }
     );
 
-    res.json({ ok: true, ...result });
+    res.json({
+      ok: true,
+      dniConflict: !!dniConflict.conflict,
+      dniMatches: dniConflict.matches || [],
+      ...result
+    });
   })
 );
 
@@ -659,8 +691,15 @@ router.get(
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const result = await db.createCliente(req.body || {});
-    res.status(201).json({ ok: true, result });
+    try {
+      const result = await db.createCliente(req.body || {});
+      res.status(201).json({ ok: true, result });
+    } catch (e) {
+      if (isDniCifDuplicateApiError(e)) {
+        return jsonDniCifDuplicado(res, e, req, null);
+      }
+      throw e;
+    }
   })
 );
 
@@ -717,12 +756,26 @@ router.put(
         return res.status(403).json({ ok: false, error: 'Cliente ya asignado a otro comercial' });
       }
 
-      const result = await db.updateCliente(id, { Id_Cial: selfId });
-      return res.json({ ok: true, result, claimed: true, Id_Cial: selfId });
+      try {
+        const result = await db.updateCliente(id, { Id_Cial: selfId });
+        return res.json({ ok: true, result, claimed: true, Id_Cial: selfId });
+      } catch (e) {
+        if (isDniCifDuplicateApiError(e)) {
+          return jsonDniCifDuplicado(res, e, req, id);
+        }
+        throw e;
+      }
     }
 
-    const result = await db.updateCliente(id, req.body || {});
-    res.json({ ok: true, result });
+    try {
+      const result = await db.updateCliente(id, req.body || {});
+      res.json({ ok: true, result });
+    } catch (e) {
+      if (isDniCifDuplicateApiError(e)) {
+        return jsonDniCifDuplicado(res, e, req, id);
+      }
+      throw e;
+    }
   })
 );
 

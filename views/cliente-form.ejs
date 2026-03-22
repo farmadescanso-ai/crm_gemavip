@@ -14,8 +14,19 @@
     <% if (error) { %>
       <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= error %></div>
     <% } %>
+    <% if (typeof dupDniMatches !== 'undefined' && Array.isArray(dupDniMatches) && dupDniMatches.length) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;">
+        <strong>Mismo DNI/CIF en otro contacto:</strong>
+        <ul style="margin:8px 0 0 18px; padding:0;">
+          <% dupDniMatches.slice(0, 8).forEach(function (m) { %>
+            <li>#<%= m.Id %> — <%= (m.Nombre_Razon_Social || m.cli_nombre_razon_social || '—') %> <% var dc = m.DNI_CIF || m.cli_dni_cif || ''; if (dc) { %>(<%= dc %>)<% } %></li>
+          <% }); %>
+        </ul>
+      </div>
+    <% } %>
+    <div id="gvDupDniClient" class="gv-alert gv-alert--warn" style="display:none; margin-bottom:12px;" role="alert" aria-live="polite"></div>
 
-    <form id="gvClienteForm" method="post" action="<%= formAction %>" class="gv-form" style="display:grid; gap: 12px;">
+    <form id="gvClienteForm" method="post" action="<%= formAction %>" class="gv-form" style="display:grid; gap: 12px;" data-dni-blocked="0">
       <% if (mode === 'create') { %>
         <input type="hidden" name="dup_confirmed" id="gvDupConfirmed" value="0" />
       <% } %>
@@ -538,15 +549,25 @@
       <div class="gv-modal" id="gvDupModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvDupTitle">
         <div class="gv-modal-card" style="max-width: 760px;">
           <div class="gv-modal-hd">
-            <div class="gv-modal-title" id="gvDupTitle">Este contacto puede estar ya dado de alta</div>
-            <div class="gv-modal-subtitle">Hemos encontrado coincidencias por CIF/NIF o por nombre. Revisa antes de crear un duplicado.</div>
+            <div class="gv-modal-title" id="gvDupTitle">Posible duplicado por nombre</div>
+            <div class="gv-modal-subtitle">Hay contactos con un nombre parecido (el DNI/CIF no coincide). Revisa si ya existe antes de crear otro registro.</div>
           </div>
           <div class="gv-modal-bd" style="padding: 0 16px 10px 16px;">
             <div id="gvDupList" style="display:grid; gap: 10px;"></div>
+            <% if (typeof admin !== 'undefined' && admin) { %>
+              <p style="font-size:13px; color:var(--gv-muted); margin: 12px 0 0 0;">
+                Para <strong>unificar</strong> varios registros en un solo ID (sincronizar datos), usa
+                <a href="/clientes/duplicados">Clientes → Duplicados</a> y fusiona los contactos.
+              </p>
+            <% } else { %>
+              <p style="font-size:13px; color:var(--gv-muted); margin: 12px 0 0 0;">
+                Si se trata del mismo cliente con dos fichas, un administrador puede unificarlos en <strong>Clientes → Duplicados</strong> para dejar un solo ID.
+              </p>
+            <% } %>
           </div>
           <div class="gv-modal-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-            <button type="button" class="btn secondary" id="gvDupContinue">Seguir creando</button>
-            <a class="btn" href="/clientes" id="gvDupCancel">Cancelar alta</a>
+            <button type="button" class="btn secondary" id="gvDupContinue">Seguir creando igualmente</button>
+            <a class="btn" href="/clientes" id="gvDupCancel">Volver al listado</a>
           </div>
         </div>
       </div>
@@ -1170,7 +1191,7 @@
   });
 
   // DNI/CIF -> no permitir OK si vacío
-  var dni = document.getElementById('gv_DNI_CIF') || document.getElementById('gv-dni-cif');
+  var dni = form.querySelector('input[name="cli_dni_cif"]') || form.querySelector('input[name="DNI_CIF"]') || document.getElementById('gv_cli_dni_cif') || document.getElementById('gv_DNI_CIF') || document.getElementById('gv-dni-cif');
   var okKo = document.getElementById('gv-ok-ko');
   if (dni && okKo) {
     function sync() {
@@ -1184,182 +1205,239 @@
     sync();
   }
 
-  // Duplicados (solo alta)
-  if (mode === 'create') {
-    var dupBackdrop = document.getElementById('gvDupBackdrop');
-    var dupModal = document.getElementById('gvDupModal');
-    var dupList = document.getElementById('gvDupList');
-    var dupContinue = document.getElementById('gvDupContinue');
-    var dupConfirmed = document.getElementById('gvDupConfirmed');
+  // Duplicados: DNI/CIF único (alta y edición); modal solo por nombre parecido (alta)
+  var dupBackdrop = document.getElementById('gvDupBackdrop');
+  var dupModal = document.getElementById('gvDupModal');
+  var dupList = document.getElementById('gvDupList');
+  var dupContinue = document.getElementById('gvDupContinue');
+  var dupConfirmed = document.getElementById('gvDupConfirmed');
+  var dupDniClient = document.getElementById('gvDupDniClient');
+  var saveBtnDup = document.getElementById('gvSaveBtn');
+  var dniInputDup = form.querySelector('input[name="cli_dni_cif"]') || form.querySelector('input[name="DNI_CIF"]');
+  var nameInput = document.getElementById('gv_Nombre_Razon_Social') || form.querySelector('input[name="cli_nombre_razon_social"]') || form.querySelector('input[name="Nombre_Razon_Social"]');
+  var comercialNameInput = document.getElementById('gv_Nombre_Cial') || form.querySelector('input[name="cli_nombre_cial"]') || form.querySelector('input[name="Nombre_Cial"]');
+  var clienteIdExcl = "<%= (typeof cid !== 'undefined' && cid != null && cid !== '') ? String(cid) : '' %>";
 
-    var lastKeyShown = '';
-    var aborter = null;
+  var lastKeyShown = '';
+  var aborterDup = null;
 
-    function showDupModal() {
-      if (dupBackdrop) dupBackdrop.hidden = false;
-      if (dupModal) dupModal.hidden = false;
-      if (dupContinue) dupContinue.focus();
-    }
-    function hideDupModal() {
-      if (dupBackdrop) dupBackdrop.hidden = true;
-      if (dupModal) dupModal.hidden = true;
-    }
-    if (dupBackdrop) dupBackdrop.addEventListener('click', hideDupModal);
-    if (dupContinue) dupContinue.addEventListener('click', function () {
-      if (dupConfirmed) dupConfirmed.value = '1';
-      hideDupModal();
-      // si el usuario estaba intentando guardar, reenviar submit
-      try { form.requestSubmit ? form.requestSubmit() : form.submit(); } catch (_) {}
-    });
-
-    function debounce(fn, wait) {
-      var t = null;
-      return function () {
-        var args = arguments;
-        if (t) window.clearTimeout(t);
-        t = window.setTimeout(function () { fn.apply(null, args); }, wait);
-      };
-    }
-    function escapeHtml(s) {
-      return String(s || '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-    }
-    function normDni(s) {
+  function debounce(fn, wait) {
+    var t = null;
+    return function () {
+      var args = arguments;
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(function () { fn.apply(null, args); }, wait);
+    };
+  }
+  function escapeHtml(s) {
+    return String(s || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+  function normDni(s) {
+    return String(s || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '')
+      .replace(/-/g, '');
+  }
+  function normName(s) {
+    try {
       return String(s || '')
         .trim()
-        .toUpperCase()
-        .replace(/\s+/g, '')
-        .replace(/-/g, '');
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ');
+    } catch (_) {
+      return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
-    function normName(s) {
-      try {
-        return String(s || '')
-          .trim()
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/\s+/g, ' ');
-      } catch (_) {
-        return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
-      }
+  }
+  function setDniBlocked(blocked, html) {
+    form.setAttribute('data-dni-blocked', blocked ? '1' : '0');
+    if (dupDniClient) {
+      dupDniClient.style.display = blocked && html ? '' : 'none';
+      dupDniClient.innerHTML = html || '';
     }
-    async function duplicates(dni, nombre, nombreCial) {
-      var url = "/api/clientes/duplicates?limit=6"
-        + "&dni=" + encodeURIComponent(String(dni || ''))
-        + "&nombre=" + encodeURIComponent(String(nombre || ''))
-        + "&nombreCial=" + encodeURIComponent(String(nombreCial || ''));
-      var opts = { headers: { Accept: 'application/json' } };
-      if (aborter) aborter.abort();
-      aborter = new AbortController();
-      opts.signal = aborter.signal;
-      var r = await fetch(url, opts);
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      var json = await r.json();
-      if (!json || json.ok !== true) return [];
-      return {
-        matches: Array.isArray(json.matches) ? json.matches : [],
-        otherCount: Number(json.otherCount || 0) || 0
-      };
+    if (saveBtnDup) saveBtnDup.disabled = !!blocked;
+  }
+  function renderDniConflictHtml(matches) {
+    if (!matches || !matches.length) return '';
+    var rows = matches.slice(0, 8).map(function (it) {
+      var id = it.Id || it.id || '';
+      var rs = it.Nombre_Razon_Social || it.cli_nombre_razon_social || '';
+      var cif = it.DNI_CIF || it.cli_dni_cif || '';
+      return '<li><strong>#' + escapeHtml(String(id)) + '</strong> — ' + escapeHtml(rs) + (cif ? ' (' + escapeHtml(cif) + ')' : '') + '</li>';
+    }).join('');
+    return '<strong>Este DNI/CIF ya está registrado en otro contacto.</strong> No se puede guardar mientras coincida con otro cliente. Corrige el identificador o abre el registro existente.' +
+      '<ul style="margin:8px 0 0 18px;">' + rows + '</ul>';
+  }
+  function showDupModal() {
+    if (dupBackdrop) dupBackdrop.hidden = false;
+    if (dupModal) dupModal.hidden = false;
+    if (dupContinue) dupContinue.focus();
+  }
+  function hideDupModal() {
+    if (dupBackdrop) dupBackdrop.hidden = true;
+    if (dupModal) dupModal.hidden = true;
+  }
+  async function fetchDuplicatesJson(dniVal, nameVal, cialVal) {
+    var url = "/api/clientes/duplicates?limit=6"
+      + "&dni=" + encodeURIComponent(String(dniVal || ''))
+      + "&nombre=" + encodeURIComponent(String(nameVal || ''))
+      + "&nombreCial=" + encodeURIComponent(String(cialVal || ''));
+    if (clienteIdExcl) url += "&exclude=" + encodeURIComponent(clienteIdExcl);
+    var opts = { headers: { Accept: 'application/json' } };
+    if (aborterDup) aborterDup.abort();
+    aborterDup = new AbortController();
+    opts.signal = aborterDup.signal;
+    var r = await fetch(url, opts);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var json = await r.json();
+    if (!json || json.ok !== true) return { dniConflict: false, dniMatches: [], matches: [], otherCount: 0 };
+    return {
+      dniConflict: !!json.dniConflict,
+      dniMatches: Array.isArray(json.dniMatches) ? json.dniMatches : [],
+      matches: Array.isArray(json.matches) ? json.matches : [],
+      otherCount: Number(json.otherCount || 0) || 0
+    };
+  }
+  function renderMatches(items, otherCount) {
+    if (!dupList) return;
+    if ((!items || !items.length) && !otherCount) {
+      dupList.innerHTML = '<div class="gv-alert gv-alert--warn" style="margin:0;">No se han encontrado coincidencias.</div>';
+      return;
     }
-    function renderMatches(items, otherCount) {
-      if (!dupList) return;
-      if ((!items || !items.length) && !otherCount) {
-        dupList.innerHTML = '<div class="gv-alert gv-alert--warn" style="margin:0;">No se han encontrado coincidencias.</div>';
-        return;
-      }
-      var html = '';
-      if (otherCount && (!items || !items.length)) {
-        html += '<div class="gv-alert gv-alert--warn" style="margin:0;">Se han detectado coincidencias en otros contactos a los que no tienes acceso (' + escapeHtml(otherCount) + '). Contacta con un administrador.</div>';
-      }
-      html += (items || []).map(function (it) {
-        var id = it.Id || it.id || '';
-        var rs = it.Nombre_Razon_Social || it.Nombre || '';
-        var nc = it.Nombre_Cial || '';
-        var cif = it.DNI_CIF || '';
-        var cp = it.CodigoPostal || '';
-        var pob = it.Poblacion || '';
-        var title = [rs, nc].filter(Boolean).join(' / ') || ('Contacto ' + id);
-        var meta = [cif, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
-        return (
-          '<div style="display:flex; gap:10px; align-items:flex-start; justify-content:space-between; border:1px solid var(--gv-border); border-radius:12px; padding:12px; background: rgba(255,255,255,.85);">' +
-            '<div style="min-width:0;">' +
-              '<div style="font-weight:900; color:var(--gv-ink);">' + escapeHtml(id) + ' · ' + escapeHtml(title) + '</div>' +
-              (meta ? ('<div style="margin-top:4px; color:var(--gv-muted); font-weight:700;">' + escapeHtml(meta) + '</div>') : '') +
-            '</div>' +
-            '<div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">' +
-              '<a class="btn secondary" href="/clientes/' + encodeURIComponent(String(id)) + '">Ver</a>' +
-              '<a class="btn" href="/clientes/' + encodeURIComponent(String(id)) + '/edit">Modificar</a>' +
-            '</div>' +
-          '</div>'
-        );
-      }).join('');
-      dupList.innerHTML = html || '<div class="gv-alert gv-alert--warn" style="margin:0;">No se han encontrado coincidencias.</div>';
+    var html = '';
+    if (otherCount && (!items || !items.length)) {
+      html += '<div class="gv-alert gv-alert--warn" style="margin:0;">Se han detectado coincidencias en otros contactos a los que no tienes acceso (' + escapeHtml(otherCount) + '). Contacta con un administrador.</div>';
     }
+    html += (items || []).map(function (it) {
+      var id = it.Id || it.id || '';
+      var rs = it.Nombre_Razon_Social || it.Nombre || '';
+      var nc = it.Nombre_Cial || '';
+      var cif = it.DNI_CIF || '';
+      var cp = it.CodigoPostal || '';
+      var pob = it.Poblacion || '';
+      var title = [rs, nc].filter(Boolean).join(' / ') || ('Contacto ' + id);
+      var meta = [cif, [cp, pob].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+      return (
+        '<div style="display:flex; gap:10px; align-items:flex-start; justify-content:space-between; border:1px solid var(--gv-border); border-radius:12px; padding:12px; background: rgba(255,255,255,.85);">' +
+          '<div style="min-width:0;">' +
+            '<div style="font-weight:900; color:var(--gv-ink);">' + escapeHtml(id) + ' · ' + escapeHtml(title) + '</div>' +
+            (meta ? ('<div style="margin-top:4px; color:var(--gv-muted); font-weight:700;">' + escapeHtml(meta) + '</div>') : '') +
+          '</div>' +
+          '<div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">' +
+            '<a class="btn secondary" href="/clientes/' + encodeURIComponent(String(id)) + '">Ver</a>' +
+            '<a class="btn" href="/clientes/' + encodeURIComponent(String(id)) + '/edit">Modificar</a>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+    dupList.innerHTML = html || '<div class="gv-alert gv-alert--warn" style="margin:0;">No se han encontrado coincidencias.</div>';
+  }
 
-    var dniInput = document.getElementById('gv_DNI_CIF');
-    var nameInput = document.getElementById('gv_Nombre_Razon_Social');
-    var comercialNameInput = document.getElementById('gv_Nombre_Cial');
-
-    var run = debounce(async function () {
+  if (mode === 'create' || mode === 'edit') {
+    var runDupCheck = debounce(async function () {
       try {
-        var dniVal = normDni(dniInput ? dniInput.value : '');
+        var dniVal = normDni(dniInputDup ? dniInputDup.value : '');
         var nameVal = normName(nameInput ? nameInput.value : '');
         var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
 
+        var json = await fetchDuplicatesJson(dniVal, nameVal, cialVal);
+
+        if (dniVal && dniVal.length >= 8 && dniVal !== 'PENDIENTE') {
+          if (json.dniConflict) {
+            setDniBlocked(true, renderDniConflictHtml(json.dniMatches));
+            if (mode === 'create') hideDupModal();
+            return;
+          }
+          setDniBlocked(false, '');
+        } else {
+          setDniBlocked(false, '');
+        }
+
+        if (mode !== 'create') return;
+
         var key = [dniVal, nameVal, cialVal].join('|');
-        // no re-lanzar si no cambió nada desde que ya lo mostramos
         if (key && key === lastKeyShown) return;
+        if (!(nameVal && nameVal.length >= 6) && !(cialVal && cialVal.length >= 6)) return;
 
-        // Solo lanzar cuando haya señales suficientes
-        if (!(dniVal && dniVal.length >= 8) && !(nameVal && nameVal.length >= 6) && !(cialVal && cialVal.length >= 6)) return;
+        if (json.dniConflict) return;
 
-        var result = await duplicates(dniVal, nameVal, cialVal);
-        var matches = result.matches || [];
-        var otherCount = Number(result.otherCount || 0) || 0;
+        var matches = json.matches || [];
+        var otherCount = Number(json.otherCount || 0) || 0;
         if (!matches.length && !otherCount) return;
 
         lastKeyShown = key;
         renderMatches(matches.slice(0, 6), otherCount);
         showDupModal();
       } catch (_e) {
-        // silencioso: no bloquear el alta si falla el lookup
+        // silencioso
       }
     }, 350);
 
-    [dniInput, nameInput, comercialNameInput].filter(Boolean).forEach(function (el) {
-      el.addEventListener('input', run);
-      el.addEventListener('change', run);
+    [dniInputDup, nameInput, comercialNameInput].filter(Boolean).forEach(function (el) {
+      el.addEventListener('input', runDupCheck);
+      el.addEventListener('change', runDupCheck);
     });
 
-    // Bloquear submit si hay duplicados y no se ha confirmado aún
     form.addEventListener('submit', async function (e) {
       try {
-        if (dupConfirmed && String(dupConfirmed.value) === '1') return;
-        var dniVal = normDni(dniInput ? dniInput.value : '');
+        var dniVal = normDni(dniInputDup ? dniInputDup.value : '');
         var nameVal = normName(nameInput ? nameInput.value : '');
         var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
-        if (!(dniVal && dniVal.length >= 8) && !(nameVal && nameVal.length >= 6) && !(cialVal && cialVal.length >= 6)) return;
+
+        if (dniVal && dniVal.length >= 8 && dniVal !== 'PENDIENTE') {
+          var j0 = await fetchDuplicatesJson(dniVal, nameVal, cialVal);
+          if (j0.dniConflict) {
+            e.preventDefault();
+            setDniBlocked(true, renderDniConflictHtml(j0.dniMatches));
+            return;
+          }
+          setDniBlocked(false, '');
+        }
+
+        if (mode !== 'create') return;
+        if (dupConfirmed && String(dupConfirmed.value) === '1') return;
+        if (!(nameVal && nameVal.length >= 6) && !(cialVal && cialVal.length >= 6)) return;
+
         e.preventDefault();
-        var result = await duplicates(dniVal, nameVal, cialVal);
-        var matches = result.matches || [];
-        var otherCount = Number(result.otherCount || 0) || 0;
+        var j = await fetchDuplicatesJson(dniVal, nameVal, cialVal);
+        if (j.dniConflict) {
+          setDniBlocked(true, renderDniConflictHtml(j.dniMatches));
+          return;
+        }
+        var matches = j.matches || [];
+        var otherCount = Number(j.otherCount || 0) || 0;
         if (!matches.length && !otherCount) {
-          if (dupConfirmed) dupConfirmed.value = '1'; // no hay duplicados: permitir crear
+          if (dupConfirmed) dupConfirmed.value = '1';
           try { form.requestSubmit ? form.requestSubmit() : form.submit(); } catch (_) {}
           return;
         }
         renderMatches(matches.slice(0, 6), otherCount);
         showDupModal();
       } catch (_err) {
-        // si falla, no bloquear el alta (fallback a validación servidor)
+        // fallback servidor
       }
     });
+  }
 
-    // Si el servidor re-renderiza con coincidencias, mostrarlas al cargar
+  if (mode === 'create' && dupBackdrop) {
+    dupBackdrop.addEventListener('click', hideDupModal);
+  }
+  if (mode === 'create' && dupContinue) {
+    dupContinue.addEventListener('click', function () {
+      if (dupConfirmed) dupConfirmed.value = '1';
+      hideDupModal();
+      try { form.requestSubmit ? form.requestSubmit() : form.submit(); } catch (_) {}
+    });
+  }
+
+  if (mode === 'create') {
     try {
       var serverMatches = <%- JSON.stringify(typeof dupMatches !== 'undefined' ? dupMatches : []) %>;
       var serverOther = <%- JSON.stringify(typeof dupOtherCount !== 'undefined' ? dupOtherCount : 0) %>;
