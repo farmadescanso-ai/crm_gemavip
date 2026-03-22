@@ -1416,7 +1416,7 @@
       + "&nombreCial=" + encodeURIComponent(String(cialVal || ''));
     if (clienteIdExcl) url += "&exclude=" + encodeURIComponent(clienteIdExcl);
     var opts = {
-      credentials: 'same-origin',
+      credentials: 'include',
       headers: { Accept: 'application/json' }
     };
     if (!fetchOpts.skipAbort) {
@@ -1523,28 +1523,34 @@
         if (n && n !== raw && String(raw || '').trim().toUpperCase() !== 'PENDIENTE') {
           dniInputDup.value = n;
         }
-        validateDniOnBlur();
         var v = normDni(dniInputDup.value);
         if (!v || v === 'PENDIENTE') {
           setDniBlocked(false, '');
           hideDniDupModal();
+          clearDniFormatError();
           return;
         }
-        if (!isValidDniCifFormat(v)) {
-          return;
-        }
-        try {
-          var nameVal = normName(nameInput ? nameInput.value : '');
-          var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
-          var json = await fetchDuplicatesJson(v, nameVal, cialVal, { skipAbort: true });
-          if (json.dniConflict) {
-            setDniBlocked(true, '');
-            showDniDupModal(json);
-          } else {
+        // Duplicado: comprobar siempre que parezca un identificador completo (antes de rechazar por formato)
+        if (v.length >= 8) {
+          try {
+            var nameVal = normName(nameInput ? nameInput.value : '');
+            var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
+            var json = await fetchDuplicatesJson(v, nameVal, cialVal, { skipAbort: true });
+            if (json && json.dniConflict) {
+              setDniBlocked(true, '');
+              showDniDupModal(json);
+              validateDniOnBlur();
+              return;
+            }
             setDniBlocked(false, '');
             hideDniDupModal();
+          } catch (err) {
+            if (typeof console !== 'undefined' && console.warn) {
+              console.warn('[DNI duplicado] No se pudo comprobar:', err && err.message ? err.message : err);
+            }
           }
-        } catch (_e) {}
+        }
+        validateDniOnBlur();
       });
     }
 

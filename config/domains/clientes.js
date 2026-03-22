@@ -7,6 +7,7 @@
 
 const clientesCrud = require('./clientes-crud');
 const { debug } = require('../../lib/logger');
+const { normalizeDniCifForStorage } = require('../../lib/dni-cif-utils');
 
 function normalizePhoneForDedup(raw) {
   if (raw == null || typeof raw !== 'string') return '';
@@ -346,7 +347,7 @@ module.exports = {
   async findConflictoDniCifCliente({ dniCif, excludeClienteId = null } = {}) {
     const out = { conflict: false, matches: [] };
     try {
-      const norm = this._normalizeDniCif ? this._normalizeDniCif(dniCif) : String(dniCif ?? '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+      const norm = normalizeDniCifForStorage(dniCif);
       if (!norm || norm.length < 8 || norm === 'PENDIENTE') return out;
 
       const meta = await this._ensureClientesMeta().catch(() => null);
@@ -359,8 +360,10 @@ module.exports = {
       const colCp = this._pickCIFromColumns(cols, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
       const colPob = this._pickCIFromColumns(cols, ['cli_poblacion', 'Poblacion', 'poblacion']) || 'cli_poblacion';
 
-      const dniExpr = `REPLACE(REPLACE(REPLACE(UPPER(COALESCE(c.\`${colDni}\`,'')),' ',''),'-',''),'.','')`;
-      const params = [norm];
+      // TRIM: valores en BD con espacios; igualdad directa aprovecha idx_clientes_dni_cif cuando ya está normalizado
+      const dniNormExpr = `REPLACE(REPLACE(REPLACE(UPPER(TRIM(COALESCE(c.\`${colDni}\`,''))),' ',''),'-',''),'.','')`;
+      const whereDni = `(c.\`${colDni}\` = ? OR ${dniNormExpr} = ?)`;
+      const params = [norm, norm];
       let excludeSql = '';
       const ex = excludeClienteId != null ? Number(excludeClienteId) : null;
       if (ex && Number.isFinite(ex) && ex > 0) {
@@ -371,7 +374,7 @@ module.exports = {
       const lim = 8;
       const selectSql =
         `SELECT c.\`${pk}\` as Id, c.\`${colNombreRazon}\` as Nombre_Razon_Social, c.\`${colNombreCial}\` as Nombre_Cial, c.\`${colDni}\` as DNI_CIF, c.\`${colCp}\` as CodigoPostal, c.\`${colPob}\` as Poblacion ` +
-        `FROM \`${tClientes}\` c WHERE ${dniExpr} = ?${excludeSql} ORDER BY c.\`${pk}\` DESC LIMIT ?`;
+        `FROM \`${tClientes}\` c WHERE ${whereDni}${excludeSql} ORDER BY c.\`${pk}\` DESC LIMIT ?`;
 
       const rows = await this.query(selectSql, [...params, lim]);
       const list = Array.isArray(rows) ? rows : [];

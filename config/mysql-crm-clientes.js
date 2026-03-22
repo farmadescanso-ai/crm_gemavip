@@ -132,6 +132,10 @@ module.exports = {
       await createIfMissing('idx_clientes_cp', ['cli_codigo_postal', 'CodigoPostal']);
       await createIfMissing('idx_clientes_poblacion', ['cli_poblacion', 'Poblacion']);
       await createIfMissing('idx_clientes_nombre', ['cli_nombre_razon_social', 'Nombre_Razon_Social']);
+      {
+        const dniIdxCol = ['cli_dni_cif', 'DNI_CIF', 'DniCif'].find((c) => hasCol(c));
+        if (dniIdxCol) await createIfMissing('idx_clientes_dni_cif', [dniIdxCol]);
+      }
 
       await createIfMissing(
         'ft_clientes_busqueda',
