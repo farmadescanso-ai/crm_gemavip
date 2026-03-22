@@ -384,13 +384,51 @@ module.exports = {
     }
   },
 
+  /**
+   * Misma razón social normalizada (sin distinguir mayúsculas/minúsculas ni acentos) y mismo DNI/CIF que otro contacto.
+   * Depende de findConflictoDniCifCliente; filtra coincidencias por nombre.
+   */
+  async findConflictoNombreYRazonYCif({ dniCif, nombreRazon, excludeClienteId = null } = {}) {
+    const out = { conflict: false, matches: [] };
+    try {
+      const dni = await this.findConflictoDniCifCliente({ dniCif, excludeClienteId });
+      if (!dni.conflict) return out;
+      const normName = (s) => {
+        try {
+          return String(s ?? '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
+        } catch (_) {
+          return String(s ?? '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, ' ');
+        }
+      };
+      const target = normName(nombreRazon);
+      if (!target || target.length < 2) return out;
+      const list = (dni.matches || []).filter(
+        (m) => normName(m.Nombre_Razon_Social || m.cli_nombre_razon_social || '') === target
+      );
+      out.matches = list;
+      out.conflict = list.length > 0;
+      return out;
+    } catch (e) {
+      console.warn('⚠️ [NOMBRE+CIF] No se pudo comprobar:', e?.message || e);
+      return out;
+    }
+  },
+
   /** Coincidencias por nombre comercial / razón social (no usa DNI; el DNI va en findConflictoDniCifCliente). */
   async findPosiblesDuplicadosClientes({ dniCif, nombre, nombreCial } = {}, { limit = 6, userId = null, isAdmin = false } = {}) {
     const out = { matches: [], otherCount: 0 };
     try {
       const meta = await this._ensureClientesMeta().catch(() => null);
       const tClientes = meta?.tClientes || await this._resolveTableNameCaseInsensitive('clientes');
-      const pk = meta?.pk || 'Id';
+      const pk = meta?.pk || 'cli_id';
       const colComercial = meta?.colComercial || null;
       const cols = await this._getColumns(tClientes).catch(() => []);
       const colNombreRazon = meta?.colNombreRazonSocial || this._pickCIFromColumns(cols, ['cli_nombre_razon_social', 'Nombre_Razon_Social']) || 'cli_nombre_razon_social';
@@ -412,6 +450,17 @@ module.exports = {
 
       const whereOr = [];
       const paramsOr = [];
+
+      const rawNombre = String(nombre || '').trim();
+      if (rawNombre.length >= 3) {
+        whereOr.push(`LOWER(TRIM(COALESCE(c.\`${colNombreRazon}\`,''))) = LOWER(TRIM(?))`);
+        paramsOr.push(rawNombre);
+      }
+      const rawNombreCial = String(nombreCial || '').trim();
+      if (rawNombreCial.length >= 3) {
+        whereOr.push(`LOWER(TRIM(COALESCE(c.\`${colNombreCial}\`,''))) = LOWER(TRIM(?))`);
+        paramsOr.push(rawNombreCial);
+      }
 
       if (n1 && n1.length >= 6) {
         whereOr.push(`LOWER(TRIM(COALESCE(c.\`${colNombreRazon}\`,''))) LIKE ?`);

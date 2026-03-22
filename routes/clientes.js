@@ -253,6 +253,39 @@ router.post('/new', requireLogin, async (req, res, next) => {
     applySpainDefaultsIfEmpty(payload, { meta, paises, idiomas, monedas });
     normalizePayloadTelefonos(payload);
 
+    const dniRawNew = payload.DNI_CIF ?? payload.cli_dni_cif;
+    const dniPendNew = String(dniRawNew || '').trim().toLowerCase();
+    if (dniRawNew != null && String(dniRawNew).trim() !== '' && dniPendNew !== 'pendiente') {
+      if (typeof db._isValidDniCif === 'function' && !db._isValidDniCif(String(dniRawNew).trim())) {
+        const modelInvalid = buildClienteFormModel({
+          mode: 'create',
+          meta,
+          item: payload,
+          comerciales,
+          tarifas,
+          provincias,
+          paises,
+          formasPago,
+          tiposClientes,
+          especialidades: especialidades || [],
+          idiomas,
+          monedas,
+          estadosCliente,
+          cooperativas,
+          gruposCompras,
+          canChangeComercial: !!isAdmin,
+          missingFields: [],
+          isAdmin: !!isAdmin
+        });
+        return res.status(400).render('cliente-form', {
+          ...modelInvalid,
+          error: 'El DNI/CIF no tiene un formato válido (NIF, NIE o CIF español). Corrígelo antes de guardar.',
+          admin: isAdmin,
+          canChangeComercial: !!isAdmin
+        });
+      }
+    }
+
     const dniChkNew = await db.findConflictoDniCifCliente({ dniCif: payload.DNI_CIF ?? payload.cli_dni_cif });
     if (dniChkNew.conflict) {
       const model = buildClienteFormModel({
@@ -586,6 +619,46 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     const pendLow = String(dniEfectivo || '').trim().toLowerCase();
     const dniParaCheck = !pendLow || pendLow === 'pendiente' ? null : dniEfectivo;
     if (dniParaCheck) {
+      if (typeof db._isValidDniCif === 'function' && !db._isValidDniCif(String(dniParaCheck).trim())) {
+        const puedeSolicitarInv = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
+        const modelInv = buildClienteFormModel({
+          mode: 'edit',
+          meta,
+          item: { ...item, ...payload },
+          comerciales,
+          tarifas,
+          provincias,
+          paises,
+          formasPago,
+          tiposClientes,
+          especialidades: especialidades || [],
+          idiomas,
+          monedas,
+          estadosCliente,
+          cooperativas,
+          gruposCompras,
+          canChangeComercial: !!admin,
+          isAdmin: !!admin
+        });
+        const relacionesDataInv = await db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }));
+        const relacionesInv = [
+          ...(relacionesDataInv.comoOrigen || []).map(normalizeRelacionRow),
+          ...(relacionesDataInv.comoRelacionado || []).map(normalizeRelacionRow)
+        ];
+        return res.status(400).render('cliente-form', {
+          ...modelInv,
+          error: 'El DNI/CIF no tiene un formato válido (NIF, NIE o CIF español). Corrígelo antes de guardar.',
+          admin,
+          canChangeComercial: admin,
+          puedeSolicitarAsignacion: puedeSolicitarInv,
+          clienteId: id,
+          contactoId: id,
+          agendaContactos: [],
+          agendaIncludeHistorico: false,
+          relaciones: relacionesInv,
+          cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
+        });
+      }
       const dniChkEdit = await db.findConflictoDniCifCliente({ dniCif: dniParaCheck, excludeClienteId: id });
       if (dniChkEdit.conflict) {
         const relacionesData = await db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }));

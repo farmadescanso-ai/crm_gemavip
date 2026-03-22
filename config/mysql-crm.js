@@ -799,6 +799,9 @@ class MySQLCRM {
   async findConflictoDniCifCliente(opts = {}) {
     return domains.clientes.findConflictoDniCifCliente.apply(this, arguments);
   }
+  async findConflictoNombreYRazonYCif(opts = {}) {
+    return domains.clientes.findConflictoNombreYRazonYCif.apply(this, arguments);
+  }
   async getClientesByComercial(comercialId) {
     return domains.clientes.getClientesByComercial.apply(this, arguments);
   }

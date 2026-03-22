@@ -245,6 +245,11 @@ router.get(
     const excludeId = Number.isFinite(excludeRaw) && excludeRaw > 0 ? excludeRaw : null;
 
     const dniConflict = await db.findConflictoDniCifCliente({ dniCif: dni, excludeClienteId: excludeId });
+    const nombreCifDup = await db.findConflictoNombreYRazonYCif({
+      dniCif: dni,
+      nombreRazon: nombre,
+      excludeClienteId: excludeId
+    });
 
     const result = await db.findPosiblesDuplicadosClientes(
       { dniCif: dni, nombre, nombreCial },
@@ -255,6 +260,8 @@ router.get(
       ok: true,
       dniConflict: !!dniConflict.conflict,
       dniMatches: dniConflict.matches || [],
+      nombreCifDuplicate: !!nombreCifDup.conflict,
+      nombreCifMatches: nombreCifDup.matches || [],
       ...result
     });
   })

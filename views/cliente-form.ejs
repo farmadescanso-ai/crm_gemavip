@@ -1259,6 +1259,52 @@
       return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
   }
+  function isValidDniCifFormat(v) {
+    var s = String(v || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+    if (!s) return false;
+    if (['PENDIENTE', 'NULL', 'N/A', 'NA'].indexOf(s) !== -1) return false;
+    if (s.indexOf('SIN_DNI') === 0) return false;
+    var dni = /^[0-9]{8}[A-Z]$/;
+    var nie = /^[XYZ][0-9]{7}[A-Z]$/;
+    var cif = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/;
+    return dni.test(s) || nie.test(s) || cif.test(s);
+  }
+  var dniFormatMsgEl = null;
+  function ensureDniFormatMsgEl() {
+    if (dniFormatMsgEl) return dniFormatMsgEl;
+    if (!dniInputDup) return null;
+    dniFormatMsgEl = document.getElementById('gv-dni-format-msg');
+    if (!dniFormatMsgEl) {
+      dniFormatMsgEl = document.createElement('p');
+      dniFormatMsgEl.id = 'gv-dni-format-msg';
+      dniFormatMsgEl.setAttribute('role', 'alert');
+      dniFormatMsgEl.style.cssText = 'margin:6px 0 0;font-size:13px;font-weight:700;color:#b42318;display:none;';
+      dniInputDup.parentNode.insertBefore(dniFormatMsgEl, dniInputDup.nextSibling);
+    }
+    return dniFormatMsgEl;
+  }
+  function showDniFormatError(msg) {
+    var el = ensureDniFormatMsgEl();
+    if (!el) return;
+    el.textContent = msg || 'DNI/CIF no válido.';
+    el.style.display = '';
+    if (dniInputDup) dniInputDup.setAttribute('aria-invalid', 'true');
+  }
+  function clearDniFormatError() {
+    var el = ensureDniFormatMsgEl();
+    if (el) { el.style.display = 'none'; el.textContent = ''; }
+    if (dniInputDup) dniInputDup.removeAttribute('aria-invalid');
+  }
+  function validateDniOnBlur() {
+    if (!dniInputDup) return;
+    var v = normDni(dniInputDup.value);
+    if (!v || v === 'PENDIENTE') { clearDniFormatError(); return; }
+    if (!isValidDniCifFormat(v)) {
+      showDniFormatError('Introduce un NIF, NIE o CIF español válido (o deja «Pendiente» si aún no lo tienes).');
+    } else {
+      clearDniFormatError();
+    }
+  }
   function setDniBlocked(blocked, html) {
     form.setAttribute('data-dni-blocked', blocked ? '1' : '0');
     if (dupDniClient) {
@@ -1276,6 +1322,17 @@
       return '<li><strong>#' + escapeHtml(String(id)) + '</strong> — ' + escapeHtml(rs) + (cif ? ' (' + escapeHtml(cif) + ')' : '') + '</li>';
     }).join('');
     return '<strong>Este DNI/CIF ya está registrado en otro contacto.</strong> No se puede guardar mientras coincida con otro cliente. Corrige el identificador o abre el registro existente.' +
+      '<ul style="margin:8px 0 0 18px;">' + rows + '</ul>';
+  }
+  function renderNombreCifDupHtml(matches) {
+    if (!matches || !matches.length) return '';
+    var rows = matches.slice(0, 8).map(function (it) {
+      var id = it.Id || it.id || '';
+      var rs = it.Nombre_Razon_Social || it.cli_nombre_razon_social || '';
+      var cif = it.DNI_CIF || it.cli_dni_cif || '';
+      return '<li><strong>#' + escapeHtml(String(id)) + '</strong> — ' + escapeHtml(rs) + (cif ? ' (' + escapeHtml(cif) + ')' : '') + '</li>';
+    }).join('');
+    return '<strong>Duplicado: mismo DNI/CIF y misma razón social</strong> (la comparación no distingue mayúsculas/minúsculas). No debes mantener dos fichas iguales.' +
       '<ul style="margin:8px 0 0 18px;">' + rows + '</ul>';
   }
   function showDupModal() {
@@ -1303,10 +1360,12 @@
     var r = await fetch(url, opts);
     if (!r.ok) throw new Error("HTTP " + r.status);
     var json = await r.json();
-    if (!json || json.ok !== true) return { dniConflict: false, dniMatches: [], matches: [], otherCount: 0 };
+    if (!json || json.ok !== true) return { dniConflict: false, dniMatches: [], nombreCifDuplicate: false, nombreCifMatches: [], matches: [], otherCount: 0 };
     return {
       dniConflict: !!json.dniConflict,
       dniMatches: Array.isArray(json.dniMatches) ? json.dniMatches : [],
+      nombreCifDuplicate: !!json.nombreCifDuplicate,
+      nombreCifMatches: Array.isArray(json.nombreCifMatches) ? json.nombreCifMatches : [],
       matches: Array.isArray(json.matches) ? json.matches : [],
       otherCount: Number(json.otherCount || 0) || 0
     };
@@ -1357,7 +1416,10 @@
 
         if (dniVal && dniVal.length >= 8 && dniVal !== 'PENDIENTE') {
           if (json.dniConflict) {
-            setDniBlocked(true, renderDniConflictHtml(json.dniMatches));
+            var dupHtml = (json.nombreCifDuplicate && json.nombreCifMatches && json.nombreCifMatches.length)
+              ? renderNombreCifDupHtml(json.nombreCifMatches)
+              : renderDniConflictHtml(json.dniMatches);
+            setDniBlocked(true, dupHtml);
             if (mode === 'create') hideDupModal();
             return;
           }
@@ -1390,6 +1452,7 @@
       el.addEventListener('input', runDupCheck);
       el.addEventListener('change', runDupCheck);
     });
+    if (dniInputDup) dniInputDup.addEventListener('blur', validateDniOnBlur);
 
     form.addEventListener('submit', async function (e) {
       try {
@@ -1397,11 +1460,24 @@
         var nameVal = normName(nameInput ? nameInput.value : '');
         var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
 
+        if (dniVal && dniVal !== 'PENDIENTE') {
+          if (!isValidDniCifFormat(dniVal)) {
+            e.preventDefault();
+            showDniFormatError('Corrige el DNI/CIF antes de guardar (NIF, NIE o CIF español).');
+            if (dniInputDup) dniInputDup.focus();
+            return;
+          }
+        }
+        clearDniFormatError();
+
         if (dniVal && dniVal.length >= 8 && dniVal !== 'PENDIENTE') {
           var j0 = await fetchDuplicatesJson(dniVal, nameVal, cialVal);
           if (j0.dniConflict) {
             e.preventDefault();
-            setDniBlocked(true, renderDniConflictHtml(j0.dniMatches));
+            var dupH = (j0.nombreCifDuplicate && j0.nombreCifMatches && j0.nombreCifMatches.length)
+              ? renderNombreCifDupHtml(j0.nombreCifMatches)
+              : renderDniConflictHtml(j0.dniMatches);
+            setDniBlocked(true, dupH);
             return;
           }
           setDniBlocked(false, '');
@@ -1414,7 +1490,10 @@
         e.preventDefault();
         var j = await fetchDuplicatesJson(dniVal, nameVal, cialVal);
         if (j.dniConflict) {
-          setDniBlocked(true, renderDniConflictHtml(j.dniMatches));
+          var dupJ = (j.nombreCifDuplicate && j.nombreCifMatches && j.nombreCifMatches.length)
+            ? renderNombreCifDupHtml(j.nombreCifMatches)
+            : renderDniConflictHtml(j.dniMatches);
+          setDniBlocked(true, dupJ);
           return;
         }
         var matches = j.matches || [];
