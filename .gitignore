@@ -24,3 +24,6 @@ uploads/
 
 # Salida importar clientes (generada por generar-sql-y-csv-clientes.py)
 scripts/salida-importar/
+
+# Volcados SQL con datos personales (no versionar)
+data/bd-dumps/*.sql
