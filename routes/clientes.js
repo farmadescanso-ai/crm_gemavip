@@ -408,70 +408,8 @@ router.post('/:id(\\d+)/direcciones/new', requireLogin, async (req, res, next) =
   }
 });
 
-router.get('/:id', requireLogin, async (req, res, next) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-    const admin = isAdminUser(res.locals.user);
-    const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
-    if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
-    const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
-    const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
-    if (!item) return res.status(404).send('No encontrado');
-    const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
-    const poolId = await db.getComercialIdPool();
-    const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
-    const [tieneRelaciones, relacionesData, cooperativasCliente] = await Promise.all([
-      db.tieneRelaciones(id).catch(() => false),
-      db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] })),
-      db.getCooperativasByClienteId(id).catch(() => [])
-    ]);
-    const relaciones = [
-      ...(relacionesData.comoOrigen || []).map(normalizeRelacionRow),
-      ...(relacionesData.comoRelacionado || []).map(normalizeRelacionRow)
-    ];
-    const model = buildClienteFormModel({
-      mode: 'view',
-      meta,
-      item,
-      comerciales,
-      tarifas,
-      provincias,
-      paises,
-      formasPago,
-      tiposClientes,
-      especialidades: especialidades || [],
-      idiomas,
-      monedas,
-      estadosCliente,
-      cooperativas,
-      gruposCompras,
-      canChangeComercial: false,
-      isAdmin: !!admin
-    });
-    res.render('cliente-view', {
-      ...model,
-      admin,
-      canEdit,
-      puedeSolicitarAsignacion,
-      poolId,
-      solicitud,
-      contactoId: id,
-      agendaContactos: [],
-      agendaRoles: [],
-      agendaIncludeHistorico: false,
-      agendaOk: false,
-      agendaError: false,
-      tieneRelaciones: !!tieneRelaciones,
-      relaciones: relaciones || [],
-      cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
-    });
-  } catch (e) {
-    next(e);
-  }
-});
-
-router.get('/:id/edit', requireLogin, async (req, res, next) => {
+/** Rutas con path fijo /edit deben ir antes de /:id (vista), si no Express puede enlazar mal el handler. */
+router.get('/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -526,7 +464,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-router.post('/:id/edit', requireLogin, async (req, res, next) => {
+router.post('/:id(\\d+)/edit', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -659,7 +597,70 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) => {
+router.get('/:id(\\d+)', requireLogin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const admin = isAdminUser(res.locals.user);
+    const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
+    if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
+    const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
+    const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
+    if (!item) return res.status(404).send('No encontrado');
+    const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
+    const poolId = await db.getComercialIdPool();
+    const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
+    const [tieneRelaciones, relacionesData, cooperativasCliente] = await Promise.all([
+      db.tieneRelaciones(id).catch(() => false),
+      db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] })),
+      db.getCooperativasByClienteId(id).catch(() => [])
+    ]);
+    const relaciones = [
+      ...(relacionesData.comoOrigen || []).map(normalizeRelacionRow),
+      ...(relacionesData.comoRelacionado || []).map(normalizeRelacionRow)
+    ];
+    const model = buildClienteFormModel({
+      mode: 'view',
+      meta,
+      item,
+      comerciales,
+      tarifas,
+      provincias,
+      paises,
+      formasPago,
+      tiposClientes,
+      especialidades: especialidades || [],
+      idiomas,
+      monedas,
+      estadosCliente,
+      cooperativas,
+      gruposCompras,
+      canChangeComercial: false,
+      isAdmin: !!admin
+    });
+    res.render('cliente-view', {
+      ...model,
+      admin,
+      canEdit,
+      puedeSolicitarAsignacion,
+      poolId,
+      solicitud,
+      contactoId: id,
+      agendaContactos: [],
+      agendaRoles: [],
+      agendaIncludeHistorico: false,
+      agendaOk: false,
+      agendaError: false,
+      tieneRelaciones: !!tieneRelaciones,
+      relaciones: relaciones || [],
+      cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id(\\d+)/solicitar-asignacion', requireLogin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
@@ -744,7 +745,7 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
   }
 });
 
-router.post('/:id/delete', requireAdmin, async (req, res, next) => {
+router.post('/:id(\\d+)/delete', requireAdmin, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
