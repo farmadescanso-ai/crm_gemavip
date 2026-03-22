@@ -194,11 +194,12 @@ module.exports = {
       const colsLower = new Set(colsClientes.map((c) => String(c).toLowerCase()));
       const hasCol = (name) => colsLower.has(String(name).toLowerCase());
 
-      const t = meta?.tClientes;
+      const t = meta?.tClientes || 'clientes';
       const pk = meta?.pk || 'cli_id';
       const colComercial = meta?.colComercial || null;
-      const colProvincia = meta?.colProvincia || 'Id_Provincia';
-      const colTipoCliente = meta?.colTipoCliente || 'Id_TipoCliente';
+      // Mismos fallbacks que getClientesOptimizadoPaged (Id_Provincia / Id_TipoCliente no existen en esquema cli_*)
+      const colProvincia = meta?.colProvincia || 'cli_prov_id';
+      const colTipoCliente = meta?.colTipoCliente || 'cli_tipc_id';
       const colEstadoCliente = meta?.colEstadoCliente || null;
       const colIdioma = hasCol('cli_idiom_id') ? 'cli_idiom_id' : (hasCol('Id_Idioma') ? 'Id_Idioma' : null);
       const colMoneda = hasCol('cli_mon_id') ? 'cli_mon_id' : (hasCol('Id_Moneda') ? 'Id_Moneda' : null);
@@ -281,8 +282,9 @@ module.exports = {
     } catch (error) {
       console.error('❌ Error obteniendo cliente por ID:', error.message);
       try {
-        const tClientes = await this._resolveTableNameCaseInsensitive('clientes');
-        const fallbackPk = this._pickCIFromColumns(
+        const metaCatch = this._metaCache?.clientesMeta || (await this._ensureClientesMeta().catch(() => null));
+        const tClientes = metaCatch?.tClientes || (await this._resolveTableNameCaseInsensitive('clientes'));
+        const fallbackPk = metaCatch?.pk || this._pickCIFromColumns(
           await this._getColumns(tClientes).catch(() => []),
           ['cli_id', 'id', 'Id']
         ) || 'cli_id';
@@ -448,7 +450,9 @@ module.exports = {
   async getClientesOptimizado(filters = {}) {
     let sql = '';
     try {
-      const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colNombreRazonSocial, colTipoContacto } = await this._ensureClientesMeta();
+      const metaOpt = await this._ensureClientesMeta();
+      const tClientesTable = metaOpt.tClientes || 'clientes';
+      const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colNombreRazonSocial, colTipoContacto } = metaOpt;
       const tEstados = colEstadoCliente ? await this._resolveTableNameCaseInsensitive('estdoClientes') : null;
       const comercialMeta = colComercial ? await this._ensureComercialesMeta().catch(() => null) : null;
       const comercialPk = comercialMeta?.pk || 'com_id';
@@ -467,7 +471,7 @@ module.exports = {
           ${(colComercial && tComerciales) ? `cial.\`${comercialColNombre}\` as ComercialNombre` : 'NULL as ComercialNombre'},
           ${colEstadoCliente ? 'ec.estcli_nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
           ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'}
-        FROM clientes c
+        FROM \`${tClientesTable}\` c
         LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id
         LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id
         ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
@@ -599,6 +603,7 @@ module.exports = {
     let sql = '';
     try {
       const meta = await this._ensureClientesMeta();
+      const tClientesTable = meta.tClientes || 'clientes';
       const { pk, colComercial, colProvincia, colTipoCliente, colEstadoCliente, colTipoContacto, colNombreRazonSocial } = meta;
       const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
       const colCodigoPostal = this._pickCIFromColumns(colsClientes, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
@@ -689,7 +694,7 @@ module.exports = {
           ${colEstadoCliente ? 'ec.estcli_nombre as EstadoClienteNombre' : 'NULL as EstadoClienteNombre'},
           ${colEstadoCliente ? `c.\`${colEstadoCliente}\` as EstadoClienteId` : 'NULL as EstadoClienteId'},
           ${selectRelacionesCount}
-        FROM clientes c
+        FROM \`${tClientesTable}\` c
         LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id
         LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id
         ${(colComercial && tComerciales) ? `LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\`` : ''}
@@ -1089,6 +1094,7 @@ module.exports = {
     let sql = '';
     try {
       const meta = await this._ensureClientesMeta();
+      const tClientesTable = meta.tClientes || 'clientes';
       const { pk, colComercial, colEstadoCliente, colTipoContacto, colProvincia, colTipoCliente } = meta;
       const colsClientes = Array.isArray(meta?.cols) ? meta.cols : [];
       const colCodigoPostal = this._pickCIFromColumns(colsClientes, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
@@ -1115,7 +1121,7 @@ module.exports = {
       const tComerciales = comercialMeta?.table || null;
       const needJoinCom = !!(filters.comercialNombre && colComercial && tComerciales);
 
-      sql = 'SELECT COUNT(*) as total FROM clientes c';
+      sql = `SELECT COUNT(*) as total FROM \`${tClientesTable}\` c`;
       if (needJoinProv) sql += ` LEFT JOIN provincias p ON c.\`${colProv}\` = p.prov_id`;
       if (needJoinTipoC) sql += ` LEFT JOIN tipos_clientes tc ON c.\`${colTipC}\` = tc.tipc_id`;
       if (needJoinCom) sql += ` LEFT JOIN \`${tComerciales}\` cial ON c.\`${colComercial}\` = cial.\`${comercialPk}\``;
