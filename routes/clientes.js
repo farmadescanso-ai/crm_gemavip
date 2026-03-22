@@ -250,6 +250,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
         paises,
         formasPago,
         tiposClientes,
+        especialidades: especialidades || [],
         idiomas,
         monedas,
         estadosCliente,
@@ -288,6 +289,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
         paises,
         formasPago,
         tiposClientes,
+        especialidades: especialidades || [],
         idiomas,
         monedas,
         estadosCliente,
@@ -324,6 +326,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
         paises,
         formasPago,
         tiposClientes,
+        especialidades: especialidades || [],
         idiomas,
         monedas,
         estadosCliente,
@@ -521,7 +524,10 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     normalizePayloadTelefonos(payload);
 
     const missingFields = [];
-    const nombreVal = payload[colNombre] ?? payload.Nombre_Razon_Social ?? payload.cli_nombre_razon_social;
+    let nombreVal = payload[colNombre] ?? payload.Nombre_Razon_Social ?? payload.cli_nombre_razon_social;
+    if (nombreVal === undefined || nombreVal === null) {
+      nombreVal = item[colNombre] ?? item.Nombre_Razon_Social ?? item.cli_nombre_razon_social;
+    }
     if (!nombreVal || !String(nombreVal || '').trim()) {
       missingFields.push(colNombre);
       if (colNombre !== 'Nombre_Razon_Social') missingFields.push('Nombre_Razon_Social');
@@ -549,6 +555,10 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
         isAdmin: !!admin
       });
       return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, canChangeComercial: admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false, cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : [] });
+    }
+
+    if ((payload[colNombre] === undefined || payload[colNombre] === null) && nombreVal != null && String(nombreVal).trim()) {
+      payload[colNombre] = coerceClienteValue(colNombre, nombreVal);
     }
 
     if (!admin) stripClienteAvanzadoFieldsFromPayload(payload, meta);

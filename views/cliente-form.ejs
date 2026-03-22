@@ -1293,7 +1293,10 @@
       + "&nombre=" + encodeURIComponent(String(nameVal || ''))
       + "&nombreCial=" + encodeURIComponent(String(cialVal || ''));
     if (clienteIdExcl) url += "&exclude=" + encodeURIComponent(clienteIdExcl);
-    var opts = { headers: { Accept: 'application/json' } };
+    var opts = {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    };
     if (aborterDup) aborterDup.abort();
     aborterDup = new AbortController();
     opts.signal = aborterDup.signal;
@@ -1424,7 +1427,10 @@
         renderMatches(matches.slice(0, 6), otherCount);
         showDupModal();
       } catch (_err) {
-        // fallback servidor
+        if (dupConfirmed) dupConfirmed.value = '1';
+        try {
+          form.requestSubmit ? form.requestSubmit() : form.submit();
+        } catch (_) {}
       }
     });
   }
