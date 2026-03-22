@@ -8,6 +8,7 @@
 'use strict';
 
 const { debug } = require('../lib/logger');
+const { normalizeDniCifForStorage, isValidSpanishDniCif } = require('../lib/dni-cif-utils');
 
 module.exports = {
   async _ensureClientesMeta() {
@@ -60,23 +61,11 @@ module.exports = {
   },
 
   _normalizeDniCif(value) {
-    return String(value ?? '')
-      .trim()
-      .toUpperCase()
-      .replace(/\s+/g, '')
-      .replace(/-/g, '');
+    return normalizeDniCifForStorage(value);
   },
 
   _isValidDniCif(value) {
-    const v = this._normalizeDniCif(value);
-    if (!v) return false;
-    if (['PENDIENTE', 'NULL', 'N/A', 'NA'].includes(v)) return false;
-    if (v.startsWith('SIN_DNI')) return false;
-
-    const dni = /^[0-9]{8}[A-Z]$/;
-    const nie = /^[XYZ][0-9]{7}[A-Z]$/;
-    const cif = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/;
-    return dni.test(v) || nie.test(v) || cif.test(v);
+    return isValidSpanishDniCif(value);
   },
 
   _getTipoContactoFromDniCif(value) {

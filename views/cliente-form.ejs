@@ -526,6 +526,21 @@
       </div>
     </div>
 
+    <div class="gv-modal-backdrop" id="gvDniDupBackdrop" hidden></div>
+    <div class="gv-modal" id="gvDniDupModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvDniDupTitle">
+      <div class="gv-modal-card gv-modal-card--dni-dup" style="max-width: 520px;">
+        <div class="gv-modal-hd">
+          <div class="gv-modal-title" id="gvDniDupTitle">DNI/CIF ya registrado</div>
+          <div class="gv-modal-subtitle" id="gvDniDupSubtitle">Este identificador fiscal ya existe en otro contacto.</div>
+        </div>
+        <div class="gv-modal-bd" id="gvDniDupBody" style="padding: 0 16px 16px; font-size: 14px; line-height: 1.5; color: var(--gv-ink);"></div>
+        <div class="gv-modal-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+          <button type="button" class="btn secondary" id="gvDniDupFocusInput">Corregir DNI/CIF</button>
+          <button type="button" class="btn" id="gvDniDupOk">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
     <% if (mode === 'edit' && cid) { %>
       <div class="gv-modal-backdrop" id="gvRelacionesModalBackdrop" hidden></div>
       <div class="gv-modal" id="gvRelacionesModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvRelacionesModalTitle">
@@ -594,6 +609,20 @@
   margin-left: 5px;
   vertical-align: middle;
   letter-spacing: 0.03em;
+}
+.gv-modal-card--dni-dup {
+  border-top: 4px solid #c2410c;
+  box-shadow: 0 18px 48px rgba(194, 65, 12, 0.18);
+}
+.gv-modal-card--dni-dup .gv-dni-dup-list {
+  margin: 12px 0 0;
+  padding: 0 0 0 18px;
+}
+.gv-modal-card--dni-dup .gv-dni-dup-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
 }
 </style>
 
@@ -681,7 +710,7 @@
   var nameInput = form.querySelector('input[data-gv-nombre-field="1"]') || form.querySelector('input[name="cli_nombre_razon_social"]') || form.querySelector('input[name="Nombre_Razon_Social"]');
   var dniInput = form.querySelector('input[name="cli_dni_cif"]') || form.querySelector('input[name="DNI_CIF"]');
   function isPersonByDniCif(val) {
-    var v = String(val || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+    var v = String(val || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '').replace(/\./g, '');
     if (!v) return true;
     var cif = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/;
     var dni = /^[0-9]{8}[A-Z]$/;
@@ -1245,7 +1274,8 @@
       .trim()
       .toUpperCase()
       .replace(/\s+/g, '')
-      .replace(/-/g, '');
+      .replace(/-/g, '')
+      .replace(/\./g, '');
   }
   function normName(s) {
     try {
@@ -1260,7 +1290,7 @@
     }
   }
   function isValidDniCifFormat(v) {
-    var s = String(v || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+    var s = normDni(v);
     if (!s) return false;
     if (['PENDIENTE', 'NULL', 'N/A', 'NA'].indexOf(s) !== -1) return false;
     if (s.indexOf('SIN_DNI') === 0) return false;
@@ -1313,28 +1343,62 @@
     }
     if (saveBtnDup) saveBtnDup.disabled = !!blocked;
   }
-  function renderDniConflictHtml(matches) {
-    if (!matches || !matches.length) return '';
-    var rows = matches.slice(0, 8).map(function (it) {
-      var id = it.Id || it.id || '';
-      var rs = it.Nombre_Razon_Social || it.cli_nombre_razon_social || '';
-      var cif = it.DNI_CIF || it.cli_dni_cif || '';
-      return '<li><strong>#' + escapeHtml(String(id)) + '</strong> — ' + escapeHtml(rs) + (cif ? ' (' + escapeHtml(cif) + ')' : '') + '</li>';
-    }).join('');
-    return '<strong>Este DNI/CIF ya está registrado en otro contacto.</strong> No se puede guardar mientras coincida con otro cliente. Corrige el identificador o abre el registro existente.' +
-      '<ul style="margin:8px 0 0 18px;">' + rows + '</ul>';
+  var dniDupBackdrop = document.getElementById('gvDniDupBackdrop');
+  var dniDupModal = document.getElementById('gvDniDupModal');
+  var dniDupBody = document.getElementById('gvDniDupBody');
+  var dniDupTitle = document.getElementById('gvDniDupTitle');
+  var dniDupSubtitle = document.getElementById('gvDniDupSubtitle');
+  var dniDupOk = document.getElementById('gvDniDupOk');
+  var dniDupFocusInput = document.getElementById('gvDniDupFocusInput');
+
+  function fillDniDupModal(json) {
+    var matches = (json.nombreCifDuplicate && json.nombreCifMatches && json.nombreCifMatches.length)
+      ? json.nombreCifMatches : (json.dniMatches || []);
+    var isNom = !!(json.nombreCifDuplicate && json.nombreCifMatches && json.nombreCifMatches.length);
+    if (dniDupTitle) dniDupTitle.textContent = isNom ? 'Mismo DNI/CIF y misma razón social' : 'DNI/CIF ya registrado';
+    if (dniDupSubtitle) {
+      dniDupSubtitle.textContent = isNom
+        ? 'Ya existe un contacto con el mismo nombre y el mismo identificador fiscal.'
+        : 'Este identificador fiscal ya corresponde a otro contacto.';
+    }
+    var html = [];
+    html.push('<p style="margin:0;">No se puede guardar hasta que corrijas el DNI/CIF o abras el contacto existente si se trata del mismo cliente.</p>');
+    if (matches && matches.length) {
+      html.push('<ul class="gv-dni-dup-list">');
+      matches.slice(0, 8).forEach(function (it) {
+        var id = it.Id || it.id || '';
+        var rs = it.Nombre_Razon_Social || it.cli_nombre_razon_social || '';
+        var cif = it.DNI_CIF || it.cli_dni_cif || '';
+        html.push(
+          '<li><strong>#' + escapeHtml(String(id)) + '</strong> — ' + escapeHtml(rs) +
+          (cif ? ' · <span style="font-weight:800;">' + escapeHtml(String(cif)) + '</span>' : '') +
+          '</li>'
+        );
+      });
+      html.push('</ul>');
+      html.push('<div class="gv-dni-dup-actions">');
+      matches.slice(0, 3).forEach(function (it) {
+        var id = it.Id || it.id || '';
+        html.push(
+          '<a class="btn secondary" href="/clientes/' + encodeURIComponent(String(id)) + '">Ver ficha</a>' +
+          '<a class="btn" href="/clientes/' + encodeURIComponent(String(id)) + '/edit">Editar</a>'
+        );
+      });
+      html.push('</div>');
+    }
+    if (dniDupBody) dniDupBody.innerHTML = html.join('');
   }
-  function renderNombreCifDupHtml(matches) {
-    if (!matches || !matches.length) return '';
-    var rows = matches.slice(0, 8).map(function (it) {
-      var id = it.Id || it.id || '';
-      var rs = it.Nombre_Razon_Social || it.cli_nombre_razon_social || '';
-      var cif = it.DNI_CIF || it.cli_dni_cif || '';
-      return '<li><strong>#' + escapeHtml(String(id)) + '</strong> — ' + escapeHtml(rs) + (cif ? ' (' + escapeHtml(cif) + ')' : '') + '</li>';
-    }).join('');
-    return '<strong>Duplicado: mismo DNI/CIF y misma razón social</strong> (la comparación no distingue mayúsculas/minúsculas). No debes mantener dos fichas iguales.' +
-      '<ul style="margin:8px 0 0 18px;">' + rows + '</ul>';
+  function showDniDupModal(json) {
+    fillDniDupModal(json);
+    if (dniDupBackdrop) dniDupBackdrop.hidden = false;
+    if (dniDupModal) dniDupModal.hidden = false;
+    if (dniDupOk) dniDupOk.focus();
   }
+  function hideDniDupModal() {
+    if (dniDupBackdrop) dniDupBackdrop.hidden = true;
+    if (dniDupModal) dniDupModal.hidden = true;
+  }
+
   function showDupModal() {
     if (dupBackdrop) dupBackdrop.hidden = false;
     if (dupModal) dupModal.hidden = false;
@@ -1344,7 +1408,8 @@
     if (dupBackdrop) dupBackdrop.hidden = true;
     if (dupModal) dupModal.hidden = true;
   }
-  async function fetchDuplicatesJson(dniVal, nameVal, cialVal) {
+  async function fetchDuplicatesJson(dniVal, nameVal, cialVal, fetchOpts) {
+    fetchOpts = fetchOpts || {};
     var url = "/api/clientes/duplicates?limit=6"
       + "&dni=" + encodeURIComponent(String(dniVal || ''))
       + "&nombre=" + encodeURIComponent(String(nameVal || ''))
@@ -1354,9 +1419,11 @@
       credentials: 'same-origin',
       headers: { Accept: 'application/json' }
     };
-    if (aborterDup) aborterDup.abort();
-    aborterDup = new AbortController();
-    opts.signal = aborterDup.signal;
+    if (!fetchOpts.skipAbort) {
+      if (aborterDup) aborterDup.abort();
+      aborterDup = new AbortController();
+      opts.signal = aborterDup.signal;
+    }
     var r = await fetch(url, opts);
     if (!r.ok) throw new Error("HTTP " + r.status);
     var json = await r.json();
@@ -1416,10 +1483,7 @@
 
         if (dniVal && dniVal.length >= 8 && dniVal !== 'PENDIENTE') {
           if (json.dniConflict) {
-            var dupHtml = (json.nombreCifDuplicate && json.nombreCifMatches && json.nombreCifMatches.length)
-              ? renderNombreCifDupHtml(json.nombreCifMatches)
-              : renderDniConflictHtml(json.dniMatches);
-            setDniBlocked(true, dupHtml);
+            setDniBlocked(true, '');
             if (mode === 'create') hideDupModal();
             return;
           }
@@ -1452,10 +1516,47 @@
       el.addEventListener('input', runDupCheck);
       el.addEventListener('change', runDupCheck);
     });
-    if (dniInputDup) dniInputDup.addEventListener('blur', validateDniOnBlur);
+    if (dniInputDup) {
+      dniInputDup.addEventListener('blur', async function () {
+        var raw = dniInputDup.value;
+        var n = normDni(raw);
+        if (n && n !== raw && String(raw || '').trim().toUpperCase() !== 'PENDIENTE') {
+          dniInputDup.value = n;
+        }
+        validateDniOnBlur();
+        var v = normDni(dniInputDup.value);
+        if (!v || v === 'PENDIENTE') {
+          setDniBlocked(false, '');
+          hideDniDupModal();
+          return;
+        }
+        if (!isValidDniCifFormat(v)) {
+          return;
+        }
+        try {
+          var nameVal = normName(nameInput ? nameInput.value : '');
+          var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
+          var json = await fetchDuplicatesJson(v, nameVal, cialVal, { skipAbort: true });
+          if (json.dniConflict) {
+            setDniBlocked(true, '');
+            showDniDupModal(json);
+          } else {
+            setDniBlocked(false, '');
+            hideDniDupModal();
+          }
+        } catch (_e) {}
+      });
+    }
 
     form.addEventListener('submit', async function (e) {
       try {
+        if (dniInputDup) {
+          var rawSubmit = dniInputDup.value;
+          var nSubmit = normDni(rawSubmit);
+          if (nSubmit && nSubmit !== rawSubmit && String(rawSubmit || '').trim().toUpperCase() !== 'PENDIENTE') {
+            dniInputDup.value = nSubmit;
+          }
+        }
         var dniVal = normDni(dniInputDup ? dniInputDup.value : '');
         var nameVal = normName(nameInput ? nameInput.value : '');
         var cialVal = normName(comercialNameInput ? comercialNameInput.value : '');
@@ -1471,13 +1572,11 @@
         clearDniFormatError();
 
         if (dniVal && dniVal.length >= 8 && dniVal !== 'PENDIENTE') {
-          var j0 = await fetchDuplicatesJson(dniVal, nameVal, cialVal);
+          var j0 = await fetchDuplicatesJson(dniVal, nameVal, cialVal, { skipAbort: true });
           if (j0.dniConflict) {
             e.preventDefault();
-            var dupH = (j0.nombreCifDuplicate && j0.nombreCifMatches && j0.nombreCifMatches.length)
-              ? renderNombreCifDupHtml(j0.nombreCifMatches)
-              : renderDniConflictHtml(j0.dniMatches);
-            setDniBlocked(true, dupH);
+            setDniBlocked(true, '');
+            showDniDupModal(j0);
             return;
           }
           setDniBlocked(false, '');
@@ -1488,12 +1587,10 @@
         if (!(nameVal && nameVal.length >= 6) && !(cialVal && cialVal.length >= 6)) return;
 
         e.preventDefault();
-        var j = await fetchDuplicatesJson(dniVal, nameVal, cialVal);
+        var j = await fetchDuplicatesJson(dniVal, nameVal, cialVal, { skipAbort: true });
         if (j.dniConflict) {
-          var dupJ = (j.nombreCifDuplicate && j.nombreCifMatches && j.nombreCifMatches.length)
-            ? renderNombreCifDupHtml(j.nombreCifMatches)
-            : renderDniConflictHtml(j.dniMatches);
-          setDniBlocked(true, dupJ);
+          setDniBlocked(true, '');
+          showDniDupModal(j);
           return;
         }
         var matches = j.matches || [];
@@ -1510,6 +1607,18 @@
         try {
           form.requestSubmit ? form.requestSubmit() : form.submit();
         } catch (_) {}
+      }
+    });
+  }
+
+  if (dniDupBackdrop) dniDupBackdrop.addEventListener('click', hideDniDupModal);
+  if (dniDupOk) dniDupOk.addEventListener('click', hideDniDupModal);
+  if (dniDupFocusInput) {
+    dniDupFocusInput.addEventListener('click', function () {
+      hideDniDupModal();
+      if (dniInputDup) {
+        dniInputDup.focus();
+        try { dniInputDup.select(); } catch (_) {}
       }
     });
   }

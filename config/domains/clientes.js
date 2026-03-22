@@ -359,7 +359,7 @@ module.exports = {
       const colCp = this._pickCIFromColumns(cols, ['cli_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'cli_codigo_postal';
       const colPob = this._pickCIFromColumns(cols, ['cli_poblacion', 'Poblacion', 'poblacion']) || 'cli_poblacion';
 
-      const dniExpr = `REPLACE(REPLACE(UPPER(COALESCE(c.\`${colDni}\`,'')),' ',''),'-','')`;
+      const dniExpr = `REPLACE(REPLACE(REPLACE(UPPER(COALESCE(c.\`${colDni}\`,'')),' ',''),'-',''),'.','')`;
       const params = [norm];
       let excludeSql = '';
       const ex = excludeClienteId != null ? Number(excludeClienteId) : null;
