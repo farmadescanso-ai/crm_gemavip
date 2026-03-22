@@ -173,6 +173,14 @@
                 No hay contactos relacionados. Usa el botón superior para añadirlos.
               </p>
             </div>
+          <% } else if (t.id === 'mayoristas' && !cid) { %>
+            <div class="gv-relaciones-tab">
+              <div class="gv-relaciones-tab__hd">
+                <h3 class="gv-relaciones-tab__title">Mayoristas / Cooperativas</h3>
+                <p class="gv-relaciones-tab__sub">Asocia los mayoristas con los que trabaja este cliente y su número de asociado.</p>
+              </div>
+              <p style="font-size: 13px; color: var(--gv-muted); margin: 0;">Guarda primero el cliente para poder vincular mayoristas y el número de asociado.</p>
+            </div>
           <% } else if (t.id === 'mayoristas' && cid) { %>
             <div class="gv-relaciones-tab">
               <div class="gv-relaciones-tab__hd">
