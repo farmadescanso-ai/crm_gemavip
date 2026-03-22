@@ -61,6 +61,15 @@ function stripClienteAvanzadoFieldsFromPayload(payload, meta) {
   }
 }
 
+/** Etiquetas solo editables por administrador (misma regla que en la vista). */
+function stripClienteEtiquetasForNonAdmin(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  for (const k of Object.keys(payload)) {
+    const lc = String(k).toLowerCase();
+    if (lc === 'cli_tags' || lc === 'tags') delete payload[k];
+  }
+}
+
 let sendPushToAdmins = () => Promise.resolve();
 try {
   const wp = require('../lib/web-push');
@@ -387,7 +396,10 @@ router.post('/new', requireLogin, async (req, res, next) => {
       return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin: isAdmin, canChangeComercial: !!isAdmin });
     }
 
-    if (!isAdmin) stripClienteAvanzadoFieldsFromPayload(payload, meta);
+    if (!isAdmin) {
+      stripClienteAvanzadoFieldsFromPayload(payload, meta);
+      stripClienteEtiquetasForNonAdmin(payload);
+    }
 
     await db.createCliente(payload);
     return res.redirect('/clientes');
@@ -609,7 +621,10 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       payload[colNombre] = coerceClienteValue(colNombre, nombreVal);
     }
 
-    if (!admin) stripClienteAvanzadoFieldsFromPayload(payload, meta);
+    if (!admin) {
+      stripClienteAvanzadoFieldsFromPayload(payload, meta);
+      stripClienteEtiquetasForNonAdmin(payload);
+    }
 
     const dniRaw = payload.cli_dni_cif ?? payload.DNI_CIF;
     const dniEfectivo =

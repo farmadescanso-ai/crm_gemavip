@@ -264,6 +264,7 @@
                 <% const isTipoEspField = (spec.options === 'tipos_clientes' || spec.options === 'especialidades' || spec.options === 'tipos_clientes_nombre'); %>
                 <% const isAdminOnly = !!f.adminOnly; %>
                 <% const forceReadonly = isAdminOnly && !(typeof admin !== 'undefined' && admin); %>
+                <% const fieldPlaceholder = (typeof f.placeholder === 'string' && f.placeholder.trim()) ? f.placeholder.trim() : ''; %>
                 <label style="display:grid; gap: 6px;" class="<%= isMissing ? 'gv-field-error' : '' %><%= isTipoEspField ? ' gv-field-tipo-esp' : '' %><%= isAdminOnly ? ' gv-field-admin-only' : '' %><%= datBancoCls %>" <%= isTipoEspField ? ' data-visibility-tipo-contacto="persona"' : '' %>>
                   <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;"><%= label %><%= required ? ' *' : '' %><% if (isAdminOnly) { %> <span class="gv-badge-admin" title="Solo puede editar un administrador">Solo admin</span><% } %></span>
 
@@ -482,6 +483,7 @@
                     type="<%= type %>"
                     <%= required ? 'required' : '' %>
                     value="<%= displayVal %>"
+                    <% if (fieldPlaceholder) { %>placeholder="<%= fieldPlaceholder %>"<% } %>
                     aria-invalid="<%= isMissing ? 'true' : 'false' %>"
                     <%= type === 'number' ? 'step="0.01"' : '' %>
                     <% if (isNombreField) { %>data-gv-nombre-field="1"<% } %>
