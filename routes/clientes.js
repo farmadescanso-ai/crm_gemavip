@@ -4,7 +4,7 @@
 
 const express = require('express');
 const db = require('../config/mysql-crm');
-const { requireAdmin, _n } = require('../lib/app-helpers');
+const { requireAdmin, _n, renderErrorPage } = require('../lib/app-helpers');
 const { requireLogin, isAdminUser } = require('../lib/auth');
 const { parsePagination } = require('../lib/pagination');
 const {
@@ -36,6 +36,21 @@ function normalizeRelacionRow(r) {
   const lower = {};
   for (const k of Object.keys(r)) lower[k.toLowerCase()] = r[k];
   return { ...r, ...lower };
+}
+
+function clienteNotFoundPage(req, res, id) {
+  return renderErrorPage(req, res, {
+    status: 404,
+    title: 'Contacto no encontrado',
+    heading: 'No encontramos ese contacto',
+    summary: `El contacto #${id} no existe en la base de datos de esta instancia, o no tienes permiso para verlo. Si en local sí aparece, revisa en Vercel que DB_HOST y DB_NAME apunten al mismo servidor y base de datos.`,
+    statusLabel: 'Not Found',
+    whatToDo: [
+      'Abre el listado de clientes y busca por nombre o por ID.',
+      'Comprueba variables de entorno de la base de datos en el despliegue.',
+      'Si el enlace es correcto y el fallo continúa, copia el ID y los detalles a soporte.'
+    ]
+  });
 }
 
 /** Quita del payload columnas de la pestaña Avanzado si el usuario no es administrador (evita manipulación POST). */
@@ -420,7 +435,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
     const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
-    if (!item) return res.status(404).send('No encontrado');
+    if (!item) return clienteNotFoundPage(req, res, id);
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const [relacionesData, cooperativasCliente] = await Promise.all([
       db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] })),
@@ -479,7 +494,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       db.getCooperativasByClienteId(id).catch(() => [])
     ]);
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
-    if (!item) return res.status(404).send('No encontrado');
+    if (!item) return clienteNotFoundPage(req, res, id);
     const body = req.body || {};
     const canChangeComercial = admin;
 
@@ -631,7 +646,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
     const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
-    if (!item) return res.status(404).send('No encontrado');
+    if (!item) return clienteNotFoundPage(req, res, id);
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const poolId = await db.getComercialIdPool();
     const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
@@ -692,7 +707,7 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
     const userId = Number(res.locals.user?.id);
     if (!userId || isAdminUser(res.locals.user)) return res.status(403).send('Solo un comercial puede solicitar que se le asigne un contacto.');
     const item = await db.getClienteById(id);
-    if (!item) return res.status(404).send('No encontrado');
+    if (!item) return clienteNotFoundPage(req, res, id);
     if (!(await db.isContactoAsignadoAPoolOSinAsignar(id))) return res.status(400).send('Este contacto ya está asignado a otro comercial.');
 
     const notifId = await db.createSolicitudAsignacion(id, userId);

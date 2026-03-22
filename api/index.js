@@ -149,6 +149,51 @@ app.use((req, _res, next) => {
   next();
 });
 
+/**
+ * Si la petición llega como `/api/clientes/50/edit` (proxy, rewrite antiguo o bug),
+ * Express hace match con `app.use('/api', …)` y no existe vista HTML ahí → 404 global.
+ * Reescribimos solo rutas de UI conocidas; no tocamos REST (`/api/clientes`, `/api/clientes/50` JSON, etc.).
+ */
+app.use((req, _res, next) => {
+  if (typeof req.url !== 'string') return next();
+  const qIdx = req.url.indexOf('?');
+  const pathOnly = qIdx === -1 ? req.url : req.url.slice(0, qIdx);
+  const qs = qIdx === -1 ? '' : req.url.slice(qIdx);
+  if (!pathOnly.startsWith('/api/')) return next();
+
+  const rest = pathWithoutApiPrefix(pathOnly);
+  if (rest == null) return next();
+
+  const htmlUiPrefixes = [
+    /^clientes\/(?:new|duplicados|unificar|\d+\/edit)(?:\/|$)/,
+    /^login(?:\/|$)/,
+    /^dashboard(?:\/|$)/,
+    /^pedidos(?:\/|$)/,
+    /^comerciales(?:\/|$)/,
+    /^admin(?:\/|$)/,
+    /^visitas(?:\/|$)/,
+    /^articulos(?:\/|$)/,
+    /^notificaciones(?:\/|$)/,
+    /^mis-notificaciones(?:\/|$)/,
+    /^manual(?:\/|$)/,
+    /^cuenta(?:\/|$)/,
+    /^ventas-gemavip(?:\/|$)/,
+    /^registro-visitas(?:\/|$)/,
+    /^webhook\/(?:aprobar-asignacion|aprobar-pedido)(?:\/|$)/
+  ];
+  const hit = htmlUiPrefixes.some((re) => re.test(rest));
+  if (!hit) return next();
+
+  req.url = `/${rest}${qs}`;
+  next();
+});
+
+function pathWithoutApiPrefix(pathOnly) {
+  if (typeof pathOnly !== 'string' || !pathOnly.startsWith('/api/')) return null;
+  const after = pathOnly.slice(4);
+  return after.startsWith('/') ? after.slice(1) : after;
+}
+
 // Health check (sin sesión/DB) para diagnosticar crashes en Vercel
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'crm_gemavip', timestamp: new Date().toISOString() });
