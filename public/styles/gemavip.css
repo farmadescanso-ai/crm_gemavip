@@ -2636,13 +2636,14 @@ button.gv-vista-tab.is-active {
   color: var(--gv-text);
 }
 .gv-contactos .gv-contactos-table tbody tr:hover td { background: rgba(0, 139, 210, 0.03); }
+/* overflow:visible + min-width: overflow:hidden recortaba el hit-target del último icono (papelera) con table-layout:fixed */
 .gv-contactos .gv-contactos-table th:first-child,
-.gv-contactos .gv-contactos-table td:first-child { padding-left: 0; padding-right: 4px; overflow: hidden; }
+.gv-contactos .gv-contactos-table td:first-child { padding-left: 0; padding-right: 4px; overflow: visible; min-width: 132px; }
 .gv-contactos .gv-contactos-table td:first-child .gv-actions {
   display: inline-flex;
   gap: 4px;
   flex-wrap: nowrap;
-  max-width: 100%;
+  max-width: none;
 }
 .gv-contactos .gv-contactos-table td:first-child .gv-actions .btn.icon {
   padding: 4px 6px;
