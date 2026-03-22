@@ -27,6 +27,9 @@
     <div id="gvDupDniClient" class="gv-alert gv-alert--warn" style="display:none; margin-bottom:12px;" role="alert" aria-live="polite"></div>
 
     <form id="gvClienteForm" method="post" action="<%= formAction %>" class="gv-form" style="display:grid; gap: 12px;" data-dni-blocked="0">
+      <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <% } %>
       <% if (mode === 'create') { %>
         <input type="hidden" name="dup_confirmed" id="gvDupConfirmed" value="0" />
       <% } %>

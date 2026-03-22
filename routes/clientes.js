@@ -507,10 +507,25 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
       payload.cli_RE = coerceClienteValue('cli_RE', body.cli_RE ?? body.cli_re);
     }
 
+    const colNombre = meta?.colNombreRazonSocial || 'cli_nombre_razon_social';
+    const aliasNombre = body.Nombre_Razon_Social ?? body.nombre_razon_social;
+    if (
+      colNombre &&
+      aliasNombre !== undefined &&
+      aliasNombre !== null &&
+      (payload[colNombre] === undefined || payload[colNombre] === null || String(payload[colNombre] || '').trim() === '')
+    ) {
+      payload[colNombre] = coerceClienteValue(colNombre, aliasNombre);
+    }
+
     normalizePayloadTelefonos(payload);
 
     const missingFields = [];
-    if (payload.Nombre_Razon_Social !== undefined && !String(payload.Nombre_Razon_Social || '').trim()) missingFields.push('Nombre_Razon_Social');
+    const nombreVal = payload[colNombre] ?? payload.Nombre_Razon_Social ?? payload.cli_nombre_razon_social;
+    if (!nombreVal || !String(nombreVal || '').trim()) {
+      missingFields.push(colNombre);
+      if (colNombre !== 'Nombre_Razon_Social') missingFields.push('Nombre_Razon_Social');
+    }
     if (missingFields.length > 0) {
       const puedeSolicitar = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
       const model = buildClienteFormModel({
