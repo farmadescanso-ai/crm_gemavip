@@ -88,9 +88,12 @@ app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
 // Vercel rewrites: /login -> /api/index?__path=/login; usar __path para routing
 app.use((req, _res, next) => {
-  const pathParam = req.query && req.query.__path;
-  if (typeof pathParam === 'string' && pathParam.startsWith('/')) {
-    req.url = pathParam;
+  let pathParam = req.query && req.query.__path;
+  if (Array.isArray(pathParam)) pathParam = pathParam[0];
+  if (typeof pathParam === 'string' && pathParam.trim()) {
+    let p = pathParam.trim();
+    if (!p.startsWith('/')) p = `/${p}`;
+    req.url = p;
   } else if (typeof req.url === 'string' && req.url.startsWith('/api/index')) {
     req.url = req.url.replace(/^\/api\/index/, '') || '/';
   }
