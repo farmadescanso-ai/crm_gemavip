@@ -37,7 +37,6 @@
 
     <% const s = stats || {}; %>
     <% const allTagsList = Array.isArray(allTags) ? allTags : []; %>
-    <% const tagTopList = Array.isArray(tagTop) ? tagTop : []; %>
     <% const rowsSafe = Array.isArray(rows) ? rows : []; %>
 
     <section class="card" style="margin-bottom: 18px;">
@@ -46,7 +45,7 @@
         <p class="card-subtitle">Marca las que quieras usar como filtro y pulsa «Aplicar filtro».</p>
       </div>
       <div class="card-bd">
-        <% if (!allTagsList.length && !tagTopList.length) { %>
+        <% if (!allTagsList.length) { %>
           <p style="margin:0; color: var(--gv-muted);">Sin datos de tags (o API sin contactos).</p>
         <% } else { %>
           <form method="get" action="/cpanel/holded-clientes" id="gv-holded-tags-filter" style="margin-bottom: 0;">
@@ -97,29 +96,6 @@
         <div class="dash-stat-value"><%= s.omitSinProvinciaEs != null ? s.omitSinProvinciaEs : '—' %></div>
       </div>
     </div>
-
-    <% if (allTagsList.length) { %>
-    <section class="card" style="margin-bottom: 16px;">
-      <div class="card-hd">
-        <h2 class="card-title">Frecuencia (top 40)</h2>
-      </div>
-      <div class="card-bd">
-        <div class="table-wrap">
-          <table class="dash-table">
-            <thead><tr><th>Tag (normalizada)</th><th>Contactos</th></tr></thead>
-            <tbody>
-              <% tagTopList.forEach((t) => { %>
-                <tr>
-                  <td><code><%= t.tag %></code></td>
-                  <td><%= t.count %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-    <% } %>
 
     <div style="display:flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
       <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
