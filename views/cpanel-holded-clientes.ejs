@@ -2,6 +2,12 @@
 
 <% const sel = Array.isArray(selectedTags) ? selectedTags : []; %>
 <% const selSet = new Set(sel.map((t) => String(t).toLowerCase())); %>
+<% const vp = typeof vistaPreview === 'string' ? vistaPreview : 'todos'; %>
+<% const baseQs = sel.length ? sel.map(function(t){ return 'tags=' + encodeURIComponent(t); }).join('&') : ''; %>
+<% const vistaLink = function(v) {
+  if (v === 'todos') return baseQs ? '/cpanel/holded-clientes?' + baseQs : '/cpanel/holded-clientes';
+  return '/cpanel/holded-clientes?' + (baseQs ? baseQs + '&' : '') + 'vista=' + encodeURIComponent(v);
+}; %>
 
 <section class="card gv-vista">
   <div class="card-hd gv-vista-hd">
@@ -44,6 +50,9 @@
           <p style="margin:0; color: var(--gv-muted);">Sin datos de tags (o API sin contactos).</p>
         <% } else { %>
           <form method="get" action="/cpanel/holded-clientes" id="gv-holded-tags-filter" style="margin-bottom: 0;">
+            <% if (vp !== 'todos') { %>
+              <input type="hidden" name="vista" value="<%= vp %>" />
+            <% } %>
             <div style="display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-start; max-height: 220px; overflow-y: auto; padding: 4px 0;">
               <% allTagsList.forEach((t) => { %>
                 <% const checked = selSet.has(String(t.key).toLowerCase()); %>
@@ -118,18 +127,34 @@
         <% sel.forEach(function(t) { %>
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
+        <% if (vp !== 'todos') { %>
+          <input type="hidden" name="vista" value="<%= vp %>" />
+        <% } %>
         <button type="submit" class="btn secondary" <%= sel.length ? '' : 'disabled title="Selecciona al menos una tag"' %>>Simular importación</button>
       </form>
       <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
         <% sel.forEach(function(t) { %>
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
+        <% if (vp !== 'todos') { %>
+          <input type="hidden" name="vista" value="<%= vp %>" />
+        <% } %>
         <button type="submit" class="btn" <%= sel.length ? '' : 'disabled title="Selecciona al menos una tag"' %>>Importar ahora</button>
       </form>
-      <a class="btn secondary" href="/cpanel/holded-clientes<%= sel.length ? '?' + sel.map(function(t){ return 'tags=' + encodeURIComponent(t); }).join('&') : '' %>">Actualizar vista previa</a>
+      <a class="btn secondary" href="<%= vistaLink(vp) %>">Actualizar vista previa</a>
     </div>
 
-    <h2 class="card-title" style="margin-bottom: 10px;">Vista previa</h2>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px;">
+      <h2 class="card-title" style="margin:0;">Vista previa</h2>
+      <span style="font-size: 12px; font-weight: 700; color: var(--gv-muted);">Mostrar:</span>
+      <a href="<%= vistaLink('todos') %>" class="badge <%= vp === 'todos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Todos</a>
+      <a href="<%= vistaLink('importables') %>" class="badge <%= vp === 'importables' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo importables</a>
+      <a href="<%= vistaLink('omitidos') %>" class="badge <%= vp === 'omitidos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo omitidos</a>
+    </div>
+    <% const previewList = Array.isArray(previewRows) ? previewRows : rowsSafe; %>
+    <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
+      Mostrando <strong><%= previewList.length %></strong> fila(s)<% if (vp !== 'todos') { %> (filtro activo; el total en Holded no cambia)<% } %>.
+    </p>
     <div class="table-wrap" style="max-height: 70vh; overflow: auto;">
       <table class="dash-table">
         <thead>
@@ -146,7 +171,7 @@
           </tr>
         </thead>
         <tbody>
-          <% rowsSafe.forEach((r) => { %>
+          <% previewList.forEach((r) => { %>
             <tr>
               <td>
                 <% if (r.estado === 'importable') { %>

@@ -24,11 +24,25 @@ function tagsFromBody(body) {
   return parseSelectedTagsInput(raw);
 }
 
+function parseVistaPreview(query) {
+  const raw = String(query?.vista ?? '').trim().toLowerCase();
+  if (raw === 'importables' || raw === 'omitidos' || raw === 'todos') return raw;
+  return 'todos';
+}
+
+function filterPreviewRows(rows, vista) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (vista === 'importables') return list.filter((r) => r.estado === 'importable');
+  if (vista === 'omitidos') return list.filter((r) => r.estado !== 'importable');
+  return list;
+}
+
 function buildHoldedClientesRedirect(tags, extra) {
   const params = new URLSearchParams();
   (Array.isArray(tags) ? tags : []).forEach((t) => {
     if (t != null && String(t).trim() !== '') params.append('tags', String(t).trim());
   });
+  if (extra?.vista && extra.vista !== 'todos') params.set('vista', extra.vista);
   if (extra?.success) params.set('success', extra.success);
   if (extra?.error) params.set('error', extra.error);
   const q = params.toString();
@@ -46,13 +60,17 @@ router.get('/cpanel', requireUserId1, (req, res, next) => {
 router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => {
   try {
     const selectedTags = tagsFromQuery(req.query);
+    const vista = parseVistaPreview(req.query);
     const result = await previewHoldedClientesEs(db, { selectedTags });
     const success = typeof req.query.success === 'string' ? req.query.success : null;
     const error = typeof req.query.error === 'string' ? req.query.error : (result.error || null);
+    const previewRows = filterPreviewRows(result.rows, vista);
     res.render('cpanel-holded-clientes', {
       title: 'Importar clientes Holded (España)',
       ...result,
       selectedTags,
+      vistaPreview: vista,
+      previewRows,
       success,
       error
     });
@@ -65,17 +83,19 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
   try {
     const dryRun = String(req.body?.dryRun || '').trim() === '1';
     const selectedTags = tagsFromBody(req.body);
+    const vista = parseVistaPreview(req.body || {});
     const result = await importHoldedClientesEs(db, { dryRun, selectedTags });
     if (result.ok) {
       const msg = dryRun
         ? `Simulación: se importarían ${result.inserted} contacto(s).`
         : `Nuevos: ${result.inserted}. Actualizados: ${result.updated}. Errores: ${result.errors}.`;
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error' }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error' }));
+    const vista = parseVistaPreview(req.body || {});
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
   }
 });
 
