@@ -15,7 +15,7 @@
       <h1 class="card-title gv-vista-hd__title"><%= title || 'Importar clientes Holded' %></h1>
     </div>
     <p class="gv-vista-hd__sub" style="margin-top:0;">
-      Elige una o más <strong>tags</strong> de Holded (coincidencia sin distinguir mayúsculas). Se importan contactos que tengan <strong>al menos una</strong> de las elegidas, <strong>CIF/NIF informado</strong> en Holded (campo <code>code</code>, no vacío) y provincia mapeada en <code>provincias</code> con <code>prov_codigo_pais = 'ES'</code>.
+      Elige una o más <strong>tags</strong> de Holded (coincidencia sin distinguir mayúsculas). Se importan contactos que tengan <strong>al menos una</strong> de las elegidas, <strong>CIF/NIF informado</strong> en Holded (campo <code>code</code>, no vacío) y provincia mapeada en <code>provincias</code> con <code>prov_codigo_pais = 'ES'</code>. Tras importar, en Holded se añade la tag <code>crm</code> al contacto (si aún no la tenía); en el CRM se guarda el ID en <code>cli_Id_Holded</code> y el máximo de campos disponibles desde Holded.
     </p>
     <p style="margin-top: 10px;">
       <a class="btn secondary" href="/cpanel">← CPanel</a>
@@ -160,6 +160,7 @@
         <thead>
           <tr>
             <th>Estado</th>
+            <th>ID Holded</th>
             <th>Nombre</th>
             <th>CIF</th>
             <th>Prov. Holded</th>
@@ -180,6 +181,7 @@
                   <span class="badge danger">omitido</span>
                 <% } %>
               </td>
+              <td style="font-size: 11px; font-family: monospace;"><%= r.holdedId || r.cli_Id_Holded || '—' %></td>
               <td><%= r.nombre || '—' %></td>
               <td><%= r.cif || '—' %></td>
               <td><%= r.provinciaHolded || '—' %></td>

@@ -423,6 +423,7 @@ module.exports = {
         // Campos Holded
         cli_creado_holded: 'cli_creado_holded',
         cli_referencia: 'cli_referencia',
+        cli_Id_Holded: 'cli_Id_Holded',
         cli_regimen: 'cli_regimen',
         cli_ref_mandato: 'cli_ref_mandato',
         cli_tags: 'cli_tags',
@@ -718,6 +719,7 @@ module.exports = {
         // Campos Holded
         cli_creado_holded: 'cli_creado_holded',
         cli_referencia: 'cli_referencia',
+        cli_Id_Holded: 'cli_Id_Holded',
         cli_regimen: 'cli_regimen',
         cli_ref_mandato: 'cli_ref_mandato',
         cli_tags: 'cli_tags',

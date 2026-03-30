@@ -86,9 +86,12 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
     const vista = parseVistaPreview(req.body || {});
     const result = await importHoldedClientesEs(db, { dryRun, selectedTags });
     if (result.ok) {
-      const msg = dryRun
+      let msg = dryRun
         ? `Simulación: se importarían ${result.inserted} contacto(s).`
-        : `Nuevos: ${result.inserted}. Actualizados: ${result.updated}. Errores: ${result.errors}.`;
+        : `Nuevos: ${result.inserted}. Actualizados: ${result.updated}. Errores CRM: ${result.errors}.`;
+      if (!dryRun && Number(result.holdedTagErrors) > 0) {
+        msg += ` Avisos tag crm en Holded: ${result.holdedTagErrors}.`;
+      }
       return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
     }
     return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
