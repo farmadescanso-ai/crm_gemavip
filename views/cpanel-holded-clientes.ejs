@@ -1,0 +1,136 @@
+<%- include('partials/header', { title: title || 'Holded clientes' }) %>
+
+<section class="card gv-vista">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-vista-hd__title-row">
+      <h1 class="card-title gv-vista-hd__title"><%= title || 'Importar clientes Holded' %></h1>
+    </div>
+    <p class="gv-vista-hd__sub" style="margin-top:0;">
+      Solo contactos con tag <strong>crm</strong> en Holded y provincia reconocida en <code>provincias</code> con <code>prov_codigo_pais = 'ES'</code>.
+    </p>
+    <p style="margin-top: 10px;">
+      <a class="btn secondary" href="/cpanel">← CPanel</a>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
+        <strong>Error</strong>
+        <p style="margin: 8px 0 0 0;"><%= error %></p>
+      </div>
+    <% } %>
+    <% if (typeof success === 'string' && success) { %>
+      <div class="gv-alert success" role="status" style="margin-bottom: 16px;">
+        <strong>Completado</strong>
+        <p style="margin: 8px 0 0 0;"><%= success %></p>
+      </div>
+    <% } %>
+
+    <% const s = stats || {}; %>
+    <% const crmInfo = crmEnHolded || { existe: false, contactosConCrm: 0 }; %>
+    <% const tagTopList = Array.isArray(tagTop) ? tagTop : []; %>
+    <% const rowsSafe = Array.isArray(rows) ? rows : []; %>
+
+    <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; margin-bottom: 18px;">
+      <div class="dash-stat" data-variant="navy">
+        <div class="dash-stat-label">Contactos Holded</div>
+        <div class="dash-stat-value"><%= s.totalHolded != null ? s.totalHolded : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="green">
+        <div class="dash-stat-label">Con tag crm</div>
+        <div class="dash-stat-value"><%= s.conTagCrm != null ? s.conTagCrm : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="yellow">
+        <div class="dash-stat-label">Importables</div>
+        <div class="dash-stat-value"><%= s.importables != null ? s.importables : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-label">Sin tag crm</div>
+        <div class="dash-stat-value"><%= s.omitSinCrm != null ? s.omitSinCrm : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-label">Sin prov. ES (BD)</div>
+        <div class="dash-stat-value"><%= s.omitSinProvinciaEs != null ? s.omitSinProvinciaEs : '—' %></div>
+      </div>
+    </div>
+
+    <section class="card" style="margin-bottom: 16px;">
+      <div class="card-hd">
+        <h2 class="card-title">Tags en Holded</h2>
+        <p class="card-subtitle">¿Existe la tag <code>crm</code>? <%= crmInfo.existe ? 'Sí' : 'No' %> · Contactos con <code>crm</code>: <strong><%= crmInfo.contactosConCrm %></strong></p>
+      </div>
+      <div class="card-bd">
+        <% if (!tagTopList.length) { %>
+          <p style="margin:0; color: var(--gv-muted);">Sin datos de tags (o API sin contactos).</p>
+        <% } else { %>
+          <div class="table-wrap">
+            <table class="dash-table">
+              <thead><tr><th>Tag (normalizada)</th><th>Contactos</th></tr></thead>
+              <tbody>
+                <% tagTopList.forEach((t) => { %>
+                  <tr>
+                    <td><code><%= t.tag %></code></td>
+                    <td><%= t.count %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <div style="display:flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
+      <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
+        <input type="hidden" name="dryRun" value="1" />
+        <button type="submit" class="btn secondary">Simular importación</button>
+      </form>
+      <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
+        <button type="submit" class="btn">Importar ahora</button>
+      </form>
+      <a class="btn secondary" href="/cpanel/holded-clientes">Actualizar vista previa</a>
+    </div>
+
+    <h2 class="card-title" style="margin-bottom: 10px;">Vista previa</h2>
+    <div class="table-wrap" style="max-height: 70vh; overflow: auto;">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Estado</th>
+            <th>Nombre</th>
+            <th>CIF</th>
+            <th>Prov. Holded</th>
+            <th>Prov. CRM</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th>Tags</th>
+            <th>Motivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rowsSafe.forEach((r) => { %>
+            <tr>
+              <td>
+                <% if (r.estado === 'importable') { %>
+                  <span class="badge ok">importable</span>
+                <% } else { %>
+                  <span class="badge danger">omitido</span>
+                <% } %>
+              </td>
+              <td><%= r.nombre || '—' %></td>
+              <td><%= r.cif || '—' %></td>
+              <td><%= r.provinciaHolded || '—' %></td>
+              <td><%= r.provinciaCrm || '—' %></td>
+              <td><%= r.email || '—' %></td>
+              <td><%= r.telefono || r.movil || '—' %></td>
+              <td style="max-width: 180px; word-break: break-word; font-size: 12px;"><%= r.tags || '—' %></td>
+              <td style="font-size: 12px;"><%= r.motivo || '—' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

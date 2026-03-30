@@ -1,0 +1,25 @@
+<%- include('partials/header', { title: title || 'CPanel' }) %>
+
+<section class="card gv-vista">
+  <div class="card-hd gv-vista-hd">
+    <h1 class="card-title gv-vista-hd__title">CPanel</h1>
+    <p class="gv-vista-hd__sub" style="margin-top:0;">
+      Herramientas exclusivas · Usuario: <strong><%= user?.nombre ?? user?.email ?? '—' %></strong>
+    </p>
+  </div>
+  <div class="card-bd">
+    <p style="margin:0 0 16px 0; color: var(--gv-muted); max-width: 640px;">
+      Panel de control para funciones reservadas. El acceso está limitado al usuario con id 1.
+    </p>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">
+      <a href="/cpanel/holded-clientes" class="card" style="text-decoration:none; display:block; padding: 16px; border-radius: var(--gv-radius, 12px); box-shadow: var(--gv-shadow);">
+        <div class="card-title" style="margin:0 0 8px 0; color: var(--gv-ink);">Importar clientes Holded</div>
+        <p class="card-subtitle" style="margin:0; font-size: 13px; color: var(--gv-muted);">
+          Contactos con tag <span class="badge ok" style="font-size:11px;">crm</span> y provincia mapeada a España (BD).
+        </p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

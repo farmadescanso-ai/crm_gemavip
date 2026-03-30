@@ -24,6 +24,7 @@ const clientesRouter = require('../routes/clientes');
 const pedidosRouter = require('../routes/pedidos');
 const dashboardRouter = require('../routes/dashboard');
 const ventasGemavipRouter = require('../routes/ventas-gemavip');
+const cpanelRouter = require('../routes/cpanel');
 const db = require('../config/mysql-crm');
 const {
   _n,
@@ -390,7 +391,7 @@ app.use(async (req, res, next) => {
   res.locals.user = req.user || null;
   const roles = res.locals.user?.roles || [];
   res.locals.navLinks = res.locals.user ? getCommonNavLinksForRoles(roles) : [];
-  res.locals.roleNavLinks = res.locals.user ? getRoleNavLinksForRoles(roles) : [];
+  res.locals.roleNavLinks = res.locals.user ? getRoleNavLinksForRoles(roles, res.locals.user) : [];
   if (res.locals.user && isAdminUser(res.locals.user)) {
     try {
       res.locals.notificacionesPendientes = await _cachedNotifCount();
@@ -675,6 +676,7 @@ app.use('/', ventasGemavipRouter);
 app.use('/', authRouter);
 app.use('/', dashboardRouter);
 app.use('/', manualRouter);
+app.use('/', cpanelRouter);
 app.use('/comerciales', comercialesRouter);
 app.use('/admin', adminRouter);
 app.use('/visitas', visitasRouter);
