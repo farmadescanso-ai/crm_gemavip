@@ -9,7 +9,7 @@
       <h1 class="card-title gv-vista-hd__title"><%= title || 'Importar clientes Holded' %></h1>
     </div>
     <p class="gv-vista-hd__sub" style="margin-top:0;">
-      Elige una o más <strong>tags</strong> de Holded (coincidencia sin distinguir mayúsculas). Se importan contactos que tengan <strong>al menos una</strong> de las elegidas y cuya provincia exista en <code>provincias</code> con <code>prov_codigo_pais = 'ES'</code>.
+      Elige una o más <strong>tags</strong> de Holded (coincidencia sin distinguir mayúsculas). Se importan contactos que tengan <strong>al menos una</strong> de las elegidas, <strong>CIF/NIF informado</strong> en Holded (campo <code>code</code>, no vacío) y provincia mapeada en <code>provincias</code> con <code>prov_codigo_pais = 'ES'</code>.
     </p>
     <p style="margin-top: 10px;">
       <a class="btn secondary" href="/cpanel">← CPanel</a>
@@ -78,6 +78,10 @@
       <div class="dash-stat" data-variant="blue">
         <div class="dash-stat-label">Sin tag elegida</div>
         <div class="dash-stat-value"><%= s.omitSinTag != null ? s.omitSinTag : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-label">Sin CIF (Holded)</div>
+        <div class="dash-stat-value"><%= s.omitSinCif != null ? s.omitSinCif : '—' %></div>
       </div>
       <div class="dash-stat" data-variant="blue">
         <div class="dash-stat-label">Sin prov. ES (BD)</div>
