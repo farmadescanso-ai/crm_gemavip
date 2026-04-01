@@ -157,13 +157,18 @@
       <a href="<%= vistaLink('importables') %>" class="badge <%= vp === 'importables' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Nueva importación o reimportar desde Holded">Importar / reimportar</a>
       <a href="<%= vistaLink('importados') %>" class="badge <%= vp === 'importados' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Con la etiqueta elegida y ya existe fila en clientes (CRM)">Importados</a>
       <a href="<%= vistaLink('pendientes_importar') %>" class="badge <%= vp === 'pendientes_importar' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Con la etiqueta elegida y aún no hay cliente en la base">Pendientes de importar</a>
-      <a href="<%= vistaLink('errores') %>" class="badge <%= vp === 'errores' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Desincronizado o pendiente exportar a Holded">Errores</a>
+      <a href="<%= vistaLink('errores') %>" class="badge <%= vp === 'errores' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Tienen la etiqueta elegida pero no son importables (diferencia entre «con tag» e «importables»); motivo en la última columna">Errores</a>
       <a href="<%= vistaLink('omitidos') %>" class="badge <%= vp === 'omitidos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo omitidos</a>
     </div>
     <% const previewList = Array.isArray(previewRows) ? previewRows : rowsSafe; %>
     <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
       Mostrando <strong><%= previewList.length %></strong> fila(s)<% if (vp !== 'todos') { %> (filtro activo; el total en Holded no cambia)<% } %>.
     </p>
+    <% if (vp === 'errores' && s.conTagSeleccionada != null && s.importables != null) { %>
+    <p style="margin: -6px 0 12px 0; font-size: 12px; color: var(--gv-muted);">
+      Lista = <strong>con tag elegida</strong> (<%= s.conTagSeleccionada %>) − <strong>importables</strong> (<%= s.importables %>) = contactos con etiqueta pero que no cumplen reglas de importación; el motivo está en la columna «Motivo».
+    </p>
+    <% } %>
     <div class="table-wrap" style="max-height: 70vh; overflow: auto;">
       <table class="dash-table">
         <thead>

@@ -53,7 +53,8 @@ function filterPreviewRows(rows, vista) {
     return list.filter((r) => r.estadoBase === 'importable' && r.crmVinculado === false);
   }
   if (vista === 'errores') {
-    return list.filter((r) => r.estado === 'desincronizado' || r.estado === 'pte_exportar');
+    // Con tag elegida pero no importables: ver motivo (sin CIF, provincia ES, etc.)
+    return list.filter((r) => r.coincideTag === true && r.estadoBase === 'omitido');
   }
   return list;
 }
