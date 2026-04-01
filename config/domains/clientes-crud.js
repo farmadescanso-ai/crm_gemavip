@@ -540,9 +540,10 @@ module.exports = {
       if (!payload.Id_Pais) {
         const espana = await this.getPaisByCodigoISO('ES');
         if (espana) {
-          payload.Id_Pais = espana.id;
-          payload.CodPais = espana.Id_pais;
-          payload.Pais = espana.Nombre_pais;
+          const espanaId = espana.pais_id ?? espana.id ?? espana.Id;
+          if (espanaId != null) payload.Id_Pais = espanaId;
+          payload.CodPais = espana.pais_codigo ?? espana.Id_pais ?? espana.CodPais;
+          payload.Pais = espana.Nombre_pais ?? espana.pais_nombre ?? espana.Nombre_pais;
         }
       }
 
