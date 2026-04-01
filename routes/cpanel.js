@@ -47,10 +47,10 @@ function filterPreviewRows(rows, vista) {
     return list.filter((r) => r.estadoBase === 'omitido');
   }
   if (vista === 'importados') {
-    return list.filter((r) => r.estado === 'importado');
+    return list.filter((r) => r.estadoBase === 'importable' && r.crmVinculado === true);
   }
   if (vista === 'pendientes_importar') {
-    return list.filter((r) => r.estado === 'importable' || r.estado === 'pte_importar');
+    return list.filter((r) => r.estadoBase === 'importable' && r.crmVinculado === false);
   }
   if (vista === 'errores') {
     return list.filter((r) => r.estado === 'desincronizado' || r.estado === 'pte_exportar');

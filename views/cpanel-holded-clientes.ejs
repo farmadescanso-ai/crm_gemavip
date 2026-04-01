@@ -98,16 +98,20 @@
     </div>
 
     <p style="margin: -6px 0 14px 0; font-size: 12px; color: var(--gv-muted);">
-      Sync CRM ↔ Holded (solo filas que cumplen tag + CIF + provincia ES):
+      Sync CRM ↔ Holded (solo filas que cumplen tag + CIF + provincia ES). «En CRM» / «Pendientes alta» según si ya existe cliente en la base (ref / Holded / CIF), no solo el hash.
     </p>
     <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:12px; margin-bottom: 18px;">
       <div class="dash-stat" data-variant="green">
-        <div class="dash-stat-label">Importados (al día)</div>
-        <div class="dash-stat-value"><%= s.syncImportados != null ? s.syncImportados : '—' %></div>
+        <div class="dash-stat-label">En CRM (BD)</div>
+        <div class="dash-stat-value"><%= s.crmClientesEnBd != null ? s.crmClientesEnBd : '—' %></div>
       </div>
       <div class="dash-stat" data-variant="yellow">
-        <div class="dash-stat-label">1ª importación</div>
-        <div class="dash-stat-value"><%= s.syncPrimeraImportacion != null ? s.syncPrimeraImportacion : '—' %></div>
+        <div class="dash-stat-label">Pendientes alta CRM</div>
+        <div class="dash-stat-value"><%= s.crmClientesPendientesAlta != null ? s.crmClientesPendientesAlta : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="green">
+        <div class="dash-stat-label">Importados (al día)</div>
+        <div class="dash-stat-value"><%= s.syncImportados != null ? s.syncImportados : '—' %></div>
       </div>
       <div class="dash-stat" data-variant="yellow">
         <div class="dash-stat-label">Pte. importar</div>
@@ -151,8 +155,8 @@
       <span style="font-size: 12px; font-weight: 700; color: var(--gv-muted);">Mostrar:</span>
       <a href="<%= vistaLink('todos') %>" class="badge <%= vp === 'todos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Todos</a>
       <a href="<%= vistaLink('importables') %>" class="badge <%= vp === 'importables' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Nueva importación o reimportar desde Holded">Importar / reimportar</a>
-      <a href="<%= vistaLink('importados') %>" class="badge <%= vp === 'importados' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Ya enlazados y al día en CRM">Importados</a>
-      <a href="<%= vistaLink('pendientes_importar') %>" class="badge <%= vp === 'pendientes_importar' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Primera importación o cambios en Holded">Pendientes de importar</a>
+      <a href="<%= vistaLink('importados') %>" class="badge <%= vp === 'importados' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Con la etiqueta elegida y ya existe fila en clientes (CRM)">Importados</a>
+      <a href="<%= vistaLink('pendientes_importar') %>" class="badge <%= vp === 'pendientes_importar' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Con la etiqueta elegida y aún no hay cliente en la base">Pendientes de importar</a>
       <a href="<%= vistaLink('errores') %>" class="badge <%= vp === 'errores' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Desincronizado o pendiente exportar a Holded">Errores</a>
       <a href="<%= vistaLink('omitidos') %>" class="badge <%= vp === 'omitidos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo omitidos</a>
     </div>
