@@ -32,8 +32,12 @@ function parseVistaPreview(query) {
 
 function filterPreviewRows(rows, vista) {
   const list = Array.isArray(rows) ? rows : [];
-  if (vista === 'importables') return list.filter((r) => r.estado === 'importable');
-  if (vista === 'omitidos') return list.filter((r) => r.estado !== 'importable');
+  if (vista === 'importables') {
+    return list.filter((r) => r.estado === 'importable' || r.estado === 'pte_importar');
+  }
+  if (vista === 'omitidos') {
+    return list.filter((r) => r.estadoBase === 'omitido');
+  }
   return list;
 }
 

@@ -97,6 +97,32 @@
       </div>
     </div>
 
+    <p style="margin: -6px 0 14px 0; font-size: 12px; color: var(--gv-muted);">
+      Sync CRM ↔ Holded (solo filas que cumplen tag + CIF + provincia ES):
+    </p>
+    <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:12px; margin-bottom: 18px;">
+      <div class="dash-stat" data-variant="green">
+        <div class="dash-stat-label">Importados (al día)</div>
+        <div class="dash-stat-value"><%= s.syncImportados != null ? s.syncImportados : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="yellow">
+        <div class="dash-stat-label">1ª importación</div>
+        <div class="dash-stat-value"><%= s.syncPrimeraImportacion != null ? s.syncPrimeraImportacion : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="yellow">
+        <div class="dash-stat-label">Pte. importar</div>
+        <div class="dash-stat-value"><%= s.syncPteImportar != null ? s.syncPteImportar : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-label">Pte. exportar</div>
+        <div class="dash-stat-value"><%= s.syncPteExportar != null ? s.syncPteExportar : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-label">Desincronizado</div>
+        <div class="dash-stat-value"><%= s.syncDesincronizado != null ? s.syncDesincronizado : '—' %></div>
+      </div>
+    </div>
+
     <div style="display:flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
       <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
         <input type="hidden" name="dryRun" value="1" />
@@ -124,7 +150,7 @@
       <h2 class="card-title" style="margin:0;">Vista previa</h2>
       <span style="font-size: 12px; font-weight: 700; color: var(--gv-muted);">Mostrar:</span>
       <a href="<%= vistaLink('todos') %>" class="badge <%= vp === 'todos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Todos</a>
-      <a href="<%= vistaLink('importables') %>" class="badge <%= vp === 'importables' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo importables</a>
+      <a href="<%= vistaLink('importables') %>" class="badge <%= vp === 'importables' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Nueva importación o reimportar desde Holded">Importar / reimportar</a>
       <a href="<%= vistaLink('omitidos') %>" class="badge <%= vp === 'omitidos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo omitidos</a>
     </div>
     <% const previewList = Array.isArray(previewRows) ? previewRows : rowsSafe; %>
@@ -153,8 +179,18 @@
               <td>
                 <% if (r.estado === 'importable') { %>
                   <span class="badge ok">importable</span>
-                <% } else { %>
+                <% } else if (r.estado === 'importado') { %>
+                  <span class="badge ok">importado</span>
+                <% } else if (r.estado === 'pte_importar') { %>
+                  <span class="badge warn">Pte. importar</span>
+                <% } else if (r.estado === 'pte_exportar') { %>
+                  <span class="badge info">Pte. exportar</span>
+                <% } else if (r.estado === 'desincronizado') { %>
+                  <span class="badge danger">Desincronizado</span>
+                <% } else if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>
                   <span class="badge danger">omitido</span>
+                <% } else { %>
+                  <span class="badge info"><%= r.estado || '—' %></span>
                 <% } %>
               </td>
               <td style="font-size: 11px; font-family: monospace;"><%= r.holdedId || r.cli_Id_Holded || '—' %></td>
