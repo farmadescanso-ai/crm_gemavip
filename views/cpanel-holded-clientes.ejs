@@ -39,12 +39,13 @@
     <% const allTagsList = Array.isArray(allTags) ? allTags : []; %>
     <% const rowsSafe = Array.isArray(rows) ? rows : []; %>
 
-    <section class="card" style="margin-bottom: 18px;">
-      <div class="card-hd">
-        <h2 class="card-title">Tags en Holded</h2>
-        <p class="card-subtitle">Marca las que quieras usar como filtro y pulsa «Aplicar filtro».</p>
-      </div>
-      <div class="card-bd">
+    <details class="gv-holded-tags-accordion" style="margin-bottom: 18px; border: 1px solid var(--gv-border, rgba(0,0,0,.12)); border-radius: 10px; background: var(--gv-card-bg, #fff);">
+      <summary style="cursor: pointer; list-style: none; padding: 14px 16px; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <span>Tags en Holded <span style="color: var(--gv-muted); font-weight: 600; font-size: 13px;">(<%= allTagsList.length %> etiquetas)</span></span>
+        <span style="font-size: 12px; font-weight: 600; color: var(--gv-muted);">Mostrar / ocultar</span>
+      </summary>
+      <div class="card-bd" style="padding: 0 16px 16px 16px; border-top: 1px solid var(--gv-border, rgba(0,0,0,.08));">
+        <p class="card-subtitle" style="margin: 12px 0 10px 0;">Marca las que quieras usar como filtro y pulsa «Aplicar filtro».</p>
         <% if (!allTagsList.length) { %>
           <p style="margin:0; color: var(--gv-muted);">Sin datos de tags (o API sin contactos).</p>
         <% } else { %>
@@ -52,7 +53,7 @@
             <% if (vp !== 'todos') { %>
               <input type="hidden" name="vista" value="<%= vp %>" />
             <% } %>
-            <div style="display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-start; max-height: 220px; overflow-y: auto; padding: 4px 0;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-start; max-height: 280px; overflow-y: auto; padding: 4px 0;">
               <% allTagsList.forEach((t) => { %>
                 <% const checked = selSet.has(String(t.key).toLowerCase()); %>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
@@ -68,7 +69,32 @@
           </form>
         <% } %>
       </div>
-    </section>
+    </details>
+    <style>.gv-holded-tags-accordion summary::-webkit-details-marker { display: none; }</style>
+
+    <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
+      <strong>Resumen (todos los contactos Holded):</strong> «Clientes» excluye proveedores si Holded lo indica (<code>type</code> / <code>isSupplier</code>).
+      Con tag + CIF + provincia ES: <strong>Pendientes alta CRM</strong> = en Holded y aún sin fila en clientes;
+      <strong>Datos distintos</strong> = ya en CRM pero Holded y BD no coinciden en los campos sincronizados.
+    </p>
+    <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:12px; margin-bottom: 14px;">
+      <div class="dash-stat" data-variant="navy">
+        <div class="dash-stat-label" title="Contactos en Holded considerados cliente (no proveedor)">Holded (clientes)</div>
+        <div class="dash-stat-value"><%= s.holdedContactosClientes != null ? s.holdedContactosClientes : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="green">
+        <div class="dash-stat-label" title="Con tag + reglas: ya existe cliente en CRM">En CRM (BD)</div>
+        <div class="dash-stat-value"><%= s.crmClientesEnBd != null ? s.crmClientesEnBd : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="yellow">
+        <div class="dash-stat-label" title="En Holded con tag y reglas, aún sin alta en tabla clientes">Pendientes alta CRM</div>
+        <div class="dash-stat-value"><%= s.crmClientesPendientesAlta != null ? s.crmClientesPendientesAlta : '—' %></div>
+      </div>
+      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-label" title="Holded y CRM difieren en al menos un campo comparable">Datos distintos (sync)</div>
+        <div class="dash-stat-value"><%= s.syncDatosDistintos != null ? s.syncDatosDistintos : '—' %></div>
+      </div>
+    </div>
 
     <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; margin-bottom: 18px;">
       <div class="dash-stat" data-variant="navy">
@@ -98,17 +124,9 @@
     </div>
 
     <p style="margin: -6px 0 14px 0; font-size: 12px; color: var(--gv-muted);">
-      Sync CRM ↔ Holded (solo filas que cumplen tag + CIF + provincia ES). «En CRM» / «Pendientes alta» según si ya existe cliente en la base (ref / Holded / CIF), no solo el hash.
+      Detalle sync (solo filas con tag + CIF + provincia ES). «En CRM» / pendientes según vinculación en base (ref / Holded / CIF).
     </p>
     <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:12px; margin-bottom: 18px;">
-      <div class="dash-stat" data-variant="green">
-        <div class="dash-stat-label">En CRM (BD)</div>
-        <div class="dash-stat-value"><%= s.crmClientesEnBd != null ? s.crmClientesEnBd : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="yellow">
-        <div class="dash-stat-label">Pendientes alta CRM</div>
-        <div class="dash-stat-value"><%= s.crmClientesPendientesAlta != null ? s.crmClientesPendientesAlta : '—' %></div>
-      </div>
       <div class="dash-stat" data-variant="green">
         <div class="dash-stat-label">Importados (al día)</div>
         <div class="dash-stat-value"><%= s.syncImportados != null ? s.syncImportados : '—' %></div>
@@ -196,6 +214,8 @@
             <th>Email</th>
             <th>Teléfono</th>
             <th>Tags</th>
+            <th title="Fecha de última modificación en Holded (API) y en CRM si la columna existe">Últ. modificación</th>
+            <th title="Campos comparables distintos entre Holded y CRM">Campos distintos</th>
             <th>Motivo</th>
           </tr>
         </thead>
@@ -234,6 +254,17 @@
               <td><%= r.email || '—' %></td>
               <td><%= r.telefono || r.movil || '—' %></td>
               <td style="max-width: 180px; word-break: break-word; font-size: 12px;"><%= r.tags || '—' %></td>
+              <td style="font-size: 11px; line-height: 1.35; max-width: 160px;">
+                <% if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>—<% } else { %>
+                  <span style="color: var(--gv-muted);">Holded:</span> <%= r.holdedFechaModTexto || '—' %><br />
+                  <span style="color: var(--gv-muted);">CRM:</span> <%= r.crmFechaModTexto || '—' %>
+                <% } %>
+              </td>
+              <td style="font-size: 11px; max-width: 220px; line-height: 1.35;">
+                <% if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>—<% } else if (Array.isArray(r.syncCamposDiferentes) && r.syncCamposDiferentes.length) { %>
+                  <%= r.syncCamposDiferentes.join(', ') %>
+                <% } else { %>—<% } %>
+              </td>
               <td style="font-size: 12px;"><%= r.motivo || '—' %></td>
             </tr>
           <% }) %>
