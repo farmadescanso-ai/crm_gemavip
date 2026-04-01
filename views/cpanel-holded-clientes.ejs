@@ -118,7 +118,7 @@
         <div class="dash-stat-value"><%= s.syncPteImportar != null ? s.syncPteImportar : '—' %></div>
       </div>
       <div class="dash-stat" data-variant="blue">
-        <div class="dash-stat-label">Pte. exportar</div>
+        <div class="dash-stat-label" title="CRM enlazado a Holded pero datos distintos; hay que volcar cambios del CRM a Holded">Sincronizar</div>
         <div class="dash-stat-value"><%= s.syncPteExportar != null ? s.syncPteExportar : '—' %></div>
       </div>
       <div class="dash-stat" data-variant="blue">
@@ -187,7 +187,7 @@
       <table class="dash-table">
         <thead>
           <tr>
-            <th>Estado</th>
+            <th title="Nombre del estado del cliente en el CRM (estdoClientes) y estado de alineación Holded ↔ BD">Estado (BD / sync)</th>
             <th>ID Holded</th>
             <th>Nombre</th>
             <th>CIF</th>
@@ -203,20 +203,27 @@
           <% previewList.forEach((r) => { %>
             <tr>
               <td>
-                <% if (r.estado === 'importable') { %>
-                  <span class="badge ok">importable</span>
-                <% } else if (r.estado === 'importado') { %>
-                  <span class="badge ok">importado</span>
-                <% } else if (r.estado === 'pte_importar') { %>
-                  <span class="badge warn">Pte. importar</span>
-                <% } else if (r.estado === 'pte_exportar') { %>
-                  <span class="badge info">Pte. exportar</span>
-                <% } else if (r.estado === 'desincronizado') { %>
-                  <span class="badge danger">Desincronizado</span>
-                <% } else if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>
+                <% if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>
                   <span class="badge danger">omitido</span>
                 <% } else { %>
-                  <span class="badge info"><%= r.estado || '—' %></span>
+                  <div style="font-weight:600; font-size:13px; color: var(--gv-text, #1a1a1a);">
+                    <%= (r.crmEstadoClienteNombre && String(r.crmEstadoClienteNombre).trim()) ? String(r.crmEstadoClienteNombre).trim() : (r.crmVinculado ? '—' : 'Sin cliente en CRM') %>
+                  </div>
+                  <div style="font-size:11px; margin-top:5px; line-height:1.35;">
+                    <% if (r.estado === 'importable') { %>
+                      <span class="badge ok">Pendiente alta CRM</span>
+                    <% } else if (r.estado === 'importado') { %>
+                      <span class="badge ok">Al día (Holded ↔ BD)</span>
+                    <% } else if (r.estado === 'pte_importar') { %>
+                      <span class="badge warn">Pte. importar</span>
+                    <% } else if (r.estado === 'pte_exportar') { %>
+                      <span class="badge info">Sincronizar</span>
+                    <% } else if (r.estado === 'desincronizado') { %>
+                      <span class="badge danger">Desincronizado</span>
+                    <% } else { %>
+                      <span class="badge info"><%= r.estado || '—' %></span>
+                    <% } %>
+                  </div>
                 <% } %>
               </td>
               <td style="font-size: 11px; font-family: monospace;"><%= r.holdedId || r.cli_Id_Holded || '—' %></td>
