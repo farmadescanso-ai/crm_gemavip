@@ -151,6 +151,9 @@
       <span style="font-size: 12px; font-weight: 700; color: var(--gv-muted);">Mostrar:</span>
       <a href="<%= vistaLink('todos') %>" class="badge <%= vp === 'todos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Todos</a>
       <a href="<%= vistaLink('importables') %>" class="badge <%= vp === 'importables' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Nueva importación o reimportar desde Holded">Importar / reimportar</a>
+      <a href="<%= vistaLink('importados') %>" class="badge <%= vp === 'importados' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Ya enlazados y al día en CRM">Importados</a>
+      <a href="<%= vistaLink('pendientes_importar') %>" class="badge <%= vp === 'pendientes_importar' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Primera importación o cambios en Holded">Pendientes de importar</a>
+      <a href="<%= vistaLink('errores') %>" class="badge <%= vp === 'errores' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;" title="Desincronizado o pendiente exportar a Holded">Errores</a>
       <a href="<%= vistaLink('omitidos') %>" class="badge <%= vp === 'omitidos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo omitidos</a>
     </div>
     <% const previewList = Array.isArray(previewRows) ? previewRows : rowsSafe; %>
@@ -197,7 +200,7 @@
               <td><%= r.nombre || '—' %></td>
               <td><%= r.cif || '—' %></td>
               <td><%= r.provinciaHolded || '—' %></td>
-              <td><%= r.provinciaCrm || '—' %></td>
+              <td title="<%= r.estado === 'importado' ? 'Provincia CRM oculta: contacto ya importado' : '' %>"><% if (r.estado === 'importado') { %>—<% } else { %><%= r.provinciaCrm || '—' %><% } %></td>
               <td><%= r.email || '—' %></td>
               <td><%= r.telefono || r.movil || '—' %></td>
               <td style="max-width: 180px; word-break: break-word; font-size: 12px;"><%= r.tags || '—' %></td>

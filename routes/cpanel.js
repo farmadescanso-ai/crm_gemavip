@@ -26,7 +26,15 @@ function tagsFromBody(body) {
 
 function parseVistaPreview(query) {
   const raw = String(query?.vista ?? '').trim().toLowerCase();
-  if (raw === 'importables' || raw === 'omitidos' || raw === 'todos') return raw;
+  const allowed = new Set([
+    'todos',
+    'importables',
+    'omitidos',
+    'importados',
+    'pendientes_importar',
+    'errores'
+  ]);
+  if (allowed.has(raw)) return raw;
   return 'todos';
 }
 
@@ -37,6 +45,15 @@ function filterPreviewRows(rows, vista) {
   }
   if (vista === 'omitidos') {
     return list.filter((r) => r.estadoBase === 'omitido');
+  }
+  if (vista === 'importados') {
+    return list.filter((r) => r.estado === 'importado');
+  }
+  if (vista === 'pendientes_importar') {
+    return list.filter((r) => r.estado === 'importable' || r.estado === 'pte_importar');
+  }
+  if (vista === 'errores') {
+    return list.filter((r) => r.estado === 'desincronizado' || r.estado === 'pte_exportar');
   }
   return list;
 }
