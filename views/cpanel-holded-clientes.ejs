@@ -73,14 +73,18 @@
     <style>.gv-holded-tags-accordion summary::-webkit-details-marker { display: none; }</style>
 
     <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
-      <strong>Resumen (todos los contactos Holded):</strong> «Clientes» excluye proveedores si Holded lo indica (<code>type</code> / <code>isSupplier</code>).
+      <strong>Resumen:</strong> solo contactos Holded con <code>type</code> <strong>client</strong> o <strong>lead</strong> (API: <a href="https://developers.holded.com/reference/list-contacts-1" target="_blank" rel="noopener">List Contacts</a>).
+      Se excluyen proveedores (<code>supplier</code>), acreedores (<code>creditor</code>), deudores (<code>debtor</code>), etc.
+      <% if (s.totalHoldedApi != null && s.holdedExcluidosTipo != null && s.holdedExcluidosTipo > 0) { %>
+        En la API hay <strong><%= s.totalHoldedApi %></strong> contactos; <strong><%= s.holdedExcluidosTipo %></strong> no son cliente/lead.
+      <% } %>
       Con tag + CIF + provincia ES: <strong>Pendientes alta CRM</strong> = en Holded y aún sin fila en clientes;
       <strong>Datos distintos</strong> = ya en CRM pero Holded y BD no coinciden en los campos sincronizados.
     </p>
     <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:12px; margin-bottom: 14px;">
       <div class="dash-stat" data-variant="navy">
-        <div class="dash-stat-label" title="Contactos en Holded considerados cliente (no proveedor)">Holded (clientes)</div>
-        <div class="dash-stat-value"><%= s.holdedContactosClientes != null ? s.holdedContactosClientes : '—' %></div>
+        <div class="dash-stat-label" title="Contactos tipo client o lead (filtro Holded)">Holded (cliente / lead)</div>
+        <div class="dash-stat-value"><%= s.totalHolded != null ? s.totalHolded : '—' %></div>
       </div>
       <div class="dash-stat" data-variant="green">
         <div class="dash-stat-label" title="Con tag + reglas: ya existe cliente en CRM">En CRM (BD)</div>
@@ -97,10 +101,12 @@
     </div>
 
     <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; margin-bottom: 18px;">
-      <div class="dash-stat" data-variant="navy">
-        <div class="dash-stat-label">Contactos Holded</div>
-        <div class="dash-stat-value"><%= s.totalHolded != null ? s.totalHolded : '—' %></div>
+      <% if (s.holdedExcluidosTipo != null && s.holdedExcluidosTipo > 0) { %>
+      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-label" title="Contactos en API con otro type (supplier, creditor…)">Excl. por tipo</div>
+        <div class="dash-stat-value"><%= s.holdedExcluidosTipo %></div>
       </div>
+      <% } %>
       <div class="dash-stat" data-variant="green">
         <div class="dash-stat-label">Con tag elegida</div>
         <div class="dash-stat-value"><%= s.conTagSeleccionada != null ? s.conTagSeleccionada : '—' %></div>
