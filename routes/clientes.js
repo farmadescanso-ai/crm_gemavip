@@ -43,12 +43,12 @@ function clienteNotFoundPage(req, res, id) {
     status: 404,
     title: 'Contacto no encontrado',
     heading: 'No encontramos ese contacto',
-    summary: `El CRM en Vercel está leyendo una base de datos MySQL donde no hay ningún registro con ID ${id} (tabla de clientes / PK configurada en el esquema). No es un fallo de ruta: la página sí se ha cargado. Si ese contacto existe en tu PC, casi seguro allí usas otra BD u otro servidor.`,
+    summary: `Esta instancia del CRM está usando una base de datos MySQL donde no hay ningún registro con ID ${id} en la tabla de clientes (PK del esquema). La ruta es correcta; el fallo es que no existe esa fila en esa BD. Si ves el contacto en otro entorno (p. ej. local), seguramente apuntas a otro host, otra base o otro servidor de datos.`,
     statusLabel: 'Not Found',
     whatToDo: [
-      'En Vercel → Project → Settings → Environment Variables: revisa DB_HOST, DB_NAME, DB_USER y que coincidan con el servidor donde están los datos reales.',
-      'Comprueba en MySQL (ese mismo host/base) con SELECT sobre la tabla de clientes que el ID exista.',
-      'Tras corregir variables, redepliega o espera a que se apliquen los valores y vuelve a abrir el contacto.'
+      'En el panel de despliegue (p. ej. Vercel → Settings → Environment Variables): revisa DB_HOST, DB_NAME, DB_USER y que coincidan con el MySQL donde están los datos que quieres usar.',
+      'En ese mismo MySQL ejecuta un SELECT sobre clientes por cli_id (o la PK configurada) y confirma si el ID existe.',
+      'Tras corregir variables, redepliega o espera a que se apliquen y vuelve a abrir el contacto.'
     ]
   });
 }
