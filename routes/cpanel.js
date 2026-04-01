@@ -6,7 +6,13 @@
 const express = require('express');
 const db = require('../config/mysql-crm');
 const { requireUserId1 } = require('../lib/auth');
-const { previewHoldedClientesEs, importHoldedClientesEs, parseSelectedTagsInput } = require('../lib/sync-holded-clientes');
+const {
+  previewHoldedClientesEs,
+  importHoldedClientesEs,
+  importHoldedSinCifComoLeads,
+  parseSelectedTagsInput,
+  MOTIVO_OMITIDO_SIN_CIF_HOLDED
+} = require('../lib/sync-holded-clientes');
 
 const router = express.Router();
 
@@ -94,7 +100,8 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
       vistaPreview: vista,
       previewRows,
       success,
-      error
+      error,
+      motivoSinCifHolded: MOTIVO_OMITIDO_SIN_CIF_HOLDED
     });
   } catch (e) {
     next(e);
@@ -117,6 +124,28 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
       if (!dryRun && Number(result.errors) > 0 && result.errorFirst) {
         const hint = String(result.errorFirst).slice(0, 280);
         msg += ` Primer error: ${hint}`;
+      }
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
+    }
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
+  } catch (e) {
+    const selectedTags = tagsFromBody(req.body || {});
+    const vista = parseVistaPreview(req.body || {});
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
+  }
+});
+
+router.post('/cpanel/holded-clientes/alta-leads-sin-cif', requireUserId1, async (req, res, next) => {
+  try {
+    const selectedTags = tagsFromBody(req.body);
+    const vista = parseVistaPreview(req.body || {});
+    const result = await importHoldedSinCifComoLeads(db, { selectedTags });
+    if (result.ok) {
+      let msg = `Alta como Lead: ${result.inserted} creado(s).`;
+      if (Number(result.skipped) > 0) msg += ` Omitidos (ya existían en CRM): ${result.skipped}.`;
+      if (Number(result.errors) > 0) {
+        msg += ` Errores: ${result.errors}.`;
+        if (result.errorFirst) msg += ` Primer error: ${String(result.errorFirst).slice(0, 240)}`;
       }
       return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
     }

@@ -523,9 +523,12 @@ module.exports = {
         const estadoReq = payload.Id_EstdoCliente !== undefined && payload.Id_EstdoCliente !== null && String(payload.Id_EstdoCliente).trim() !== ''
           ? Number(payload.Id_EstdoCliente)
           : null;
+        const idLead = ids.lead != null ? Number(ids.lead) : null;
         let estadoFinal;
         if (estadoReq === ids.inactivo || esInactivo) {
           estadoFinal = ids.inactivo;
+        } else if (idLead != null && Number.isFinite(idLead) && estadoReq === idLead) {
+          estadoFinal = idLead;
         } else if (estadoReq === ids.potencial) {
           estadoFinal = ids.potencial;
         } else if (estadoReq === ids.activo) {
