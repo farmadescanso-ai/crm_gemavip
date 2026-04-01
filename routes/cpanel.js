@@ -96,6 +96,10 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
       if (!dryRun && Number(result.holdedTagErrors) > 0) {
         msg += ` Avisos tag crm en Holded: ${result.holdedTagErrors}.`;
       }
+      if (!dryRun && Number(result.errors) > 0 && result.errorFirst) {
+        const hint = String(result.errorFirst).slice(0, 280);
+        msg += ` Primer error: ${hint}`;
+      }
       return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
     }
     return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
