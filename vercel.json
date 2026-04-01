@@ -8,7 +8,7 @@
   "functions": {
     "api/index.js": {
       "includeFiles": "{config/**,lib/**,routes/**,templates/**,views/**}",
-      "maxDuration": 60,
+      "maxDuration": 300,
       "memory": 1024
     }
   }
