@@ -71,7 +71,10 @@
 | `cli_estcli_id` | int | FK → estdoClientes |
 | `cli_activo` | tinyint(1) | |
 | `cli_creado_holded` | datetime | |
-| `cli_referencia` | varchar(255) | |
+| `cli_referencia` | varchar(255) | Compat. histórica; el vínculo canónico con Holded es `cli_Id_Holded` |
+| `cli_Id_Holded` | varchar(255) | **ID contacto Holded** (`contact.id` en API). Índice único `ux_clientes_cli_Id_Holded`: como mucho una fila CRM por ID Holded (varias filas con NULL permitidas). Rutas `/clientes/:id` aceptan PK numérica o este ID. |
+| `cli_holded_sync_hash` | char(64) | Hash comparación CRM↔Holded |
+| `cli_holded_sync_pendiente` | tinyint(1) | Pendiente sincronizar |
 | `cli_regimen` | varchar(100) | |
 | `cli_ref_mandato` | varchar(100) | |
 | `cli_tags` | text | |

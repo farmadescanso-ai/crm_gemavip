@@ -5,6 +5,7 @@
   },
   "clientes": {
     "pk": "cli_id",
+    "holded": "cli_Id_Holded = contact.id API Holded; índice único ux_clientes_cli_Id_Holded (1 CRM ↔ 1 contacto; NULL repetible)",
     "cols": ["cli_id", "cli_com_id", "cli_dni_cif", "cli_nombre_razon_social", "cli_nombre_cial", "cli_numero_farmacia", "cli_direccion", "cli_poblacion", "cli_codigo_postal", "cli_movil", "cli_email", "cli_tipo_cliente_txt", "cli_tipc_id", "cli_esp_id", "cli_CodPais", "cli_Pais", "cli_Idioma", "cli_idiom_id", "cli_Moneda", "cli_mon_id", "cli_NomContacto", "cli_tarifa_legacy", "cli_formp_id", "cli_dto", "cli_CuentaContable", "cli_RE", "cli_Banco", "cli_Swift", "cli_IBAN", "cli_Modelo_347", "cli_prov_id", "cli_codp_id", "cli_telefono", "cli_Web", "cli_pais_id", "cli_ok_ko", "cli_estcli_id", "cli_activo", "cli_creado_holded", "cli_referencia", "cli_Id_Holded", "cli_holded_sync_hash", "cli_holded_sync_pendiente", "cli_regimen", "cli_ref_mandato", "cli_tags", "cli_cuenta_ventas", "cli_cuenta_compras", "cli_visibilidad_portal", "cli_FechaBaja", "cli_MotivoBaja", "cli_tipo_contacto", "cli_Id_cliente_relacionado", "cli_regfis_id"],
     "fk": { "cli_com_id": "comerciales", "cli_tipc_id": "tipos_clientes", "cli_esp_id": "especialidades", "cli_idiom_id": "idiomas", "cli_mon_id": "monedas", "cli_formp_id": "formas_pago", "cli_prov_id": "provincias", "cli_pais_id": "paises", "cli_estcli_id": "estdoClientes", "cli_regfis_id": "regimenes_fiscales" }
   },
