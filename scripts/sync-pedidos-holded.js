@@ -161,21 +161,32 @@ async function main() {
 
       // Buscar o crear cliente
       let clienteId = null;
-      const existingByRef = await db.query(
-        'SELECT cli_id FROM clientes WHERE cli_referencia = ? LIMIT 1',
-        [contactId]
-      );
-      if (existingByRef?.length) {
-        clienteId = existingByRef[0].cli_id;
-      } else if (cif) {
-        const existingByCif = await db.query(
-          'SELECT cli_id FROM clientes WHERE cli_dni_cif = ? LIMIT 1',
-          [cif]
+      let existingById = null;
+      try {
+        existingById = await db.query('SELECT cli_id FROM clientes WHERE cli_Id_Holded = ? LIMIT 1', [contactId]);
+      } catch (_) {}
+      if (existingById?.length) {
+        clienteId = existingById[0].cli_id;
+      } else {
+        const existingByRef = await db.query(
+          'SELECT cli_id FROM clientes WHERE cli_referencia = ? LIMIT 1',
+          [contactId]
         );
-        if (existingByCif?.length) {
-          clienteId = existingByCif[0].cli_id;
-          // Actualizar cli_referencia para futuras sincronizaciones
-          await db.query('UPDATE clientes SET cli_referencia = ? WHERE cli_id = ?', [contactId, clienteId]);
+        if (existingByRef?.length) {
+          clienteId = existingByRef[0].cli_id;
+        } else if (cif) {
+          const existingByCif = await db.query(
+            'SELECT cli_id FROM clientes WHERE cli_dni_cif = ? LIMIT 1',
+            [cif]
+          );
+          if (existingByCif?.length) {
+            clienteId = existingByCif[0].cli_id;
+            try {
+              await db.query('UPDATE clientes SET cli_Id_Holded = ? WHERE cli_id = ?', [contactId, clienteId]);
+            } catch (_) {
+              await db.query('UPDATE clientes SET cli_referencia = ? WHERE cli_id = ?', [contactId, clienteId]);
+            }
+          }
         }
       }
 
@@ -192,7 +203,7 @@ async function main() {
           cli_poblacion: billAddr?.city || null,
           cli_codigo_postal: billAddr?.postalCode ? String(billAddr.postalCode).padStart(5, '0') : null,
           cli_prov_id: provMurciaId,
-          cli_referencia: contactId,
+          cli_Id_Holded: contactId,
           cli_com_id: 1,
           cli_estcli_id: 2,
           cli_activo: 1,

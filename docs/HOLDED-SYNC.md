@@ -34,7 +34,7 @@ Tras **import** o **export**, `cli_holded_sync_hash` se guarda con el **hash del
 
 Lista canónica: `COMPARABLE_PAYLOAD_KEYS` en código. **No** se comparan (no disparan “datos distintos”): `cli_referencia`, `cli_Id_Holded`, `cli_tags`, ni `cli_id` — son enlaces o metadatos operativos, no el registro de contacto en sí.
 
-Origen Holded → CRM: `buildClientePayloadFromHoldedContact` (sigue enviando ref/ID a BD en import). CRM → Holded (export): `buildHoldedPutBodyFromCrmRow`.
+Origen Holded → CRM: `buildClientePayloadFromHoldedContact` guarda el ID del contacto solo en `cli_Id_Holded` (no en `cli_referencia`). CRM → Holded (export): `buildHoldedPutBodyFromCrmRow`.
 
 Campos típicos en el hash: nombre, CIF, email, móvil, teléfono, dirección, población, CP, provincia, país, IBAN/SWIFT, web, observaciones, régimen, mandato, cuentas, persona de contacto, etc.
 
