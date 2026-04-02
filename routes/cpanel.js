@@ -64,7 +64,8 @@ function filterPreviewRows(rows, vista) {
     return list.filter((r) => r.estado === 'importable' || r.estado === 'pte_importar');
   }
   if (vista === 'omitidos') {
-    return list.filter((r) => r.estadoBase === 'omitido');
+    // Ya vinculados en CRM: no son «omitidos» operativos (misma lógica que errores).
+    return list.filter((r) => r.estadoBase === 'omitido' && r.crmYaExisteEnCrm !== true);
   }
   if (vista === 'importados') {
     return list.filter((r) => r.estadoBase === 'importable' && r.crmVinculado === true);
@@ -88,10 +89,72 @@ function buildHoldedClientesRedirect(tags, extra) {
     if (t != null && String(t).trim() !== '') params.append('tags', String(t).trim());
   });
   if (extra?.vista && extra.vista !== 'todos') params.set('vista', extra.vista);
+  if (extra?.segment && String(extra.segment).trim() !== '') params.set('segment', String(extra.segment).trim());
   if (extra?.success) params.set('success', extra.success);
   if (extra?.error) params.set('error', extra.error);
   const q = params.toString();
   return q ? `/cpanel/holded-clientes?${q}` : '/cpanel/holded-clientes';
+}
+
+/** Filtro opcional al hacer clic en una tarjeta KPI (listado acotado). */
+function parseSegmentQuery(query) {
+  const raw = String(query?.segment ?? '').trim().toLowerCase();
+  const allowed = new Set([
+    'con_tag',
+    'importables',
+    'omit_sin_tag',
+    'omit_sin_cif',
+    'omit_sin_prov',
+    'sync_al_dia',
+    'sync_pte_import',
+    'sync_pte_export',
+    'sync_desinc',
+    'importados_vista',
+    'pendientes_alta'
+  ]);
+  return allowed.has(raw) ? raw : '';
+}
+
+function applySegmentFilter(rows, segment) {
+  if (!segment) return Array.isArray(rows) ? rows : [];
+  const list = Array.isArray(rows) ? rows : [];
+  const MOT = MOTIVO_OMITIDO_SIN_CIF_HOLDED;
+  const omitSinCrm = (r) => r.estadoBase === 'omitido' && r.crmYaExisteEnCrm !== true;
+  switch (segment) {
+    case 'con_tag':
+      return list.filter((r) => r.coincideTag === true);
+    case 'importables':
+      return list.filter((r) => r.estadoBase === 'importable');
+    case 'omit_sin_tag':
+      return list.filter((r) => omitSinCrm(r) && r.coincideTag === false);
+    case 'omit_sin_cif':
+      return list.filter((r) => omitSinCrm(r) && r.motivo === MOT);
+    case 'omit_sin_prov':
+      return list.filter(
+        (r) => omitSinCrm(r) && String(r.motivo || '').toLowerCase().includes('provincia no mapeada')
+      );
+    case 'sync_al_dia':
+      return list.filter((r) => r.estadoBase === 'importable' && r.estado === 'importado');
+    case 'sync_pte_import':
+      return list.filter((r) => r.estadoBase === 'importable' && r.estado === 'pte_importar');
+    case 'sync_pte_export':
+      return list.filter((r) => r.estadoBase === 'importable' && r.estado === 'pte_exportar');
+    case 'sync_desinc':
+      return list.filter((r) => r.estadoBase === 'importable' && r.estado === 'desincronizado');
+    case 'importados_vista':
+      return list.filter((r) => r.estadoBase === 'importable' && r.crmVinculado === true);
+    case 'pendientes_alta':
+      return list.filter((r) => r.estadoBase === 'importable' && r.crmVinculado === false);
+    default:
+      return list;
+  }
+}
+
+function extraFromHoldedBody(body) {
+  return {
+    vista: parseVistaPreview(body || {}),
+    segment: parseSegmentQuery(body || {})
+  };
 }
 
 router.get('/cpanel', requireUserId1, (req, res, next) => {
@@ -106,16 +169,19 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
   try {
     const selectedTags = tagsFromQuery(req.query);
     const vista = parseVistaPreview(req.query);
+    const segment = parseSegmentQuery(req.query);
     const result = await previewHoldedClientesEs(db, { selectedTags });
     const success = typeof req.query.success === 'string' ? req.query.success : null;
     const error = typeof req.query.error === 'string' ? req.query.error : (result.error || null);
-    const previewRows = filterPreviewRows(result.rows, vista);
+    let previewRows = filterPreviewRows(result.rows, vista);
+    previewRows = applySegmentFilter(previewRows, segment);
     res.render('cpanel-holded-clientes', {
       title: 'Importar clientes Holded (España)',
       ...result,
       tagScope: result.tagScope || { mode: 'filter', effectiveTagsDisplay: [] },
       selectedTags,
       vistaPreview: vista,
+      segment,
       previewRows,
       success,
       error,
@@ -130,7 +196,7 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
   try {
     const dryRun = String(req.body?.dryRun || '').trim() === '1';
     const selectedTags = tagsFromBody(req.body);
-    const vista = parseVistaPreview(req.body || {});
+    const { vista, segment } = extraFromHoldedBody(req.body);
     const result = await importHoldedClientesEs(db, { dryRun, selectedTags });
     if (result.ok) {
       let msg = dryRun
@@ -143,13 +209,13 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
         const hint = String(result.errorFirst).slice(0, 280);
         msg += ` Primer error: ${hint}`;
       }
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment }));
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const vista = parseVistaPreview(req.body || {});
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
+    const { vista, segment } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
   }
 });
 
@@ -157,9 +223,9 @@ router.post('/cpanel/holded-clientes/export-crm', requireUserId1, async (req, re
   try {
     const holdedId = String(req.body?.holdedId || '').trim();
     const selectedTags = tagsFromBody(req.body);
-    const vista = parseVistaPreview(req.body || {});
+    const { vista, segment } = extraFromHoldedBody(req.body);
     if (!holdedId) {
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: 'Falta ID Holded', vista }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: 'Falta ID Holded', vista, segment }));
     }
     const rows = await db.query(
       'SELECT cli_id FROM clientes WHERE cli_referencia = ? OR cli_Id_Holded = ? LIMIT 1',
@@ -168,27 +234,27 @@ router.post('/cpanel/holded-clientes/export-crm', requireUserId1, async (req, re
     const cliId = rows?.[0]?.cli_id != null ? Number(rows[0].cli_id) : null;
     if (!cliId || !Number.isFinite(cliId)) {
       return res.redirect(
-        buildHoldedClientesRedirect(selectedTags, { error: 'No hay cliente CRM vinculado a ese ID Holded', vista })
+        buildHoldedClientesRedirect(selectedTags, { error: 'No hay cliente CRM vinculado a ese ID Holded', vista, segment })
       );
     }
     const result = await exportCrmClienteToHolded(db, cliId);
     if (result.ok) {
       return res.redirect(
-        buildHoldedClientesRedirect(selectedTags, { success: `Datos del CRM enviados a Holded (${holdedId}).`, vista })
+        buildHoldedClientesRedirect(selectedTags, { success: `Datos del CRM enviados a Holded (${holdedId}).`, vista, segment })
       );
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error al exportar', vista }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error al exportar', vista, segment }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const vista = parseVistaPreview(req.body || {});
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
+    const { vista, segment } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
   }
 });
 
 router.post('/cpanel/holded-clientes/alta-leads-sin-cif', requireUserId1, async (req, res, next) => {
   try {
     const selectedTags = tagsFromBody(req.body);
-    const vista = parseVistaPreview(req.body || {});
+    const { vista, segment } = extraFromHoldedBody(req.body);
     const result = await importHoldedSinCifComoLeads(db, { selectedTags });
     if (result.ok) {
       let msg = `Alta como Lead: ${result.inserted} creado(s).`;
@@ -197,20 +263,20 @@ router.post('/cpanel/holded-clientes/alta-leads-sin-cif', requireUserId1, async 
         msg += ` Errores: ${result.errors}.`;
         if (result.errorFirst) msg += ` Primer error: ${String(result.errorFirst).slice(0, 240)}`;
       }
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment }));
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const vista = parseVistaPreview(req.body || {});
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
+    const { vista, segment } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
   }
 });
 
 router.post('/cpanel/holded-clientes/ajustar-tags-crm-holded', requireUserId1, async (req, res, next) => {
   try {
     const selectedTags = tagsFromBody(req.body);
-    const vista = parseVistaPreview(req.body || {});
+    const { vista, segment } = extraFromHoldedBody(req.body);
     const result = await addCrmTagHoldedToContactsSinAlcanceTags(db, { selectedTags });
     if (result.ok) {
       let msg = `Tag crm en Holded: ${result.tagged} contacto(s) actualizado(s).`;
@@ -222,13 +288,13 @@ router.post('/cpanel/holded-clientes/ajustar-tags-crm-holded', requireUserId1, a
         msg += ` Errores API: ${result.errors}.`;
         if (result.errorFirst) msg += ` Primer error: ${String(result.errorFirst).slice(0, 240)}`;
       }
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment }));
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const vista = parseVistaPreview(req.body || {});
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
+    const { vista, segment } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
   }
 });
 

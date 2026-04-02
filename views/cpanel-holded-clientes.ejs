@@ -2,11 +2,18 @@
 
 <% const sel = Array.isArray(selectedTags) ? selectedTags : []; %>
 <% const vp = typeof vistaPreview === 'string' ? vistaPreview : 'todos'; %>
+<% const seg = typeof segment === 'string' ? segment : ''; %>
 <% const baseQs = sel.length ? sel.map(function(t){ return 'tags=' + encodeURIComponent(t); }).join('&') : ''; %>
 <% const vistaLink = function(v) {
   if (v === 'todos') return baseQs ? '/cpanel/holded-clientes?' + baseQs : '/cpanel/holded-clientes';
   return '/cpanel/holded-clientes?' + (baseQs ? baseQs + '&' : '') + 'vista=' + encodeURIComponent(v);
 }; %>
+<% const segmentLink = function(s) {
+  var q = baseQs ? baseQs + '&' : '';
+  q += 'vista=todos&segment=' + encodeURIComponent(s);
+  return '/cpanel/holded-clientes?' + q;
+}; %>
+<% const kpiClearLink = baseQs ? ('/cpanel/holded-clientes?' + baseQs) : '/cpanel/holded-clientes?tags=crm'; %>
 
 <section class="card gv-vista">
   <div class="card-hd gv-vista-hd">
@@ -74,84 +81,91 @@
       }
     </style>
 
-    <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
-      <strong>Resumen:</strong> solo contactos Holded con <code>type</code> <strong>client</strong> o <strong>lead</strong> (API: <a href="https://developers.holded.com/reference/list-contacts-1" target="_blank" rel="noopener">List Contacts</a>).
-      Se excluyen proveedores (<code>supplier</code>), acreedores (<code>creditor</code>), deudores (<code>debtor</code>), etc.
+    <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted); line-height: 1.5;">
+      Solo contactos Holded <code>client</code>/<code>lead</code>. Clic en una tarjeta abre el listado filtrado (vista «Todos» + segmento).
       <% if (s.totalHoldedApi != null && s.holdedExcluidosTipo != null && s.holdedExcluidosTipo > 0) { %>
-        En la API hay <strong><%= s.totalHoldedApi %></strong> contactos; <strong><%= s.holdedExcluidosTipo %></strong> no son cliente/lead.
+        API total <strong><%= s.totalHoldedApi %></strong>, excluidos por tipo <strong><%= s.holdedExcluidosTipo %></strong>.
       <% } %>
-      Con tag + CIF + provincia ES: <strong>Pendientes alta CRM</strong> = en Holded y aún sin fila en clientes;
-      <strong>Datos distintos</strong> = ya en CRM pero Holded y BD no coinciden en los campos sincronizados.
+      <% if (s.omitidosYaEnCrm != null && s.omitidosYaEnCrm > 0) { %>
+        <strong><%= s.omitidosYaEnCrm %></strong> omitido(s) ya estaban en CRM (no se listan en «Solo omitidos»).
+      <% } %>
     </p>
-    <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:12px; margin-bottom: 14px;">
-      <div class="dash-stat" data-variant="navy">
-        <div class="dash-stat-label" title="Contactos tipo client o lead (filtro Holded)">Holded (cliente / lead)</div>
+    <% if (seg) { %>
+    <p style="margin: 0 0 12px 0; font-size: 13px;">
+      <span class="badge info">Filtro KPI: <code><%= seg %></code></span>
+      <a href="<%= kpiClearLink %>" style="margin-left:10px; font-weight:700;">Quitar filtro</a>
+    </p>
+    <% } %>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); gap: 12px; margin-bottom: 16px;">
+      <a href="<%= segmentLink('con_tag') %>" class="dash-stat gv-holded-kpi" data-variant="green" style="text-decoration:none; color:inherit; display:block; border-radius:12px; transition: transform .12s, box-shadow .12s;" title="Listado: tienen al menos una tag del filtro">
+        <div class="dash-stat-label">Con tag de filtro</div>
+        <div class="dash-stat-value"><%= s.conTagSeleccionada != null ? s.conTagSeleccionada : '—' %></div>
+      </a>
+      <a href="<%= segmentLink('importables') %>" class="dash-stat gv-holded-kpi" data-variant="yellow" style="text-decoration:none; color:inherit; display:block; border-radius:12px;" title="CIF + provincia ES: listos para import / sync">
+        <div class="dash-stat-label">Cumplen reglas (import.)</div>
+        <div class="dash-stat-value"><%= s.importables != null ? s.importables : '—' %></div>
+      </a>
+      <a href="<%= segmentLink('importados_vista') %>" class="dash-stat gv-holded-kpi" data-variant="navy" style="text-decoration:none; color:inherit; display:block; border-radius:12px;" title="Importables con fila en clientes CRM">
+        <div class="dash-stat-label">En CRM (importables)</div>
+        <div class="dash-stat-value"><%= s.crmClientesEnBd != null ? s.crmClientesEnBd : '—' %></div>
+      </a>
+      <a href="<%= segmentLink('pendientes_alta') %>" class="dash-stat gv-holded-kpi" data-variant="yellow" style="text-decoration:none; color:inherit; display:block; border-radius:12px;" title="Aún sin cliente en BD">
+        <div class="dash-stat-label">Pendientes alta CRM</div>
+        <div class="dash-stat-value"><%= s.crmClientesPendientesAlta != null ? s.crmClientesPendientesAlta : '—' %></div>
+      </a>
+      <div class="dash-stat" data-variant="navy" title="Todos los client/lead en esta vista">
+        <div class="dash-stat-label">Holded (cliente / lead)</div>
         <div class="dash-stat-value"><%= s.totalHolded != null ? s.totalHolded : '—' %></div>
       </div>
-      <div class="dash-stat" data-variant="green">
-        <div class="dash-stat-label" title="Con tag + reglas: ya existe cliente en CRM">En CRM (BD)</div>
-        <div class="dash-stat-value"><%= s.crmClientesEnBd != null ? s.crmClientesEnBd : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="yellow">
-        <div class="dash-stat-label" title="En Holded con tag y reglas, aún sin alta en tabla clientes">Pendientes alta CRM</div>
-        <div class="dash-stat-value"><%= s.crmClientesPendientesAlta != null ? s.crmClientesPendientesAlta : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="blue">
-        <div class="dash-stat-label" title="Holded y CRM difieren en al menos un campo comparable">Datos distintos (sync)</div>
-        <div class="dash-stat-value"><%= s.syncDatosDistintos != null ? s.syncDatosDistintos : '—' %></div>
-      </div>
     </div>
 
-    <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; margin-bottom: 18px;">
-      <% if (s.holdedExcluidosTipo != null && s.holdedExcluidosTipo > 0) { %>
-      <div class="dash-stat" data-variant="blue">
-        <div class="dash-stat-label" title="Contactos en API con otro type (supplier, creditor…)">Excl. por tipo</div>
-        <div class="dash-stat-value"><%= s.holdedExcluidosTipo %></div>
-      </div>
-      <% } %>
-      <div class="dash-stat" data-variant="green">
-        <div class="dash-stat-label">Con tag elegida</div>
-        <div class="dash-stat-value"><%= s.conTagSeleccionada != null ? s.conTagSeleccionada : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="yellow">
-        <div class="dash-stat-label">Importables</div>
-        <div class="dash-stat-value"><%= s.importables != null ? s.importables : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="blue">
-        <div class="dash-stat-label">Sin tag elegida</div>
-        <div class="dash-stat-value"><%= s.omitSinTag != null ? s.omitSinTag : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="blue">
+    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: var(--gv-muted); text-transform: uppercase; letter-spacing: .04em;">Omitidos que requieren acción <span style="font-weight:600; text-transform:none;">(sin fila CRM o sin coincidencia por ref/CIF)</span></p>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; margin-bottom: 16px;">
+      <a href="<%= segmentLink('omit_sin_tag') %>" class="dash-stat gv-holded-kpi" data-variant="blue" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
+        <div class="dash-stat-label">Sin tag de filtro</div>
+        <div class="dash-stat-value"><%= s.omitSinTagAccion != null ? s.omitSinTagAccion : (s.omitSinTag != null ? s.omitSinTag : '—') %></div>
+      </a>
+      <a href="<%= segmentLink('omit_sin_cif') %>" class="dash-stat gv-holded-kpi" data-variant="blue" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
         <div class="dash-stat-label">Sin CIF (Holded)</div>
-        <div class="dash-stat-value"><%= s.omitSinCif != null ? s.omitSinCif : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="blue">
+        <div class="dash-stat-value"><%= s.omitSinCifAccion != null ? s.omitSinCifAccion : (s.omitSinCif != null ? s.omitSinCif : '—') %></div>
+      </a>
+      <a href="<%= segmentLink('omit_sin_prov') %>" class="dash-stat gv-holded-kpi" data-variant="blue" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
         <div class="dash-stat-label">Sin prov. ES (BD)</div>
-        <div class="dash-stat-value"><%= s.omitSinProvinciaEs != null ? s.omitSinProvinciaEs : '—' %></div>
-      </div>
+        <div class="dash-stat-value"><%= s.omitSinProvAccion != null ? s.omitSinProvAccion : (s.omitSinProvinciaEs != null ? s.omitSinProvinciaEs : '—') %></div>
+      </a>
+      <a href="<%= vistaLink('omitidos') %>" class="dash-stat gv-holded-kpi" data-variant="blue" style="text-decoration:none; color:inherit; display:block; border-radius:12px;" title="Todos los omitidos operativos">
+        <div class="dash-stat-label">Total omitidos (acción)</div>
+        <div class="dash-stat-value"><%= s.omitidosAccion != null ? s.omitidosAccion : '—' %></div>
+      </a>
     </div>
 
-    <p style="margin: -6px 0 14px 0; font-size: 12px; color: var(--gv-muted);">
-      Detalle sync (solo filas con tag + CIF + provincia ES). «En CRM» / pendientes según vinculación en base (ref / Holded / CIF).
-    </p>
-    <div class="dash-stats" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:12px; margin-bottom: 18px;">
-      <div class="dash-stat" data-variant="green">
-        <div class="dash-stat-label">Importados (al día)</div>
+    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: var(--gv-muted); text-transform: uppercase; letter-spacing: .04em;">Sincronización <span style="font-weight:600; text-transform:none;">(solo contactos que ya cumplen CIF + provincia)</span></p>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; margin-bottom: 18px;">
+      <a href="<%= segmentLink('sync_al_dia') %>" class="dash-stat gv-holded-kpi" data-variant="green" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
+        <div class="dash-stat-label">Al día</div>
         <div class="dash-stat-value"><%= s.syncImportados != null ? s.syncImportados : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="yellow">
+      </a>
+      <a href="<%= segmentLink('sync_pte_import') %>" class="dash-stat gv-holded-kpi" data-variant="yellow" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
         <div class="dash-stat-label">Pte. importar</div>
         <div class="dash-stat-value"><%= s.syncPteImportar != null ? s.syncPteImportar : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="blue">
-        <div class="dash-stat-label" title="CRM enlazado a Holded pero datos distintos; hay que volcar cambios del CRM a Holded">Sincronizar</div>
+      </a>
+      <a href="<%= segmentLink('sync_pte_export') %>" class="dash-stat gv-holded-kpi" data-variant="blue" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
+        <div class="dash-stat-label">Exportar → Holded</div>
         <div class="dash-stat-value"><%= s.syncPteExportar != null ? s.syncPteExportar : '—' %></div>
-      </div>
-      <div class="dash-stat" data-variant="blue">
-        <div class="dash-stat-label">Desincronizado</div>
+      </a>
+      <a href="<%= segmentLink('sync_desinc') %>" class="dash-stat gv-holded-kpi" data-variant="blue" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
+        <div class="dash-stat-label">Divergente / revisar</div>
         <div class="dash-stat-value"><%= s.syncDesincronizado != null ? s.syncDesincronizado : '—' %></div>
+      </a>
+      <div class="dash-stat" data-variant="navy" title="Suma de estados que requieren decisión de sync">
+        <div class="dash-stat-label">Total atención sync</div>
+        <div class="dash-stat-value"><%= s.syncRequierenAtencion != null ? s.syncRequierenAtencion : '—' %></div>
       </div>
     </div>
+    <style>
+      a.gv-holded-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); }
+    </style>
 
     <div style="display:flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
       <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
@@ -162,6 +176,7 @@
         <% if (vp !== 'todos') { %>
           <input type="hidden" name="vista" value="<%= vp %>" />
         <% } %>
+        <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>
         <button type="submit" class="btn secondary">Simular importación</button>
       </form>
       <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
@@ -171,6 +186,7 @@
         <% if (vp !== 'todos') { %>
           <input type="hidden" name="vista" value="<%= vp %>" />
         <% } %>
+        <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>
         <button type="submit" class="btn">Importar ahora</button>
       </form>
       <a class="btn secondary" href="<%= vistaLink(vp) %>">Actualizar vista previa</a>
@@ -192,7 +208,7 @@
     <% const sinCifEnOmitidos = (vp === 'omitidos' && motivoSinCif) ? previewList.filter(function(r) { return String(r.motivo || '') === motivoSinCif; }) : []; %>
     <% const sinTagEnOmitidos = vp === 'omitidos' ? previewList.filter(function(r) { return r.coincideTag === false; }) : []; %>
     <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
-      Mostrando <strong><%= previewList.length %></strong> fila(s)<% if (vp !== 'todos') { %> (filtro activo; el total en Holded no cambia)<% } %>.
+      Mostrando <strong><%= previewList.length %></strong> fila(s)<% if (vp !== 'todos' || seg) { %> (filtro activo; el total en Holded no cambia<% if (seg) { %>; segmento <code><%= seg %></code><% } %>)<% } %>.
     </p>
     <% if (vp === 'errores' && s.conTagSeleccionada != null && s.importables != null) { %>
     <p style="margin: -6px 0 12px 0; font-size: 12px; color: var(--gv-muted);">
@@ -207,6 +223,7 @@
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
         <input type="hidden" name="vista" value="errores" />
+        <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>
         <button type="submit" class="btn">Dar de alta como Lead (<%= sinCifEnErrores.length %> sin CIF en Holded)</button>
       </form>
       <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Crea clientes en estado Lead, CIF «Pendiente», vincula ID Holded y sincroniza tag <code>crm</code> en Holded si no la tenían.</span>
@@ -220,6 +237,7 @@
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
         <input type="hidden" name="vista" value="omitidos" />
+        <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>
         <button type="submit" class="btn">Añadir tag crm en Holded (<%= sinTagEnOmitidos.length %> sin etiqueta de filtro)</button>
       </form>
       <% } %>
@@ -229,6 +247,7 @@
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
         <input type="hidden" name="vista" value="omitidos" />
+        <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>
         <button type="submit" class="btn secondary">Dar de alta como Lead (<%= sinCifEnOmitidos.length %> sin CIF en Holded)</button>
       </form>
       <% } %>
@@ -258,10 +277,13 @@
         </thead>
         <tbody>
           <% previewList.forEach((r) => { %>
-            <% const isOmitRevisarPink = vp === 'omitidos' && (r.estadoBase === 'omitido' || r.estado === 'omitido') && motivoSinCif && String(r.motivo || '') !== motivoSinCif; %>
+            <% const isOmitRevisarPink = vp === 'omitidos' && !r.crmYaExisteEnCrm && (r.estadoBase === 'omitido' || r.estado === 'omitido') && motivoSinCif && String(r.motivo || '') !== motivoSinCif; %>
             <tr class="<%= isOmitRevisarPink ? 'gv-holded-omitidos-revisar' : '' %>">
               <td>
-                <% if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>
+                <% if (r.crmYaExisteEnCrm && (r.estadoBase === 'omitido' || r.estado === 'omitido')) { %>
+                  <span class="badge ok">En CRM</span>
+                  <div style="font-size:11px; margin-top:6px; color: var(--gv-muted); line-height:1.35;">Ya hay cliente vinculado (ref/CIF). No cuenta como omitido operativo.</div>
+                <% } else if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>
                   <span class="badge danger">omitido</span>
                 <% } else { %>
                   <div style="font-weight:600; font-size:13px; color: var(--gv-text, #1a1a1a);">
@@ -309,6 +331,7 @@
                   <form method="post" action="/cpanel/holded-clientes/export-crm" style="display:inline;">
                     <input type="hidden" name="holdedId" value="<%= r.holdedId %>" />
                     <% if (vp !== 'todos') { %><input type="hidden" name="vista" value="<%= vp %>" /><% } %>
+                    <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>
                     <% sel.forEach(function(t) { %><input type="hidden" name="tags" value="<%= t %>" /><% }); %>
                     <button type="submit" class="btn secondary" style="font-size: 11px; padding: 4px 8px;">Volcar CRM → Holded</button>
                   </form>
