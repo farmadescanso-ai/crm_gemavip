@@ -16,7 +16,8 @@ const {
   buildClienteFormModel,
   clienteColumnTabId,
   coerceClienteValue,
-  loadClienteFormCatalogs
+  loadClienteFormCatalogs,
+  isHoldedSyncSuperOnlyField
 } = require('../lib/cliente-helpers');
 const { normalizeTelefonoForDB } = require('../lib/telefono-utils');
 const { tokenizeSmartQuery } = require('../lib/pedido-helpers');
@@ -67,6 +68,14 @@ function stripClienteEtiquetasForNonAdmin(payload) {
   for (const k of Object.keys(payload)) {
     const lc = String(k).toLowerCase();
     if (lc === 'cli_tags' || lc === 'tags') delete payload[k];
+  }
+}
+
+/** Impide que admins distintos del id=1 alteren Holded / referencia / hash por POST. */
+function stripHoldedSyncSuperOnlyFieldsFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  for (const k of Object.keys(payload)) {
+    if (isHoldedSyncSuperOnlyField(k)) delete payload[k];
   }
 }
 
@@ -191,6 +200,7 @@ router.get('/new', requireLogin, async (_req, res, next) => {
   try {
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = await loadClienteFormCatalogs(db);
     const isAdmin = isAdminUser(res.locals.user);
+    const isSuperAdmin = Number(res.locals.user?.id) === 1;
     const baseItem = applySpainDefaultsIfEmpty(
       { OK_KO: 1, Tarifa: 0, Dto: 0 },
       { meta, paises, idiomas, monedas }
@@ -217,7 +227,8 @@ router.get('/new', requireLogin, async (_req, res, next) => {
       cooperativas: Array.isArray(cooperativas) ? cooperativas : [],
       gruposCompras: Array.isArray(gruposCompras) ? gruposCompras : [],
       canChangeComercial: !!isAdmin,
-      isAdmin: !!isAdmin
+      isAdmin: !!isAdmin,
+      isSuperAdmin
     });
     res.render('cliente-form', { ...model, error: null, admin: isAdmin, canChangeComercial: !!isAdmin });
   } catch (e) {
@@ -229,6 +240,7 @@ router.post('/new', requireLogin, async (req, res, next) => {
   try {
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = await loadClienteFormCatalogs(db);
     const isAdmin = isAdminUser(res.locals.user);
+    const isSuperAdmin = Number(res.locals.user?.id) === 1;
     const body = req.body || {};
     const dupConfirmed = String(body.dup_confirmed || '').trim() === '1';
     const cols = Array.isArray(meta?.cols) ? meta.cols : [];
@@ -284,7 +296,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
           gruposCompras,
           canChangeComercial: !!isAdmin,
           missingFields: [],
-          isAdmin: !!isAdmin
+          isAdmin: !!isAdmin,
+          isSuperAdmin
         });
         return res.status(400).render('cliente-form', {
           ...modelInvalid,
@@ -315,7 +328,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         gruposCompras,
         canChangeComercial: !!isAdmin,
         missingFields: [],
-        isAdmin: !!isAdmin
+        isAdmin: !!isAdmin,
+        isSuperAdmin
       });
       return res.status(400).render('cliente-form', {
         ...model,
@@ -354,7 +368,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         gruposCompras,
         canChangeComercial: !!isAdmin,
         missingFields: [],
-        isAdmin: !!isAdmin
+        isAdmin: !!isAdmin,
+        isSuperAdmin
       });
       return res.status(409).render('cliente-form', {
         ...model,
@@ -391,7 +406,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
         gruposCompras,
         canChangeComercial: !!isAdmin,
         missingFields: missingFieldsNew,
-        isAdmin: !!isAdmin
+        isAdmin: !!isAdmin,
+        isSuperAdmin
       });
       return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin: isAdmin, canChangeComercial: !!isAdmin });
     }
@@ -399,6 +415,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
     if (!isAdmin) {
       stripClienteAvanzadoFieldsFromPayload(payload, meta);
       stripClienteEtiquetasForNonAdmin(payload);
+    } else if (!isSuperAdmin) {
+      stripHoldedSyncSuperOnlyFieldsFromPayload(payload);
     }
 
     await db.createCliente(payload);
@@ -478,6 +496,7 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
+    const isSuperAdmin = Number(res.locals.user?.id) === 1;
     const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
     if (!item) return clienteNotFoundPage(req, res, id);
@@ -507,7 +526,8 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
       cooperativas,
       gruposCompras,
       canChangeComercial: admin,
-      isAdmin: !!admin
+      isAdmin: !!admin,
+      isSuperAdmin
     });
     res.render('cliente-form', {
       ...model,
@@ -532,6 +552,7 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
+    const isSuperAdmin = Number(res.locals.user?.id) === 1;
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
     const [item, catalogs, cooperativasCliente] = await Promise.all([
       db.getClienteById(id),
@@ -612,7 +633,8 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
         gruposCompras,
         canChangeComercial: !!admin,
         missingFields,
-        isAdmin: !!admin
+        isAdmin: !!admin,
+        isSuperAdmin
       });
       return res.status(400).render('cliente-form', { ...model, error: 'Completa los campos obligatorios marcados.', admin, canChangeComercial: admin, puedeSolicitarAsignacion: puedeSolicitar, clienteId: id, contactoId: id, agendaContactos: [], agendaIncludeHistorico: false, cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : [] });
     }
@@ -624,6 +646,8 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     if (!admin) {
       stripClienteAvanzadoFieldsFromPayload(payload, meta);
       stripClienteEtiquetasForNonAdmin(payload);
+    } else if (!isSuperAdmin) {
+      stripHoldedSyncSuperOnlyFieldsFromPayload(payload);
     }
 
     const dniRaw = payload.cli_dni_cif ?? payload.DNI_CIF;
@@ -653,7 +677,8 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
           cooperativas,
           gruposCompras,
           canChangeComercial: !!admin,
-          isAdmin: !!admin
+          isAdmin: !!admin,
+          isSuperAdmin
         });
         const relacionesDataInv = await db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] }));
         const relacionesInv = [
@@ -699,7 +724,8 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
           cooperativas,
           gruposCompras,
           canChangeComercial: !!admin,
-          isAdmin: !!admin
+          isAdmin: !!admin,
+          isSuperAdmin
         });
         return res.status(400).render('cliente-form', {
           ...model,
@@ -736,6 +762,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
     const admin = isAdminUser(res.locals.user);
+    const isSuperAdmin = Number(res.locals.user?.id) === 1;
     const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
     if (!admin && !canEdit) return res.status(403).send('No tiene permiso para ver este contacto.');
     const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
@@ -770,7 +797,8 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       cooperativas,
       gruposCompras,
       canChangeComercial: false,
-      isAdmin: !!admin
+      isAdmin: !!admin,
+      isSuperAdmin
     });
     res.render('cliente-view', {
       ...model,
