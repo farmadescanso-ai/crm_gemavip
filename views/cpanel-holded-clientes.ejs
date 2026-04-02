@@ -65,7 +65,14 @@
         </form>
       </div>
     </details>
-    <style>.gv-holded-tags-accordion summary::-webkit-details-marker { display: none; }</style>
+    <style>
+      .gv-holded-tags-accordion summary::-webkit-details-marker { display: none; }
+      /* Solo omitidos: revisar en CRM (no son el bloque «sin CIF → Lead») */
+      .dash-table tbody tr.gv-holded-omitidos-revisar td:first-child {
+        border-left: 4px solid #ec4899;
+        background: linear-gradient(90deg, rgba(236, 72, 153, 0.14) 0%, rgba(236, 72, 153, 0.02) 100%);
+      }
+    </style>
 
     <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
       <strong>Resumen:</strong> solo contactos Holded con <code>type</code> <strong>client</strong> o <strong>lead</strong> (API: <a href="https://developers.holded.com/reference/list-contacts-1" target="_blank" rel="noopener">List Contacts</a>).
@@ -182,6 +189,8 @@
     <% const previewList = Array.isArray(previewRows) ? previewRows : rowsSafe; %>
     <% const motivoSinCif = typeof motivoSinCifHolded === 'string' ? motivoSinCifHolded : ''; %>
     <% const sinCifEnErrores = (vp === 'errores' && motivoSinCif) ? previewList.filter(function(r) { return String(r.motivo || '') === motivoSinCif; }) : []; %>
+    <% const sinCifEnOmitidos = (vp === 'omitidos' && motivoSinCif) ? previewList.filter(function(r) { return String(r.motivo || '') === motivoSinCif; }) : []; %>
+    <% const sinTagEnOmitidos = vp === 'omitidos' ? previewList.filter(function(r) { return r.coincideTag === false; }) : []; %>
     <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--gv-muted);">
       Mostrando <strong><%= previewList.length %></strong> fila(s)<% if (vp !== 'todos') { %> (filtro activo; el total en Holded no cambia)<% } %>.
     </p>
@@ -202,6 +211,31 @@
       </form>
       <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Crea clientes en estado Lead, CIF «Pendiente», vincula ID Holded y sincroniza tag <code>crm</code> en Holded si no la tenían.</span>
     </div>
+    <% } %>
+    <% if (vp === 'omitidos' && tagsForLead.length) { %>
+    <div style="margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px;">
+      <% if (sinTagEnOmitidos.length > 0) { %>
+      <form method="post" action="/cpanel/holded-clientes/ajustar-tags-crm-holded" style="display: inline;">
+        <% tagsForLead.forEach(function(t) { %>
+          <input type="hidden" name="tags" value="<%= t %>" />
+        <% }) %>
+        <input type="hidden" name="vista" value="omitidos" />
+        <button type="submit" class="btn">Añadir tag crm en Holded (<%= sinTagEnOmitidos.length %> sin etiqueta de filtro)</button>
+      </form>
+      <% } %>
+      <% if (sinCifEnOmitidos.length > 0) { %>
+      <form method="post" action="/cpanel/holded-clientes/alta-leads-sin-cif" style="display: inline;">
+        <% tagsForLead.forEach(function(t) { %>
+          <input type="hidden" name="tags" value="<%= t %>" />
+        <% }) %>
+        <input type="hidden" name="vista" value="omitidos" />
+        <button type="submit" class="btn secondary">Dar de alta como Lead (<%= sinCifEnOmitidos.length %> sin CIF en Holded)</button>
+      </form>
+      <% } %>
+      <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Sin etiqueta: se graba <code>crm</code> en Holded para que entren en el filtro. Sin CIF: alta en CRM como Lead (CIF «Pendiente»). El resto de filas omitidas llevan <strong>bandera rosa</strong> para revisión (provincia, etc.).</span>
+    </div>
+    <% } else if (vp === 'omitidos') { %>
+    <p style="margin: 0 0 12px 0; font-size: 12px; color: var(--gv-muted);">Las filas con <strong>bandera rosa</strong> a la izquierda son omitidas por un motivo distinto de «sin CIF» (p. ej. provincia no mapeada): revísalas en Holded o en el CRM.</p>
     <% } %>
     <div class="table-wrap" style="max-height: 70vh; overflow: auto;">
       <table class="dash-table">
@@ -224,7 +258,8 @@
         </thead>
         <tbody>
           <% previewList.forEach((r) => { %>
-            <tr>
+            <% const isOmitRevisarPink = vp === 'omitidos' && (r.estadoBase === 'omitido' || r.estado === 'omitido') && motivoSinCif && String(r.motivo || '') !== motivoSinCif; %>
+            <tr class="<%= isOmitRevisarPink ? 'gv-holded-omitidos-revisar' : '' %>">
               <td>
                 <% if (r.estadoBase === 'omitido' || r.estado === 'omitido') { %>
                   <span class="badge danger">omitido</span>

@@ -10,6 +10,7 @@ const {
   previewHoldedClientesEs,
   importHoldedClientesEs,
   importHoldedSinCifComoLeads,
+  addCrmTagHoldedToContactsSinAlcanceTags,
   exportCrmClienteToHolded,
   parseSelectedTagsInput,
   MOTIVO_OMITIDO_SIN_CIF_HOLDED
@@ -194,6 +195,31 @@ router.post('/cpanel/holded-clientes/alta-leads-sin-cif', requireUserId1, async 
       if (Number(result.skipped) > 0) msg += ` Omitidos (ya existían en CRM): ${result.skipped}.`;
       if (Number(result.errors) > 0) {
         msg += ` Errores: ${result.errors}.`;
+        if (result.errorFirst) msg += ` Primer error: ${String(result.errorFirst).slice(0, 240)}`;
+      }
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
+    }
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
+  } catch (e) {
+    const selectedTags = tagsFromBody(req.body || {});
+    const vista = parseVistaPreview(req.body || {});
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
+  }
+});
+
+router.post('/cpanel/holded-clientes/ajustar-tags-crm-holded', requireUserId1, async (req, res, next) => {
+  try {
+    const selectedTags = tagsFromBody(req.body);
+    const vista = parseVistaPreview(req.body || {});
+    const result = await addCrmTagHoldedToContactsSinAlcanceTags(db, { selectedTags });
+    if (result.ok) {
+      let msg = `Tag crm en Holded: ${result.tagged} contacto(s) actualizado(s).`;
+      if (Number(result.targets) > 0 && result.tagged < result.targets) {
+        msg += ` Objetivo: ${result.targets}.`;
+      }
+      if (Number(result.skipped) > 0) msg += ` Sin ID: ${result.skipped}.`;
+      if (Number(result.errors) > 0) {
+        msg += ` Errores API: ${result.errors}.`;
         if (result.errorFirst) msg += ` Primer error: ${String(result.errorFirst).slice(0, 240)}`;
       }
       return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
