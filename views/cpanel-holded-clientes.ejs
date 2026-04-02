@@ -23,7 +23,7 @@
     </div>
     <% const ts = typeof tagScope === 'object' && tagScope && tagScope.effectiveTagsDisplay ? tagScope : { mode: 'filter', effectiveTagsDisplay: ['crm'] }; %>
     <p class="gv-vista-hd__sub" style="margin-top:0;">
-      Se listan contactos Holded tipo <code>client</code> / <code>lead</code> con la tag <strong>crm</strong> (y opcionalmente las de <code>SYNC_HOLDED_DEFAULT_TAGS</code> en el servidor) que además cumplan <strong>CIF/NIF</strong> en Holded y <strong>provincia española</strong> mapeada en BD. La columna Tags solo muestra <code>crm</code> (no el resto de etiquetas del contacto). La comparación Holded ↔ CRM ignora IDs de enlace, número interno y tags: solo datos de contacto.
+      Se listan contactos Holded tipo <code>client</code> / <code>lead</code> que tengan <strong>al menos una</strong> etiqueta del alcance (OR): siempre <code>crm</code> más las de <code>SYNC_HOLDED_DEFAULT_TAGS</code> en el servidor (p. ej. <code>sepa</code>). La columna «Tags alcance» muestra cuáles de esas etiquetas tiene el contacto en Holded. La comparación Holded ↔ CRM ignora IDs de enlace y tags en el hash: solo datos de contacto.
     </p>
     <% if (Array.isArray(ts.effectiveTagsDisplay) && ts.effectiveTagsDisplay.length) { %>
       <p style="margin: 10px 0 0 0; font-size: 13px; color: var(--gv-muted);"><strong>Tags en filtro (OR):</strong> <%= ts.effectiveTagsDisplay.map(function(t){ return t; }).join(', ') %></p>
@@ -52,20 +52,29 @@
 
     <details class="gv-holded-tags-accordion" style="margin-bottom: 18px; border: 1px solid var(--gv-border, rgba(0,0,0,.12)); border-radius: 10px; background: var(--gv-card-bg, #fff);">
       <summary style="cursor: pointer; list-style: none; padding: 14px 16px; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-        <span>Tag de alcance <span style="color: var(--gv-muted); font-weight: 600; font-size: 13px;">(siempre <code>crm</code>)</span></span>
+        <span>Tags de alcance <span style="color: var(--gv-muted); font-weight: 600; font-size: 13px;">(OR · <code>crm</code> obligatoria en servidor)</span></span>
         <span style="font-size: 12px; font-weight: 600; color: var(--gv-muted);">Mostrar / ocultar</span>
       </summary>
       <div class="card-bd" style="padding: 0 16px 16px 16px; border-top: 1px solid var(--gv-border, rgba(0,0,0,.08));">
-        <p class="card-subtitle" style="margin: 12px 0 10px 0;">El filtro incluye siempre la tag <code>crm</code>. Otras etiquetas del mismo contacto no se muestran aquí ni en la tabla. Para más criterios usa <code>SYNC_HOLDED_DEFAULT_TAGS</code> en el servidor.</p>
+        <p class="card-subtitle" style="margin: 12px 0 10px 0;">El alcance une <code>crm</code> con <code>SYNC_HOLDED_DEFAULT_TAGS</code> (p. ej. <code>sepa</code>). Un contacto entra si tiene <strong>cualquiera</strong> de esas. El listado y la columna «Tags alcance» muestran qué etiquetas del alcance tiene cada uno (no el resto de etiquetas Holded).</p>
         <form method="get" action="/cpanel/holded-clientes" id="gv-holded-tags-filter" style="margin-bottom: 0;">
           <% if (vp !== 'todos') { %>
             <input type="hidden" name="vista" value="<%= vp %>" />
           <% } %>
           <input type="hidden" name="tags" value="crm" />
-          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-            <input type="checkbox" checked disabled />
-            <span><code>crm</code> <span style="color: var(--gv-muted);">(<%= allTagsList.length && allTagsList[0] ? allTagsList[0].count : 0 %> contactos con esta tag)</span></span>
-          </label>
+          <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+            <% const tagRows = (Array.isArray(ts.effectiveTagsDisplay) && ts.effectiveTagsDisplay.length) ? ts.effectiveTagsDisplay : ['crm']; %>
+            <% tagRows.forEach(function(tagName) {
+                 var key = String(tagName).toLowerCase().trim();
+                 var meta = (allTagsList || []).find(function(x) { return String(x.key || x.display || '').toLowerCase() === key; });
+                 var cnt = meta && meta.count != null ? meta.count : 0;
+            %>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" checked disabled />
+              <span><code><%= tagName %></code> <span style="color: var(--gv-muted);">(<%= cnt %> contactos con esta tag)</span></span>
+            </label>
+            <% }); %>
+          </div>
           <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button type="submit" class="btn">Aplicar / actualizar</button>
             <a class="btn secondary" href="/cpanel/holded-clientes?tags=crm">Solo tag crm</a>
@@ -269,7 +278,7 @@
             <th>Prov. CRM</th>
             <th>Email</th>
             <th>Teléfono</th>
-            <th title="Solo se muestra la tag crm si el contacto la tiene">Tags (solo crm)</th>
+            <th title="Etiquetas del alcance (crm, sepa, …) que el contacto tiene en Holded">Tags alcance</th>
             <th title="Fecha de última modificación en Holded (API) y en CRM si la columna existe">Últ. modificación</th>
             <th title="Campos comparables distintos entre Holded y CRM">Campos distintos</th>
             <th>Motivo</th>
