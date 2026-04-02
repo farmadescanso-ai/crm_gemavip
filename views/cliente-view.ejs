@@ -6,6 +6,14 @@
   <div class="card-hd">
     <h1 class="card-title">Cliente #<%= cid %></h1>
     <p class="card-subtitle" style="font-weight: 700;"><%= item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? item?.cli_nombre_cial ?? item?.Nombre_Cial ?? item?.Nombre ?? 'Detalle de cliente' %></p>
+    <% const _holdedPteView =
+      item &&
+      (Number(item.cli_holded_sync_pendiente) === 1 || String(item.cli_holded_sync_pendiente) === '1'); %>
+    <% if (_holdedPteView) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-top:12px;" role="status">
+        <strong>Holded — pendiente de sincronización:</strong> los datos del CRM no coinciden con Holded. Sincroniza desde CPanel cuando corresponda.
+      </div>
+    <% } %>
   </div>
   <div class="card-bd">
     <% if (typeof solicitud !== 'undefined' && solicitud === 'ok') { %>

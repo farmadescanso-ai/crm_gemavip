@@ -776,6 +776,12 @@ router.put(
 
     try {
       const result = await db.updateCliente(id, req.body || {});
+      try {
+        const { evaluateCliHoldedSyncPendienteAfterCrmSave } = require('../../lib/holded-sync');
+        await evaluateCliHoldedSyncPendienteAfterCrmSave(db, id);
+      } catch (e) {
+        console.warn('[api/clientes] Holded sync pendiente post-PUT:', e?.message || e);
+      }
       res.json({ ok: true, result });
     } catch (e) {
       if (isDniCifDuplicateApiError(e)) {

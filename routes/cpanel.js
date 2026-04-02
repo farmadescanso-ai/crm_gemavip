@@ -72,8 +72,11 @@ function filterPreviewRows(rows, vista) {
     return list.filter((r) => r.estadoBase === 'importable' && r.crmVinculado === false);
   }
   if (vista === 'errores') {
-    // Con tag elegida pero no importables: ver motivo (sin CIF, provincia ES, etc.)
-    return list.filter((r) => r.coincideTag === true && r.estadoBase === 'omitido');
+    // Con tag elegida pero no importables: ver motivo (sin CIF, provincia ES, etc.).
+    // No listar contactos ya vinculados en CRM (mismo ID Holded): ya importados.
+    return list.filter(
+      (r) => r.coincideTag === true && r.estadoBase === 'omitido' && r.crmYaExisteEnCrm !== true
+    );
   }
   return list;
 }

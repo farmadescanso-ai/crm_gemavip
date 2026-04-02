@@ -9,6 +9,15 @@
   <div class="card-hd">
     <h1 class="card-title"><%= mode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' %></h1>
     <p class="card-subtitle">Revisa y completa la ficha del cliente. Puedes moverte por pestañas sin perder cambios.</p>
+    <% const _holdedPte =
+      mode === 'edit' && item &&
+      (Number(item.cli_holded_sync_pendiente) === 1 || String(item.cli_holded_sync_pendiente) === '1'); %>
+    <% if (_holdedPte) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-top:12px;" role="status">
+        <strong>Holded — pendiente de sincronización:</strong> los datos guardados en el CRM no coinciden con el contacto en Holded.
+        Sincroniza desde CPanel (exportar a Holded) cuando corresponda.
+      </div>
+    <% } %>
   </div>
   <div class="card-bd">
     <% if (error) { %>

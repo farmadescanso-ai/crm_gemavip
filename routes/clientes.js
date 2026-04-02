@@ -719,6 +719,12 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     }
 
     await db.updateCliente(id, payload);
+    try {
+      const { evaluateCliHoldedSyncPendienteAfterCrmSave } = require('../lib/holded-sync');
+      await evaluateCliHoldedSyncPendienteAfterCrmSave(db, id);
+    } catch (e) {
+      console.warn('[clientes] Holded sync pendiente post-guardado:', e?.message || e);
+    }
     return res.redirect(`/clientes/${id}`);
   } catch (e) {
     next(e);
