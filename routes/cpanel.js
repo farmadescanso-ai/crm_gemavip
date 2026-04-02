@@ -17,18 +17,30 @@ const {
 
 const router = express.Router();
 
+/** Tag `crm` siempre incluida en filtro y formularios. */
+function ensureCrmInTags(tags) {
+  const base = Array.isArray(tags) ? tags.map((x) => String(x).trim()).filter(Boolean) : [];
+  const set = new Set(base.map((t) => t.toLowerCase()));
+  set.add('crm');
+  return [...set];
+}
+
 function tagsFromQuery(query) {
   const raw = query.tags;
-  if (raw == null || raw === '') return [];
-  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
-  return parseSelectedTagsInput(raw);
+  let out = [];
+  if (raw == null || raw === '') out = [];
+  else if (Array.isArray(raw)) out = raw.map((x) => String(x).trim()).filter(Boolean);
+  else out = parseSelectedTagsInput(raw);
+  return ensureCrmInTags(out);
 }
 
 function tagsFromBody(body) {
   const raw = body?.tags;
-  if (raw == null || raw === '') return [];
-  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
-  return parseSelectedTagsInput(raw);
+  let out = [];
+  if (raw == null || raw === '') out = [];
+  else if (Array.isArray(raw)) out = raw.map((x) => String(x).trim()).filter(Boolean);
+  else out = parseSelectedTagsInput(raw);
+  return ensureCrmInTags(out);
 }
 
 function parseVistaPreview(query) {

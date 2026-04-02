@@ -3,20 +3,22 @@
 ## Alcance
 
 - Solo contactos Holded con `type` **`client`** o **`lead`**. Proveedores, acreedores y demás tipos se excluyen en código (`filterHoldedContactsClienteOLead`).
+- El filtro de tags incluye **siempre** `crm` (y opcionalmente `SYNC_HOLDED_DEFAULT_TAGS`). En la UI solo se muestra la tag `crm`; en la tabla de vista previa la columna Tags muestra únicamente `crm` si el contacto la tiene (no el resto de etiquetas Holded del registro).
 - Implementación: [`lib/holded-sync/index.js`](../lib/holded-sync/index.js) (entrada estable: [`lib/sync-holded-clientes.js`](../lib/sync-holded-clientes.js)).
 
 ## Filtro de tags y variables de entorno
 
 | Variable | Efecto |
 |----------|--------|
-| *(ninguna / vacío)* | Sin `HOLDED_SYNC_REQUIRE_TAGS`: se evalúan **todos** los client/lead que cumplan CIF + provincia ES (no hace falta marcar tags en la UI). |
-| `HOLDED_SYNC_REQUIRE_TAGS=1` | Obliga a elegir tags en el CPanel **o** definir `SYNC_HOLDED_DEFAULT_TAGS`. |
-| `SYNC_HOLDED_DEFAULT_TAGS` | Lista separada por comas (ej. `crm,farmacia`) fusionada con las tags marcadas en la UI. |
+| *(por defecto)* | Siempre se exige la tag **`crm`** en el conjunto de filtro (OR con otras si las hay). |
+| `SYNC_HOLDED_DEFAULT_TAGS` | Lista separada por comas fusionada con `crm` (ej. `farmacia`) para ampliar el alcance sin listar más tags en el CPanel. |
+
+Las variables `HOLDED_SYNC_REQUIRE_TAGS` y el modo «sin tags» ya no aplican: `crm` se inyecta siempre en el filtro.
 
 ## Estados de la vista previa (H / C / S)
 
-- **H**: hash del contacto Holded actual (`hashFromHoldedContact`).
-- **C**: hash de la fila CRM (`hashFromCrmRow`).
+- **H**: hash del contacto Holded actual (`hashFromHoldedContact`), **solo campos de datos de contacto** (ver abajo).
+- **C**: hash de la fila CRM (`hashFromCrmRow`), mismos campos.
 - **S**: `cli_holded_sync_hash` en BD (último estado acordado tras import o export).
 
 | Etiqueta en UI | Condición (resumida) |
@@ -28,11 +30,15 @@
 
 Tras **import** o **export**, `cli_holded_sync_hash` se guarda con el **hash del CRM** (`hashFromCrmRow` tras leer el cliente), para alinear con la normalización de `createCliente` / `updateCliente`.
 
-## Mapeo de campos (comparables)
+## Campos que entran en el hash (comparables)
 
-Lista canónica: `COMPARABLE_PAYLOAD_KEYS` en código. Origen Holded → CRM: `buildClientePayloadFromHoldedContact`. CRM → Holded (export): `buildHoldedPutBodyFromCrmRow`.
+Lista canónica: `COMPARABLE_PAYLOAD_KEYS` en código. **No** se comparan (no disparan “datos distintos”): `cli_referencia`, `cli_Id_Holded`, `cli_tags`, ni `cli_id` — son enlaces o metadatos operativos, no el registro de contacto en sí.
 
-Campos típicos: `cli_referencia`, `cli_Id_Holded`, nombre, CIF, email, móvil, teléfono, dirección, población, CP, `cli_prov_id`, `cli_pais_id`, `cli_tags`, IBAN/SWIFT, web, observaciones, régimen, mandato, cuentas, etc.
+Origen Holded → CRM: `buildClientePayloadFromHoldedContact` (sigue enviando ref/ID a BD en import). CRM → Holded (export): `buildHoldedPutBodyFromCrmRow`.
+
+Campos típicos en el hash: nombre, CIF, email, móvil, teléfono, dirección, población, CP, provincia, país, IBAN/SWIFT, web, observaciones, régimen, mandato, cuentas, persona de contacto, etc.
+
+**Nota:** Tras cambiar el conjunto de campos del hash, los valores antiguos de `cli_holded_sync_hash` pueden dejar de coincidir hasta el siguiente import/export por fila.
 
 ## Auditoría
 
@@ -43,7 +49,7 @@ Tablas `sync_run` y `sync_event` (creadas al vuelo con `ensureSyncRunTables` o v
 `POST /api/holded-sync/import`
 
 - Cabecera: `Authorization: Bearer <CRON_SECRET>` (variable `CRON_SECRET` en entorno).
-- Cuerpo o query opcional: `tags` (misma lógica que el CPanel), `dryRun=1`, `maxRows` (límite de filas a procesar).
+- Cuerpo o query opcional: `tags` (se fusiona con `crm` como en el CPanel), `dryRun=1`, `maxRows` (límite de filas a procesar).
 
 Ejemplo:
 
