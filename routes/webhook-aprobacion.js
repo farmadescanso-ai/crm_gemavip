@@ -270,48 +270,120 @@ router.get('/aprobar-pedido', async (req, res) => {
   }
 });
 
+/**
+ * Misma lógica que GET /webhook/aprobar-sync-cliente (enlaces firmados o n8n con API key).
+ * @param {import('../config/mysql-crm')} db
+ * @param {{ notifId: number, accion: string, sig?: string, skipSignature?: boolean }} opts
+ * @returns {Promise<{ ok: true, revisar?: boolean, cliId: number, accion: string, msgOk?: string } | { ok: false, status: number, titulo: string, mensaje: string }>}
+ */
+async function runHoldedSyncAprobacion(db, opts) {
+  const notifId = Number(opts.notifId);
+  let accion = String(opts.accion || '').trim().toLowerCase();
+  const sig = String(opts.sig || '').trim();
+  const skipSignature = opts.skipSignature === true;
+  const allowed = new Set(['crm_to_holded', 'holded_to_crm', 'revisar']);
+
+  if (!Number.isFinite(notifId) || notifId <= 0 || !allowed.has(accion)) {
+    return { ok: false, status: 400, titulo: 'Enlace inválido', mensaje: 'Parámetros incorrectos.' };
+  }
+
+  if (!skipSignature) {
+    const expectedSig = computeSigSyncCliente(notifId, accion);
+    if (sig !== expectedSig) {
+      return { ok: false, status: 400, titulo: 'Enlace inválido', mensaje: 'Firma incorrecta.' };
+    }
+  }
+
+  const m = await db._ensureNotificacionesMeta();
+  const rows = await db.query(
+    `SELECT \`${m.pk}\` AS nid, \`${m.colTipo}\` AS tipo, \`${m.colContacto}\` AS id_contacto, \`${m.colEstado}\` AS estado FROM \`notificaciones\` WHERE \`${m.pk}\` = ? AND \`${m.colEstado}\` = 'pendiente'`,
+    [notifId]
+  );
+  const notif = Array.isArray(rows) && rows.length ? rows[0] : null;
+  if (!notif || String(notif.tipo || '').toLowerCase() !== 'aprobacion_sync_cliente') {
+    return { ok: false, status: 404, titulo: 'Acción no válida', mensaje: 'La solicitud ya fue resuelta o no existe.' };
+  }
+
+  const cliId = Number(notif.id_contacto);
+  if (!Number.isFinite(cliId) || cliId <= 0) {
+    return { ok: false, status: 400, titulo: 'Error', mensaje: 'Notificación sin cliente válido.' };
+  }
+
+  const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+  if (accion === 'revisar') {
+    await db.query(
+      `UPDATE \`notificaciones\` SET \`${m.colEstado}\` = 'rechazada', \`${m.colFechaResolucion}\` = ? WHERE \`${m.pk}\` = ?`,
+      [ahora, notifId]
+    );
+    return { ok: true, revisar: true, cliId, accion };
+  }
+
+  const { exportCrmClienteToHolded, importCrmClienteFromHolded } = require('../lib/holded-sync');
+  const syncResult =
+    accion === 'crm_to_holded'
+      ? await exportCrmClienteToHolded(db, cliId)
+      : await importCrmClienteFromHolded(db, cliId);
+
+  if (!syncResult.ok) {
+    return {
+      ok: false,
+      status: 500,
+      titulo: 'Error de sincronización',
+      mensaje: syncResult.error || 'No se pudo completar.'
+    };
+  }
+
+  await db.query(
+    `UPDATE \`notificaciones\` SET \`${m.colEstado}\` = 'aprobada', \`${m.colFechaResolucion}\` = ? WHERE \`${m.pk}\` = ?`,
+    [ahora, notifId]
+  );
+
+  try {
+    const cr = await db.getClienteById(cliId).catch(() => null);
+    const nombre = String(cr?.cli_nombre_razon_social ?? cr?.Nombre_Razon_Social ?? '').trim();
+    const hid = String(cr?.cli_Id_Holded ?? cr?.cli_referencia ?? syncResult.holdedId ?? '').trim();
+    const { sendHoldedSyncAppliedNotifyEmail } = require('../lib/mailer');
+    const betacourt = String(process.env.HOLDED_SYNC_BETACOURT_EMAIL || 'c.betacourt@gemavip.com').trim();
+    if (betacourt) {
+      await sendHoldedSyncAppliedNotifyEmail(betacourt, {
+        accion,
+        cliId,
+        clienteNombre: nombre,
+        holdedId: hid
+      }).catch((e) => console.warn('[APROBACION-SYNC] email betacourt:', e?.message));
+    }
+  } catch (e) {
+    console.warn('[APROBACION-SYNC] post-sync notify:', e?.message);
+  }
+
+  const msgOk =
+    accion === 'crm_to_holded'
+      ? '<p>Los datos del CRM se han enviado a Holded y el hash de sincronización está alineado.</p>'
+      : '<p>Los datos de Holded se han aplicado al CRM y el hash de sincronización está alineado.</p>';
+
+  return { ok: true, cliId, accion, msgOk };
+}
+
+function extractApiKeyFromRequest(req) {
+  const h = req.headers || {};
+  const x = String(h['x-api-key'] ?? h['X-API-Key'] ?? '').trim();
+  const auth = String(h.authorization || h.Authorization || '');
+  const bearer = auth.replace(/^Bearer\s+/i, '').trim();
+  return x || bearer || '';
+}
+
 router.get('/aprobar-sync-cliente', async (req, res) => {
   try {
     const notifId = Number(req.query.notifId);
     const accion = String(req.query.accion || '').trim().toLowerCase();
     const sig = String(req.query.sig || '').trim();
-    const allowed = new Set(['crm_to_holded', 'holded_to_crm', 'revisar']);
-
-    if (!Number.isFinite(notifId) || notifId <= 0 || !allowed.has(accion)) {
+    const result = await runHoldedSyncAprobacion(db, { notifId, accion, sig, skipSignature: false });
+    if (!result.ok) {
       res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.status(400).send(paginaErrorHtml('Enlace inválido', 'Parámetros incorrectos.'));
+      return res.status(result.status).send(paginaErrorHtml(result.titulo, result.mensaje));
     }
-
-    const expectedSig = computeSigSyncCliente(notifId, accion);
-    if (sig !== expectedSig) {
-      res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.status(400).send(paginaErrorHtml('Enlace inválido', 'Firma incorrecta.'));
-    }
-
-    const m = await db._ensureNotificacionesMeta();
-    const rows = await db.query(
-      `SELECT \`${m.pk}\` AS nid, \`${m.colTipo}\` AS tipo, \`${m.colContacto}\` AS id_contacto, \`${m.colEstado}\` AS estado FROM \`notificaciones\` WHERE \`${m.pk}\` = ? AND \`${m.colEstado}\` = 'pendiente'`,
-      [notifId]
-    );
-    const notif = Array.isArray(rows) && rows.length ? rows[0] : null;
-    if (!notif || String(notif.tipo || '').toLowerCase() !== 'aprobacion_sync_cliente') {
-      res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.status(404).send(paginaErrorHtml('Acción no válida', 'La solicitud ya fue resuelta o no existe.'));
-    }
-
-    const cliId = Number(notif.id_contacto);
-    if (!Number.isFinite(cliId) || cliId <= 0) {
-      res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.status(400).send(paginaErrorHtml('Error', 'Notificación sin cliente válido.'));
-    }
-
-    const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
-    if (accion === 'revisar') {
-      await db.query(
-        `UPDATE \`notificaciones\` SET \`${m.colEstado}\` = 'rechazada', \`${m.colFechaResolucion}\` = ? WHERE \`${m.pk}\` = ?`,
-        [ahora, notifId]
-      );
+    if (result.revisar) {
       res.set('Content-Type', 'text/html; charset=utf-8');
       return res.send(
         paginaListoHtml(true, '', {
@@ -319,63 +391,67 @@ router.get('/aprobar-sync-cliente', async (req, res) => {
           syncTitulo: 'Listo',
           syncMensajeHtml:
             '<p>Puedes revisar el contacto en el CRM cuando quieras. No se ha aplicado ninguna sincronización automática desde este enlace.</p>',
-          fichaClienteUrl: `${APP_BASE_URL}/clientes/${cliId}`
+          fichaClienteUrl: `${APP_BASE_URL}/clientes/${result.cliId}`
         })
       );
     }
-
-    const { exportCrmClienteToHolded, importCrmClienteFromHolded } = require('../lib/holded-sync');
-    let syncResult =
-      accion === 'crm_to_holded'
-        ? await exportCrmClienteToHolded(db, cliId)
-        : await importCrmClienteFromHolded(db, cliId);
-
-    if (!syncResult.ok) {
-      res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.status(500).send(paginaErrorHtml('Error de sincronización', syncResult.error || 'No se pudo completar.'));
-    }
-
-    await db.query(
-      `UPDATE \`notificaciones\` SET \`${m.colEstado}\` = 'aprobada', \`${m.colFechaResolucion}\` = ? WHERE \`${m.pk}\` = ?`,
-      [ahora, notifId]
-    );
-
-    try {
-      const cr = await db.getClienteById(cliId).catch(() => null);
-      const nombre = String(cr?.cli_nombre_razon_social ?? cr?.Nombre_Razon_Social ?? '').trim();
-      const hid = String(cr?.cli_Id_Holded ?? cr?.cli_referencia ?? syncResult.holdedId ?? '').trim();
-      const { sendHoldedSyncAppliedNotifyEmail } = require('../lib/mailer');
-      const betacourt = String(process.env.HOLDED_SYNC_BETACOURT_EMAIL || 'c.betacourt@gemavip.com').trim();
-      if (betacourt) {
-        await sendHoldedSyncAppliedNotifyEmail(betacourt, {
-          accion,
-          cliId,
-          clienteNombre: nombre,
-          holdedId: hid
-        }).catch((e) => console.warn('[APROBACION-SYNC] email betacourt:', e?.message));
-      }
-    } catch (e) {
-      console.warn('[APROBACION-SYNC] post-sync notify:', e?.message);
-    }
-
-    const msgOk =
-      accion === 'crm_to_holded'
-        ? '<p>Los datos del CRM se han enviado a Holded y el hash de sincronización está alineado.</p>'
-        : '<p>Los datos de Holded se han aplicado al CRM y el hash de sincronización está alineado.</p>';
-
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.send(
       paginaListoHtml(true, '', {
         tipo: 'sync_holded',
         syncTitulo: 'Sincronización aplicada',
-        syncMensajeHtml: msgOk,
-        fichaClienteUrl: `${APP_BASE_URL}/clientes/${cliId}`
+        syncMensajeHtml: result.msgOk,
+        fichaClienteUrl: `${APP_BASE_URL}/clientes/${result.cliId}`
       })
     );
   } catch (e) {
     console.error('[APROBACION-SYNC] Error:', e?.message);
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.status(500).send(paginaErrorHtml('Error', 'No se pudo procesar la solicitud.'));
+  }
+});
+
+/**
+ * Misma lógica que GET pero con `X-API-Key` o `Authorization: Bearer` = `API_KEY` (Vercel).
+ * Para n8n: tras aprobación (p. ej. botón o nodo Manual) llamar POST con JSON { notifId, accion }.
+ * accion: crm_to_holded | holded_to_crm | revisar
+ */
+router.post('/aprobar-sync-cliente', async (req, res) => {
+  try {
+    const expected = String(process.env.API_KEY || '').trim();
+    if (!expected) {
+      return res.status(503).json({ ok: false, error: 'API_KEY no configurada en el servidor' });
+    }
+    const key = extractApiKeyFromRequest(req);
+    if (key !== expected) {
+      return res.status(401).json({ ok: false, error: 'No autorizado (usa X-API-Key o Authorization Bearer con API_KEY del CRM)' });
+    }
+    const notifId = Number(req.body?.notifId);
+    const accion = String(req.body?.accion || '').trim().toLowerCase();
+    const result = await runHoldedSyncAprobacion(db, { notifId, accion, skipSignature: true });
+    if (!result.ok) {
+      return res.status(result.status).json({ ok: false, error: result.mensaje, titulo: result.titulo });
+    }
+    if (result.revisar) {
+      return res.json({
+        ok: true,
+        revisar: true,
+        cliId: result.cliId,
+        accion: result.accion,
+        fichaUrl: `${APP_BASE_URL}/clientes/${result.cliId}`,
+        message: 'Marcado para revisar; no se ha sincronizado desde Holded.'
+      });
+    }
+    return res.json({
+      ok: true,
+      cliId: result.cliId,
+      accion: result.accion,
+      fichaUrl: `${APP_BASE_URL}/clientes/${result.cliId}`,
+      message: result.accion === 'crm_to_holded' ? 'CRM aplicado a Holded' : 'Holded aplicado al CRM'
+    });
+  } catch (e) {
+    console.error('[APROBACION-SYNC] POST Error:', e?.message);
+    res.status(500).json({ ok: false, error: e?.message || 'No se pudo procesar la solicitud.' });
   }
 });
 

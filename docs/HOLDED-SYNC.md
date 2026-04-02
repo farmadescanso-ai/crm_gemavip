@@ -42,6 +42,10 @@ La columna «Tags alcance» en la tabla muestra qué etiquetas del alcance tiene
 
 **Conflicto de webhook en n8n:** Si el error menciona `d6977a0f-a949-4fdc-bb45-09083fda4f8b` (ruta de **Aprobación Pedidos**), no es el flujo Holded: suele haber **dos copias** del mismo workflow de pedidos o un duplicado con el mismo path. Desactiva o elimina el duplicado, o cambia el path del webhook en uno de ellos. Holded usa siempre el path distinto `58663207-04f0-4a20-b333-1bd4ff36bf00`.
 
+6. **Ejecutar sincronización desde n8n (o automatización):**  
+   - **Enlaces del correo (recomendado):** el HTML del CRM ya incluye enlaces firmados a `GET /webhook/aprobar-sync-cliente` — al pulsar, el CRM aplica CRM→Holded, Holded→CRM o «revisar» sin pasar por n8n.  
+   - **POST con API key** (misma lógica que los enlaces, para n8n o scripts): `POST https://<tu-crm>/webhook/aprobar-sync-cliente` con cabecera `X-API-Key: <API_KEY>` (o `Authorization: Bearer <API_KEY>`) y cuerpo JSON `{ "notifId": <número>, "accion": "crm_to_holded" | "holded_to_crm" | "revisar" }`. Requiere `API_KEY` en variables de entorno del servidor. El workflow importable en [`docs/n8n/sincronizacion-holded-gemavip.json`](n8n/sincronizacion-holded-gemavip.json) incluye un segundo webhook «Ejecutar sync (manual)» → nodo HTTP que llama a este POST; define en n8n la variable `CRM_GEMAVIP_API_KEY` igual a `API_KEY` de Vercel.
+
 **Nota:** `resolverSolicitudAsignacion` no resuelve notificaciones `aprobacion_sync_cliente` (deben usarse los enlaces del webhook).
 
 ## Estados de la vista previa (H / C / S)
