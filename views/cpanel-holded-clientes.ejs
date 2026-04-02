@@ -14,6 +14,7 @@
   return '/cpanel/holded-clientes?' + q;
 }; %>
 <% const kpiClearLink = baseQs ? ('/cpanel/holded-clientes?' + baseQs) : '/cpanel/holded-clientes?tags=crm'; %>
+<% const excelSinTagHref = baseQs ? ('/cpanel/holded-clientes/sin-tag-filtro.xlsx?' + baseQs) : '/cpanel/holded-clientes/sin-tag-filtro.xlsx?tags=crm'; %>
 
 <section class="card gv-vista">
   <div class="card-hd gv-vista-hd">
@@ -121,6 +122,13 @@
     </div>
 
     <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: var(--gv-muted); text-transform: uppercase; letter-spacing: .04em;">Omitidos que requieren acción <span style="font-weight:600; text-transform:none;">(sin fila CRM o sin coincidencia por ref/CIF)</span></p>
+    <% const nSinTagKpi = (s.omitSinTagAccion != null) ? Number(s.omitSinTagAccion) : (s.omitSinTag != null ? Number(s.omitSinTag) : 0); %>
+    <% if (nSinTagKpi > 0) { %>
+    <p style="margin: 0 0 12px 0; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+      <a href="<%= excelSinTagHref %>" class="btn secondary" style="display:inline-block;">Descargar Excel — sin tag de filtro (<%= nSinTagKpi %>)</a>
+      <span style="font-size: 12px; color: var(--gv-muted); max-width: 520px;">Mismo criterio que la tarjeta «Sin tag de filtro»: revisa en Holded y aplica la tag cuando toque.</span>
+    </p>
+    <% } %>
     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; margin-bottom: 16px;">
       <a href="<%= segmentLink('omit_sin_tag') %>" class="dash-stat gv-holded-kpi" data-variant="blue" style="text-decoration:none; color:inherit; display:block; border-radius:12px;">
         <div class="dash-stat-label">Sin tag de filtro</div>
@@ -232,14 +240,7 @@
     <% if (vp === 'omitidos' && tagsForLead.length) { %>
     <div style="margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px;">
       <% if (sinTagEnOmitidos.length > 0) { %>
-      <form method="post" action="/cpanel/holded-clientes/ajustar-tags-crm-holded" style="display: inline;">
-        <% tagsForLead.forEach(function(t) { %>
-          <input type="hidden" name="tags" value="<%= t %>" />
-        <% }) %>
-        <input type="hidden" name="vista" value="omitidos" />
-        <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>
-        <button type="submit" class="btn">Añadir tag crm en Holded (<%= sinTagEnOmitidos.length %> sin etiqueta de filtro)</button>
-      </form>
+      <a class="btn" href="<%= excelSinTagHref %>">Descargar Excel — revisión (<%= sinTagEnOmitidos.length %> sin etiqueta de filtro)</a>
       <% } %>
       <% if (sinCifEnOmitidos.length > 0) { %>
       <form method="post" action="/cpanel/holded-clientes/alta-leads-sin-cif" style="display: inline;">
@@ -251,7 +252,7 @@
         <button type="submit" class="btn secondary">Dar de alta como Lead (<%= sinCifEnOmitidos.length %> sin CIF en Holded)</button>
       </form>
       <% } %>
-      <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Sin etiqueta: se graba <code>crm</code> en Holded para que entren en el filtro. Sin CIF: alta en CRM como Lead (CIF «Pendiente»). El resto de filas omitidas llevan <strong>bandera rosa</strong> para revisión (provincia, etc.).</span>
+      <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Sin etiqueta: descarga el Excel, revisa en Holded contacto a contacto y aplica la tag <code>crm</code> cuando corresponda. Sin CIF: alta en CRM como Lead (CIF «Pendiente»). El resto de omitidos llevan <strong>bandera rosa</strong> (provincia, etc.).</span>
     </div>
     <% } else if (vp === 'omitidos') { %>
     <p style="margin: 0 0 12px 0; font-size: 12px; color: var(--gv-muted);">Las filas con <strong>bandera rosa</strong> a la izquierda son omitidas por un motivo distinto de «sin CIF» (p. ej. provincia no mapeada): revísalas en Holded o en el CRM.</p>

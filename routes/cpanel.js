@@ -17,6 +17,47 @@ const {
 } = require('../lib/sync-holded-clientes');
 
 const router = express.Router();
+const ExcelJS = require('exceljs');
+
+/**
+ * Excel: contactos client/lead sin ninguna tag del alcance (crm / SYNC_HOLDED_DEFAULT_TAGS).
+ * @param {object[]} previewRows
+ */
+async function buildHoldedSinTagFiltroExcelBuffer(previewRows) {
+  const rows = (Array.isArray(previewRows) ? previewRows : []).filter((r) => r.coincideTag === false);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'CRM Gemavip';
+  const ws = wb.addWorksheet('Sin tag filtro', { views: [{ state: 'frozen', ySplit: 1 }] });
+  ws.columns = [
+    { header: 'ID Holded', key: 'holdedId', width: 30 },
+    { header: 'Nombre', key: 'nombre', width: 38 },
+    { header: 'CIF/NIF (code)', key: 'cif', width: 14 },
+    { header: 'Email', key: 'email', width: 28 },
+    { header: 'Teléfonos', key: 'tel', width: 22 },
+    { header: 'Provincia Holded', key: 'provinciaHolded', width: 22 },
+    { header: 'Tags en Holded', key: 'tagsHoldedText', width: 42 },
+    { header: '¿Ya en CRM?', key: 'yaCrm', width: 12 },
+    { header: 'Motivo / notas', key: 'motivo', width: 48 }
+  ];
+  const hr = ws.getRow(1);
+  hr.font = { bold: true };
+  hr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF7' } };
+  for (const r of rows) {
+    ws.addRow({
+      holdedId: r.holdedId || '',
+      nombre: r.nombre || '',
+      cif: r.cif || '',
+      email: r.email || '',
+      tel: [r.telefono, r.movil].filter(Boolean).join(' / ') || '',
+      provinciaHolded: r.provinciaHolded || '',
+      tagsHoldedText: r.tagsHoldedText != null ? String(r.tagsHoldedText) : String(r.tags || ''),
+      yaCrm: r.crmYaExisteEnCrm ? 'Sí' : 'No',
+      motivo: r.motivo || ''
+    });
+  }
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.from(buf);
+}
 
 /** Tag `crm` siempre incluida en filtro y formularios. */
 function ensureCrmInTags(tags) {
@@ -160,6 +201,25 @@ function extraFromHoldedBody(body) {
 router.get('/cpanel', requireUserId1, (req, res, next) => {
   try {
     res.render('cpanel', { title: 'CPanel' });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/cpanel/holded-clientes/sin-tag-filtro.xlsx', requireUserId1, async (req, res, next) => {
+  try {
+    const selectedTags = tagsFromQuery(req.query);
+    const result = await previewHoldedClientesEs(db, { selectedTags });
+    if (!result.ok) {
+      return res.redirect(
+        buildHoldedClientesRedirect(selectedTags, { error: result.error || 'No se pudo cargar datos de Holded' })
+      );
+    }
+    const buf = await buildHoldedSinTagFiltroExcelBuffer(result.rows);
+    const filename = `holded-sin-tag-filtro-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
   } catch (e) {
     next(e);
   }
