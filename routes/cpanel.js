@@ -138,6 +138,7 @@ function parseVistaPreview(query) {
     'errores'
   ]);
   if (allowed.has(raw)) return raw;
+  if (raw === '') return 'importados';
   return 'todos';
 }
 
@@ -173,6 +174,7 @@ function buildHoldedClientesRedirect(tags, extra) {
   });
   if (extra?.vista && extra.vista !== 'todos') params.set('vista', extra.vista);
   if (extra?.segment && String(extra.segment).trim() !== '') params.set('segment', String(extra.segment).trim());
+  if (extra?.alcance && String(extra.alcance).trim() !== '') params.set('alcance', String(extra.alcance).trim());
   if (extra?.success) params.set('success', extra.success);
   if (extra?.error) params.set('error', extra.error);
   const q = params.toString();
@@ -236,7 +238,8 @@ function applySegmentFilter(rows, segment) {
 function extraFromHoldedBody(body) {
   return {
     vista: parseVistaPreview(body || {}),
-    segment: parseSegmentQuery(body || {})
+    segment: parseSegmentQuery(body || {}),
+    alcance: String(body?.alcance ?? '').trim()
   };
 }
 
@@ -251,7 +254,7 @@ router.get('/cpanel', requireUserId1, (req, res, next) => {
 router.get('/cpanel/holded-clientes/sin-tag-filtro.xlsx', requireUserId1, async (req, res, next) => {
   try {
     const selectedTags = tagsFromQuery(req.query);
-    const result = await previewHoldedClientesEs(db, { selectedTags });
+    const result = await previewHoldedClientesEs(db, { selectedTags, holdedListScope: 'all_cliente_lead' });
     if (!result.ok) {
       return res.redirect(
         buildHoldedClientesRedirect(selectedTags, { error: result.error || 'No se pudo cargar datos de Holded' })
@@ -272,7 +275,10 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
     const selectedTags = tagsFromQuery(req.query);
     const vista = parseVistaPreview(req.query);
     const segment = parseSegmentQuery(req.query);
-    const result = await previewHoldedClientesEs(db, { selectedTags });
+    const alcanceRaw = String(req.query?.alcance ?? '').trim().toLowerCase();
+    const holdedListScope =
+      alcanceRaw === 'completo' || alcanceRaw === 'todos_holded' ? 'all_cliente_lead' : 'crm_only';
+    const result = await previewHoldedClientesEs(db, { selectedTags, holdedListScope });
     const success = typeof req.query.success === 'string' ? req.query.success : null;
     const error = typeof req.query.error === 'string' ? req.query.error : (result.error || null);
     let previewRows = filterPreviewRows(result.rows, vista);
@@ -284,6 +290,7 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
       selectedTags,
       vistaPreview: vista,
       segment,
+      alcanceHolded: holdedListScope === 'all_cliente_lead' ? 'completo' : 'crm',
       previewRows,
       success,
       error,
@@ -298,7 +305,7 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
   try {
     const dryRun = String(req.body?.dryRun || '').trim() === '1';
     const selectedTags = tagsFromBody(req.body);
-    const { vista, segment } = extraFromHoldedBody(req.body);
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
     const result = await importHoldedClientesEs(db, { dryRun, selectedTags });
     if (result.ok) {
       let msg = dryRun
@@ -311,13 +318,13 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
         const hint = String(result.errorFirst).slice(0, 280);
         msg += ` Primer error: ${hint}`;
       }
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment, alcance }));
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment, alcance }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const { vista, segment } = extraFromHoldedBody(req.body);
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment, alcance }));
   }
 });
 
@@ -325,9 +332,9 @@ router.post('/cpanel/holded-clientes/export-crm', requireUserId1, async (req, re
   try {
     const holdedId = String(req.body?.holdedId || '').trim();
     const selectedTags = tagsFromBody(req.body);
-    const { vista, segment } = extraFromHoldedBody(req.body);
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
     if (!holdedId) {
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: 'Falta ID Holded', vista, segment }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: 'Falta ID Holded', vista, segment, alcance }));
     }
     const rows = await db.query(
       'SELECT cli_id FROM clientes WHERE cli_referencia = ? OR cli_Id_Holded = ? LIMIT 1',
@@ -336,27 +343,27 @@ router.post('/cpanel/holded-clientes/export-crm', requireUserId1, async (req, re
     const cliId = rows?.[0]?.cli_id != null ? Number(rows[0].cli_id) : null;
     if (!cliId || !Number.isFinite(cliId)) {
       return res.redirect(
-        buildHoldedClientesRedirect(selectedTags, { error: 'No hay cliente CRM vinculado a ese ID Holded', vista, segment })
+        buildHoldedClientesRedirect(selectedTags, { error: 'No hay cliente CRM vinculado a ese ID Holded', vista, segment, alcance })
       );
     }
     const result = await exportCrmClienteToHolded(db, cliId);
     if (result.ok) {
       return res.redirect(
-        buildHoldedClientesRedirect(selectedTags, { success: `Datos del CRM enviados a Holded (${holdedId}).`, vista, segment })
+        buildHoldedClientesRedirect(selectedTags, { success: `Datos del CRM enviados a Holded (${holdedId}).`, vista, segment, alcance })
       );
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error al exportar', vista, segment }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error al exportar', vista, segment, alcance }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const { vista, segment } = extraFromHoldedBody(req.body);
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment, alcance }));
   }
 });
 
 router.post('/cpanel/holded-clientes/alta-leads-sin-cif', requireUserId1, async (req, res, next) => {
   try {
     const selectedTags = tagsFromBody(req.body);
-    const { vista, segment } = extraFromHoldedBody(req.body);
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
     const result = await importHoldedSinCifComoLeads(db, { selectedTags });
     if (result.ok) {
       let msg = `Alta como Lead: ${result.inserted} creado(s).`;
@@ -365,20 +372,20 @@ router.post('/cpanel/holded-clientes/alta-leads-sin-cif', requireUserId1, async 
         msg += ` Errores: ${result.errors}.`;
         if (result.errorFirst) msg += ` Primer error: ${String(result.errorFirst).slice(0, 240)}`;
       }
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment, alcance }));
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment, alcance }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const { vista, segment } = extraFromHoldedBody(req.body);
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment, alcance }));
   }
 });
 
 router.post('/cpanel/holded-clientes/ajustar-tags-crm-holded', requireUserId1, async (req, res, next) => {
   try {
     const selectedTags = tagsFromBody(req.body);
-    const { vista, segment } = extraFromHoldedBody(req.body);
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
     const result = await addCrmTagHoldedToContactsSinAlcanceTags(db, { selectedTags });
     if (result.ok) {
       let msg = `Tag crm en Holded: ${result.tagged} contacto(s) actualizado(s).`;
@@ -390,13 +397,13 @@ router.post('/cpanel/holded-clientes/ajustar-tags-crm-holded', requireUserId1, a
         msg += ` Errores API: ${result.errors}.`;
         if (result.errorFirst) msg += ` Primer error: ${String(result.errorFirst).slice(0, 240)}`;
       }
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment }));
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista, segment, alcance }));
     }
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment }));
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista, segment, alcance }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
-    const { vista, segment } = extraFromHoldedBody(req.body);
-    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment }));
+    const { vista, segment, alcance } = extraFromHoldedBody(req.body);
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista, segment, alcance }));
   }
 });
 

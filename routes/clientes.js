@@ -439,6 +439,15 @@ router.post('/new', requireLogin, async (req, res, next) => {
     } catch (e) {
       console.warn('[clientes] Notificación email cliente creado:', e?.message || e);
     }
+    try {
+      const newId = Number(created?.insertId ?? created?.Id ?? created?.id);
+      if (Number.isFinite(newId) && newId > 0) {
+        const { evaluateCliHoldedSyncPendienteAfterCrmSave } = require('../lib/holded-sync');
+        await evaluateCliHoldedSyncPendienteAfterCrmSave(db, newId);
+      }
+    } catch (e) {
+      console.warn('[clientes] Holded sync pendiente post-alta:', e?.message || e);
+    }
     return res.redirect('/clientes');
   } catch (e) {
     next(e);

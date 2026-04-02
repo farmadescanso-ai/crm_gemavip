@@ -833,6 +833,20 @@ class MySQLCRM {
       throw e;
     }
   }
+  async createAprobacionSyncCliente(idCliente, idComercialSolicitante, notasObj) {
+    try {
+      return await domains.notificaciones.createAprobacionSyncCliente.apply(this, arguments);
+    } catch (e) {
+      if (e.code === 'ER_NO_REFERENCED_ROW_2' && e.message?.includes('fk_notif_ag')) {
+        await this.fixNotifFkCliente();
+        return await domains.notificaciones.createAprobacionSyncCliente.apply(this, arguments);
+      }
+      throw e;
+    }
+  }
+  async hasPendingAprobacionSyncCliente(cliId) {
+    return domains.notificaciones.hasPendingAprobacionSyncCliente.apply(this, arguments);
+  }
   async getNotificacionesPendientesCount() { return domains.notificaciones.getNotificacionesPendientesCount.apply(this, arguments); }
   async getNotificaciones(limit, offset) { return domains.notificaciones.getNotificaciones.apply(this, arguments); }
   async getNotificacionesForComercial(idComercial, limit, offset) { return domains.notificaciones.getNotificacionesForComercial.apply(this, arguments); }

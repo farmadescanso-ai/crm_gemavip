@@ -1,0 +1,16 @@
+-- =============================================================================
+-- PLANTILLA — NO EJECUTAR EN PRODUCCIÓN SIN BACKUP Y MANTENIMIENTO ACORDADO
+-- =============================================================================
+-- Objetivo (solo si negocio lo pide): dejar la tabla `clientes` vacía o casi vacía
+-- para reimportar desde Holded con tag `crm`.
+--
+-- Pasos manuales obligatorios:
+-- 1) mysqldump completo (o snapshot) del esquema CRM.
+-- 2) Identificar TODAS las tablas con FK a `clientes.cli_id` (pedidos, visitas, etc.).
+-- 3) Borrar o truncar en orden hijos → padres (o SET FOREIGN_KEY_CHECKS según política).
+-- 4) Verificar con scripts de integridad antes de volver a importar.
+--
+-- Este fichero NO contiene sentencias DELETE concretas: rellenar solo tras revisión DBA.
+-- =============================================================================
+
+-- SELECT 1;

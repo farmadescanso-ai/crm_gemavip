@@ -88,6 +88,58 @@ module.exports = {
     }
   },
 
+  /**
+   * Solicitud de decisión Holded ↔ CRM (enlaces firmados en email).
+   * @param {number} idCliente - cli_id
+   * @param {number} idComercialSolicitante - comercial asociado (p. ej. cli_com_id)
+   * @param {string|Record<string, unknown>} notasObj - JSON o objeto (se serializa; máx. ~500 chars en columna legacy)
+   */
+  async createAprobacionSyncCliente(idCliente, idComercialSolicitante, notasObj) {
+    await this._ensureNotificacionesTable();
+    const m = await this._ensureNotificacionesMeta();
+    let notas =
+      typeof notasObj === 'string' ? notasObj : JSON.stringify(notasObj != null ? notasObj : {});
+    if (notas.length > 500) {
+      notas = `${notas.slice(0, 497)}...`;
+    }
+    const comId = Number(idComercialSolicitante) > 0 ? Number(idComercialSolicitante) : 1;
+    const cid = Number(idCliente) > 0 ? Number(idCliente) : 0;
+    if (!cid) return null;
+    const cols = [m.colTipo, m.colContacto, m.colPedido, m.colComercial, m.colEstado, m.colNotas];
+    const colList = cols.map((c) => `\`${c}\``).join(', ');
+    try {
+      const r = await this.query(
+        `INSERT INTO \`notificaciones\` (${colList}) VALUES (?, ?, NULL, ?, 'pendiente', ?)`,
+        ['aprobacion_sync_cliente', cid, comId, notas]
+      );
+      return r?.insertId ?? r?.insertId ?? null;
+    } catch (_e) {
+      const colsAlt = [m.colTipo, m.colContacto, m.colComercial, m.colEstado];
+      const colListAlt = colsAlt.map((c) => `\`${c}\``).join(', ');
+      const r = await this.query(
+        `INSERT INTO \`notificaciones\` (${colListAlt}) VALUES (?, ?, ?, ?)`,
+        ['aprobacion_sync_cliente', cid, comId, 'pendiente']
+      );
+      return r?.insertId ?? r?.insertId ?? null;
+    }
+  },
+
+  async hasPendingAprobacionSyncCliente(cliId) {
+    const cid = Number(cliId) > 0 ? Number(cliId) : 0;
+    if (!cid) return false;
+    await this._ensureNotificacionesTable();
+    try {
+      const m = await this._ensureNotificacionesMeta();
+      const rows = await this.query(
+        `SELECT \`${m.pk}\` FROM \`notificaciones\` WHERE \`${m.colTipo}\` = 'aprobacion_sync_cliente' AND \`${m.colContacto}\` = ? AND \`${m.colEstado}\` = 'pendiente' LIMIT 1`,
+        [cid]
+      );
+      return Array.isArray(rows) && rows.length > 0;
+    } catch (_) {
+      return false;
+    }
+  },
+
   async createSolicitudPedido(idPedido, idComercialSolicitante, idCliente) {
     await this._ensureNotificacionesTable();
     const m = await this._ensureNotificacionesMeta();
@@ -301,6 +353,12 @@ module.exports = {
     const rows = await this.query(`SELECT \`${m.pk}\` as id, \`${m.colTipo}\` as tipo, \`${m.colContacto}\` as id_contacto, \`${m.colComercial}\` as id_comercial_solicitante, \`${m.colPedido}\` as id_pedido, \`${m.colEstado}\` as estado, \`${m.colAdmin}\` as id_admin_resolvio, \`${m.colFechaCreacion}\` as fecha_creacion, \`${m.colFechaResolucion}\` as fecha_resolucion, \`${m.colNotas}\` as notas FROM \`notificaciones\` WHERE \`${m.pk}\` = ? AND \`${m.colEstado}\` = ?`, [idNotif, 'pendiente']);
     if (!rows?.length) return { ok: false, message: 'Notificación no encontrada o ya resuelta' };
     const notif = rows[0];
+    if (String(notif.tipo || '').toLowerCase() === 'aprobacion_sync_cliente') {
+      return {
+        ok: false,
+        message: 'Las notificaciones de sincronización Holded se resuelven solo desde el enlace firmado del correo.'
+      };
+    }
     const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await this.query(
       `UPDATE \`notificaciones\` SET \`${m.colEstado}\` = ?, \`${m.colAdmin}\` = ?, \`${m.colFechaResolucion}\` = ? WHERE \`${m.pk}\` = ?`,
