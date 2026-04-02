@@ -126,7 +126,7 @@
     <% if (nSinTagKpi > 0) { %>
     <p style="margin: 0 0 12px 0; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
       <a href="<%= excelSinTagHref %>" class="btn secondary" style="display:inline-block;">Descargar Excel — sin tag de filtro (<%= nSinTagKpi %>)</a>
-      <span style="font-size: 12px; color: var(--gv-muted); max-width: 520px;">Mismo criterio que la tarjeta «Sin tag de filtro»: revisa en Holded y aplica la tag cuando toque.</span>
+      <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Incluye columnas <strong>Alcance CRM (OR)</strong> y <strong>Faltan añadir</strong> (<code>crm</code> más las de <code>SYNC_HOLDED_DEFAULT_TAGS</code>, p. ej. <code>sepa</code>). No se listan contactos sin ninguna etiqueta en Holded (—).</span>
     </p>
     <% } %>
     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; margin-bottom: 16px;">
@@ -252,7 +252,7 @@
         <button type="submit" class="btn secondary">Dar de alta como Lead (<%= sinCifEnOmitidos.length %> sin CIF en Holded)</button>
       </form>
       <% } %>
-      <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Sin etiqueta: descarga el Excel, revisa en Holded contacto a contacto y aplica la tag <code>crm</code> cuando corresponda. Sin CIF: alta en CRM como Lead (CIF «Pendiente»). El resto de omitidos llevan <strong>bandera rosa</strong> (provincia, etc.).</span>
+      <span style="font-size: 12px; color: var(--gv-muted); max-width: 560px;">Sin alcance de tags: descarga el Excel (faltan <code>crm</code> y el resto del alcance OR, p. ej. <code>sepa</code>). Omite filas sin ninguna etiqueta en Holded. Sin CIF: alta Lead. Resto de omitidos: <strong>bandera rosa</strong>.</span>
     </div>
     <% } else if (vp === 'omitidos') { %>
     <p style="margin: 0 0 12px 0; font-size: 12px; color: var(--gv-muted);">Las filas con <strong>bandera rosa</strong> a la izquierda son omitidas por un motivo distinto de «sin CIF» (p. ej. provincia no mapeada): revísalas en Holded o en el CRM.</p>

@@ -19,12 +19,49 @@ const {
 const router = express.Router();
 const ExcelJS = require('exceljs');
 
+function parseHoldedTagsFromCellText(tagsHoldedText) {
+  if (tagsHoldedText == null) return [];
+  const s = String(tagsHoldedText).trim();
+  if (s === '' || s === '—') return [];
+  return s.split(/[,;]/).map((t) => t.trim()).filter(Boolean);
+}
+
+function hasAnyHoldedTagDisplay(tagsHoldedText) {
+  return parseHoldedTagsFromCellText(tagsHoldedText).length > 0;
+}
+
 /**
- * Excel: contactos client/lead sin ninguna tag del alcance (crm / SYNC_HOLDED_DEFAULT_TAGS).
- * @param {object[]} previewRows
+ * Tags del alcance (crm + SYNC_HOLDED_DEFAULT_TAGS, OR) que el contacto aún no tiene en Holded.
+ * @param {string} tagsHoldedText
+ * @param {{ effectiveTagsDisplay?: string[] }} tagScope
  */
-async function buildHoldedSinTagFiltroExcelBuffer(previewRows) {
-  const rows = (Array.isArray(previewRows) ? previewRows : []).filter((r) => r.coincideTag === false);
+function missingScopeTagsForExcel(tagsHoldedText, tagScope) {
+  const have = new Set(parseHoldedTagsFromCellText(tagsHoldedText).map((t) => t.toLowerCase()));
+  const display = Array.isArray(tagScope?.effectiveTagsDisplay) ? tagScope.effectiveTagsDisplay : [];
+  const out = [];
+  for (const req of display) {
+    const k = String(req).toLowerCase().trim();
+    if (k && !have.has(k)) out.push(String(req).trim());
+  }
+  return out.join(', ');
+}
+
+/**
+ * Excel: contactos client/lead sin ninguna tag del alcance (crm, sepa, etc. según env).
+ * No incluye filas sin ninguna etiqueta en Holded (— o vacío).
+ * @param {object[]} previewRows
+ * @param {{ effectiveTagsDisplay?: string[] }} [tagScope]
+ */
+async function buildHoldedSinTagFiltroExcelBuffer(previewRows, tagScope = {}) {
+  const rows = (Array.isArray(previewRows) ? previewRows : []).filter((r) => {
+    if (r.coincideTag !== false) return false;
+    const txt = r.tagsHoldedText != null ? String(r.tagsHoldedText) : String(r.tags || '');
+    return hasAnyHoldedTagDisplay(txt);
+  });
+  const alcanceTxt = Array.isArray(tagScope.effectiveTagsDisplay)
+    ? tagScope.effectiveTagsDisplay.join(', ')
+    : 'crm';
+
   const wb = new ExcelJS.Workbook();
   wb.creator = 'CRM Gemavip';
   const ws = wb.addWorksheet('Sin tag filtro', { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -35,7 +72,9 @@ async function buildHoldedSinTagFiltroExcelBuffer(previewRows) {
     { header: 'Email', key: 'email', width: 28 },
     { header: 'Teléfonos', key: 'tel', width: 22 },
     { header: 'Provincia Holded', key: 'provinciaHolded', width: 22 },
-    { header: 'Tags en Holded', key: 'tagsHoldedText', width: 42 },
+    { header: 'Tags actuales en Holded', key: 'tagsHoldedText', width: 40 },
+    { header: 'Alcance CRM (OR)', key: 'alcance', width: 36 },
+    { header: 'Faltan añadir (del alcance)', key: 'faltan', width: 44 },
     { header: '¿Ya en CRM?', key: 'yaCrm', width: 12 },
     { header: 'Motivo / notas', key: 'motivo', width: 48 }
   ];
@@ -43,6 +82,7 @@ async function buildHoldedSinTagFiltroExcelBuffer(previewRows) {
   hr.font = { bold: true };
   hr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF7' } };
   for (const r of rows) {
+    const txt = r.tagsHoldedText != null ? String(r.tagsHoldedText) : String(r.tags || '');
     ws.addRow({
       holdedId: r.holdedId || '',
       nombre: r.nombre || '',
@@ -50,7 +90,9 @@ async function buildHoldedSinTagFiltroExcelBuffer(previewRows) {
       email: r.email || '',
       tel: [r.telefono, r.movil].filter(Boolean).join(' / ') || '',
       provinciaHolded: r.provinciaHolded || '',
-      tagsHoldedText: r.tagsHoldedText != null ? String(r.tagsHoldedText) : String(r.tags || ''),
+      tagsHoldedText: txt,
+      alcance: alcanceTxt,
+      faltan: missingScopeTagsForExcel(txt, tagScope),
       yaCrm: r.crmYaExisteEnCrm ? 'Sí' : 'No',
       motivo: r.motivo || ''
     });
@@ -215,7 +257,7 @@ router.get('/cpanel/holded-clientes/sin-tag-filtro.xlsx', requireUserId1, async 
         buildHoldedClientesRedirect(selectedTags, { error: result.error || 'No se pudo cargar datos de Holded' })
       );
     }
-    const buf = await buildHoldedSinTagFiltroExcelBuffer(result.rows);
+    const buf = await buildHoldedSinTagFiltroExcelBuffer(result.rows, result.tagScope || {});
     const filename = `holded-sin-tag-filtro-${new Date().toISOString().slice(0, 10)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
