@@ -10,6 +10,7 @@ const {
   previewHoldedClientesEs,
   importHoldedClientesEs,
   importHoldedSinCifComoLeads,
+  exportCrmClienteToHolded,
   parseSelectedTagsInput,
   MOTIVO_OMITIDO_SIN_CIF_HOLDED
 } = require('../lib/sync-holded-clientes');
@@ -96,6 +97,7 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
     res.render('cpanel-holded-clientes', {
       title: 'Importar clientes Holded (España)',
       ...result,
+      tagScope: result.tagScope || { mode: 'filter', effectiveTagsDisplay: [] },
       selectedTags,
       vistaPreview: vista,
       previewRows,
@@ -128,6 +130,38 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
       return res.redirect(buildHoldedClientesRedirect(selectedTags, { success: msg, vista }));
     }
     return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error', vista }));
+  } catch (e) {
+    const selectedTags = tagsFromBody(req.body || {});
+    const vista = parseVistaPreview(req.body || {});
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: e?.message || 'Error', vista }));
+  }
+});
+
+router.post('/cpanel/holded-clientes/export-crm', requireUserId1, async (req, res, next) => {
+  try {
+    const holdedId = String(req.body?.holdedId || '').trim();
+    const selectedTags = tagsFromBody(req.body);
+    const vista = parseVistaPreview(req.body || {});
+    if (!holdedId) {
+      return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: 'Falta ID Holded', vista }));
+    }
+    const rows = await db.query(
+      'SELECT cli_id FROM clientes WHERE cli_referencia = ? OR cli_Id_Holded = ? LIMIT 1',
+      [holdedId, holdedId]
+    );
+    const cliId = rows?.[0]?.cli_id != null ? Number(rows[0].cli_id) : null;
+    if (!cliId || !Number.isFinite(cliId)) {
+      return res.redirect(
+        buildHoldedClientesRedirect(selectedTags, { error: 'No hay cliente CRM vinculado a ese ID Holded', vista })
+      );
+    }
+    const result = await exportCrmClienteToHolded(db, cliId);
+    if (result.ok) {
+      return res.redirect(
+        buildHoldedClientesRedirect(selectedTags, { success: `Datos del CRM enviados a Holded (${holdedId}).`, vista })
+      );
+    }
+    return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error al exportar', vista }));
   } catch (e) {
     const selectedTags = tagsFromBody(req.body || {});
     const vista = parseVistaPreview(req.body || {});

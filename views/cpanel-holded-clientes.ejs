@@ -14,9 +14,17 @@
     <div class="gv-vista-hd__title-row">
       <h1 class="card-title gv-vista-hd__title"><%= title || 'Importar clientes Holded' %></h1>
     </div>
+    <% const ts = typeof tagScope === 'object' && tagScope && tagScope.mode ? tagScope : { mode: 'filter', effectiveTagsDisplay: [] }; %>
     <p class="gv-vista-hd__sub" style="margin-top:0;">
-      Elige una o más <strong>tags</strong> de Holded (coincidencia sin distinguir mayúsculas). Se importan contactos que tengan <strong>al menos una</strong> de las elegidas, <strong>CIF/NIF informado</strong> en Holded (campo <code>code</code>, no vacío) y provincia mapeada en <code>provincias</code> con <code>prov_codigo_pais = 'ES'</code>. Tras importar, en Holded se añade la tag <code>crm</code> al contacto (si aún no la tenía); en el CRM se guarda el ID en <code>cli_Id_Holded</code> y el máximo de campos disponibles desde Holded.
+      Por defecto se evalúan <strong>todos</strong> los contactos Holded tipo <code>client</code> / <code>lead</code> que cumplan <strong>CIF/NIF</strong> en Holded (<code>code</code>) y <strong>provincia española</strong> mapeada en BD. Opcionalmente restringe por <strong>tags</strong> (coincidencia sin distinguir mayúsculas; al menos una). Puedes fusionar tags por variable de entorno <code>SYNC_HOLDED_DEFAULT_TAGS</code> y forzar que sin tags no se importe nada con <code>HOLDED_SYNC_REQUIRE_TAGS=1</code>. Tras importar, en Holded se añade la tag <code>crm</code> si faltaba; en el CRM se guarda el ID Holded y los campos sincronizados.
     </p>
+    <% if (ts.mode === 'all') { %>
+      <p style="margin: 10px 0 0 0; font-size: 13px; color: var(--gv-muted);"><strong>Alcance:</strong> sin filtro de tags (todos los que cumplan CIF + provincia ES).</p>
+    <% } else if (ts.mode === 'filter' && Array.isArray(ts.effectiveTagsDisplay) && ts.effectiveTagsDisplay.length) { %>
+      <p style="margin: 10px 0 0 0; font-size: 13px; color: var(--gv-muted);"><strong>Tags en filtro:</strong> <%= ts.effectiveTagsDisplay.map(function(t){ return t; }).join(', ') %></p>
+    <% } else if (ts.mode === 'require_empty') { %>
+      <p style="margin: 10px 0 0 0; font-size: 13px; color: #b45309;"><strong>Alcance:</strong> sin tags válidas — selecciona etiquetas o ajusta variables de entorno (ver arriba).</p>
+    <% } %>
     <p style="margin-top: 10px;">
       <a class="btn secondary" href="/cpanel">← CPanel</a>
     </p>
@@ -169,7 +177,8 @@
         <% if (vp !== 'todos') { %>
           <input type="hidden" name="vista" value="<%= vp %>" />
         <% } %>
-        <button type="submit" class="btn" <%= sel.length ? '' : 'disabled title="Selecciona al menos una tag"' %>>Importar ahora</button>
+        <% const canImport = typeof tagScope === 'object' && tagScope && tagScope.mode !== 'require_empty'; %>
+        <button type="submit" class="btn" <%= canImport ? '' : 'disabled title="Selecciona al menos una tag o quita HOLDED_SYNC_REQUIRE_TAGS"' %>>Importar ahora</button>
       </form>
       <a class="btn secondary" href="<%= vistaLink(vp) %>">Actualizar vista previa</a>
     </div>
@@ -195,10 +204,11 @@
       Lista = <strong>con tag elegida</strong> (<%= s.conTagSeleccionada %>) − <strong>importables</strong> (<%= s.importables %>) = contactos con etiqueta pero que no cumplen reglas de importación; el motivo está en la columna «Motivo».
     </p>
     <% } %>
-    <% if (vp === 'errores' && sinCifEnErrores.length > 0 && sel.length) { %>
+    <% const tagsForLead = sel.length ? sel : (typeof tagScope === 'object' && tagScope && Array.isArray(tagScope.effectiveTagsDisplay) && tagScope.effectiveTagsDisplay.length ? tagScope.effectiveTagsDisplay : []); %>
+    <% if (vp === 'errores' && sinCifEnErrores.length > 0 && tagsForLead.length) { %>
     <div style="margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
       <form method="post" action="/cpanel/holded-clientes/alta-leads-sin-cif" style="display: inline;">
-        <% sel.forEach(function(t) { %>
+        <% tagsForLead.forEach(function(t) { %>
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
         <input type="hidden" name="vista" value="errores" />
@@ -223,6 +233,7 @@
             <th title="Fecha de última modificación en Holded (API) y en CRM si la columna existe">Últ. modificación</th>
             <th title="Campos comparables distintos entre Holded y CRM">Campos distintos</th>
             <th>Motivo</th>
+            <th>Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -272,6 +283,16 @@
                 <% } else { %>—<% } %>
               </td>
               <td style="font-size: 12px;"><%= r.motivo || '—' %></td>
+              <td style="font-size: 12px; white-space: nowrap;">
+                <% if (r.estado === 'pte_exportar' && r.holdedId) { %>
+                  <form method="post" action="/cpanel/holded-clientes/export-crm" style="display:inline;">
+                    <input type="hidden" name="holdedId" value="<%= r.holdedId %>" />
+                    <% if (vp !== 'todos') { %><input type="hidden" name="vista" value="<%= vp %>" /><% } %>
+                    <% sel.forEach(function(t) { %><input type="hidden" name="tags" value="<%= t %>" /><% }); %>
+                    <button type="submit" class="btn secondary" style="font-size: 11px; padding: 4px 8px;">Volcar CRM → Holded</button>
+                  </form>
+                <% } else { %>—<% } %>
+              </td>
             </tr>
           <% }) %>
         </tbody>

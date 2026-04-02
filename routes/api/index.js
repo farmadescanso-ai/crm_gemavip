@@ -25,6 +25,7 @@ router.use('/notificaciones', require('./notificaciones'));
 router.use('/pedidos', require('./pedidos'));
 router.use('/push', require('./push'));
 router.use('/visitas', require('./visitas'));
+router.use('/holded-sync', require('./holded-sync'));
 
 module.exports = router;
 
