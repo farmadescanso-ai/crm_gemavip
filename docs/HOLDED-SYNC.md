@@ -4,6 +4,7 @@
 
 - Solo contactos Holded con `type` **`client`** o **`lead`**. Proveedores y demás tipos se excluyen (`filterHoldedContactsClienteOLead`).
 - **Vista operativa por defecto:** solo contactos que tengan la tag **`crm`** en Holded (`filterHoldedContactsConTagCrm`). La vista previa, KPIs y el import masivo trabajan sobre ese subconjunto.
+- **Bloque «Mismo dato que el listado Clientes»:** en la página del CPanel se muestran `countClientesOptimizado({})` (igual que `/clientes` sin filtros, admin), recuento de filas con `cli_Id_Holded` y el total Holded del panel, para no mezclar cifras de orígenes distintos sin contexto.
 - **Listado amplio (solo lectura / soporte):** `GET /cpanel/holded-clientes?alcance=completo` — todos los `client`/`lead` sin exigir tag `crm` (útil para Excel «sin tag de filtro» y auditoría).
 - Implementación: [`lib/holded-sync/index.js`](../lib/holded-sync/index.js) (entrada estable: [`lib/sync-holded-clientes.js`](../lib/sync-holded-clientes.js)).
 

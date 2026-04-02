@@ -19,6 +19,34 @@ const {
 const router = express.Router();
 const ExcelJS = require('exceljs');
 
+/**
+ * Mismos totales que el listado `/clientes` sin filtros (admin = universo completo de `clientes`).
+ * Sirve para comparar en pantalla con los recuentos de la API Holded.
+ * @param {import('../config/mysql-crm')} db
+ * @returns {Promise<{ crmTotalListado: number|null, crmConCliIdHolded: number|null }>}
+ */
+async function getCrmTotalesParaCruce(db) {
+  const out = { crmTotalListado: null, crmConCliIdHolded: null };
+  try {
+    const n = await db.countClientesOptimizado({});
+    out.crmTotalListado = typeof n === 'number' && Number.isFinite(n) ? n : Number(n) || null;
+  } catch (e) {
+    console.warn('[cpanel] countClientesOptimizado cruce:', e?.message || e);
+  }
+  try {
+    const meta = await db._ensureClientesMeta?.().catch(() => null);
+    const t = meta?.tClientes || 'clientes';
+    const rows = await db.query(
+      `SELECT COUNT(*) AS n FROM \`${t}\` WHERE cli_Id_Holded IS NOT NULL AND TRIM(CAST(cli_Id_Holded AS CHAR)) <> ''`
+    );
+    const first = Array.isArray(rows) ? rows[0] : rows;
+    out.crmConCliIdHolded = Number(first?.n ?? first?.N ?? 0) || 0;
+  } catch (e) {
+    console.warn('[cpanel] count cli_Id_Holded cruce:', e?.message || e);
+  }
+  return out;
+}
+
 function parseHoldedTagsFromCellText(tagsHoldedText) {
   if (tagsHoldedText == null) return [];
   const s = String(tagsHoldedText).trim();
@@ -278,7 +306,10 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
     const alcanceRaw = String(req.query?.alcance ?? '').trim().toLowerCase();
     const holdedListScope =
       alcanceRaw === 'completo' || alcanceRaw === 'todos_holded' ? 'all_cliente_lead' : 'crm_only';
-    const result = await previewHoldedClientesEs(db, { selectedTags, holdedListScope });
+    const [result, crmCruce] = await Promise.all([
+      previewHoldedClientesEs(db, { selectedTags, holdedListScope }),
+      getCrmTotalesParaCruce(db)
+    ]);
     const success = typeof req.query.success === 'string' ? req.query.success : null;
     const error = typeof req.query.error === 'string' ? req.query.error : (result.error || null);
     let previewRows = filterPreviewRows(result.rows, vista);
@@ -294,7 +325,9 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
       previewRows,
       success,
       error,
-      motivoSinCifHolded: MOTIVO_OMITIDO_SIN_CIF_HOLDED
+      motivoSinCifHolded: MOTIVO_OMITIDO_SIN_CIF_HOLDED,
+      crmTotalListado: crmCruce.crmTotalListado,
+      crmConCliIdHolded: crmCruce.crmConCliIdHolded
     });
   } catch (e) {
     next(e);

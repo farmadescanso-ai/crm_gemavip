@@ -64,6 +64,31 @@
     <% const s = stats || {}; %>
     <% const allTagsList = Array.isArray(allTags) ? allTags : []; %>
     <% const rowsSafe = Array.isArray(rows) ? rows : []; %>
+    <% const crmTot = (typeof crmTotalListado === 'number' && Number.isFinite(crmTotalListado)) ? crmTotalListado : (crmTotalListado != null && !isNaN(Number(crmTotalListado)) ? Number(crmTotalListado) : null); %>
+    <% const crmHid = (typeof crmConCliIdHolded === 'number' && Number.isFinite(crmConCliIdHolded)) ? crmConCliIdHolded : (crmConCliIdHolded != null && !isNaN(Number(crmConCliIdHolded)) ? Number(crmConCliIdHolded) : null); %>
+    <% const thPanel = s.totalHolded != null ? Number(s.totalHolded) : null; %>
+    <% const deltaHoldedMenosCrm = (thPanel != null && crmTot != null) ? (thPanel - crmTot) : null; %>
+
+    <% if (crmTot != null) { %>
+    <div class="gv-holded-cruce-datos" style="margin-bottom: 18px; padding: 16px 18px; border-radius: 12px; border: 1px solid rgba(14, 165, 233, 0.35); background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(248, 250, 252, 0.9) 100%);">
+      <p style="margin: 0 0 10px 0; font-weight: 700; font-size: 15px; color: var(--gv-text, #0f172a);">Mismo dato que el listado Clientes</p>
+      <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.55; color: var(--gv-muted);">
+        Total en CRM (<strong>misma consulta</strong> que <a href="/clientes">/clientes</a> sin filtros, vista admin): <strong style="color: var(--gv-text, #0f172a); font-size: 18px;"><%= crmTot %></strong>
+      </p>
+      <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.55; color: var(--gv-muted);">
+        Filas CRM con <code>cli_Id_Holded</code> (vínculo explícito Holded): <strong><%= crmHid != null ? crmHid : '—' %></strong>
+      </p>
+      <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.55; color: var(--gv-muted);">
+        Contactos Holded en este panel (tag <code>crm</code>, API): <strong><%= thPanel != null ? thPanel : '—' %></strong>
+        <% if (deltaHoldedMenosCrm != null && !isNaN(deltaHoldedMenosCrm)) { %>
+          <span style="margin-left: 8px;">· Δ (Holded − CRM total): <strong><%= deltaHoldedMenosCrm > 0 ? '+' : '' %><%= deltaHoldedMenosCrm %></strong></span>
+        <% } %>
+      </p>
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: var(--gv-muted);">
+        Los KPI de abajo son <strong>solo Holded</strong> (y reglas de import/sync). El número de <strong>«En CRM»</strong> en tarjetas = filas importables vinculadas a BD, no el total de clientes.
+      </p>
+    </div>
+    <% } %>
 
     <details class="gv-holded-tags-accordion" style="margin-bottom: 18px; border: 1px solid var(--gv-border, rgba(0,0,0,.12)); border-radius: 10px; background: var(--gv-card-bg, #fff);">
       <summary style="cursor: pointer; list-style: none; padding: 14px 16px; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
