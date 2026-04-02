@@ -28,6 +28,15 @@ La columna «Tags alcance» en la tabla muestra qué etiquetas del alcance tiene
 - Se pone a **1** cuando el cliente está vinculado a Holded (`cli_Id_Holded` / `cli_referencia`) y el hash de datos **Holded (H)** y **CRM (C)** difieren (`H ≠ C`), tras guardar desde el formulario o al detectar divergencia.
 - Se limpia a **0** tras import/export exitoso que alinea `cli_holded_sync_hash` (mismo criterio que el import masivo o `exportCrmClienteToHolded` / `importCrmClienteFromHolded`).
 
+## Checklist operativa (antes de dar por bueno el flujo)
+
+1. **Vercel (o `.env`):** `HOLDED_API_KEY`, `APP_BASE_URL` (URL pública del CRM, para enlaces del correo), `API_KEY` (para POST `/webhook/aprobar-sync-cliente` desde n8n), `APROBACION_SECRET` o mismo valor que firma HMAC del webhook n8n si usas `X-CRM-Signature`.
+2. **Correo de aprobación:** `HOLDED_SYNC_NOTIFY_EMAIL`, opcional `HOLDED_SYNC_NOTIFY_CC`; `HOLDED_SYNC_N8N_WEBHOOK_URL` apuntando al webhook n8n correcto, o `0` para forzar solo Graph/SMTP.
+3. **n8n:** Workflow **activo**, nodo Webhook con el **mismo path** que recibe el CRM, nodo SMTP con credencial válida; si el CRM responde 2xx al POST, no hace falta SMTP en el propio CRM.
+4. **Cliente:** `cli_Id_Holded` (o `cli_referencia`) rellenado; sin vínculo no hay comparación ni email.
+5. **Divergencia:** Tras guardar, debe cumplirse **H ≠ C** (hash Holded vs hash CRM). Si ya están alineados, **no** se envía correo de aprobación (comportamiento esperado).
+6. **Tras guardar:** Si el correo se envía, la ficha muestra un aviso de éxito; si eres admin y falta API key o falla el envío, verás avisos técnicos en la misma vista.
+
 ## Autorización por email (sync)
 
 1. Tras marcar pendiente de sync, si no existe ya una notificación pendiente del mismo tipo, se crea una fila en `notificaciones` con **`tipo = aprobacion_sync_cliente`**, `id_contacto = cli_id` y notas JSON (diff resumido, sugerencia de dirección).

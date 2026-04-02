@@ -21,6 +21,21 @@
         Solicitud enviada. Un administrador la revisará y te asignará el contacto si la aprueba.
       </div>
     <% } %>
+    <% if (typeof holdedSync !== 'undefined' && holdedSync === 'approval_sent') { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom:12px;" role="status">
+        <strong>Sincronización Holded:</strong> se ha enviado un correo a dirección con enlaces para autorizar CRM → Holded, Holded → CRM o dejarlo para revisar. Revisa la bandeja (y spam).
+      </div>
+    <% } %>
+    <% if (typeof admin !== 'undefined' && admin && typeof holdedSync !== 'undefined' && holdedSync === 'no_api_key') { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;" role="status">
+        <strong>Holded (admin):</strong> falta <code>HOLDED_API_KEY</code> en el servidor. No se puede evaluar divergencia ni enviar el correo de aprobación. Configúrala en Vercel y vuelve a guardar.
+      </div>
+    <% } %>
+    <% if (typeof admin !== 'undefined' && admin && typeof holdedSync !== 'undefined' && holdedSync === 'approval_email_failed') { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;" role="status">
+        <strong>Holded (admin):</strong> hay divergencia pero el correo con botones no se ha podido enviar (revisa webhook n8n, SMTP/Graph y logs <code>[MAILER]</code>).
+      </div>
+    <% } %>
 
     <div class="gv-form-actions-sticky">
       <div class="gv-form-actions-sticky__inner">

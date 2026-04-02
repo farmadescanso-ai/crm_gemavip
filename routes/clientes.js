@@ -842,13 +842,22 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     } catch (e) {
       console.warn('[clientes] Notificación email cliente modificado:', e?.message || e);
     }
+    let holdedSyncQs = '';
     try {
       const { evaluateCliHoldedSyncPendienteAfterCrmSave } = require('../lib/holded-sync');
-      await evaluateCliHoldedSyncPendienteAfterCrmSave(db, id);
+      const ev = await evaluateCliHoldedSyncPendienteAfterCrmSave(db, id);
+      if (ev && ev.approvalEmailQueued) {
+        holdedSyncQs = 'holded_sync=approval_sent';
+      } else if (ev && isAdminUser(res.locals.user)) {
+        if (ev.reason === 'no_holded_api_key') holdedSyncQs = 'holded_sync=no_api_key';
+        else if (ev.evaluated && ev.pend === 1 && ev.approvalEmailQueued === false) {
+          holdedSyncQs = 'holded_sync=approval_email_failed';
+        }
+      }
     } catch (e) {
       console.warn('[clientes] Holded sync pendiente post-guardado:', e?.message || e);
     }
-    return res.redirect(`/clientes/${id}`);
+    return res.redirect(`/clientes/${id}${holdedSyncQs ? `?${holdedSyncQs}` : ''}`);
   } catch (e) {
     next(e);
   }
@@ -872,6 +881,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const poolId = await db.getComercialIdPool();
     const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
+    const holdedSync = typeof req.query.holded_sync === 'string' ? String(req.query.holded_sync).trim() : '';
     const [tieneRelaciones, relacionesData, cooperativasCliente] = await Promise.all([
       db.tieneRelaciones(id).catch(() => false),
       db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] })),
@@ -908,6 +918,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
       puedeSolicitarAsignacion,
       poolId,
       solicitud,
+      holdedSync,
       contactoId: id,
       agendaContactos: [],
       agendaRoles: [],
