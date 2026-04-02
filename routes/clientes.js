@@ -419,7 +419,26 @@ router.post('/new', requireLogin, async (req, res, next) => {
       stripHoldedSyncSuperOnlyFieldsFromPayload(payload);
     }
 
-    await db.createCliente(payload);
+    const created = await db.createCliente(payload);
+    try {
+      const newId = Number(created?.insertId ?? created?.Id ?? created?.id);
+      if (Number.isFinite(newId) && newId > 0 && Object.keys(payload).length > 0) {
+        const { sendClienteModificadoEmail } = require('../lib/mailer');
+        const nombreNotify =
+          payload[colNombre] != null && String(payload[colNombre]).trim() !== ''
+            ? String(payload[colNombre]).trim()
+            : String(payload.Nombre_Razon_Social ?? payload.cli_nombre_razon_social ?? '').trim();
+        await sendClienteModificadoEmail({
+          accion: 'alta',
+          clienteId: newId,
+          clienteNombre: nombreNotify,
+          editorEmail: res.locals.user?.email,
+          editorNombre: res.locals.user?.nombre || res.locals.user?.name
+        });
+      }
+    } catch (e) {
+      console.warn('[clientes] Notificación email cliente creado:', e?.message || e);
+    }
     return res.redirect('/clientes');
   } catch (e) {
     next(e);
@@ -745,6 +764,24 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
     }
 
     await db.updateCliente(id, payload);
+    try {
+      if (Object.keys(payload).length > 0) {
+        const { sendClienteModificadoEmail } = require('../lib/mailer');
+        const nombreNotify =
+          payload[colNombre] != null && String(payload[colNombre]).trim() !== ''
+            ? String(payload[colNombre]).trim()
+            : String(item[colNombre] ?? item.Nombre_Razon_Social ?? item.cli_nombre_razon_social ?? '').trim();
+        await sendClienteModificadoEmail({
+          accion: 'edicion',
+          clienteId: id,
+          clienteNombre: nombreNotify,
+          editorEmail: res.locals.user?.email,
+          editorNombre: res.locals.user?.nombre || res.locals.user?.name
+        });
+      }
+    } catch (e) {
+      console.warn('[clientes] Notificación email cliente modificado:', e?.message || e);
+    }
     try {
       const { evaluateCliHoldedSyncPendienteAfterCrmSave } = require('../lib/holded-sync');
       await evaluateCliHoldedSyncPendienteAfterCrmSave(db, id);
