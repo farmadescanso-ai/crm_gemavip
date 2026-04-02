@@ -316,6 +316,34 @@ module.exports = {
     }
   },
 
+  /**
+   * Resuelve `cli_id` para rutas `/clientes/:id`: si es solo dígitos, PK; si no, busca por `cli_Id_Holded` o `cli_referencia` (ID Holded).
+   * @param {string|number} raw
+   * @returns {Promise<number|null>}
+   */
+  async resolveClienteIdFromRouteParam(raw) {
+    const s = String(raw ?? '').trim();
+    if (!s) return null;
+    if (/^\d+$/.test(s)) {
+      const n = Number(s);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    try {
+      const rows = await this.query(
+        `SELECT cli_id FROM clientes WHERE TRIM(COALESCE(cli_Id_Holded,'')) = ? OR TRIM(COALESCE(cli_referencia,'')) = ? LIMIT 1`,
+        [s, s]
+      );
+      const r = rows?.[0];
+      if (r && r.cli_id != null) {
+        const num = Number(r.cli_id);
+        return Number.isFinite(num) && num > 0 ? num : null;
+      }
+    } catch (e) {
+      console.warn('[clientes] resolveClienteIdFromRouteParam:', e?.message || e);
+    }
+    return null;
+  },
+
   async canComercialEditCliente(clienteId, userId) {
     if (!clienteId || !userId) return false;
     const cliente = await this.getClienteById(clienteId);

@@ -85,6 +85,46 @@ try {
   if (wp && typeof wp.sendPushToAdmins === 'function') sendPushToAdmins = wp.sendPushToAdmins;
 } catch (_) {}
 
+/**
+ * Con aviso «Holded — pendiente de sincronización» en ficha: reevalúa y envía a `HOLDED_SYNC_NOTIFY_EMAIL`
+ * el mismo correo con enlaces firmados que tras guardar (no bloquea la respuesta HTTP).
+ */
+function triggerHoldedSyncEvalOnViewIfPending(db, cliId, item) {
+  const pend =
+    item &&
+    (Number(item.cli_holded_sync_pendiente) === 1 || String(item.cli_holded_sync_pendiente) === '1');
+  if (!pend) return;
+  const { evaluateCliHoldedSyncPendienteAfterCrmSave } = require('../lib/holded-sync');
+  evaluateCliHoldedSyncPendienteAfterCrmSave(db, cliId, { fromView: true }).catch(() => {});
+}
+
+/**
+ * `:id` puede ser `cli_id` numérico o ID Holded (`cli_Id_Holded` / `cli_referencia`).
+ * @returns {Promise<{ ok: true, id: number, raw: string } | { ok: false, reason: 'badrequest'|'notfound', raw: string }>}
+ */
+async function parseClienteRouteId(req, db) {
+  const raw = String(req.params.id ?? '').trim();
+  const id = await db.resolveClienteIdFromRouteParam(req.params.id);
+  if (id == null || !Number.isFinite(id) || id <= 0) {
+    if (raw && !/^\d+$/.test(raw)) {
+      return { ok: false, reason: 'notfound', raw };
+    }
+    return { ok: false, reason: 'badrequest', raw };
+  }
+  return { ok: true, id, raw };
+}
+
+/** Si la URL usó ID Holded, redirige a la ruta canónica con `cli_id` (solo GET). */
+function redirectIfHoldedIdInUrl(req, res, id, raw) {
+  if (!raw || /^\d+$/.test(raw)) return false;
+  const p = req.path || '';
+  let dest = `/clientes/${id}`;
+  if (p.endsWith('/edit')) dest += '/edit';
+  else if (p.includes('/direcciones/new')) dest += '/direcciones/new';
+  res.redirect(302, dest);
+  return true;
+}
+
 const router = express.Router();
 
 router.get('/duplicados', requireLogin, requireAdmin, async (req, res, next) => {
@@ -456,8 +496,11 @@ router.post('/new', requireLogin, async (req, res, next) => {
 
 router.get('/:id/direcciones/new', requireLogin, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const pr = await parseClienteRouteId(req, db);
+    if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
+    if (!pr.ok) return res.status(400).send('ID no válido');
+    const { id, raw } = pr;
+    if (redirectIfHoldedIdInUrl(req, res, id, raw)) return;
     const admin = isAdminUser(res.locals.user);
     const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
     if (!canEdit) return res.status(403).send('No tiene permiso para editar este contacto.');
@@ -483,8 +526,10 @@ router.get('/:id/direcciones/new', requireLogin, async (req, res, next) => {
 
 router.post('/:id/direcciones/new', requireLogin, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const pr = await parseClienteRouteId(req, db);
+    if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
+    if (!pr.ok) return res.status(400).send('ID no válido');
+    const { id } = pr;
     const admin = isAdminUser(res.locals.user);
     const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
     if (!canEdit) return res.status(403).send('No tiene permiso para editar este contacto.');
@@ -520,14 +565,18 @@ router.post('/:id/direcciones/new', requireLogin, async (req, res, next) => {
 /** Rutas con path fijo /edit deben ir antes de /:id (vista), si no Express puede enlazar mal el handler. */
 router.get('/:id/edit', requireLogin, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const pr = await parseClienteRouteId(req, db);
+    if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
+    if (!pr.ok) return res.status(400).send('ID no válido');
+    const { id, raw } = pr;
+    if (redirectIfHoldedIdInUrl(req, res, id, raw)) return;
     const admin = isAdminUser(res.locals.user);
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
     const isSuperAdmin = Number(res.locals.user?.id) === 1;
     const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
     if (!item) return clienteNotFoundPage(req, res, id);
+    triggerHoldedSyncEvalOnViewIfPending(db, id, item);
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const [relacionesData, cooperativasCliente] = await Promise.all([
       db.getRelacionesByCliente(id).catch(() => ({ comoOrigen: [], comoRelacionado: [] })),
@@ -577,8 +626,10 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
 
 router.post('/:id/edit', requireLogin, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const pr = await parseClienteRouteId(req, db);
+    if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
+    if (!pr.ok) return res.status(400).send('ID no válido');
+    const { id } = pr;
     const admin = isAdminUser(res.locals.user);
     const isSuperAdmin = Number(res.locals.user?.id) === 1;
     if (!admin && !(await db.canComercialEditCliente(id, res.locals.user?.id))) return res.status(403).send('No tiene permiso para editar este contacto.');
@@ -805,8 +856,11 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
 
 router.get('/:id', requireLogin, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const pr = await parseClienteRouteId(req, db);
+    if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
+    if (!pr.ok) return res.status(400).send('ID no válido');
+    const { id, raw } = pr;
+    if (redirectIfHoldedIdInUrl(req, res, id, raw)) return;
     const admin = isAdminUser(res.locals.user);
     const isSuperAdmin = Number(res.locals.user?.id) === 1;
     const canEdit = admin || (await db.canComercialEditCliente(id, res.locals.user?.id));
@@ -814,6 +868,7 @@ router.get('/:id', requireLogin, async (req, res, next) => {
     const [item, catalogs] = await Promise.all([db.getClienteById(id), loadClienteFormCatalogs(db)]);
     const { comerciales, tarifas, provincias, paises, formasPago, tiposClientes, especialidades, idiomas, monedas, estadosCliente, cooperativas, gruposCompras, meta } = catalogs;
     if (!item) return clienteNotFoundPage(req, res, id);
+    triggerHoldedSyncEvalOnViewIfPending(db, id, item);
     const puedeSolicitarAsignacion = !admin && res.locals.user?.id && (await db.isContactoAsignadoAPoolOSinAsignar(id));
     const poolId = await db.getComercialIdPool();
     const solicitud = req.query.solicitud === 'ok' ? 'ok' : undefined;
@@ -870,8 +925,10 @@ router.get('/:id', requireLogin, async (req, res, next) => {
 
 router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const pr = await parseClienteRouteId(req, db);
+    if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
+    if (!pr.ok) return res.status(400).send('ID no válido');
+    const { id } = pr;
     const userId = Number(res.locals.user?.id);
     if (!userId || isAdminUser(res.locals.user)) return res.status(403).send('Solo un comercial puede solicitar que se le asigne un contacto.');
     const item = await db.getClienteById(id);
@@ -955,8 +1012,10 @@ router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) =>
 
 router.post('/:id/delete', requireAdmin, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
+    const pr = await parseClienteRouteId(req, db);
+    if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
+    if (!pr.ok) return res.status(400).send('ID no válido');
+    const { id } = pr;
     await db.moverClienteAPapelera(id, res.locals.user?.email || res.locals.user?.id || 'admin');
     return res.redirect('/clientes');
   } catch (e) {

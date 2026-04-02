@@ -787,6 +787,9 @@ class MySQLCRM {
   async getClienteById(id) {
     return domains.clientes.getClienteById.apply(this, arguments);
   }
+  async resolveClienteIdFromRouteParam(raw) {
+    return domains.clientes.resolveClienteIdFromRouteParam.apply(this, arguments);
+  }
   async canComercialEditCliente(clienteId, userId) {
     return domains.clientes.canComercialEditCliente.apply(this, arguments);
   }

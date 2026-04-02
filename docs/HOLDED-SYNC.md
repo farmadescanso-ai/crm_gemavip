@@ -38,6 +38,10 @@ La columna «Tags alcance» en la tabla muestra qué etiquetas del alcance tiene
 3. Tras aplicar CRM→Holded o Holded→CRM con éxito, se notifica a **`HOLDED_SYNC_BETACOURT_EMAIL`** (por defecto `c.betacourt@gemavip.com`) con un breve resumen.
 4. El resumen digest cada 15 min (`sendHoldedSyncPendingDigestEmail`) puede seguir activo; la decisión explícita va por los enlaces anteriores.
 
+5. **N8N (sin SMTP @gemavip):** si está configurado `HOLDED_SYNC_N8N_WEBHOOK_URL` (por defecto el webhook Easypanel farmadescanso-n8n), el CRM envía primero un **POST JSON** a ese webhook; si responde 2xx, no se intenta Graph/SMTP. Campos comunes: `event`, `to`, `subject`, `html`, `meta`, `appBaseUrl`, `source`, `ts`. Valores de `event`: `holded_sync_approval_request` (incluye `meta.links` con URLs firmadas), `holded_sync_digest`, `holded_sync_applied`. Cabecera opcional `X-CRM-Signature` (HMAC-SHA256 del body JSON) si defines `HOLDED_SYNC_N8N_WEBHOOK_SECRET` o `APROBACION_SECRET`. Flujo n8n exportable (mismo patrón que «Aprobación Pedidos»): [`docs/n8n/sincronizacion-holded-gemavip.json`](n8n/sincronizacion-holded-gemavip.json) — importar en n8n, reasignar credencial SMTP **CRM GEMAVIP** si hace falta, activar el workflow y comprobar URL `POST .../webhook/58663207-04f0-4a20-b333-1bd4ff36bf00`.
+
+**Conflicto de webhook en n8n:** Si el error menciona `d6977a0f-a949-4fdc-bb45-09083fda4f8b` (ruta de **Aprobación Pedidos**), no es el flujo Holded: suele haber **dos copias** del mismo workflow de pedidos o un duplicado con el mismo path. Desactiva o elimina el duplicado, o cambia el path del webhook en uno de ellos. Holded usa siempre el path distinto `58663207-04f0-4a20-b333-1bd4ff36bf00`.
+
 **Nota:** `resolverSolicitudAsignacion` no resuelve notificaciones `aprobacion_sync_cliente` (deben usarse los enlaces del webhook).
 
 ## Estados de la vista previa (H / C / S)

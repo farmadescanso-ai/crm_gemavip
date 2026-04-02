@@ -187,7 +187,7 @@ app.use((req, _res, next) => {
   if (rest == null) return next();
 
   const htmlUiPrefixes = [
-    /^clientes\/(?:new|duplicados|unificar|\d+\/(?:edit|delete))(?:\/|$)/,
+    /^clientes\/(?:new|duplicados|unificar|[^/]+\/(?:edit|delete))(?:\/|$)/,
     /^login(?:\/|$)/,
     /^dashboard(?:\/|$)/,
     /^pedidos(?:\/|$)/,

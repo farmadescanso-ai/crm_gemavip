@@ -14,6 +14,7 @@
     "purge:youbelle:apply": "node tools/purge-youbelle.js --term \"Youbelle\" --apply",
     "copy-tarifa-mirafarma-to-pvl": "node tools/copy-tarifa-mirafarma-to-pvl.js",
     "fix-login": "node tools/fix-login-password.js",
+    "hash-comerciales-passwords": "node scripts/hash-comerciales-passwords.js",
     "normalizar-clientes-espana": "node scripts/normalizar-clientes-espana.js",
     "sync:holded-pedidos": "node scripts/sync-pedidos-holded.js",
     "normalizar-clientes-espana:dry": "node scripts/normalizar-clientes-espana.js --dry-run",
