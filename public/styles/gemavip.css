@@ -2741,3 +2741,127 @@ button.gv-vista-tab.is-active {
   margin-bottom: 10px;
 }
 
+/* ===========================
+   CPanel (landing /admin tools)
+   =========================== */
+.gv-cpanel .gv-cpanel-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.gv-cpanel-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gv-primary);
+  background: linear-gradient(135deg, rgba(0, 139, 210, 0.12), rgba(143, 174, 27, 0.1));
+  border: 1px solid rgba(0, 139, 210, 0.22);
+  border-radius: 999px;
+}
+.gv-cpanel-kicker__user {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gv-muted);
+}
+.gv-cpanel-kicker__user::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--gv-border);
+  font-weight: 400;
+}
+.gv-cpanel-sub {
+  margin-top: 6px !important;
+  max-width: 720px;
+}
+.gv-cpanel-intro {
+  margin: 0 0 22px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--gv-muted);
+  max-width: 720px;
+}
+.gv-cpanel-intro strong {
+  color: var(--gv-text);
+}
+.gv-cpanel-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 16px;
+}
+.gv-cpanel-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 22px 22px 20px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--gv-surface);
+  border: 1px solid rgba(229, 229, 229, 0.95);
+  border-radius: var(--gv-radius);
+  box-shadow: 0 6px 22px rgba(12, 20, 58, 0.07);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
+}
+.gv-cpanel-tool::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--gv-primary), var(--gv-primary-hover), var(--gv-yellow), var(--gv-green));
+}
+.gv-cpanel-tool:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--gv-shadow);
+  border-color: rgba(0, 139, 210, 0.3);
+  text-decoration: none;
+  color: inherit;
+}
+.gv-cpanel-tool:focus-visible {
+  outline: 2px solid var(--gv-primary);
+  outline-offset: 2px;
+}
+.gv-cpanel-tool__icon {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(0, 139, 210, 0.14), rgba(23, 66, 139, 0.08));
+  align-items: center;
+  justify-content: center;
+  color: var(--gv-primary);
+}
+.gv-cpanel-tool__icon svg {
+  display: block;
+}
+.gv-cpanel-tool__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gv-ink);
+  letter-spacing: -0.02em;
+}
+.gv-cpanel-tool__desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--gv-muted);
+  margin: 0;
+}
+.gv-cpanel-tool__cta {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gv-primary);
+}
+.gv-cpanel-tool:hover .gv-cpanel-tool__cta {
+  color: var(--gv-primary-hover);
+}
+
