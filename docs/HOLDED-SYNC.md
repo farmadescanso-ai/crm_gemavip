@@ -71,9 +71,9 @@ Rastreadores, antivirus o la **previsualización de enlaces** pueden hacer **GET
 
 - **H**: hash del contacto Holded (`hashFromHoldedContact`).
 - **C**: hash de la fila CRM (`hashFromCrmRow`).
-- **S**: `cli_holded_sync_hash` (último acuerdo tras import/export).
+- **S**: `cli_holded_sync_hash` (último acuerdo: hash de los datos comparables según un **GET del contacto en Holded** tras import/export, no solo el hash de la fila CRM — así **S** coincide con lo que el panel calcula como **H**).
 
-Tras import o export, `cli_holded_sync_hash` se guarda con el hash del CRM.
+Tras import o export exitoso, `cli_holded_sync_hash` se actualiza con `hashFromHoldedContact` sobre la respuesta de la API Holded (y `cli_holded_sync_pendiente = 1` solo si aún difiere el hash de la fila CRM respecto a ese estado).
 
 ## Campos comparables
 
