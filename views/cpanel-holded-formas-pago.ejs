@@ -1,0 +1,96 @@
+<%- include('partials/header', { title: title || 'Formas de pago Holded' }) %>
+
+<% const hRows = Array.isArray(holdedRows) ? holdedRows : []; %>
+<% const cRows = Array.isArray(crmRows) ? crmRows : []; %>
+<% const sql = typeof sqlSnippet === 'string' ? sqlSnippet : ''; %>
+
+<section class="card gv-vista gv-cpanel gv-holded-formas-pago">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-cpanel-kicker">
+      <span class="gv-cpanel-badge">Superadmin</span>
+      <span class="gv-cpanel-kicker__user"><%= user?.nombre ?? user?.email ?? '—' %></span>
+    </div>
+    <h1 class="card-title gv-vista-hd__title"><%= title || 'Formas de pago Holded ↔ CRM' %></h1>
+    <p class="gv-vista-hd__sub" style="margin-top: 8px;">
+      Datos de la API Holded <code>GET /paymentmethods</code> y catálogo actual de <code>formas_pago</code> en el CRM.
+      Abajo tienes un bloque SQL generado para alinear nombres y (opcional) guardar el ID Holded.
+    </p>
+    <p style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+      <a class="btn secondary" href="/cpanel">← CPanel</a>
+      <% if (sql && !holdedError && hRows.length) { %>
+        <a class="btn" href="/cpanel/holded-formas-pago?format=sql">Descargar .sql</a>
+      <% } %>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (holdedError) { %>
+      <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
+        <strong>Holded</strong>
+        <p style="margin: 8px 0 0 0;"><%= holdedError %></p>
+      </div>
+    <% } %>
+    <% if (!apiKeyConfigured) { %>
+      <p style="font-size: 13px; color: var(--gv-muted); margin-bottom: 16px;">Configura <code>HOLDED_API_KEY</code> en el entorno para cargar la tabla desde Holded.</p>
+    <% } %>
+
+    <h2 class="gv-holded-comparar-h2" style="margin-top: 0;">Holded (<%= hRows.length %>)</h2>
+    <div class="table-wrap" style="margin-bottom: 28px;">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>ID Holded</th>
+            <th>Nombre</th>
+            <th>dueDays</th>
+            <th>bankId</th>
+            <th>JSON (completo)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!hRows.length) { %>
+            <tr><td colspan="5" style="padding: 20px; color: var(--gv-muted);">Sin datos de Holded.</td></tr>
+          <% } %>
+          <% hRows.forEach(function (row) { %>
+            <tr>
+              <td style="font-family: monospace; font-size: 12px; word-break: break-all;"><%= row.id != null ? row.id : (row._id != null ? row._id : '—') %></td>
+              <td><%= row.name != null ? row.name : (row.nombre != null ? row.nombre : '—') %></td>
+              <td style="font-size: 12px;"><%= row.dueDays != null ? row.dueDays : '—' %></td>
+              <td style="font-size: 12px; word-break: break-all;"><%= row.bankId != null ? row.bankId : '—' %></td>
+              <td style="font-size: 10px; max-width: 320px; word-break: break-all; font-family: ui-monospace, monospace;">
+                <code><%= JSON.stringify(row) %></code>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="gv-holded-comparar-h2">CRM · formas_pago (<%= cRows.length %>)</h2>
+    <p style="font-size: 13px; color: var(--gv-muted); margin: 0 0 12px 0;">Columnas: <code>formp_id</code>, <code>formp_nombre</code></p>
+    <div class="table-wrap" style="margin-bottom: 28px;">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>formp_id</th>
+            <th>formp_nombre</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% cRows.forEach(function (r) { %>
+            <tr>
+              <td style="font-family: monospace;"><%= r.formp_id != null ? r.formp_id : '—' %></td>
+              <td><%= r.formp_nombre != null ? r.formp_nombre : '—' %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="gv-holded-comparar-h2">SQL sugerido (revisar antes de ejecutar)</h2>
+    <p style="font-size: 13px; color: var(--gv-muted); margin: 0 0 10px 0;">
+      Incluye <code>INSERT</code> condicionales para nombres que existen en Holded y aún no en CRM, comentario de <code>ALTER</code> opcional para <code>formp_id_holded</code>, y plantillas <code>UPDATE</code> comentadas para vincular IDs.
+    </p>
+    <pre class="gv-holded-formas-pago-sql"><%= sql %></pre>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

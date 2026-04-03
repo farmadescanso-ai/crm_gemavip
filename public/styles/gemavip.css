@@ -2898,3 +2898,17 @@ button.gv-vista-tab.is-active {
   vertical-align: middle;
 }
 
+.gv-holded-formas-pago-sql {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--gv-border);
+  background: rgba(12, 20, 58, 0.04);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+

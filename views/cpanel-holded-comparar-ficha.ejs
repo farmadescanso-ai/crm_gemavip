@@ -4,7 +4,8 @@
 <% const cli = d.cliente && typeof d.cliente === 'object' ? d.cliente : null; %>
 <% const nom = cli ? (cli.cli_nombre_razon_social || cli.Nombre_Razon_Social || '') : ''; %>
 <% const comparable = Array.isArray(d.comparableRows) ? d.comparableRows : []; %>
-<% const resto = Array.isArray(d.restoColumnas) ? d.restoColumnas : []; %>
+<% const crmAll = Array.isArray(d.crmAllColumnas) ? d.crmAllColumnas : (Array.isArray(d.restoColumnas) ? d.restoColumnas : []); %>
+<% const holdedJson = typeof d.holdedJsonPretty === 'string' && d.holdedJsonPretty ? d.holdedJsonPretty : ''; %>
 <% const canSync = !d.missingHoldedLink && d.holdedId; %>
 
 <section class="card gv-vista gv-cpanel gv-holded-comparar-ficha">
@@ -102,9 +103,9 @@
         </table>
       </div>
 
-      <h2 class="gv-holded-comparar-h2">Resto de columnas en CRM</h2>
-      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">Campos de la fila cliente (y joins útiles) que no forman parte del conjunto comparable con Holded, o que aquí se listan solo en CRM.</p>
-      <div class="table-wrap">
+      <h2 class="gv-holded-comparar-h2">CRM — todos los campos (fila cliente)</h2>
+      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">Incluye columnas de <code>clientes</code> y campos añadidos por la consulta (p. ej. nombres de provincia, país, etc.).</p>
+      <div class="table-wrap" style="margin-bottom: 28px;">
         <table class="dash-table gv-holded-comparar-rest-table">
           <thead>
             <tr>
@@ -113,7 +114,7 @@
             </tr>
           </thead>
           <tbody>
-            <% resto.forEach(function (row) { %>
+            <% crmAll.forEach(function (row) { %>
               <tr>
                 <td style="font-family: monospace; font-size: 12px;"><%= row.key %></td>
                 <td style="font-size: 12px; word-break: break-word; white-space: pre-wrap;"><%= row.value %></td>
@@ -122,6 +123,14 @@
           </tbody>
         </table>
       </div>
+
+      <h2 class="gv-holded-comparar-h2">Holded — contacto completo (API)</h2>
+      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">Respuesta JSON de <code>GET /contacts/:id</code> (sin recortes).</p>
+      <% if (holdedJson) { %>
+        <pre class="gv-holded-formas-pago-sql gv-holded-raw-json" style="max-height: 70vh; overflow: auto;"><%= holdedJson %></pre>
+      <% } else { %>
+        <p style="color: var(--gv-muted); font-size: 13px;">No hay datos Holded (sin API key, sin vínculo o error al cargar el contacto).</p>
+      <% } %>
     <% } %>
   </div>
 </section>

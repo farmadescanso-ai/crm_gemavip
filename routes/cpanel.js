@@ -17,6 +17,7 @@ const {
   parseSelectedTagsInput,
   MOTIVO_OMITIDO_SIN_CIF_HOLDED
 } = require('../lib/sync-holded-clientes');
+const { fetchHoldedPaymentMethods, buildFormasPagoSyncSql } = require('../lib/holded-payment-methods');
 
 const router = express.Router();
 const ExcelJS = require('exceljs');
@@ -411,6 +412,52 @@ router.post('/cpanel/holded-comparar/:cliId/export', requireUserId1, async (req,
       return res.redirect(buildHoldedCompararFichaRedirect(cid, { error: e?.message || 'Error al exportar a Holded' }));
     }
     return res.redirect('/cpanel/holded-comparar?error=' + encodeURIComponent(e?.message || 'Error'));
+  }
+});
+
+router.get('/cpanel/holded-formas-pago', requireUserId1, async (req, res, next) => {
+  try {
+    if (!db.connected && !db.pool) await db.connect();
+    const apiKey = (process.env.HOLDED_API_KEY || '').trim();
+    let holdedRows = [];
+    let holdedError = null;
+    if (!apiKey) {
+      holdedError = 'Falta HOLDED_API_KEY en variables de entorno';
+    } else {
+      try {
+        holdedRows = await fetchHoldedPaymentMethods(apiKey);
+      } catch (e) {
+        holdedError = e?.message || String(e);
+      }
+    }
+    const crmRows = await db
+      .query('SELECT formp_id, formp_nombre FROM formas_pago ORDER BY formp_id ASC')
+      .catch(() => []);
+    const crmList = Array.isArray(crmRows) ? crmRows : [];
+    const sqlSnippet =
+      holdedError || !Array.isArray(holdedRows) || holdedRows.length === 0
+        ? holdedError
+          ? `-- No se pudo obtener datos de Holded: ${String(holdedError).replace(/[\r\n]+/g, ' ')}`
+          : '-- La API Holded no devolvió formas de pago (lista vacía o respuesta no reconocida).'
+        : buildFormasPagoSyncSql(holdedRows, crmList);
+    if (String(req.query.format || '').toLowerCase() === 'sql') {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="holded-formas-pago-${new Date().toISOString().slice(0, 10)}.sql"`
+      );
+      return res.send(sqlSnippet);
+    }
+    res.render('cpanel-holded-formas-pago', {
+      title: 'Formas de pago Holded ↔ CRM',
+      holdedRows: Array.isArray(holdedRows) ? holdedRows : [],
+      crmRows: crmList,
+      holdedError,
+      sqlSnippet,
+      apiKeyConfigured: Boolean(apiKey)
+    });
+  } catch (e) {
+    next(e);
   }
 });
 
