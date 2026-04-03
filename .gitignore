@@ -27,3 +27,6 @@ scripts/salida-importar/
 
 # Volcados SQL con datos personales (no versionar)
 data/bd-dumps/*.sql
+
+# Excel generado (npm run export:clientes-holded)
+exports/

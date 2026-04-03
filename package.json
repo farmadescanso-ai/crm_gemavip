@@ -17,6 +17,9 @@
     "hash-comerciales-passwords": "node scripts/hash-comerciales-passwords.js",
     "normalizar-clientes-espana": "node scripts/normalizar-clientes-espana.js",
     "sync:holded-pedidos": "node scripts/sync-pedidos-holded.js",
+    "export:clientes-holded": "node scripts/export-clientes-holded-excel.js",
+    "export:holded-contactos-crm": "node scripts/export-holded-contactos-crm-excel.js",
+    "export:holded-contactos-crm:md": "node scripts/export-holded-contactos-crm-excel.js --md",
     "normalizar-clientes-espana:dry": "node scripts/normalizar-clientes-espana.js --dry-run",
     "test": "jest",
     "test:watch": "jest --watch"
