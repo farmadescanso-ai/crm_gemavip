@@ -203,6 +203,9 @@ function buildHoldedClientesRedirect(tags, extra) {
   if (extra?.vista && extra.vista !== 'todos') params.set('vista', extra.vista);
   if (extra?.segment && String(extra.segment).trim() !== '') params.set('segment', String(extra.segment).trim());
   if (extra?.alcance && String(extra.alcance).trim() !== '') params.set('alcance', String(extra.alcance).trim());
+  if (extra?.syncedHoldedId && String(extra.syncedHoldedId).trim() !== '') {
+    params.set('synced', String(extra.syncedHoldedId).trim());
+  }
   if (extra?.success) params.set('success', extra.success);
   if (extra?.error) params.set('error', extra.error);
   const q = params.toString();
@@ -310,7 +313,15 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
       previewHoldedClientesEs(db, { selectedTags, holdedListScope }),
       getCrmTotalesParaCruce(db)
     ]);
-    const success = typeof req.query.success === 'string' ? req.query.success : null;
+    const syncedRaw = typeof req.query.synced === 'string' ? req.query.synced.trim() : '';
+    const successQuery = typeof req.query.success === 'string' ? req.query.success : null;
+    let success = null;
+    if (syncedRaw) {
+      success = `Datos del CRM enviados a Holded (${syncedRaw}).`;
+    } else if (successQuery) {
+      success = successQuery;
+    }
+    const highlightHoldedId = syncedRaw || null;
     const error = typeof req.query.error === 'string' ? req.query.error : (result.error || null);
     let previewRows = filterPreviewRows(result.rows, vista);
     previewRows = applySegmentFilter(previewRows, segment);
@@ -324,6 +335,7 @@ router.get('/cpanel/holded-clientes', requireUserId1, async (req, res, next) => 
       alcanceHolded: holdedListScope === 'all_cliente_lead' ? 'completo' : 'crm',
       previewRows,
       success,
+      highlightHoldedId,
       error,
       motivoSinCifHolded: MOTIVO_OMITIDO_SIN_CIF_HOLDED,
       crmTotalListado: crmCruce.crmTotalListado,
@@ -382,7 +394,7 @@ router.post('/cpanel/holded-clientes/export-crm', requireUserId1, async (req, re
     const result = await exportCrmClienteToHolded(db, cliId);
     if (result.ok) {
       return res.redirect(
-        buildHoldedClientesRedirect(selectedTags, { success: `Datos del CRM enviados a Holded (${holdedId}).`, vista, segment, alcance })
+        buildHoldedClientesRedirect(selectedTags, { syncedHoldedId: holdedId, vista, segment, alcance })
       );
     }
     return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: result.error || 'Error al exportar', vista, segment, alcance }));

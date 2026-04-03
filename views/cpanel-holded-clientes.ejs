@@ -213,6 +213,7 @@
     </div>
     <style>
       a.gv-holded-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); }
+      tr.gv-holded-row-just-synced { box-shadow: inset 4px 0 0 0 #22c55e; background: rgba(34, 197, 94, 0.07); }
     </style>
 
     <div style="display:flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
@@ -253,6 +254,7 @@
       <a href="<%= vistaLink('omitidos') %>" class="badge <%= vp === 'omitidos' ? 'ok' : '' %>" style="text-decoration:none; cursor:pointer;">Solo omitidos</a>
     </div>
     <% const previewList = Array.isArray(previewRows) ? previewRows : rowsSafe; %>
+    <% const hid = (typeof highlightHoldedId === 'string' && highlightHoldedId.trim()) ? highlightHoldedId.trim() : ''; %>
     <% const motivoSinCif = typeof motivoSinCifHolded === 'string' ? motivoSinCifHolded : ''; %>
     <% const sinCifEnErrores = (vp === 'errores' && motivoSinCif) ? previewList.filter(function(r) { return String(r.motivo || '') === motivoSinCif; }) : []; %>
     <% const sinCifEnOmitidos = (vp === 'omitidos' && motivoSinCif) ? previewList.filter(function(r) { return String(r.motivo || '') === motivoSinCif; }) : []; %>
@@ -323,7 +325,8 @@
         <tbody>
           <% previewList.forEach((r) => { %>
             <% const isOmitRevisarPink = vp === 'omitidos' && !r.crmYaExisteEnCrm && (r.estadoBase === 'omitido' || r.estado === 'omitido') && motivoSinCif && String(r.motivo || '') !== motivoSinCif; %>
-            <tr class="<%= isOmitRevisarPink ? 'gv-holded-omitidos-revisar' : '' %>">
+            <% const rowHighlight = hid && String(r.holdedId || r.cli_Id_Holded || '').trim() === hid; %>
+            <tr class="<%= isOmitRevisarPink ? 'gv-holded-omitidos-revisar' : '' %><%= rowHighlight ? ' gv-holded-row-just-synced' : '' %>">
               <td>
                 <% if (r.crmYaExisteEnCrm && (r.estadoBase === 'omitido' || r.estado === 'omitido')) { %>
                   <span class="badge ok">En CRM</span>
@@ -342,7 +345,11 @@
                     <% } else if (r.estado === 'pte_importar') { %>
                       <span class="badge warn">Pte. importar</span>
                     <% } else if (r.estado === 'pte_exportar') { %>
-                      <span class="badge info">Sincronizar</span>
+                      <% if (rowHighlight) { %>
+                        <span class="badge ok">Volcado reciente</span>
+                      <% } else { %>
+                        <span class="badge info">Sincronizar</span>
+                      <% } %>
                     <% } else if (r.estado === 'desincronizado') { %>
                       <span class="badge danger">Desincronizado</span>
                     <% } else { %>
@@ -373,6 +380,9 @@
               <td style="font-size: 12px;"><%= r.motivo || '—' %></td>
               <td style="font-size: 12px; white-space: nowrap;">
                 <% if (r.estado === 'pte_exportar' && r.holdedId) { %>
+                  <% if (rowHighlight) { %>
+                    <a class="btn secondary" style="font-size: 11px; padding: 4px 8px;" href="<%= vistaLink(vp) %>">Actualizar vista previa</a>
+                  <% } else { %>
                   <form method="post" action="/cpanel/holded-clientes/export-crm" style="display:inline;">
                     <input type="hidden" name="holdedId" value="<%= r.holdedId %>" />
                     <% if (vp !== 'todos') { %><input type="hidden" name="vista" value="<%= vp %>" /><% } %>
@@ -381,6 +391,7 @@
                     <% sel.forEach(function(t) { %><input type="hidden" name="tags" value="<%= t %>" /><% }); %>
                     <button type="submit" class="btn secondary" style="font-size: 11px; padding: 4px 8px;">Volcar CRM → Holded</button>
                   </form>
+                  <% } %>
                 <% } else { %>—<% } %>
               </td>
             </tr>
@@ -390,5 +401,22 @@
     </div>
   </div>
 </section>
+
+<script>
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (u.searchParams.has('success') || u.searchParams.has('synced') || u.searchParams.has('error')) {
+      u.searchParams.delete('success');
+      u.searchParams.delete('synced');
+      u.searchParams.delete('error');
+      var qs = u.searchParams.toString();
+      window.history.replaceState({}, '', u.pathname + (qs ? '?' + qs : '') + u.hash);
+    }
+    var row = document.querySelector('tr.gv-holded-row-just-synced');
+    if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } catch (e) {}
+})();
+</script>
 
 <%- include('partials/footer') %>
