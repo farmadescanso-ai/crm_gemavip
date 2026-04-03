@@ -317,14 +317,17 @@ router.get('/cpanel/holded-comparar', requireUserId1, async (req, res, next) => 
     const total = Number(countRows?.[0]?.n ?? countRows?.[0]?.N ?? 0) || 0;
     const totalPages = Math.max(1, Math.ceil(total / HOLDED_COMPARAR_PAGE_SIZE));
 
-    const listParams = [...params, HOLDED_COMPARAR_PAGE_SIZE, offset];
+    // LIMIT/OFFSET como literales enteros: execute(?) con LIMIT provoca
+    // ER_WRONG_ARGUMENTS en algunos MySQL/serverless (p. ej. Vercel + pool).
+    const limitInt = Math.min(100, Math.max(1, Math.floor(Number(HOLDED_COMPARAR_PAGE_SIZE)) || 35));
+    const offsetInt = Math.max(0, Math.floor(Number(offset)) || 0);
     const rows = await db.query(
       `SELECT cli_id, cli_nombre_razon_social, cli_dni_cif, cli_Id_Holded
        FROM clientes
        WHERE ${where}
        ORDER BY cli_nombre_razon_social ASC
-       LIMIT ? OFFSET ?`,
-      listParams
+       LIMIT ${limitInt} OFFSET ${offsetInt}`,
+      params
     );
 
     const listError = typeof req.query.error === 'string' ? req.query.error : null;
