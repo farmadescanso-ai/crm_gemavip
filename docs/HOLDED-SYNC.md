@@ -39,11 +39,21 @@ La columna «Tags alcance» en la tabla muestra qué etiquetas del alcance tiene
 
 ## Autorización por email (sync)
 
+### Prefetch, Microsoft Safe Links y GET
+
+Rastreadores, antivirus o la **previsualización de enlaces** pueden hacer **GET** a una URL antes de que el usuario pulse. Si el GET **ejecutara** la sincronización, la notificación quedaría resuelta y el usuario vería «La solicitud ya fue resuelta o no existe».
+
+**Comportamiento actual:**
+
+- **`GET /webhook/aprobar-sync-cliente?notifId=&accion=&sig=`** solo valida la firma HMAC y muestra una **página de confirmación** (no cambia el estado de `notificaciones`).
+- La acción se ejecuta con **`POST`** al mismo path (`application/x-www-form-urlencoded`) con los mismos `notifId`, `accion` y `sig` (formulario «Confirmar» de esa página).
+- **`POST` con `X-API-Key` / `Authorization: Bearer` = `API_KEY`** (n8n, scripts) ejecuta directamente con JSON `{ notifId, accion }` y **no** depende de GET; no sufre este problema.
+
 1. Tras marcar pendiente de sync, si no existe ya una notificación pendiente del mismo tipo, se crea una fila en `notificaciones` con **`tipo = aprobacion_sync_cliente`**, `id_contacto = cli_id` y notas JSON (diff resumido, sugerencia de dirección).
 2. Se envía correo a **`HOLDED_SYNC_NOTIFY_EMAIL`** (por defecto `p.lara@gemavip.com`) con tres enlaces firmados (HMAC, mismo secreto que pedidos: `APROBACION_SECRET`):
-   - **`/webhook/aprobar-sync-cliente?notifId=&accion=crm_to_holded&sig=`** — ejecuta `exportCrmClienteToHolded`.
-   - **`accion=holded_to_crm`** — ejecuta `importCrmClienteFromHolded`.
-   - **`accion=revisar`** — cierra la notificación sin sincronizar.
+   - **`/webhook/aprobar-sync-cliente?notifId=&accion=crm_to_holded&sig=`** — abre confirmación; al confirmar, `exportCrmClienteToHolded`.
+   - **`accion=holded_to_crm`** — abre confirmación; al confirmar, `importCrmClienteFromHolded`.
+   - **`accion=revisar`** — abre confirmación; al confirmar, cierra la notificación sin sincronizar.
 3. Tras aplicar CRM→Holded o Holded→CRM con éxito, se notifica a **`HOLDED_SYNC_BETACOURT_EMAIL`** (por defecto `c.betacourt@gemavip.com`) con un breve resumen.
 4. El resumen digest cada 15 min (`sendHoldedSyncPendingDigestEmail`) puede seguir activo; la decisión explícita va por los enlaces anteriores.
 
@@ -52,8 +62,8 @@ La columna «Tags alcance» en la tabla muestra qué etiquetas del alcance tiene
 **Conflicto de webhook en n8n:** Si el error menciona `d6977a0f-a949-4fdc-bb45-09083fda4f8b` (ruta de **Aprobación Pedidos**), no es el flujo Holded: suele haber **dos copias** del mismo workflow de pedidos o un duplicado con el mismo path. Desactiva o elimina el duplicado, o cambia el path del webhook en uno de ellos. Holded usa siempre el path distinto `58663207-04f0-4a20-b333-1bd4ff36bf00`.
 
 6. **Ejecutar sincronización desde n8n (o automatización):**  
-   - **Enlaces del correo (recomendado):** el HTML del CRM ya incluye enlaces firmados a `GET /webhook/aprobar-sync-cliente` — al pulsar, el CRM aplica CRM→Holded, Holded→CRM o «revisar» sin pasar por n8n.  
-   - **POST con API key** (misma lógica que los enlaces, para n8n o scripts): `POST https://<tu-crm>/webhook/aprobar-sync-cliente` con cabecera `X-API-Key: <API_KEY>` (o `Authorization: Bearer <API_KEY>`) y cuerpo JSON `{ "notifId": <número>, "accion": "crm_to_holded" | "holded_to_crm" | "revisar" }`. Requiere `API_KEY` en variables de entorno del servidor. El workflow importable en [`docs/n8n/sincronizacion-holded-gemavip.json`](n8n/sincronizacion-holded-gemavip.json) incluye un segundo webhook «Ejecutar sync (manual)» → nodo HTTP que llama a este POST; define en n8n la variable `CRM_GEMAVIP_API_KEY` igual a `API_KEY` de Vercel.
+   - **Enlaces del correo:** el HTML incluye enlaces firmados a `GET /webhook/aprobar-sync-cliente` → página intermedia → el usuario pulsa **Confirmar** (POST con firma).  
+   - **POST con API key** (recomendado si el correo pasa por escaneo agresivo de URLs): `POST https://<tu-crm>/webhook/aprobar-sync-cliente` con cabecera `X-API-Key: <API_KEY>` (o `Authorization: Bearer <API_KEY>`) y cuerpo JSON `{ "notifId": <número>, "accion": "crm_to_holded" | "holded_to_crm" | "revisar" }`. Requiere `API_KEY` en variables de entorno del servidor. El workflow importable en [`docs/n8n/sincronizacion-holded-gemavip.json`](n8n/sincronizacion-holded-gemavip.json) incluye un segundo webhook «Ejecutar sync (manual)» → nodo HTTP que llama a este POST; define en n8n la variable `CRM_GEMAVIP_API_KEY` igual a `API_KEY` de Vercel.
 
 **Nota:** `resolverSolicitudAsignacion` no resuelve notificaciones `aprobacion_sync_cliente` (deben usarse los enlaces del webhook).
 
@@ -67,7 +77,9 @@ Tras import o export, `cli_holded_sync_hash` se guarda con el hash del CRM.
 
 ## Campos comparables
 
-Lista: `COMPARABLE_PAYLOAD_KEYS` en código. No comparan: `cli_referencia`, `cli_Id_Holded`, `cli_tags`, `cli_id`.
+Lista: `COMPARABLE_PAYLOAD_KEYS` en [`lib/holded-sync/index.js`](../lib/holded-sync/index.js). No comparan: `cli_referencia`, `cli_Id_Holded`, `cli_tags`, `cli_id`.
+
+El **código postal** se normaliza a 5 dígitos (relleno con ceros a la izquierda) en import, comparación y export a Holded para evitar divergencias por `03581` vs `3581`. **`TipoContacto`** (Persona/Empresa) se importa desde `isperson` en Holded y se reenvía en el PUT como `isperson` al volcar CRM→Holded.
 
 ## API programada (cron)
 

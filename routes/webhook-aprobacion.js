@@ -22,6 +22,76 @@ function computeSigSyncCliente(notifId, accion) {
   return crypto.createHmac('sha256', APROBACION_SECRET).update(msg).digest('hex');
 }
 
+const SYNC_ACCION_LABELS = {
+  crm_to_holded: 'Aplicar CRM → Holded',
+  holded_to_crm: 'Traer Holded → CRM',
+  revisar: 'Rechazar y revisar luego (sin sincronizar)'
+};
+
+/**
+ * Solo lectura: notificación pendiente de tipo aprobacion_sync_cliente (no modifica estado).
+ */
+async function peekHoldedSyncNotifPendiente(db, notifId) {
+  const m = await db._ensureNotificacionesMeta();
+  const rows = await db.query(
+    `SELECT \`${m.pk}\` AS nid, \`${m.colTipo}\` AS tipo, \`${m.colContacto}\` AS id_contacto, \`${m.colEstado}\` AS estado FROM \`notificaciones\` WHERE \`${m.pk}\` = ? AND \`${m.colEstado}\` = 'pendiente'`,
+    [notifId]
+  );
+  const notif = Array.isArray(rows) && rows.length ? rows[0] : null;
+  if (!notif || String(notif.tipo || '').toLowerCase() !== 'aprobacion_sync_cliente') return null;
+  return notif;
+}
+
+/**
+ * GET enlaces del correo: solo confirmación; la acción real es POST (evita prefetch/Safe Links).
+ */
+function paginaConfirmSyncHtml(opts) {
+  const { notifId, accion, sig, clienteNombre, accionLabel } = opts;
+  const safeName = escapeHtml(clienteNombre || 'Cliente');
+  const safeLabel = escapeHtml(accionLabel || accion);
+  const actionUrl = `${APP_BASE_URL.replace(/\/$/, '')}/webhook/aprobar-sync-cliente`;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmar sincronización · CRM Gemavip</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&family=Outfit:wght@600&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; min-height: 100vh; background: linear-gradient(160deg, #f0f7ff 0%, #f8f8f8 100%); display: flex; align-items: center; justify-content: center; padding: 24px; color: #1f2a44; }
+    .card { max-width: 440px; width: 100%; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(12,20,58,0.12); border: 1px solid rgba(0,0,0,0.06); overflow: hidden; }
+    .card-bar { height: 4px; background: linear-gradient(90deg, #008bd2, #2ea3f2); }
+    .card-body { padding: 36px 32px; }
+    h1 { font-family: 'Outfit', sans-serif; font-size: 20px; margin: 0 0 8px; color: #0c143a; }
+    p { font-size: 15px; line-height: 1.55; color: #5b667a; margin: 0 0 16px; }
+    .name { font-weight: 600; color: #1f2a44; }
+    .hint { font-size: 13px; color: #8b95a5; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; }
+    button { width: 100%; padding: 14px 20px; font-size: 15px; font-weight: 600; color: #fff; background: #008bd2; border: none; border-radius: 12px; cursor: pointer; font-family: inherit; }
+    button:hover { filter: brightness(1.05); }
+    .brand { font-size: 11px; color: #8b95a5; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-bar"></div>
+    <div class="card-body">
+      <p class="brand">CRM Gemavip · Holded</p>
+      <h1>Confirmar acción</h1>
+      <p>Vas a ejecutar: <strong>${safeLabel}</strong></p>
+      <p>Cliente: <span class="name">${safeName}</span> · Notificación #${Number(notifId)}</p>
+      <form method="post" action="${escapeHtml(actionUrl)}">
+        <input type="hidden" name="notifId" value="${Number(notifId)}" />
+        <input type="hidden" name="accion" value="${escapeHtml(accion)}" />
+        <input type="hidden" name="sig" value="${escapeHtml(sig)}" />
+        <button type="submit">Confirmar</button>
+      </form>
+      <p class="hint">Si no has abierto este enlace tú mismo, cierra la pestaña. Los rastreadores de correo no ejecutan el paso de confirmación.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 /**
  * Página landing atractiva tras aprobar/rechazar. Cierra la ventana si se abrió como popup.
  * @param {boolean} approved - true si aprobado, false si rechazado
@@ -378,6 +448,99 @@ router.get('/aprobar-sync-cliente', async (req, res) => {
     const notifId = Number(req.query.notifId);
     const accion = String(req.query.accion || '').trim().toLowerCase();
     const sig = String(req.query.sig || '').trim();
+    const allowed = new Set(['crm_to_holded', 'holded_to_crm', 'revisar']);
+
+    if (!Number.isFinite(notifId) || notifId <= 0 || !allowed.has(accion)) {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.status(400).send(paginaErrorHtml('Enlace inválido', 'Parámetros incorrectos.'));
+    }
+    const expectedSig = computeSigSyncCliente(notifId, accion);
+    if (sig !== expectedSig) {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.status(400).send(paginaErrorHtml('Enlace inválido', 'Firma incorrecta.'));
+    }
+
+    const notif = await peekHoldedSyncNotifPendiente(db, notifId);
+    if (!notif) {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.status(404).send(paginaErrorHtml('Acción no válida', 'La solicitud ya fue resuelta o no existe.'));
+    }
+
+    const cliId = Number(notif.id_contacto);
+    let clienteNombre = '';
+    if (Number.isFinite(cliId) && cliId > 0) {
+      try {
+        const cr = await db.getClienteById(cliId).catch(() => null);
+        clienteNombre = String(cr?.cli_nombre_razon_social ?? cr?.Nombre_Razon_Social ?? '').trim();
+      } catch (_) {
+        /* */
+      }
+    }
+
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(
+      paginaConfirmSyncHtml({
+        notifId,
+        accion,
+        sig,
+        clienteNombre,
+        accionLabel: SYNC_ACCION_LABELS[accion] || accion
+      })
+    );
+  } catch (e) {
+    console.error('[APROBACION-SYNC] GET confirm:', e?.message);
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.status(500).send(paginaErrorHtml('Error', 'No se pudo cargar la confirmación.'));
+  }
+});
+
+/**
+ * - Con `X-API-Key` / Bearer = `API_KEY`: JSON (n8n/scripts), sin firma.
+ * - Sin API key: POST del formulario de confirmación (notifId, accion, sig) — ejecuta sync con HMAC.
+ */
+router.post('/aprobar-sync-cliente', async (req, res) => {
+  try {
+    const expected = String(process.env.API_KEY || '').trim();
+    const key = extractApiKeyFromRequest(req);
+
+    if (key) {
+      if (!expected) {
+        return res.status(503).json({ ok: false, error: 'API_KEY no configurada en el servidor' });
+      }
+      if (key !== expected) {
+        return res.status(401).json({
+          ok: false,
+          error: 'No autorizado (usa X-API-Key o Authorization Bearer con API_KEY del CRM)'
+        });
+      }
+      const notifId = Number(req.body?.notifId);
+      const accion = String(req.body?.accion || '').trim().toLowerCase();
+      const result = await runHoldedSyncAprobacion(db, { notifId, accion, skipSignature: true });
+      if (!result.ok) {
+        return res.status(result.status).json({ ok: false, error: result.mensaje, titulo: result.titulo });
+      }
+      if (result.revisar) {
+        return res.json({
+          ok: true,
+          revisar: true,
+          cliId: result.cliId,
+          accion: result.accion,
+          fichaUrl: `${APP_BASE_URL}/clientes/${result.cliId}`,
+          message: 'Marcado para revisar; no se ha sincronizado desde Holded.'
+        });
+      }
+      return res.json({
+        ok: true,
+        cliId: result.cliId,
+        accion: result.accion,
+        fichaUrl: `${APP_BASE_URL}/clientes/${result.cliId}`,
+        message: result.accion === 'crm_to_holded' ? 'CRM aplicado a Holded' : 'Holded aplicado al CRM'
+      });
+    }
+
+    const notifId = Number(req.body?.notifId);
+    const accion = String(req.body?.accion || '').trim().toLowerCase();
+    const sig = String(req.body?.sig || '').trim();
     const result = await runHoldedSyncAprobacion(db, { notifId, accion, sig, skipSignature: false });
     if (!result.ok) {
       res.set('Content-Type', 'text/html; charset=utf-8');
@@ -405,53 +568,12 @@ router.get('/aprobar-sync-cliente', async (req, res) => {
       })
     );
   } catch (e) {
-    console.error('[APROBACION-SYNC] Error:', e?.message);
+    console.error('[APROBACION-SYNC] POST Error:', e?.message);
+    if (extractApiKeyFromRequest(req)) {
+      return res.status(500).json({ ok: false, error: e?.message || 'No se pudo procesar la solicitud.' });
+    }
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.status(500).send(paginaErrorHtml('Error', 'No se pudo procesar la solicitud.'));
-  }
-});
-
-/**
- * Misma lógica que GET pero con `X-API-Key` o `Authorization: Bearer` = `API_KEY` (Vercel).
- * Para n8n: tras aprobación (p. ej. botón o nodo Manual) llamar POST con JSON { notifId, accion }.
- * accion: crm_to_holded | holded_to_crm | revisar
- */
-router.post('/aprobar-sync-cliente', async (req, res) => {
-  try {
-    const expected = String(process.env.API_KEY || '').trim();
-    if (!expected) {
-      return res.status(503).json({ ok: false, error: 'API_KEY no configurada en el servidor' });
-    }
-    const key = extractApiKeyFromRequest(req);
-    if (key !== expected) {
-      return res.status(401).json({ ok: false, error: 'No autorizado (usa X-API-Key o Authorization Bearer con API_KEY del CRM)' });
-    }
-    const notifId = Number(req.body?.notifId);
-    const accion = String(req.body?.accion || '').trim().toLowerCase();
-    const result = await runHoldedSyncAprobacion(db, { notifId, accion, skipSignature: true });
-    if (!result.ok) {
-      return res.status(result.status).json({ ok: false, error: result.mensaje, titulo: result.titulo });
-    }
-    if (result.revisar) {
-      return res.json({
-        ok: true,
-        revisar: true,
-        cliId: result.cliId,
-        accion: result.accion,
-        fichaUrl: `${APP_BASE_URL}/clientes/${result.cliId}`,
-        message: 'Marcado para revisar; no se ha sincronizado desde Holded.'
-      });
-    }
-    return res.json({
-      ok: true,
-      cliId: result.cliId,
-      accion: result.accion,
-      fichaUrl: `${APP_BASE_URL}/clientes/${result.cliId}`,
-      message: result.accion === 'crm_to_holded' ? 'CRM aplicado a Holded' : 'Holded aplicado al CRM'
-    });
-  } catch (e) {
-    console.error('[APROBACION-SYNC] POST Error:', e?.message);
-    res.status(500).json({ ok: false, error: e?.message || 'No se pudo procesar la solicitud.' });
   }
 });
 
