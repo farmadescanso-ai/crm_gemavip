@@ -319,6 +319,7 @@
             <th title="Fecha de última modificación en Holded (API) y en CRM si la columna existe">Últ. modificación</th>
             <th title="Campos comparables distintos entre Holded y CRM">Campos distintos</th>
             <th>Motivo</th>
+            <th>Comparar</th>
             <th>Acción</th>
           </tr>
         </thead>
@@ -378,6 +379,11 @@
                 <% } else { %>—<% } %>
               </td>
               <td style="font-size: 12px;"><%= r.motivo || '—' %></td>
+              <td style="font-size: 12px; white-space: nowrap;">
+                <% if (r.crmCliId) { %>
+                  <a class="btn secondary" style="font-size: 11px; padding: 4px 8px;" href="/cpanel/holded-comparar/<%= r.crmCliId %>">Ficha diff</a>
+                <% } else { %>—<% } %>
+              </td>
               <td style="font-size: 12px; white-space: nowrap;">
                 <% if (r.estado === 'pte_exportar' && r.holdedId) { %>
                   <% if (rowHighlight) { %>

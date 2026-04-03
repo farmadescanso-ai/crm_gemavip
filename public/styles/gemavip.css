@@ -2865,3 +2865,36 @@ button.gv-vista-tab.is-active {
   color: var(--gv-primary-hover);
 }
 
+/* CPanel: comparación CRM ↔ Holded */
+.gv-sync-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(12, 20, 58, 0.12);
+}
+.gv-sync-dot--ok {
+  background: var(--gv-green-2);
+  box-shadow: 0 0 0 1px rgba(143, 174, 27, 0.35);
+}
+.gv-sync-dot--bad {
+  background: #c62828;
+  box-shadow: 0 0 0 1px rgba(198, 40, 40, 0.35);
+}
+.gv-holded-comparar-h2 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--gv-ink);
+  letter-spacing: -0.02em;
+}
+.gv-holded-comparar-diff-table td,
+.gv-holded-comparar-rest-table td {
+  vertical-align: top;
+}
+.gv-holded-comparar-dot-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+

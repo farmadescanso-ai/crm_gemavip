@@ -1,0 +1,110 @@
+<%- include('partials/header', { title: title || 'Comparar CRM Holded' }) %>
+
+<% const rowsSafe = Array.isArray(rows) ? rows : []; %>
+<% const qVal = typeof q === 'string' ? q : ''; %>
+<% const pNow = typeof page === 'number' && page > 0 ? page : 1; %>
+<% const pTot = typeof totalPages === 'number' && totalPages > 0 ? totalPages : 1; %>
+<% function pageHref(p) {
+  var qs = new URLSearchParams();
+  if (qVal) qs.set('q', qVal);
+  if (p > 1) qs.set('page', String(p));
+  var s = qs.toString();
+  return '/cpanel/holded-comparar' + (s ? '?' + s : '');
+} %>
+
+<section class="card gv-vista gv-cpanel gv-holded-comparar-list">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-cpanel-kicker">
+      <span class="gv-cpanel-badge">Superadmin</span>
+      <span class="gv-cpanel-kicker__user"><%= user?.nombre ?? user?.email ?? '—' %></span>
+    </div>
+    <h1 class="card-title gv-vista-hd__title"><%= title || 'Comparar cliente CRM ↔ Holded' %></h1>
+    <p class="gv-vista-hd__sub gv-cpanel-sub" style="margin-top: 8px;">
+      Clientes con <code>cli_Id_Holded</code> en la BD. Abre la ficha para ver todos los campos, comparar con Holded y sincronizar en una u otra dirección.
+    </p>
+    <p style="margin-top: 12px;">
+      <a class="btn secondary" href="/cpanel">← CPanel</a>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
+        <strong>Error</strong>
+        <p style="margin: 8px 0 0 0;"><%= error %></p>
+      </div>
+    <% } %>
+    <% if (typeof success === 'string' && success) { %>
+      <div class="gv-alert success" role="status" style="margin-bottom: 16px;">
+        <strong>Listo</strong>
+        <p style="margin: 8px 0 0 0;"><%= success %></p>
+      </div>
+    <% } %>
+
+    <form method="get" action="/cpanel/holded-comparar" class="gv-holded-comparar-search" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 18px;">
+      <label style="flex: 1; min-width: 200px;">
+        <span style="display: block; font-size: 12px; font-weight: 700; color: var(--gv-muted); margin-bottom: 6px;">Buscar (nombre, CIF, ID Holded)</span>
+        <input type="search" name="q" value="<%= qVal %>" class="input" style="width: 100%;" placeholder="Ej. farmacia, B123…" />
+      </label>
+      <button type="submit" class="btn">Buscar</button>
+      <% if (qVal) { %>
+        <a class="btn secondary" href="/cpanel/holded-comparar">Limpiar</a>
+      <% } %>
+    </form>
+
+    <% const tot = typeof total === 'number' ? total : rowsSafe.length; %>
+    <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">
+      <strong><%= tot %></strong> cliente(s) con vínculo Holded<% if (qVal) { %> (filtro activo)<% } %>.
+    </p>
+
+    <div class="table-wrap">
+      <table class="dash-table gv-holded-comparar-table">
+        <thead>
+          <tr>
+            <th>CRM id</th>
+            <th>Nombre</th>
+            <th>CIF</th>
+            <th>ID Holded</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!rowsSafe.length) { %>
+            <tr>
+              <td colspan="5" style="padding: 24px; text-align: center; color: var(--gv-muted);">No hay resultados. Prueba otra búsqueda o importa clientes desde Holded primero.</td>
+            </tr>
+          <% } %>
+          <% rowsSafe.forEach(function (r) {
+               var cid = r.cli_id != null ? Number(r.cli_id) : null;
+               var href = cid ? ('/cpanel/holded-comparar/' + cid) : '#';
+          %>
+            <tr>
+              <td style="font-family: monospace; font-size: 13px;"><%= cid != null ? cid : '—' %></td>
+              <td><%= r.cli_nombre_razon_social || '—' %></td>
+              <td><%= r.cli_dni_cif || '—' %></td>
+              <td style="font-size: 12px; font-family: monospace; word-break: break-all;"><%= r.cli_Id_Holded || '—' %></td>
+              <td style="white-space: nowrap;">
+                <% if (cid) { %>
+                  <a class="btn secondary" style="font-size: 12px; padding: 6px 12px;" href="<%= href %>">Comparar / sincronizar</a>
+                <% } else { %>—<% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <% if (pTot > 1) { %>
+      <nav class="gv-holded-comparar-pager" style="margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;">
+        <% if (pNow > 1) { %>
+          <a class="btn secondary" href="<%= pageHref(pNow - 1) %>">← Anterior</a>
+        <% } %>
+        <span style="font-size: 13px; color: var(--gv-muted);">Página <strong><%= pNow %></strong> de <strong><%= pTot %></strong></span>
+        <% if (pNow < pTot) { %>
+          <a class="btn secondary" href="<%= pageHref(pNow + 1) %>">Siguiente →</a>
+        <% } %>
+      </nav>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

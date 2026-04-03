@@ -12,6 +12,8 @@ const {
   importHoldedSinCifComoLeads,
   addCrmTagHoldedToContactsSinAlcanceTags,
   exportCrmClienteToHolded,
+  importCrmClienteFromHolded,
+  buildClienteHoldedComparisonDetail,
   parseSelectedTagsInput,
   MOTIVO_OMITIDO_SIN_CIF_HOLDED
 } = require('../lib/sync-holded-clientes');
@@ -282,6 +284,133 @@ router.get('/cpanel', requireUserId1, (req, res, next) => {
   }
 });
 
+function buildHoldedCompararFichaRedirect(cliId, extra = {}) {
+  const params = new URLSearchParams();
+  if (extra.success) params.set('success', String(extra.success));
+  if (extra.error) params.set('error', String(extra.error));
+  const q = params.toString();
+  const base = `/cpanel/holded-comparar/${cliId}`;
+  return q ? `${base}?${q}` : base;
+}
+
+const HOLDED_COMPARAR_PAGE_SIZE = 35;
+
+router.get('/cpanel/holded-comparar', requireUserId1, async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+    const q = String(req.query.q || '').trim();
+    const offset = (page - 1) * HOLDED_COMPARAR_PAGE_SIZE;
+
+    let where =
+      'cli_Id_Holded IS NOT NULL AND TRIM(CAST(cli_Id_Holded AS CHAR)) <> \'\'';
+    const params = [];
+    if (q) {
+      where += ' AND (cli_nombre_razon_social LIKE ? OR cli_dni_cif LIKE ? OR CAST(cli_Id_Holded AS CHAR) LIKE ?)';
+      const like = `%${q}%`;
+      params.push(like, like, like);
+    }
+
+    const countRows = await db.query(
+      `SELECT COUNT(*) AS n FROM clientes WHERE ${where}`,
+      params
+    );
+    const total = Number(countRows?.[0]?.n ?? countRows?.[0]?.N ?? 0) || 0;
+    const totalPages = Math.max(1, Math.ceil(total / HOLDED_COMPARAR_PAGE_SIZE));
+
+    const listParams = [...params, HOLDED_COMPARAR_PAGE_SIZE, offset];
+    const rows = await db.query(
+      `SELECT cli_id, cli_nombre_razon_social, cli_dni_cif, cli_Id_Holded
+       FROM clientes
+       WHERE ${where}
+       ORDER BY cli_nombre_razon_social ASC
+       LIMIT ? OFFSET ?`,
+      listParams
+    );
+
+    const listError = typeof req.query.error === 'string' ? req.query.error : null;
+    const listSuccess = typeof req.query.success === 'string' ? req.query.success : null;
+
+    res.render('cpanel-holded-comparar', {
+      title: 'Comparar cliente CRM ↔ Holded',
+      rows: Array.isArray(rows) ? rows : [],
+      q,
+      page,
+      totalPages,
+      total,
+      pageSize: HOLDED_COMPARAR_PAGE_SIZE,
+      error: listError,
+      success: listSuccess
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/cpanel/holded-comparar/:cliId', requireUserId1, async (req, res, next) => {
+  try {
+    const cliId = Number(req.params.cliId);
+    if (!Number.isFinite(cliId) || cliId <= 0) {
+      return res.redirect('/cpanel/holded-comparar?error=' + encodeURIComponent('Cliente no válido'));
+    }
+    const detail = await buildClienteHoldedComparisonDetail(db, cliId);
+    const success = typeof req.query.success === 'string' ? req.query.success : null;
+    const error = typeof req.query.error === 'string' ? req.query.error : null;
+    res.render('cpanel-holded-comparar-ficha', {
+      title: 'Comparación CRM ↔ Holded',
+      cliId,
+      detail,
+      success,
+      error
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/cpanel/holded-comparar/:cliId/import', requireUserId1, async (req, res, next) => {
+  try {
+    const cliId = Number(req.params.cliId);
+    if (!Number.isFinite(cliId) || cliId <= 0) {
+      return res.redirect('/cpanel/holded-comparar?error=' + encodeURIComponent('Cliente no válido'));
+    }
+    const result = await importCrmClienteFromHolded(db, cliId);
+    if (result.ok) {
+      return res.redirect(
+        buildHoldedCompararFichaRedirect(cliId, { success: 'Datos de Holded importados al CRM correctamente.' })
+      );
+    }
+    return res.redirect(buildHoldedCompararFichaRedirect(cliId, { error: result.error || 'Error al importar desde Holded' }));
+  } catch (e) {
+    const cid = Number(req.params.cliId);
+    if (Number.isFinite(cid) && cid > 0) {
+      return res.redirect(buildHoldedCompararFichaRedirect(cid, { error: e?.message || 'Error al importar desde Holded' }));
+    }
+    return res.redirect('/cpanel/holded-comparar?error=' + encodeURIComponent(e?.message || 'Error'));
+  }
+});
+
+router.post('/cpanel/holded-comparar/:cliId/export', requireUserId1, async (req, res, next) => {
+  try {
+    const cliId = Number(req.params.cliId);
+    if (!Number.isFinite(cliId) || cliId <= 0) {
+      return res.redirect('/cpanel/holded-comparar?error=' + encodeURIComponent('Cliente no válido'));
+    }
+    const result = await exportCrmClienteToHolded(db, cliId);
+    if (result.ok) {
+      return res.redirect(
+        buildHoldedCompararFichaRedirect(cliId, { success: 'Datos del CRM enviados a Holded correctamente.' })
+      );
+    }
+    return res.redirect(buildHoldedCompararFichaRedirect(cliId, { error: result.error || 'Error al exportar a Holded' }));
+  } catch (e) {
+    const cid = Number(req.params.cliId);
+    if (Number.isFinite(cid) && cid > 0) {
+      return res.redirect(buildHoldedCompararFichaRedirect(cid, { error: e?.message || 'Error al exportar a Holded' }));
+    }
+    return res.redirect('/cpanel/holded-comparar?error=' + encodeURIComponent(e?.message || 'Error'));
+  }
+});
+
 router.get('/cpanel/holded-clientes/sin-tag-filtro.xlsx', requireUserId1, async (req, res, next) => {
   try {
     const selectedTags = tagsFromQuery(req.query);
@@ -375,20 +504,48 @@ router.post('/cpanel/holded-clientes/import', requireUserId1, async (req, res, n
 
 router.post('/cpanel/holded-clientes/export-crm', requireUserId1, async (req, res, next) => {
   try {
-    const holdedId = String(req.body?.holdedId || '').trim();
     const selectedTags = tagsFromBody(req.body);
     const { vista, segment, alcance } = extraFromHoldedBody(req.body);
-    if (!holdedId) {
-      return res.redirect(buildHoldedClientesRedirect(selectedTags, { error: 'Falta ID Holded', vista, segment, alcance }));
+    const cliIdRaw = req.body?.cli_id ?? req.body?.cliId;
+    const cliIdNum =
+      cliIdRaw != null && String(cliIdRaw).trim() !== '' ? Number(cliIdRaw) : NaN;
+    let holdedId = String(req.body?.holdedId || '').trim();
+    /** @type {number|null} */
+    let cliId = null;
+    if (Number.isFinite(cliIdNum) && cliIdNum > 0) {
+      const byPk = await db.query('SELECT cli_id, cli_Id_Holded FROM clientes WHERE cli_id = ? LIMIT 1', [cliIdNum]);
+      if (byPk?.[0]?.cli_id != null) {
+        cliId = Number(byPk[0].cli_id);
+        if (!holdedId && byPk[0].cli_Id_Holded != null) {
+          holdedId = String(byPk[0].cli_Id_Holded).trim();
+        }
+      }
     }
-    const rows = await db.query(
-      'SELECT cli_id FROM clientes WHERE cli_referencia = ? OR cli_Id_Holded = ? LIMIT 1',
-      [holdedId, holdedId]
-    );
-    const cliId = rows?.[0]?.cli_id != null ? Number(rows[0].cli_id) : null;
+    if (!cliId && holdedId) {
+      const rows = await db.query(
+        'SELECT cli_id FROM clientes WHERE cli_referencia = ? OR cli_Id_Holded = ? LIMIT 1',
+        [holdedId, holdedId]
+      );
+      cliId = rows?.[0]?.cli_id != null ? Number(rows[0].cli_id) : null;
+    }
     if (!cliId || !Number.isFinite(cliId)) {
       return res.redirect(
-        buildHoldedClientesRedirect(selectedTags, { error: 'No hay cliente CRM vinculado a ese ID Holded', vista, segment, alcance })
+        buildHoldedClientesRedirect(selectedTags, {
+          error: 'Indica ID Holded o cli_id de cliente CRM vinculado',
+          vista,
+          segment,
+          alcance
+        })
+      );
+    }
+    if (!holdedId) {
+      return res.redirect(
+        buildHoldedClientesRedirect(selectedTags, {
+          error: 'Cliente sin cli_Id_Holded (no se puede exportar a Holded)',
+          vista,
+          segment,
+          alcance
+        })
       );
     }
     const result = await exportCrmClienteToHolded(db, cliId);

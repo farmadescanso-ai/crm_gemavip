@@ -1,0 +1,129 @@
+<%- include('partials/header', { title: title || 'Comparación CRM Holded' }) %>
+
+<% const d = typeof detail === 'object' && detail ? detail : {}; %>
+<% const cli = d.cliente && typeof d.cliente === 'object' ? d.cliente : null; %>
+<% const nom = cli ? (cli.cli_nombre_razon_social || cli.Nombre_Razon_Social || '') : ''; %>
+<% const comparable = Array.isArray(d.comparableRows) ? d.comparableRows : []; %>
+<% const resto = Array.isArray(d.restoColumnas) ? d.restoColumnas : []; %>
+<% const canSync = !d.missingHoldedLink && d.holdedId; %>
+
+<section class="card gv-vista gv-cpanel gv-holded-comparar-ficha">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-cpanel-kicker">
+      <span class="gv-cpanel-badge">Superadmin</span>
+      <span class="gv-cpanel-kicker__user"><%= user?.nombre ?? user?.email ?? '—' %></span>
+    </div>
+    <h1 class="card-title gv-vista-hd__title">Comparación CRM ↔ Holded</h1>
+    <p class="gv-vista-hd__sub" style="margin-top: 8px;">
+      <% if (cli && typeof cli.cli_id !== 'undefined') { %>
+        <strong><%= nom || 'Cliente' %></strong>
+        <span style="color: var(--gv-muted);"> · CRM <code>cli_id</code>=<%= cli.cli_id %></span>
+        <% if (d.holdedId) { %>
+          <span style="color: var(--gv-muted);"> · Holded <code><%= d.holdedId %></code></span>
+        <% } %>
+      <% } %>
+    </p>
+    <p style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+      <a class="btn secondary" href="/cpanel/holded-comparar">← Listado</a>
+      <% if (cli && cli.cli_id) { %>
+        <a class="btn secondary" href="/clientes/<%= cli.cli_id %>">Ficha CRM</a>
+      <% } %>
+      <a class="btn secondary" href="/cpanel">CPanel</a>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof success === 'string' && success) { %>
+      <div class="gv-alert success" role="status" style="margin-bottom: 16px;">
+        <strong>Completado</strong>
+        <p style="margin: 8px 0 0 0;"><%= success %></p>
+      </div>
+    <% } %>
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
+        <strong>Error</strong>
+        <p style="margin: 8px 0 0 0;"><%= error %></p>
+      </div>
+    <% } %>
+
+    <% if (!d.ok && d.error) { %>
+      <div class="gv-alert error" role="alert">
+        <strong>No se pudo cargar</strong>
+        <p style="margin: 8px 0 0 0;"><%= d.error %></p>
+      </div>
+    <% } else if (cli) { %>
+
+      <% if (d.holdedError) { %>
+        <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
+          <strong>Holded</strong>
+          <p style="margin: 8px 0 0 0;"><%= d.holdedError %></p>
+        </div>
+      <% } %>
+
+      <div class="gv-holded-comparar-actions" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; padding: 16px; border-radius: 12px; border: 1px solid rgba(0, 139, 210, 0.25); background: linear-gradient(135deg, rgba(0, 139, 210, 0.06) 0%, rgba(248, 250, 252, 0.95) 100%);">
+        <% if (canSync) { %>
+          <form method="post" action="/cpanel/holded-comparar/<%= cliId %>/export" style="display: inline;">
+            <button type="submit" class="btn">Enviar CRM → Holded</button>
+          </form>
+          <form method="post" action="/cpanel/holded-comparar/<%= cliId %>/import" style="display: inline;">
+            <button type="submit" class="btn secondary">Traer Holded → CRM</button>
+          </form>
+        <% } else { %>
+          <p style="margin: 0; font-size: 13px; color: var(--gv-muted);">Sin <code>cli_Id_Holded</code> no se puede sincronizar con la API Holded. Vincula el cliente o importa desde Holded.</p>
+        <% } %>
+      </div>
+
+      <h2 class="gv-holded-comparar-h2">Campos comparables (misma lógica que el hash de sync)</h2>
+      <p class="gv-holded-comparar-hint" style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">
+        <span class="gv-sync-dot gv-sync-dot--ok" aria-hidden="true"></span> igual ·
+        <span class="gv-sync-dot gv-sync-dot--bad" aria-hidden="true"></span> distinto
+      </p>
+      <div class="table-wrap" style="margin-bottom: 28px;">
+        <table class="dash-table gv-holded-comparar-diff-table">
+          <thead>
+            <tr>
+              <th style="width: 36px;"></th>
+              <th>Campo</th>
+              <th>CRM</th>
+              <th>Holded (equivalente)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% comparable.forEach(function (row) { %>
+              <tr>
+                <td class="gv-holded-comparar-dot-cell">
+                  <span class="gv-sync-dot <%= row.match ? 'gv-sync-dot--ok' : 'gv-sync-dot--bad' %>" title="<%= row.match ? 'Coincide' : 'No coincide' %>" aria-label="<%= row.match ? 'Coincide' : 'No coincide' %>"></span>
+                </td>
+                <td style="font-weight: 600;"><%= row.label %></td>
+                <td style="font-size: 13px; word-break: break-word;"><%= row.crmDisplay %></td>
+                <td style="font-size: 13px; word-break: break-word;"><%= row.holdedDisplay %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="gv-holded-comparar-h2">Resto de columnas en CRM</h2>
+      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">Campos de la fila cliente (y joins útiles) que no forman parte del conjunto comparable con Holded, o que aquí se listan solo en CRM.</p>
+      <div class="table-wrap">
+        <table class="dash-table gv-holded-comparar-rest-table">
+          <thead>
+            <tr>
+              <th style="min-width: 200px;">Columna</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% resto.forEach(function (row) { %>
+              <tr>
+                <td style="font-family: monospace; font-size: 12px;"><%= row.key %></td>
+                <td style="font-size: 12px; word-break: break-word; white-space: pre-wrap;"><%= row.value %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
