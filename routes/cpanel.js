@@ -17,7 +17,11 @@ const {
   parseSelectedTagsInput,
   MOTIVO_OMITIDO_SIN_CIF_HOLDED
 } = require('../lib/sync-holded-clientes');
-const { fetchHoldedPaymentMethods, buildFormasPagoSyncSql } = require('../lib/holded-payment-methods');
+const {
+  fetchHoldedPaymentMethods,
+  buildFormasPagoSyncSql,
+  buildHoldedFormasPagoMapping
+} = require('../lib/holded-payment-methods');
 
 const router = express.Router();
 const ExcelJS = require('exceljs');
@@ -431,9 +435,13 @@ router.get('/cpanel/holded-formas-pago', requireUserId1, async (req, res, next) 
       }
     }
     const crmRows = await db
-      .query('SELECT formp_id, formp_nombre FROM formas_pago ORDER BY formp_id ASC')
+      .query('SELECT formp_id, formp_nombre, formp_dias FROM formas_pago ORDER BY formp_id ASC')
       .catch(() => []);
     const crmList = Array.isArray(crmRows) ? crmRows : [];
+    const formasPagoMapping =
+      holdedError || !Array.isArray(holdedRows) || holdedRows.length === 0
+        ? []
+        : buildHoldedFormasPagoMapping(holdedRows, crmList);
     const sqlSnippet =
       holdedError || !Array.isArray(holdedRows) || holdedRows.length === 0
         ? holdedError
@@ -452,6 +460,7 @@ router.get('/cpanel/holded-formas-pago', requireUserId1, async (req, res, next) 
       title: 'Formas de pago Holded ↔ CRM',
       holdedRows: Array.isArray(holdedRows) ? holdedRows : [],
       crmRows: crmList,
+      formasPagoMapping,
       holdedError,
       sqlSnippet,
       apiKeyConfigured: Boolean(apiKey)

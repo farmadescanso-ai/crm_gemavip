@@ -43,7 +43,7 @@ async function main() {
     const db = require(path.join(projectRoot, 'config', 'mysql-crm'));
     try {
       await db.connect();
-      crmRows = await db.query('SELECT formp_id, formp_nombre FROM formas_pago ORDER BY formp_id ASC');
+      crmRows = await db.query('SELECT formp_id, formp_nombre, formp_dias FROM formas_pago ORDER BY formp_id ASC');
     } catch (e) {
       console.warn('\n⚠️  No se pudo leer formas_pago del CRM:', e.message);
       console.warn('    Usa --solo-holded o revisa DB_* en .env\n');

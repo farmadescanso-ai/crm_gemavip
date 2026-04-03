@@ -45,7 +45,7 @@
   },
   "formas_pago": {
     "pk": "formp_id",
-    "cols": ["formp_id", "formp_nombre"]
+    "cols": ["formp_id", "formp_nombre", "formp_dias"]
   },
   "comerciales": {
     "pk": "com_id",
