@@ -103,5 +103,10 @@
   "bancos": {
     "pk": "banco_id",
     "cols": ["banco_id", "banco_nombre", "banco_entidad", "banco_swift_bic", "banco_fecha_alta"]
+  },
+  "crm_holded_field_map": {
+    "pk": "id",
+    "cols": ["id", "mapping_json", "updated_at", "updated_by"],
+    "nota": "Solo fila id=1: JSON ruta API Holded → columna clientes; CPanel holded-comparar"
   }
 }

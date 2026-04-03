@@ -2934,3 +2934,52 @@ button.gv-vista-tab.is-active {
   min-width: 0;
 }
 
+.gv-holded-map-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 24px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+@media (max-width: 1100px) {
+  .gv-holded-map-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.gv-holded-map-col-hd {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gv-ink);
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+.gv-holded-map-col-sub {
+  font-size: 12px;
+  color: var(--gv-muted);
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+.gv-holded-map-savebar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(143, 174, 27, 0.35);
+  background: rgba(143, 174, 27, 0.06);
+}
+.gv-holded-map-badge-saved {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 139, 210, 0.15);
+  color: var(--gv-primary-2);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+

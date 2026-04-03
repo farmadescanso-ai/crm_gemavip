@@ -8,6 +8,10 @@
 <% const holdedJson = typeof d.holdedJsonPretty === 'string' && d.holdedJsonPretty ? d.holdedJsonPretty : ''; %>
 <% const holdedFlat = Array.isArray(d.holdedFieldRows) ? d.holdedFieldRows : []; %>
 <% const crmOpts = Array.isArray(d.crmColumnOptions) ? d.crmColumnOptions : []; %>
+<% const savedMap = (d.savedFieldMap && typeof d.savedFieldMap === 'object') ? d.savedFieldMap : {}; %>
+<% const fmMeta = (d.fieldMapMeta && typeof d.fieldMapMeta === 'object') ? d.fieldMapMeta : {}; %>
+<% const crmPick = Array.isArray(d.crmPickerRows) ? d.crmPickerRows : []; %>
+<% const pathOpts = Array.isArray(d.holdedPathOptions) ? d.holdedPathOptions : []; %>
 <% const canSync = !d.missingHoldedLink && d.holdedId; %>
 
 <section class="card gv-vista gv-cpanel gv-holded-comparar-ficha">
@@ -126,72 +130,110 @@
         </table>
       </div>
 
-      <h2 class="gv-holded-comparar-h2">Holded — todos los campos (API)</h2>
-      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">
-        Cada fila es un campo del JSON de <code>GET /contacts/:id</code>, ordenado: primero los más alineados con el CRM.
-        La columna <strong>Sugerencia CRM</strong> es orientativa (no solo el hash de sync).
-        <strong>Enlazar a</strong> guarda tu preferencia en este navegador para referencia al diseñar sincronizaciones.
+      <h2 class="gv-holded-comparar-h2">Emparejamiento global Holded ↔ BD <code>clientes</code></h2>
+      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted); max-width: 920px;">
+        Dos columnas: <strong>izquierda</strong>, todas las rutas del JSON Holded (<code>GET /contacts/:id</code>) con su valor;
+        <strong>derecha</strong>, todas las columnas CRM de la lista de esquema. Se proponen enlaces automáticos (prioridad);
+        elige manualmente donde no coincida. <strong>Guardar mapeo global</strong> persiste en MySQL: import/export Holded usarán estos enlaces hasta la próxima revisión.
+        <% if (fmMeta.updatedAt) { %>
+          <span style="display: block; margin-top: 8px;">Último guardado: <code><%= fmMeta.updatedAt %></code><% if (fmMeta.updatedBy) { %> · <%= fmMeta.updatedBy %><% } %></span>
+        <% } %>
       </p>
       <% if (holdedFlat.length) { %>
-        <div class="table-wrap gv-holded-flat-wrap" style="margin-bottom: 16px;">
-          <table class="dash-table gv-holded-flat-table">
-            <thead>
-              <tr>
-                <th style="min-width: 160px;">Ruta Holded</th>
-                <th>Valor</th>
-                <th style="min-width: 200px;">Sugerencia CRM</th>
-                <th style="width: 90px;">Prioridad</th>
-                <th style="width: 100px;">Hash sync</th>
-                <th style="min-width: 180px;">Enlazar a columna CRM</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% holdedFlat.forEach(function (row, idx) {
-                   var tierLabel = row.tier === 1 ? 'Alta' : (row.tier === 2 ? 'Media' : 'Baja');
-                   var tierClass = 'gv-holded-tier--' + (row.tier === 1 ? '1' : (row.tier === 2 ? '2' : '3'));
-              %>
-                <tr class="gv-holded-flat-row <%= tierClass %>">
-                  <td style="font-family: monospace; font-size: 11px; word-break: break-all;"><%= row.path %></td>
-                  <td style="font-size: 12px; word-break: break-word; max-width: 280px;" title="<%= row.valueDisplay %>"><%= row.valueDisplay %></td>
-                  <td style="font-size: 12px;">
-                    <% if (row.suggestedCrmColumn) { %>
-                      <code><%= row.suggestedCrmColumn %></code>
-                      <% if (row.suggestedHint) { %><br /><span style="color: var(--gv-muted);"><%= row.suggestedHint %></span><% } %>
-                    <% } else if (row.suggestedHint) { %>
-                      <span style="color: var(--gv-muted);"><%= row.suggestedHint %></span>
-                    <% } else { %>—<% } %>
-                  </td>
-                  <td style="font-size: 12px;"><%= tierLabel %></td>
-                  <td style="text-align: center;">
-                    <% if (row.inComparableHash) { %>
-                      <span class="gv-holded-hash-badge" title="Incluido en la lógica actual del hash de sync">Sí</span>
-                    <% } else { %>
-                      <span style="color: var(--gv-muted);">—</span>
-                    <% } %>
-                  </td>
-                  <td>
-                    <select
-                      class="input gv-holded-map-select"
-                      data-holded-path="<%= String(row.path).replace(/"/g, '&quot;') %>"
-                      data-suggested="<%= row.suggestedCrmColumn ? String(row.suggestedCrmColumn).replace(/"/g, '&quot;') : '' %>"
-                      aria-label="Enlazar <%= row.path %> a columna CRM"
-                      style="font-size: 11px; max-width: 100%;"
-                    >
-                      <option value="">— (sin elegir)</option>
-                      <% crmOpts.forEach(function (col) { %>
-                        <option value="<%= col %>" <%= row.suggestedCrmColumn === col ? 'selected' : '' %>><%= col %></option>
-                      <% }); %>
-                    </select>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
+        <div class="gv-holded-map-savebar">
+          <button type="button" class="btn gv-holded-map-save">Guardar mapeo global en servidor</button>
+          <button type="button" class="btn secondary gv-holded-map-clear" style="font-size: 13px;">Restablecer a sugerencias automáticas (solo pantalla)</button>
+          <span class="gv-holded-map-saved" style="font-size: 13px; color: var(--gv-muted);" aria-live="polite"></span>
         </div>
-        <p style="font-size: 12px; color: var(--gv-muted); margin-bottom: 12px;">
-          <button type="button" class="btn secondary gv-holded-map-clear" style="font-size: 12px;">Borrar enlaces guardados (navegador)</button>
-          <span class="gv-holded-map-saved" style="margin-left: 10px;" aria-live="polite"></span>
-        </p>
+        <div class="gv-holded-map-grid">
+          <div>
+            <h3 class="gv-holded-map-col-hd">Holded (API) — rutas y valores</h3>
+            <p class="gv-holded-map-col-sub">Desplegable: columna CRM destino. Badge «Guardado» = override persistido en BD.</p>
+            <div class="table-wrap gv-holded-flat-wrap">
+              <table class="dash-table gv-holded-flat-table">
+                <thead>
+                  <tr>
+                    <th style="min-width: 140px;">Ruta Holded</th>
+                    <th>Valor</th>
+                    <th style="min-width: 160px;">→ Columna CRM</th>
+                    <th style="width: 72px;">Prio.</th>
+                    <th style="width: 72px;">Hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% holdedFlat.forEach(function (row) {
+                       var tierLabel = row.tier === 1 ? '1' : (row.tier === 2 ? '2' : '3');
+                       var tierClass = 'gv-holded-tier--' + (row.tier === 1 ? '1' : (row.tier === 2 ? '2' : '3'));
+                       var eff = row.effectiveCrmColumn != null ? String(row.effectiveCrmColumn) : '';
+                  %>
+                    <tr class="gv-holded-flat-row <%= tierClass %>">
+                      <td style="font-family: monospace; font-size: 11px; word-break: break-all;"><%= row.path %></td>
+                      <td style="font-size: 11px; word-break: break-word; max-width: 220px;" title="<%= row.valueDisplay %>"><%= row.valueDisplay %></td>
+                      <td>
+                        <select
+                          class="input gv-holded-map-select gv-holded-map-select--left"
+                          data-holded-path="<%= String(row.path).replace(/"/g, '&quot;') %>"
+                          data-suggested="<%= row.suggestedCrmColumn ? String(row.suggestedCrmColumn).replace(/"/g, '&quot;') : '' %>"
+                          data-crm-col=""
+                          aria-label="Enlazar <%= row.path %> a columna CRM"
+                          style="font-size: 11px; max-width: 100%;"
+                        >
+                          <option value="">— (sin elegir)</option>
+                          <% crmOpts.forEach(function (col) { %>
+                            <option value="<%= col %>" <%= eff === col ? 'selected' : '' %>><%= col %></option>
+                          <% }); %>
+                        </select>
+                        <% if (row.hasSavedOverride) { %><span class="gv-holded-map-badge-saved" title="En BD">Guardado</span><% } %>
+                      </td>
+                      <td style="font-size: 11px; text-align: center;"><%= tierLabel %></td>
+                      <td style="text-align: center; font-size: 11px;">
+                        <% if (row.inComparableHash) { %>
+                          <span class="gv-holded-hash-badge" title="Hash sync">Sí</span>
+                        <% } else { %>—<% } %>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3 class="gv-holded-map-col-hd">CRM — columnas <code>clientes</code> (BD)</h3>
+            <p class="gv-holded-map-col-sub">Valor actual del cliente y origen Holded (ruta). Cambiar aquí o en la columna izquierda; ambos se sincronizan al guardar.</p>
+            <div class="table-wrap">
+              <table class="dash-table gv-holded-flat-table">
+                <thead>
+                  <tr>
+                    <th style="min-width: 160px;">Columna CRM</th>
+                    <th>Valor en ficha</th>
+                    <th style="min-width: 200px;">Ruta Holded origen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% crmPick.forEach(function (r) { %>
+                    <tr>
+                      <td style="font-family: monospace; font-size: 11px;"><%= r.col %></td>
+                      <td style="font-size: 11px; word-break: break-word; max-width: 240px;"><%= r.valueDisplay %></td>
+                      <td>
+                        <select
+                          class="input gv-holded-map-select gv-holded-map-select--right"
+                          data-crm-col="<%= String(r.col).replace(/"/g, '&quot;') %>"
+                          style="font-size: 11px; max-width: 100%;"
+                          aria-label="Origen Holded para <%= r.col %>"
+                        >
+                          <option value="">— (ninguna)</option>
+                          <% pathOpts.forEach(function (p) { %>
+                            <option value="<%= String(p).replace(/"/g, '&quot;') %>" <%= r.selectedHoldedPath === p ? 'selected' : '' %>><%= p %></option>
+                          <% }); %>
+                        </select>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       <% } else if (holdedJson) { %>
         <p style="color: var(--gv-muted); font-size: 13px;">No se pudo generar la tabla de campos (contacto vacío o error).</p>
       <% } else { %>
@@ -211,39 +253,108 @@
 <% if (cli && cli.cli_id && holdedFlat.length) { %>
 <script>
 (function () {
-  var cliId = <%= Number(cliId) || 0 %>;
-  var key = 'gemavip_holded_field_map_v1_' + cliId;
   var statusEl = document.querySelector('.gv-holded-map-saved');
-  function loadMap() {
-    try {
-      var raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) { return {}; }
+  var serverMap = <%- JSON.stringify(savedMap || {}) %>;
+
+  function collectMapFromLeft() {
+    var m = {};
+    document.querySelectorAll('.gv-holded-map-select--left').forEach(function (sel) {
+      var path = sel.getAttribute('data-holded-path');
+      if (!path) return;
+      if (sel.value) m[path] = sel.value;
+    });
+    return m;
   }
-  function saveMap(m) {
-    try {
-      localStorage.setItem(key, JSON.stringify(m));
-      if (statusEl) statusEl.textContent = 'Preferencias guardadas en este navegador.';
-    } catch (e) {}
+
+  function syncRightFromMap(m) {
+    document.querySelectorAll('.gv-holded-map-select--right').forEach(function (sel) {
+      var col = sel.getAttribute('data-crm-col');
+      if (!col) return;
+      var found = '';
+      for (var p in m) {
+        if (m[p] === col) {
+          found = p;
+          break;
+        }
+      }
+      sel.value = found || '';
+    });
   }
-  var map = loadMap();
-  document.querySelectorAll('.gv-holded-map-select').forEach(function (sel) {
-    var path = sel.getAttribute('data-holded-path');
-    if (map[path] != null && map[path] !== '') sel.value = map[path];
+
+  function syncLeftFromMap(m) {
+    document.querySelectorAll('.gv-holded-map-select--left').forEach(function (sel) {
+      var path = sel.getAttribute('data-holded-path');
+      if (!path) return;
+      if (m[path]) sel.value = m[path];
+      else {
+        var sug = sel.getAttribute('data-suggested') || '';
+        sel.value = sug || '';
+      }
+    });
+  }
+
+  var map = Object.assign({}, serverMap);
+  if (Object.keys(map).length === 0) map = collectMapFromLeft();
+  syncRightFromMap(map);
+
+  document.querySelectorAll('.gv-holded-map-select--left').forEach(function (sel) {
     sel.addEventListener('change', function () {
-      var m = loadMap();
-      if (sel.value) m[path] = sel.value; else delete m[path];
-      saveMap(m);
+      map = collectMapFromLeft();
+      syncRightFromMap(map);
+      if (statusEl) statusEl.textContent = 'Cambios sin guardar (pulsa «Guardar mapeo global»).';
     });
   });
+
+  document.querySelectorAll('.gv-holded-map-select--right').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      var col = sel.getAttribute('data-crm-col');
+      var newPath = sel.value || '';
+      if (newPath) delete map[newPath];
+      for (var p in map) {
+        if (map[p] === col) delete map[p];
+      }
+      if (newPath) map[newPath] = col;
+      syncLeftFromMap(map);
+      syncRightFromMap(map);
+      if (statusEl) statusEl.textContent = 'Cambios sin guardar (pulsa «Guardar mapeo global»).';
+    });
+  });
+
+  var saveBtn = document.querySelector('.gv-holded-map-save');
+  if (saveBtn) saveBtn.addEventListener('click', function () {
+    map = collectMapFromLeft();
+    saveBtn.disabled = true;
+    fetch('/cpanel/holded-comparar/field-map', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ map: map })
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function () {
+        if (statusEl) statusEl.textContent = 'Mapeo guardado en servidor. Import/export usarán estos enlaces.';
+        serverMap = Object.assign({}, map);
+      })
+      .catch(function (e) {
+        if (statusEl) statusEl.textContent = 'Error al guardar: ' + (e && e.message ? e.message : String(e));
+      })
+      .finally(function () {
+        saveBtn.disabled = false;
+      });
+  });
+
   var clr = document.querySelector('.gv-holded-map-clear');
   if (clr) clr.addEventListener('click', function () {
-    try { localStorage.removeItem(key); } catch (e) {}
-    document.querySelectorAll('.gv-holded-map-select').forEach(function (sel) {
+    document.querySelectorAll('.gv-holded-map-select--left').forEach(function (sel) {
       var sug = sel.getAttribute('data-suggested') || '';
       sel.value = sug || '';
     });
-    if (statusEl) statusEl.textContent = 'Enlaces borrados.';
+    map = collectMapFromLeft();
+    syncRightFromMap(map);
+    if (statusEl) statusEl.textContent = 'Restablecido a sugerencias (solo pantalla; no sobrescribe el servidor hasta que guardes).';
   });
 })();
 </script>

@@ -22,6 +22,7 @@ const {
   buildFormasPagoSyncSql,
   buildHoldedFormasPagoMapping
 } = require('../lib/holded-payment-methods');
+const { saveGlobalHoldedFieldMap } = require('../lib/holded-field-map-store');
 
 const router = express.Router();
 const ExcelJS = require('exceljs');
@@ -370,6 +371,25 @@ router.get('/cpanel/holded-comparar/:cliId', requireUserId1, async (req, res, ne
       success,
       error
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/cpanel/holded-comparar/field-map', requireUserId1, async (req, res, next) => {
+  try {
+    if (!db.connected && !db.pool) await db.connect();
+    const raw = req.body && req.body.map != null ? req.body.map : req.body;
+    const map = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    /** @type {Record<string, string>} */
+    const clean = {};
+    for (const [k, v] of Object.entries(map)) {
+      if (typeof k === 'string' && k.trim() && typeof v === 'string' && v.trim()) {
+        clean[k.trim()] = v.trim();
+      }
+    }
+    await saveGlobalHoldedFieldMap(db, clean, req.session?.user?.email || null);
+    return res.json({ ok: true, saved: Object.keys(clean).length });
   } catch (e) {
     next(e);
   }
