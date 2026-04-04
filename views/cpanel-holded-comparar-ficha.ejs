@@ -12,7 +12,10 @@
 <% const fmMeta = (d.fieldMapMeta && typeof d.fieldMapMeta === 'object') ? d.fieldMapMeta : {}; %>
 <% const crmPick = Array.isArray(d.crmPickerRows) ? d.crmPickerRows : []; %>
 <% const pathOpts = Array.isArray(d.holdedPathOptions) ? d.holdedPathOptions : []; %>
+<% const pathLabels = d.holdedPathLabels && typeof d.holdedPathLabels === 'object' ? d.holdedPathLabels : {}; %>
+<% const colLab = d.crmColumnLabelsEs && typeof d.crmColumnLabelsEs === 'object' ? d.crmColumnLabelsEs : {}; %>
 <% const canSync = !d.missingHoldedLink && d.holdedId; %>
+<% const syncPend = cli && (cli.cli_holded_sync_pendiente === 1 || cli.cli_holded_sync_pendiente === true); %>
 
 <section class="card gv-vista gv-cpanel gv-holded-comparar-ficha">
   <div class="card-hd gv-vista-hd">
@@ -66,6 +69,17 @@
         </div>
       <% } %>
 
+      <% if (canSync && typeof cli.cli_holded_sync_pendiente !== 'undefined') { %>
+        <p class="gv-holded-sync-status" style="margin: 0 0 14px 0; font-size: 14px;">
+          <% if (syncPend) { %>
+            <span class="badge warning" title="Hash CRM distinto del contacto Holded">Sincronización pendiente</span>
+            <span style="color: var(--gv-muted); margin-left: 8px;">Usa «Traer» o «Enviar» para alinear.</span>
+          <% } else { %>
+            <span class="badge ok" title="Datos comparables alineados">Sin divergencias en campos del hash</span>
+          <% } %>
+        </p>
+      <% } %>
+
       <div class="gv-holded-comparar-actions" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; padding: 16px; border-radius: 12px; border: 1px solid rgba(0, 139, 210, 0.25); background: linear-gradient(135deg, rgba(0, 139, 210, 0.06) 0%, rgba(248, 250, 252, 0.95) 100%);">
         <% if (canSync) { %>
           <form method="post" action="/cpanel/holded-comparar/<%= cliId %>/export" style="display: inline;">
@@ -79,8 +93,9 @@
         <% } %>
       </div>
 
-      <h2 class="gv-holded-comparar-h2">Campos comparables (misma lógica que el hash de sync)</h2>
-      <p class="gv-holded-comparar-hint" style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">
+      <h2 class="gv-holded-comparar-h2">Qué se sincroniza (hash)</h2>
+      <p class="gv-holded-comparar-hint" style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted); max-width: 920px;">
+        La tabla siguiente son los campos que entran en <code>cli_holded_sync_hash</code> y en los botones Traer / Enviar (misma lógica).
         <span class="gv-sync-dot gv-sync-dot--ok" aria-hidden="true"></span> igual ·
         <span class="gv-sync-dot gv-sync-dot--bad" aria-hidden="true"></span> distinto
       </p>
@@ -109,140 +124,153 @@
         </table>
       </div>
 
-      <h2 class="gv-holded-comparar-h2">CRM — todos los campos (fila cliente)</h2>
-      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted);">Incluye columnas de <code>clientes</code> y campos añadidos por la consulta (p. ej. nombres de provincia, país, etc.).</p>
-      <div class="table-wrap" style="margin-bottom: 28px;">
-        <table class="dash-table gv-holded-comparar-rest-table">
-          <thead>
-            <tr>
-              <th style="min-width: 200px;">Columna</th>
-              <th>Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% crmAll.forEach(function (row) { %>
+      <details class="gv-holded-comparar-details" style="margin-bottom: 24px;">
+        <summary style="cursor: pointer; font-weight: 700; font-size: 15px; color: var(--gv-ink);">CRM — todos los campos de la fila (auditoría)</summary>
+        <p style="margin: 10px 0 12px 0; font-size: 13px; color: var(--gv-muted);">Columnas de <code>clientes</code> y nombres resueltos por la consulta (provincia, país, etc.). No es la vista principal de sync.</p>
+        <div class="table-wrap">
+          <table class="dash-table gv-holded-comparar-rest-table">
+            <thead>
               <tr>
-                <td style="font-family: monospace; font-size: 12px;"><%= row.key %></td>
-                <td style="font-size: 12px; word-break: break-word; white-space: pre-wrap;"><%= row.value %></td>
+                <th style="min-width: 200px;">Campo</th>
+                <th>Valor</th>
               </tr>
-            <% }); %>
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              <% crmAll.forEach(function (row) { %>
+                <tr>
+                  <td>
+                    <div class="gv-holded-field-label-es"><%= row.labelEs || row.key %></div>
+                    <div class="gv-holded-field-key-tech"><code><%= row.key %></code></div>
+                  </td>
+                  <td style="font-size: 12px; word-break: break-word; white-space: pre-wrap;"><%= row.value %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </details>
 
-      <h2 class="gv-holded-comparar-h2">Emparejamiento global Holded ↔ BD <code>clientes</code></h2>
-      <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--gv-muted); max-width: 920px;">
-        Dos columnas: <strong>izquierda</strong>, todas las rutas del JSON Holded (<code>GET /contacts/:id</code>) con su valor;
-        <strong>derecha</strong>, todas las columnas CRM de la lista de esquema. Se proponen enlaces automáticos (prioridad);
-        elige manualmente donde no coincida. <strong>Guardar mapeo global</strong> persiste en MySQL: import/export Holded usarán estos enlaces hasta la próxima revisión.
-        <% if (fmMeta.updatedAt) { %>
-          <span style="display: block; margin-top: 8px;">Último guardado: <code><%= fmMeta.updatedAt %></code><% if (fmMeta.updatedBy) { %> · <%= fmMeta.updatedBy %><% } %></span>
-        <% } %>
-      </p>
-      <% if (holdedFlat.length) { %>
-        <div class="gv-holded-map-savebar">
-          <button type="button" class="btn gv-holded-map-save">Guardar mapeo global en servidor</button>
-          <button type="button" class="btn secondary gv-holded-map-clear" style="font-size: 13px;">Restablecer a sugerencias automáticas (solo pantalla)</button>
-          <span class="gv-holded-map-saved" style="font-size: 13px; color: var(--gv-muted);" aria-live="polite"></span>
-        </div>
-        <div class="gv-holded-map-grid">
-          <div>
-            <h3 class="gv-holded-map-col-hd">Holded (API) — rutas y valores</h3>
-            <p class="gv-holded-map-col-sub">Desplegable: columna CRM destino. Badge «Guardado» = override persistido en BD.</p>
-            <div class="table-wrap gv-holded-flat-wrap">
-              <table class="dash-table gv-holded-flat-table">
-                <thead>
-                  <tr>
-                    <th style="min-width: 140px;">Ruta Holded</th>
-                    <th>Valor</th>
-                    <th style="min-width: 160px;">→ Columna CRM</th>
-                    <th style="width: 72px;">Prio.</th>
-                    <th style="width: 72px;">Hash</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% holdedFlat.forEach(function (row) {
-                       var tierLabel = row.tier === 1 ? '1' : (row.tier === 2 ? '2' : '3');
-                       var tierClass = 'gv-holded-tier--' + (row.tier === 1 ? '1' : (row.tier === 2 ? '2' : '3'));
-                       var eff = row.effectiveCrmColumn != null ? String(row.effectiveCrmColumn) : '';
-                  %>
-                    <tr class="gv-holded-flat-row <%= tierClass %>">
-                      <td style="font-family: monospace; font-size: 11px; word-break: break-all;"><%= row.path %></td>
-                      <td style="font-size: 11px; word-break: break-word; max-width: 220px;" title="<%= row.valueDisplay %>"><%= row.valueDisplay %></td>
-                      <td>
-                        <select
-                          class="input gv-holded-map-select gv-holded-map-select--left"
-                          data-holded-path="<%= String(row.path).replace(/"/g, '&quot;') %>"
-                          data-suggested="<%= row.suggestedCrmColumn ? String(row.suggestedCrmColumn).replace(/"/g, '&quot;') : '' %>"
-                          data-crm-col=""
-                          aria-label="Enlazar <%= row.path %> a columna CRM"
-                          style="font-size: 11px; max-width: 100%;"
-                        >
-                          <option value="">— (sin elegir)</option>
-                          <% crmOpts.forEach(function (col) { %>
-                            <option value="<%= col %>" <%= eff === col ? 'selected' : '' %>><%= col %></option>
-                          <% }); %>
-                        </select>
-                        <% if (row.hasSavedOverride) { %><span class="gv-holded-map-badge-saved" title="En BD">Guardado</span><% } %>
-                      </td>
-                      <td style="font-size: 11px; text-align: center;"><%= tierLabel %></td>
-                      <td style="text-align: center; font-size: 11px;">
-                        <% if (row.inComparableHash) { %>
-                          <span class="gv-holded-hash-badge" title="Hash sync">Sí</span>
-                        <% } else { %>—<% } %>
-                      </td>
-                    </tr>
-                  <% }); %>
-                </tbody>
-              </table>
-            </div>
+      <details class="gv-holded-comparar-details gv-holded-map-advanced-wrap">
+        <summary style="cursor: pointer; font-weight: 700; font-size: 15px; color: var(--gv-ink);">Mapeo avanzado (opcional)</summary>
+        <p style="margin: 10px 0 12px 0; font-size: 13px; color: var(--gv-muted); max-width: 920px;">
+          Solo necesario si un campo Holded no está cubierto por la tabla «Qué se sincroniza».
+          Enlaza rutas JSON (<code>GET /contacts/:id</code>) a columnas <code>clientes</code>. <strong>Guardar mapeo global</strong> persiste en MySQL.
+          <% if (fmMeta.updatedAt) { %>
+            <span style="display: block; margin-top: 8px;">Último guardado: <code><%= fmMeta.updatedAt %></code><% if (fmMeta.updatedBy) { %> · <%= fmMeta.updatedBy %><% } %></span>
+          <% } %>
+        </p>
+        <% if (holdedFlat.length) { %>
+          <div class="gv-holded-map-savebar">
+            <button type="button" class="btn gv-holded-map-save">Guardar mapeo global en servidor</button>
+            <button type="button" class="btn secondary gv-holded-map-clear" style="font-size: 13px;">Restablecer a sugerencias automáticas (solo pantalla)</button>
+            <span class="gv-holded-map-saved" style="font-size: 13px; color: var(--gv-muted);" aria-live="polite"></span>
           </div>
-          <div>
-            <h3 class="gv-holded-map-col-hd">CRM — columnas <code>clientes</code> (BD)</h3>
-            <p class="gv-holded-map-col-sub">Valor actual del cliente y origen Holded (ruta). Cambiar aquí o en la columna izquierda; ambos se sincronizan al guardar.</p>
-            <div class="table-wrap">
-              <table class="dash-table gv-holded-flat-table">
-                <thead>
-                  <tr>
-                    <th style="min-width: 160px;">Columna CRM</th>
-                    <th>Valor en ficha</th>
-                    <th style="min-width: 200px;">Ruta Holded origen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% crmPick.forEach(function (r) { %>
+          <div class="gv-holded-map-grid">
+            <div>
+              <h3 class="gv-holded-map-col-hd">Holded (API) — rutas y valores</h3>
+              <p class="gv-holded-map-col-sub">Desplegable: columna CRM destino. Badge «Guardado» = override persistido en BD.</p>
+              <div class="table-wrap gv-holded-flat-wrap">
+                <table class="dash-table gv-holded-flat-table">
+                  <thead>
                     <tr>
-                      <td style="font-family: monospace; font-size: 11px;"><%= r.col %></td>
-                      <td style="font-size: 11px; word-break: break-word; max-width: 240px;"><%= r.valueDisplay %></td>
-                      <td>
-                        <select
-                          class="input gv-holded-map-select gv-holded-map-select--right"
-                          data-crm-col="<%= String(r.col).replace(/"/g, '&quot;') %>"
-                          style="font-size: 11px; max-width: 100%;"
-                          aria-label="Origen Holded para <%= r.col %>"
-                        >
-                          <option value="">— (ninguna)</option>
-                          <% pathOpts.forEach(function (p) { %>
-                            <option value="<%= String(p).replace(/"/g, '&quot;') %>" <%= r.selectedHoldedPath === p ? 'selected' : '' %>><%= p %></option>
-                          <% }); %>
-                        </select>
-                      </td>
+                      <th style="min-width: 180px;">Campo Holded</th>
+                      <th>Valor</th>
+                      <th style="min-width: 200px;">→ Columna CRM</th>
+                      <th style="width: 72px;">Prio.</th>
+                      <th style="width: 72px;">Hash</th>
                     </tr>
-                  <% }); %>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    <% holdedFlat.forEach(function (row) {
+                         var tierLabel = row.tier === 1 ? '1' : (row.tier === 2 ? '2' : '3');
+                         var tierClass = 'gv-holded-tier--' + (row.tier === 1 ? '1' : (row.tier === 2 ? '2' : '3'));
+                         var eff = row.effectiveCrmColumn != null ? String(row.effectiveCrmColumn) : '';
+                    %>
+                      <tr class="gv-holded-flat-row <%= tierClass %>">
+                        <td>
+                          <div class="gv-holded-field-label-es"><%= row.pathLabelEs || row.path %></div>
+                          <div class="gv-holded-field-key-tech" title="Ruta técnica en la API"><code><%= row.path %></code></div>
+                        </td>
+                        <td style="font-size: 11px; word-break: break-word; max-width: 220px;" title="<%= row.valueDisplay %>"><%= row.valueDisplay %></td>
+                        <td>
+                          <select
+                            class="input gv-holded-map-select gv-holded-map-select--left"
+                            data-holded-path="<%= String(row.path).replace(/"/g, '&quot;') %>"
+                            data-suggested="<%= row.suggestedCrmColumn ? String(row.suggestedCrmColumn).replace(/"/g, '&quot;') : '' %>"
+                            data-crm-col=""
+                            aria-label="Enlazar <%= row.path %> a columna CRM"
+                            style="font-size: 11px; max-width: 100%;"
+                          >
+                            <option value="">— (sin elegir)</option>
+                            <% crmOpts.forEach(function (col) { %>
+                              <option value="<%= col %>" <%= eff === col ? 'selected' : '' %>><%= colLab[col] ? colLab[col] + ' — ' + col : col %></option>
+                            <% }); %>
+                          </select>
+                          <% if (row.hasSavedOverride) { %><span class="gv-holded-map-badge-saved" title="En BD">Guardado</span><% } %>
+                        </td>
+                        <td style="font-size: 11px; text-align: center;"><%= tierLabel %></td>
+                        <td style="text-align: center; font-size: 11px;">
+                          <% if (row.inComparableHash) { %>
+                            <span class="gv-holded-hash-badge" title="Hash sync">Sí</span>
+                          <% } else { %>—<% } %>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h3 class="gv-holded-map-col-hd">CRM — columnas <code>clientes</code> (BD)</h3>
+              <p class="gv-holded-map-col-sub">Valor actual del cliente y origen Holded (ruta). Cambiar aquí o en la columna izquierda; ambos se sincronizan al guardar.</p>
+              <div class="table-wrap">
+                <table class="dash-table gv-holded-flat-table">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 200px;">Columna CRM</th>
+                      <th>Valor en ficha</th>
+                      <th style="min-width: 220px;">Origen Holded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% crmPick.forEach(function (r) { %>
+                      <tr>
+                        <td>
+                          <div class="gv-holded-field-label-es"><%= r.colLabelEs || r.col %></div>
+                          <div class="gv-holded-field-key-tech"><code><%= r.col %></code></div>
+                        </td>
+                        <td style="font-size: 11px; word-break: break-word; max-width: 240px;"><%= r.valueDisplay %></td>
+                        <td>
+                          <select
+                            class="input gv-holded-map-select gv-holded-map-select--right"
+                            data-crm-col="<%= String(r.col).replace(/"/g, '&quot;') %>"
+                            style="font-size: 11px; max-width: 100%;"
+                            aria-label="Origen Holded para <%= r.col %>"
+                          >
+                            <option value="">— (ninguna)</option>
+                            <% pathOpts.forEach(function (p) { %>
+                              <% var pDisp = pathLabels[p] ? pathLabels[p] + ' — ' + p : p; %>
+                              <option value="<%= String(p).replace(/"/g, '&quot;') %>" <%= r.selectedHoldedPath === p ? 'selected' : '' %>><%= pDisp %></option>
+                            <% }); %>
+                          </select>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      <% } else if (holdedJson) { %>
-        <p style="color: var(--gv-muted); font-size: 13px;">No se pudo generar la tabla de campos (contacto vacío o error).</p>
-      <% } else { %>
-        <p style="color: var(--gv-muted); font-size: 13px;">No hay datos Holded (sin API key, sin vínculo o error al cargar el contacto).</p>
-      <% } %>
+        <% } else if (holdedJson) { %>
+          <p style="color: var(--gv-muted); font-size: 13px;">No se pudo generar la tabla de rutas (contacto vacío o error).</p>
+        <% } else { %>
+          <p style="color: var(--gv-muted); font-size: 13px;">No hay datos Holded para mapear (sin API key, sin vínculo o error al cargar el contacto).</p>
+        <% } %>
+      </details>
 
       <% if (holdedJson) { %>
-        <details class="gv-holded-json-details" style="margin-top: 8px;">
-          <summary style="cursor: pointer; font-weight: 700; font-size: 14px; color: var(--gv-ink);">JSON crudo (respuesta completa)</summary>
+        <details class="gv-holded-json-details gv-holded-comparar-details" style="margin-top: 16px;">
+          <summary style="cursor: pointer; font-weight: 700; font-size: 14px; color: var(--gv-ink);">JSON crudo (respuesta completa Holded)</summary>
           <pre class="gv-holded-formas-pago-sql gv-holded-raw-json" style="max-height: 50vh; overflow: auto; margin-top: 10px;"><%= holdedJson %></pre>
         </details>
       <% } %>

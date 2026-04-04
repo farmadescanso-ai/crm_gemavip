@@ -2898,6 +2898,19 @@ button.gv-vista-tab.is-active {
   vertical-align: middle;
 }
 
+.gv-holded-comparar-details {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--gv-border);
+  background: rgba(12, 20, 58, 0.02);
+}
+.gv-holded-comparar-details summary {
+  user-select: none;
+}
+.gv-holded-map-advanced-wrap .gv-holded-map-savebar {
+  margin-top: 4px;
+}
+
 .gv-holded-formas-pago-sql {
   margin: 0;
   padding: 16px 18px;
@@ -2929,6 +2942,24 @@ button.gv-vista-tab.is-active {
   border-radius: 999px;
   background: rgba(143, 174, 27, 0.25);
   color: var(--gv-ink);
+}
+.gv-holded-field-label-es {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gv-ink);
+  line-height: 1.35;
+}
+.gv-holded-field-key-tech {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--gv-muted);
+  line-height: 1.3;
+}
+.gv-holded-field-key-tech code {
+  font-size: 10px;
+  background: rgba(12, 20, 58, 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 .gv-holded-map-select {
   min-width: 0;
