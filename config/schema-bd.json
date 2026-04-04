@@ -68,7 +68,11 @@
   "agenda_especialidades": { "pk": "agesp_id", "cols": ["agesp_id", "agesp_nombre", "agesp_activo"] },
   "agenda_roles": { "pk": "agrol_id", "cols": ["agrol_id", "agrol_nombre", "agrol_activo"] },
   "api_keys": { "pk": "api_id", "cols": ["api_id", "api_nombre", "api_api_key", "api_descripcion", "api_activa", "api_permisos"] },
-  "articulos": { "pk": "art_id", "cols": ["art_id", "art_sku", "art_codigo_interno", "art_nombre", "art_presentacion", "art_mar_id", "art_ean13", "art_activo"] },
+  "articulos": {
+    "pk": "art_id",
+    "holded": "art_id_holded = product.id (GET /products). Líneas documento Holded emparejan por items[].sku con catálogo. Ver scripts/alter-articulos-holded-sync.sql",
+    "cols": ["art_id", "art_sku", "art_codigo_interno", "art_nombre", "art_presentacion", "art_mar_id", "art_ean13", "art_id_holded", "art_holded_sync_at", "art_activo"]
+  },
   "centros_prescriptores": { "pk": "cent_id", "cols": ["cent_id"] },
   "clientes_contactos": { "pk": ["clicont_cli_id", "clicont_ag_id"], "cols": ["clicont_cli_id", "clicont_ag_id"] },
   "clientes_cooperativas": { "pk": "detco_id", "cols": ["detco_id", "detco_Id_Cooperativa", "detco_Id_Cliente", "detco_NumAsociado"], "fk": { "detco_Id_Cliente": "clientes", "detco_Id_Cooperativa": "cooperativas" } },

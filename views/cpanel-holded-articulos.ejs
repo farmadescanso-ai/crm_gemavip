@@ -1,0 +1,166 @@
+<%- include('partials/header', { title: title || 'Artículos Holded' }) %>
+
+<% const rows = Array.isArray(products) ? products : []; %>
+<% const am = typeof articuloMaps === 'object' && articuloMaps ? articuloMaps : { byHolded: new Map(), bySku: new Map() }; %>
+<% const byH = am.byHolded instanceof Map ? am.byHolded : new Map(Object.entries(am.byHolded || {})); %>
+<% const byS = am.bySku instanceof Map ? am.bySku : new Map(Object.entries(am.bySku || {})); %>
+<% const errMsg = typeof loadError === 'string' ? loadError : null; %>
+<% const qErr = typeof listError === 'string' ? listError : null; %>
+<% const okMsg = typeof success === 'string' ? success : null; %>
+
+<section class="card gv-vista gv-cpanel gv-holded-articulos">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-cpanel-kicker">
+      <span class="gv-cpanel-badge">Superadmin</span>
+      <span class="gv-cpanel-kicker__user"><%= user?.nombre ?? user?.email ?? '—' %></span>
+    </div>
+    <h1 class="card-title gv-vista-hd__title"><%= title || 'Artículos Holded → CRM' %></h1>
+    <p class="gv-vista-hd__sub" style="margin-top: 8px;">
+      Lista productos de venta desde la API Holded (<code>GET /products</code>), filtra por etiquetas (p. ej. farmacia, mayorista) e importa a la tabla <code>articulos</code>.
+      La API de documentos empareja líneas por <strong>SKU</strong> con el catálogo Holded.
+    </p>
+    <p style="margin-top: 12px;">
+      <a class="btn secondary" href="/cpanel">← CPanel</a>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (okMsg) { %>
+      <div class="gv-alert success" role="status" style="margin-bottom: 16px;"><%= okMsg %></div>
+    <% } %>
+    <% if (errMsg || qErr) { %>
+      <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
+        <%= errMsg || qErr %>
+      </div>
+    <% } %>
+
+    <% if (!apiKeyConfigured) { %>
+      <p style="font-size: 13px; color: var(--gv-muted); margin-bottom: 16px;">Configura <code>HOLDED_API_KEY</code> en el entorno para cargar productos.</p>
+    <% } %>
+
+    <% if (!hasHoldedColumn) { %>
+      <div class="gv-alert warning" role="alert" style="margin-bottom: 20px;">
+        <strong>Falta columna en MySQL</strong>
+        <p style="margin: 8px 0 0 0; font-size: 14px;">
+          Ejecuta en la base del CRM el script <code>scripts/alter-articulos-holded-sync.sql</code> para crear <code>art_id_holded</code> y <code>art_holded_sync_at</code>.
+          Sin <code>art_id_holded</code> no se puede guardar el vínculo con Holded.
+        </p>
+      </div>
+    <% } %>
+
+    <details class="gv-holded-articulos-bd-help" style="margin-bottom: 22px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--gv-border); background: rgba(12, 20, 58, 0.03);">
+      <summary style="cursor: pointer; font-weight: 700; font-size: 15px; color: var(--gv-ink);">Campos en BD para pedidos CRM → Holded</summary>
+      <div style="margin-top: 12px; font-size: 14px; line-height: 1.55; color: var(--gv-ink);">
+        <p style="margin: 0 0 10px 0;"><strong>articulos</strong> (nuevos recomendados; el script SQL los crea):</p>
+        <ul style="margin: 0 0 12px 18px; padding: 0;">
+          <li><code>art_id_holded</code> — ID del producto en Holded (trazabilidad y comprobación frente al catálogo).</li>
+          <li><code>art_holded_sync_at</code> — Fecha/hora de la última importación desde Holded.</li>
+        </ul>
+        <p style="margin: 0 0 10px 0;">Ya existentes en el CRM y usados al enviar líneas:</p>
+        <ul style="margin: 0 0 12px 18px; padding: 0;">
+          <li><code>art_sku</code>, <code>art_codigo_interno</code>, <code>art_ean13</code> — Holded hace match de líneas de documento principalmente por <strong>SKU</strong> (ver documentación API).</li>
+          <li><code>art_nombre</code>, <code>art_pvl</code>, <code>art_iva</code> — coherencia con el producto en Holded.</li>
+        </ul>
+        <p style="margin: 0 0 10px 0;"><strong>pedidos</strong>:</p>
+        <ul style="margin: 0; padding: 0 0 0 18px;">
+          <li><code>ped_id_holded</code> — ID del documento creado en Holded tras el envío (ya contemplado en el proyecto; migración <code>scripts/add-column-ped-id-holded.sql</code> si no la tienes).</li>
+        </ul>
+      </div>
+    </details>
+
+    <h2 class="gv-holded-comparar-h2" style="margin-top: 0;">Filtros</h2>
+    <form method="get" action="/cpanel/holded-articulos" class="gv-holded-articulos-filters" style="display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end; margin-bottom: 20px;">
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Etiquetas Holded (al menos una)</span>
+        <input type="text" name="tags" class="input" style="min-width: 280px;" placeholder="ej. farmacia, mayorista, distribuidor" value="<%= typeof tagFilterStr === 'string' ? tagFilterStr.replace(/"/g, '&quot;') : '' %>" />
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Solo «para venta» en Holded</span>
+        <select name="onlyForSale" class="input" style="min-width: 140px;">
+          <option value="1" <%= onlyForSale ? 'selected' : '' %>>Sí (recomendado)</option>
+          <option value="0" <%= !onlyForSale ? 'selected' : '' %>>No incluir este filtro</option>
+        </select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Excluir solo-compra</span>
+        <select name="excludePurchaseOnly" class="input" style="min-width: 160px;">
+          <option value="1" <%= excludePurchaseOnly ? 'selected' : '' %>>Sí (omitir sin venta)</option>
+          <option value="0" <%= !excludePurchaseOnly ? 'selected' : '' %>>No</option>
+        </select>
+      </label>
+      <button type="submit" class="btn">Aplicar filtros</button>
+    </form>
+    <p style="font-size: 13px; color: var(--gv-muted); margin: -8px 0 18px 0;">
+      Si dejas «Etiquetas» vacío, se listan todos los productos que pasan los checkboxes (según datos que devuelva Holded).
+      Ajusta las etiquetas en Holded para canales (farmacia, mayorista, etc.) y filtra aquí.
+    </p>
+
+    <h2 class="gv-holded-comparar-h2">Productos Holded (<%= rows.length %>)</h2>
+    <% if (!rows.length && !errMsg) { %>
+      <p style="color: var(--gv-muted); font-size: 14px;">Ningún producto con los filtros actuales.</p>
+    <% } else if (rows.length) { %>
+      <form method="post" action="/cpanel/holded-articulos/import" id="form-import-art">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px;">
+          <button type="submit" class="btn" <%= hasHoldedColumn ? '' : 'disabled' %>>Importar seleccionados al CRM</button>
+          <button type="button" class="btn secondary" id="btn-select-all-art">Marcar todos</button>
+          <button type="button" class="btn secondary" id="btn-unselect-all-art">Desmarcar todos</button>
+        </div>
+        <div class="table-wrap gv-holded-articulos-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;" aria-label="Importar">Imp.</th>
+                <th>Nombre</th>
+                <th>SKU</th>
+                <th>Código</th>
+                <th style="text-align: right;">PVP</th>
+                <th style="text-align: right;">IVA %</th>
+                <th>Etiquetas Holded</th>
+                <th>En CRM</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% rows.forEach(function (p) {
+                   var crmId = byH.get(p.id);
+                   if (crmId == null && p.sku) crmId = byS.get(String(p.sku).toLowerCase());
+              %>
+                <tr>
+                  <td>
+                    <input type="checkbox" name="importIds" value="<%= p.id %>" class="cb-import-art" <%= hasHoldedColumn ? '' : 'disabled' %> />
+                  </td>
+                  <td><%= p.name %></td>
+                  <td style="font-family: monospace; font-size: 12px;"><%= p.sku || '—' %></td>
+                  <td style="font-family: monospace; font-size: 12px;"><%= p.code || '—' %></td>
+                  <td style="text-align: right;"><%= typeof p.price === 'number' ? p.price.toFixed(2) : '—' %></td>
+                  <td style="text-align: right;"><%= p.tax != null ? p.tax : '—' %></td>
+                  <td style="font-size: 12px; max-width: 220px; word-break: break-word;"><%= (p.tags && p.tags.length) ? p.tags.join(', ') : '—' %></td>
+                  <td style="font-size: 13px;">
+                    <% if (crmId != null) { %>
+                      <span class="badge ok">Sí · art_id <%= crmId %></span>
+                    <% } else { %>
+                      <span class="badge" style="background: rgba(0,0,0,0.06);">No</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </form>
+      <script>
+        (function () {
+          var form = document.getElementById('form-import-art');
+          if (!form) return;
+          function allCbs() { return form.querySelectorAll('.cb-import-art'); }
+          document.getElementById('btn-select-all-art').addEventListener('click', function () {
+            allCbs().forEach(function (c) { c.checked = true; });
+          });
+          document.getElementById('btn-unselect-all-art').addEventListener('click', function () {
+            allCbs().forEach(function (c) { c.checked = false; });
+          });
+        })();
+      </script>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

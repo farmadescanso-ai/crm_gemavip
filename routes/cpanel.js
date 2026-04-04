@@ -23,6 +23,12 @@ const {
   buildHoldedFormasPagoMapping
 } = require('../lib/holded-payment-methods');
 const { saveGlobalHoldedFieldMap } = require('../lib/holded-field-map-store');
+const {
+  fetchHoldedProductsList,
+  filterProductsForSalesSync,
+  loadCrmArticuloMaps,
+  importSelectedHoldedProducts
+} = require('../lib/holded-products-sync');
 
 const router = express.Router();
 const ExcelJS = require('exceljs');
@@ -287,6 +293,90 @@ router.get('/cpanel', requireUserId1, (req, res, next) => {
     res.render('cpanel', { title: 'CPanel' });
   } catch (e) {
     next(e);
+  }
+});
+
+function parseArticulosTagsQuery(q) {
+  const s = String(q || '').trim();
+  if (!s) return [];
+  return s
+    .split(/[,;]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+router.get('/cpanel/holded-articulos', requireUserId1, async (req, res, next) => {
+  try {
+    if (!db.connected && !db.pool) await db.connect();
+    const onlyForSale = String(req.query.onlyForSale || '1') !== '0';
+    const excludePurchaseOnly = String(req.query.excludePurchaseOnly || '1') !== '0';
+    const tagFilter = parseArticulosTagsQuery(req.query.tags);
+    const apiKey = (process.env.HOLDED_API_KEY || '').trim();
+    let loadError = null;
+    let products = [];
+    if (!apiKey) {
+      loadError = 'Falta HOLDED_API_KEY en variables de entorno.';
+    } else {
+      try {
+        const raw = await fetchHoldedProductsList();
+        products = filterProductsForSalesSync(raw, {
+          onlyForSale,
+          excludePurchaseOnly,
+          requireTagsAny: tagFilter.length ? tagFilter : undefined
+        });
+      } catch (e) {
+        loadError = e?.message || String(e);
+      }
+    }
+    const articuloMaps = await loadCrmArticuloMaps(db);
+    const listSuccess = typeof req.query.success === 'string' ? req.query.success : null;
+    const listError = typeof req.query.error === 'string' ? req.query.error : null;
+
+    res.render('cpanel-holded-articulos', {
+      title: 'Artículos Holded → CRM',
+      products,
+      onlyForSale,
+      excludePurchaseOnly,
+      tagFilterStr: tagFilter.join(', '),
+      loadError,
+      listError,
+      success: listSuccess,
+      articuloMaps,
+      hasHoldedColumn: Boolean(articuloMaps.cHolded),
+      apiKeyConfigured: Boolean(apiKey)
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/cpanel/holded-articulos/import', requireUserId1, async (req, res, next) => {
+  try {
+    if (!db.connected && !db.pool) await db.connect();
+    const rawIds = req.body && req.body.importIds != null ? req.body.importIds : [];
+    const ids = Array.isArray(rawIds) ? rawIds : [rawIds];
+    const clean = ids.map((x) => String(x).trim()).filter(Boolean);
+    if (!clean.length) {
+      return res.redirect(
+        '/cpanel/holded-articulos?error=' + encodeURIComponent('No seleccionaste ningún artículo.')
+      );
+    }
+    if (!(process.env.HOLDED_API_KEY || '').trim()) {
+      return res.redirect(
+        '/cpanel/holded-articulos?error=' + encodeURIComponent('Falta HOLDED_API_KEY')
+      );
+    }
+    const all = await fetchHoldedProductsList();
+    const results = await importSelectedHoldedProducts(db, all, clean);
+    const ok = results.filter((r) => r.action === 'inserted' || r.action === 'updated').length;
+    const fail = results.filter((r) => r.error).length;
+    let msg = `Procesadas ${results.length} fila(s): ${ok} alta(s)/actualización(es).`;
+    if (fail) msg += ` Fallos: ${fail}.`;
+    const firstErr = results.find((r) => r.error);
+    if (firstErr && firstErr.error) msg += ` Detalle: ${String(firstErr.error).slice(0, 280)}`;
+    return res.redirect('/cpanel/holded-articulos?success=' + encodeURIComponent(msg));
+  } catch (e) {
+    return res.redirect('/cpanel/holded-articulos?error=' + encodeURIComponent(e?.message || 'Error'));
   }
 });
 

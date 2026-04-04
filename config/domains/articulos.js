@@ -232,7 +232,9 @@ module.exports = {
         EAN13: pick(['art_ean13', 'EAN13', 'ean13']),
         Activo: pick(['art_activo', 'Activo', 'activo']),
         IVA: pick(['art_iva', 'IVA', 'iva']),
-        Id_Marca: pick(['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId'])
+        Id_Marca: pick(['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']),
+        Id_Holded: pick(['art_id_holded', 'art_Id_Holded']),
+        Holded_Sync_At: pick(['art_holded_sync_at'])
       };
       const columnasValidas = Object.keys(colMap);
       const payloadFiltrado = {};
@@ -301,7 +303,9 @@ module.exports = {
         Imagen: pick(['art_imagen', 'Imagen', 'imagen']),
         Id_Marca: pick(['art_mar_id', 'Id_Marca', 'id_marca', 'MarcaId', 'marcaId']),
         EAN13: pick(['art_ean13', 'EAN13', 'ean13']),
-        Activo: pick(['art_activo', 'Activo', 'activo'])
+        Activo: pick(['art_activo', 'Activo', 'activo']),
+        Id_Holded: pick(['art_id_holded', 'art_Id_Holded']),
+        Holded_Sync_At: pick(['art_holded_sync_at'])
       };
       const defaultsForMissing = {
         Presentacion: '',
