@@ -51,6 +51,12 @@
         <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
           Omitidos (sin contacto): <strong><%= skippedSinContacto || 0 %></strong>
         </div>
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Omitidos (sin cliente CRM vinculado): <strong><%= skippedSinClienteCRM || 0 %></strong>
+        </div>
+        <div class="gv-alert" style="padding: 0.75rem 1rem; background: var(--gv-surface-2, #f5f5f5); border-radius: 8px;">
+          Omitidos (líneas sin catálogo): <strong><%= skippedLineasSinMatch || 0 %></strong>
+        </div>
       </div>
 
       <% if ((pedidos || []).length) { %>

@@ -29,6 +29,12 @@ const {
   loadCrmArticuloMaps,
   importSelectedHoldedProducts
 } = require('../lib/holded-products-sync');
+const { runSyncHoldedPedidos, getPreviewPedidosHolded } = require('../lib/sync-holded-pedidos');
+const {
+  pushPedidoToHolded,
+  listPedidosCrmExportablesHolded,
+  resolveHoldedPedidoDocType
+} = require('../lib/holded-export');
 
 const router = express.Router();
 const ExcelJS = require('exceljs');
@@ -347,6 +353,203 @@ router.get('/cpanel/holded-articulos', requireUserId1, async (req, res, next) =>
     });
   } catch (e) {
     next(e);
+  }
+});
+
+/**
+ * @param {Record<string, string | boolean | undefined>} q
+ */
+function buildCpanelHoldedPedidosUrl(q = {}) {
+  const p = new URLSearchParams();
+  if (q.start) p.set('start', String(q.start));
+  if (q.end) p.set('end', String(q.end));
+  if (q.provincia) p.set('provincia', String(q.provincia));
+  if (q.skipProvincia === '1' || q.skipProvincia === true) p.set('skipProvincia', '1');
+  if (q.requireFullLine === '1' || q.requireFullLine === true) p.set('requireFullLine', '1');
+  if (q.expStart) p.set('expStart', String(q.expStart));
+  if (q.expEnd) p.set('expEnd', String(q.expEnd));
+  const qs = p.toString();
+  return '/cpanel/holded-pedidos' + (qs ? `?${qs}` : '');
+}
+
+router.get('/cpanel/holded-pedidos', requireUserId1, async (req, res, next) => {
+  try {
+    if (!db.connected && !db.pool) await db.connect();
+    const start = String(req.query.start || '2026-01-01').trim();
+    const end = String(req.query.end || '2026-12-31').trim();
+    const skipProvinciaFilter = String(req.query.skipProvincia || '') === '1';
+    const requireFullLineMatch = String(req.query.requireFullLine || '') === '1';
+    const provincia = String(req.query.provincia || 'Murcia').trim();
+    const expStart = String(req.query.expStart || start).trim();
+    const expEnd = String(req.query.expEnd || end).trim();
+
+    let preview = {
+      ok: false,
+      pedidos: [],
+      totalFetched: 0,
+      skippedProvincia: 0,
+      skippedDuplicado: 0,
+      skippedSinContacto: 0,
+      skippedSinClienteCRM: 0,
+      skippedLineasSinMatch: 0,
+      periodo: `${start} a ${end}`,
+      error: null
+    };
+    if ((process.env.HOLDED_API_KEY || '').trim()) {
+      preview = await getPreviewPedidosHolded({
+        start,
+        end,
+        provincia,
+        skipProvinciaFilter,
+        strictClienteCrm: true,
+        requireFullLineMatch,
+        autoCreateCliente: false
+      });
+    } else {
+      preview.error = 'Falta HOLDED_API_KEY en el entorno.';
+    }
+
+    const exportRows = await listPedidosCrmExportablesHolded({
+      start: expStart,
+      end: expEnd,
+      limit: 300
+    }).catch(() => []);
+
+    const defaultDocType = resolveHoldedPedidoDocType();
+    const success = typeof req.query.success === 'string' ? req.query.success : null;
+    const error = typeof req.query.error === 'string' ? req.query.error : null;
+
+    res.render('cpanel-holded-pedidos', {
+      title: 'Pedidos Holded ↔ CRM',
+      start,
+      end,
+      provincia,
+      skipProvinciaFilter,
+      requireFullLineMatch,
+      preview,
+      exportRows,
+      expStart,
+      expEnd,
+      defaultDocType,
+      success,
+      error,
+      apiKeyConfigured: Boolean((process.env.HOLDED_API_KEY || '').trim())
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/cpanel/holded-pedidos/import', requireUserId1, async (req, res, next) => {
+  try {
+    if (!db.connected && !db.pool) await db.connect();
+    const rawIds = req.body && req.body.importIds != null ? req.body.importIds : [];
+    const ids = Array.isArray(rawIds) ? rawIds : [rawIds];
+    const clean = ids.map((x) => String(x).trim()).filter(Boolean);
+    const start = String(req.body.start || '2026-01-01').trim();
+    const end = String(req.body.end || '2026-12-31').trim();
+    const skipProvinciaFilter = String(req.body.skipProvincia || '') === '1';
+    const requireFullLineMatch = String(req.body.requireFullLine || '') === '1';
+    const provincia = String(req.body.provincia || 'Murcia').trim();
+    const dryRun = String(req.body.dryRun || '') === '1';
+
+    const redirBase = {
+      start,
+      end,
+      provincia,
+      skipProvincia: skipProvinciaFilter ? '1' : '',
+      requireFullLine: requireFullLineMatch ? '1' : ''
+    };
+
+    if (!clean.length) {
+      const b = buildCpanelHoldedPedidosUrl(redirBase);
+      const j = b.includes('?') ? '&' : '?';
+      return res.redirect(
+        b + j + 'error=' + encodeURIComponent('Selecciona al menos un pedido de la lista Holded.')
+      );
+    }
+
+    const result = await runSyncHoldedPedidos({
+      start,
+      end,
+      provincia,
+      skipProvinciaFilter,
+      strictClienteCrm: true,
+      autoCreateCliente: false,
+      requireFullLineMatch,
+      dryRun,
+      idsToImport: clean
+    });
+
+    const detail = result.ok
+      ? `Hecho: ${result.inserted} pedido(s). Omitidos — provincia: ${result.skippedProvincia}, duplicado: ${result.skippedDuplicado}, sin contacto API: ${result.skippedSinContacto}, sin cliente CRM vinculado: ${result.skippedSinClienteCRM}, líneas sin catálogo: ${result.skippedLineasSinMatch}.`
+      : result.error || 'Error';
+    const b = buildCpanelHoldedPedidosUrl(redirBase);
+    const j = b.includes('?') ? '&' : '?';
+    const key = result.ok ? 'success' : 'error';
+    return res.redirect(b + j + key + '=' + encodeURIComponent(detail));
+  } catch (e) {
+    const b = buildCpanelHoldedPedidosUrl({});
+    const j = b.includes('?') ? '&' : '?';
+    return res.redirect(b + j + 'error=' + encodeURIComponent(e?.message || 'Error'));
+  }
+});
+
+router.post('/cpanel/holded-pedidos/export', requireUserId1, async (req, res, next) => {
+  try {
+    const rawIds = req.body && req.body.exportIds != null ? req.body.exportIds : [];
+    const ids = Array.isArray(rawIds) ? rawIds : [rawIds];
+    const clean = ids.map((x) => String(x).trim()).filter(Boolean);
+    const docType = resolveHoldedPedidoDocType(String(req.body.docType || '').trim() || undefined);
+    const start = String(req.body.start || '2026-01-01').trim();
+    const end = String(req.body.end || '2026-12-31').trim();
+    const provincia = String(req.body.provincia || 'Murcia').trim();
+    const skipProvinciaFilter = String(req.body.skipProvincia || '') === '1';
+    const requireFullLineMatch = String(req.body.requireFullLine || '') === '1';
+    const expStart = String(req.body.expStart || start).trim();
+    const expEnd = String(req.body.expEnd || end).trim();
+
+    const redirBase = {
+      start,
+      end,
+      provincia,
+      skipProvincia: skipProvinciaFilter ? '1' : '',
+      requireFullLine: requireFullLineMatch ? '1' : '',
+      expStart,
+      expEnd
+    };
+
+    if (!clean.length) {
+      const b = buildCpanelHoldedPedidosUrl(redirBase);
+      const j = b.includes('?') ? '&' : '?';
+      return res.redirect(
+        b + j + 'error=' + encodeURIComponent('Selecciona al menos un pedido CRM para enviar a Holded.')
+      );
+    }
+
+    let ok = 0;
+    let err = 0;
+    let firstErr = '';
+    for (const pid of clean) {
+      const n = parseInt(pid, 10);
+      if (!Number.isFinite(n) || n <= 0) continue;
+      try {
+        const r = await pushPedidoToHolded(n, undefined, { docType, strictContact: true });
+        if (r && (r.ok || r.alreadySent)) ok++;
+        else err++;
+      } catch (e) {
+        err++;
+        if (!firstErr) firstErr = e?.message || String(e);
+      }
+    }
+    const msg = `Enviados a Holded (${docType}): ${ok}. Errores: ${err}. ${firstErr}`.trim();
+    const b2 = buildCpanelHoldedPedidosUrl(redirBase);
+    const j2 = b2.includes('?') ? '&' : '?';
+    return res.redirect(b2 + j2 + 'success=' + encodeURIComponent(msg));
+  } catch (e) {
+    const b3 = buildCpanelHoldedPedidosUrl({});
+    const j3 = b3.includes('?') ? '&' : '?';
+    return res.redirect(b3 + j3 + 'error=' + encodeURIComponent(e?.message || 'Error'));
   }
 });
 

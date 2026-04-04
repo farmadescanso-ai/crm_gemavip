@@ -1,0 +1,213 @@
+<%- include('partials/header', { title: title || 'Pedidos Holded' }) %>
+
+<% const pv = preview && typeof preview === 'object' ? preview : {}; %>
+<% const pedidos = Array.isArray(pv.pedidos) ? pv.pedidos : []; %>
+<% const exp = Array.isArray(exportRows) ? exportRows : []; %>
+
+<section class="card gv-vista gv-cpanel gv-holded-pedidos">
+  <div class="card-hd gv-vista-hd">
+    <div class="gv-cpanel-kicker">
+      <span class="gv-cpanel-badge">Superadmin</span>
+      <span class="gv-cpanel-kicker__user"><%= user?.nombre ?? user?.email ?? '—' %></span>
+    </div>
+    <h1 class="card-title gv-vista-hd__title"><%= title || 'Pedidos Holded ↔ CRM' %></h1>
+    <p class="gv-vista-hd__sub" style="margin-top: 8px;">
+      Importación: pedidos de venta Holded (<code>salesorder</code>) → CRM con cliente ya vinculado (<code>cli_Id_Holded</code>).
+      Exportación: pedidos CRM sin <code>ped_id_holded</code> hacia Holded; tipo de documento por defecto <code>salesorder</code> (variable <code>HOLDED_CRM_PEDIDO_DOC_TYPE</code>).
+    </p>
+    <p style="margin-top: 12px;">
+      <a class="btn secondary" href="/cpanel">← CPanel</a>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof success === 'string' && success) { %>
+      <div class="gv-alert success" role="status" style="margin-bottom: 16px;"><%= success %></div>
+    <% } %>
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert error" role="alert" style="margin-bottom: 16px;"><%= error %></div>
+    <% } %>
+    <% if (!apiKeyConfigured) { %>
+      <p style="font-size: 13px; color: var(--gv-muted); margin-bottom: 16px;">Configura <code>HOLDED_API_KEY</code> para cargar datos de Holded.</p>
+    <% } %>
+
+    <h2 class="gv-holded-comparar-h2" style="margin-top: 0;">1) Holded → CRM (importar)</h2>
+    <form method="get" action="/cpanel/holded-pedidos" class="gv-holded-pedidos-filters" style="display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end; margin-bottom: 16px;">
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Desde</span>
+        <input type="date" name="start" class="input" value="<%= start || '2026-01-01' %>" />
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Hasta</span>
+        <input type="date" name="end" class="input" value="<%= end || '2026-12-31' %>" />
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Provincia (subcadena)</span>
+        <input type="text" name="provincia" class="input" style="min-width: 140px;" value="<%= typeof provincia === 'string' ? provincia.replace(/"/g, '&quot;') : 'Murcia' %>" placeholder="Murcia o vacío si sin filtro" />
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+        <input type="checkbox" name="skipProvincia" value="1" <%= skipProvinciaFilter ? 'checked' : '' %> />
+        Sin filtro provincial
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+        <input type="checkbox" name="requireFullLine" value="1" <%= requireFullLineMatch ? 'checked' : '' %> />
+        Exigir todas las líneas en catálogo CRM
+      </label>
+      <button type="submit" class="btn">Cargar vista previa</button>
+    </form>
+
+    <% if (pv.ok) { %>
+      <p style="font-size: 13px; color: var(--gv-muted); margin-bottom: 12px;">
+        API: <%= pv.totalFetched || 0 %> documento(s) en rango. Omitidos — otra provincia: <%= pv.skippedProvincia || 0 %>,
+        sin contacto: <%= pv.skippedSinContacto || 0 %>, sin cliente CRM: <%= pv.skippedSinClienteCRM || 0 %>,
+        duplicado en BD: <%= pv.skippedDuplicado || 0 %>, líneas sin catálogo: <%= pv.skippedLineasSinMatch || 0 %>.
+      </p>
+    <% } else if (pv.error) { %>
+      <div class="gv-alert error" role="alert" style="margin-bottom: 16px;"><%= pv.error %></div>
+    <% } %>
+
+    <% if (pedidos.length) { %>
+      <form method="post" action="/cpanel/holded-pedidos/import" id="form-holded-import-ped">
+        <input type="hidden" name="start" value="<%= start %>" />
+        <input type="hidden" name="end" value="<%= end %>" />
+        <input type="hidden" name="provincia" value="<%= typeof provincia === 'string' ? provincia : 'Murcia' %>" />
+        <% if (skipProvinciaFilter) { %><input type="hidden" name="skipProvincia" value="1" /><% } %>
+        <% if (requireFullLineMatch) { %><input type="hidden" name="requireFullLine" value="1" /><% } %>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px;">
+          <button type="submit" class="btn">Importar seleccionados</button>
+          <button type="submit" class="btn secondary" name="dryRun" value="1">Simular (dry-run)</button>
+        </div>
+        <div class="table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th style="width: 36px;">Sel.</th>
+                <th>Doc / Fecha</th>
+                <th>Cliente</th>
+                <th>cli_id</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th>Importable</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% pedidos.forEach(function (p) { %>
+                <tr>
+                  <td>
+                    <input type="checkbox" name="importIds" value="<%= p.idHolded %>" <%= p.puedeImportar ? '' : 'disabled' %> />
+                  </td>
+                  <td style="font-size: 13px;">
+                    <strong><%= p.docNumber %></strong><br />
+                    <span style="color: var(--gv-muted);"><%= p.fecha %></span>
+                  </td>
+                  <td><%= p.cliente %></td>
+                  <td style="font-family: monospace; font-size: 12px;"><%= p.cliId != null ? p.cliId : '—' %></td>
+                  <td style="text-align: right;"><%= typeof p.total === 'number' ? p.total : p.total %></td>
+                  <td><%= p.estado %></td>
+                  <td style="font-size: 12px;">
+                    <% if (p.puedeImportar) { %>
+                      <span class="badge ok">Sí</span>
+                    <% } else { %>
+                      <span class="badge warn">No</span>
+                      <% if (p.motivoExclusion) { %><span style="color: var(--gv-muted);"> · <%= p.motivoExclusion %></span><% } %>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </form>
+    <% } else if (pv.ok && apiKeyConfigured) { %>
+      <p style="color: var(--gv-muted); font-size: 14px;">No hay filas para mostrar con los filtros actuales.</p>
+    <% } %>
+
+    <h2 class="gv-holded-comparar-h2" style="margin-top: 28px;">2) CRM → Holded (exportar)</h2>
+    <p style="font-size: 13px; color: var(--gv-muted); margin-bottom: 12px;">
+      Solo pedidos sin <code>ped_id_holded</code> y cuyo cliente tiene <code>cli_Id_Holded</code>. El envío usa contacto estricto (no se crean contactos en Holded desde aquí).
+    </p>
+    <form method="get" action="/cpanel/holded-pedidos" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px;">
+      <input type="hidden" name="start" value="<%= start %>" />
+      <input type="hidden" name="end" value="<%= end %>" />
+      <input type="hidden" name="provincia" value="<%= typeof provincia === 'string' ? provincia : 'Murcia' %>" />
+      <% if (skipProvinciaFilter) { %><input type="hidden" name="skipProvincia" value="1" /><% } %>
+      <% if (requireFullLineMatch) { %><input type="hidden" name="requireFullLine" value="1" /><% } %>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Rango fechas pedido (export)</span>
+        <input type="date" name="expStart" class="input" value="<%= expStart || start %>" />
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+        <span>Hasta</span>
+        <input type="date" name="expEnd" class="input" value="<%= expEnd || end %>" />
+      </label>
+      <button type="submit" class="btn secondary">Actualizar listado export</button>
+    </form>
+
+    <% if (exp.length) { %>
+      <form method="post" action="/cpanel/holded-pedidos/export" id="form-holded-export-ped">
+        <input type="hidden" name="start" value="<%= start %>" />
+        <input type="hidden" name="end" value="<%= end %>" />
+        <input type="hidden" name="provincia" value="<%= typeof provincia === 'string' ? provincia : 'Murcia' %>" />
+        <input type="hidden" name="expStart" value="<%= expStart || start %>" />
+        <input type="hidden" name="expEnd" value="<%= expEnd || end %>" />
+        <% if (skipProvinciaFilter) { %><input type="hidden" name="skipProvincia" value="1" /><% } %>
+        <% if (requireFullLineMatch) { %><input type="hidden" name="requireFullLine" value="1" /><% } %>
+        <label style="display: inline-flex; flex-direction: column; gap: 4px; font-size: 13px; margin-bottom: 12px;">
+          <span>Tipo documento Holded</span>
+          <select name="docType" class="input" style="min-width: 220px;">
+            <% const dt = typeof defaultDocType === 'string' ? defaultDocType : 'salesorder'; %>
+            <option value="salesorder" <%= dt === 'salesorder' ? 'selected' : '' %>>salesorder (pedido venta)</option>
+            <option value="purchaseorder" <%= dt === 'purchaseorder' ? 'selected' : '' %>>purchaseorder</option>
+            <option value="estimate" <%= dt === 'estimate' ? 'selected' : '' %>>estimate</option>
+            <option value="proform" <%= dt === 'proform' ? 'selected' : '' %>>proform</option>
+          </select>
+        </label>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+          <button type="submit" class="btn">Enviar seleccionados a Holded</button>
+          <button type="button" class="btn secondary" id="btn-exp-select-all">Marcar todos export</button>
+          <button type="button" class="btn secondary" id="btn-exp-none">Desmarcar</button>
+        </div>
+        <div class="table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th style="width: 36px;"></th>
+                <th>ped_id</th>
+                <th>Número</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>cli_Id_Holded</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% exp.forEach(function (r) { %>
+                <tr>
+                  <td><input type="checkbox" name="exportIds" value="<%= r.ped_id %>" class="cb-exp-ped" /></td>
+                  <td style="font-family: monospace; font-size: 12px;"><%= r.ped_id %></td>
+                  <td><%= r.ped_numero != null ? r.ped_numero : '—' %></td>
+                  <td style="font-size: 13px;"><%= r.ped_fecha ? (new Date(r.ped_fecha).toISOString().slice(0, 10)) : '—' %></td>
+                  <td><%= r.cli_nombre_razon_social || '—' %></td>
+                  <td style="font-size: 11px; word-break: break-all;"><%= r.cli_Id_Holded || '—' %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </form>
+      <script>
+        (function () {
+          var form = document.getElementById('form-holded-export-ped');
+          if (!form) return;
+          function cbs() { return form.querySelectorAll('.cb-exp-ped'); }
+          var a = document.getElementById('btn-exp-select-all');
+          var n = document.getElementById('btn-exp-none');
+          if (a) a.addEventListener('click', function () { cbs().forEach(function (c) { c.checked = true; }); });
+          if (n) n.addEventListener('click', function () { cbs().forEach(function (c) { c.checked = false; }); });
+        })();
+      </script>
+    <% } else { %>
+      <p style="color: var(--gv-muted); font-size: 14px;">No hay pedidos exportables en el rango (o ya tienen <code>ped_id_holded</code> o el cliente sin Holded).</p>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

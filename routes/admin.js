@@ -29,6 +29,8 @@ const router = express.Router();
 // ===========================
 // IMPORTAR PEDIDOS HOLDED (solo administrador del sistema: info@farmadescanso.com)
 // Acceso exclusivo por URL directa. Tab "Relación códigos" vía ?tab=relacion-codigos (evita 404 en Vercel)
+// Comportamiento legacy: provincia Murcia, puede crear cliente CRM si no existe (no es el modo estricto del CPanel).
+// Para import/export con solo clientes vinculados Holded↔CRM usar /cpanel/holded-pedidos (usuario id 1).
 // ===========================
 router.get('/importar-holded', requireSystemAdmin, async (req, res, next) => {
   try {
