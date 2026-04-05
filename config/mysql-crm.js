@@ -700,6 +700,9 @@ class MySQLCRM {
   async getComercialById(id) {
     return domains.comerciales.getComercialById.apply(this, arguments);
   }
+  async comercialesHasComActivoColumn() {
+    return domains.comerciales.comercialesHasComActivoColumn.apply(this, arguments);
+  }
   async isComercialActiveById(id) {
     return domains.comerciales.isComercialActiveById.apply(this, arguments);
   }

@@ -6,15 +6,36 @@
 'use strict';
 
 module.exports = {
+  /**
+   * La columna com_activo no está en schema-columns (evita falsos positivos).
+   * Se consulta information_schema (caché por instancia).
+   */
+  async comercialesHasComActivoColumn() {
+    if (this._cacheComercialComActivo === true || this._cacheComercialComActivo === false) {
+      return this._cacheComercialComActivo;
+    }
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const rows = await this.query(
+        `SELECT 1 AS ok FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND LOWER(TABLE_NAME) = LOWER(?) AND COLUMN_NAME = 'com_activo' LIMIT 1`,
+        [t]
+      );
+      this._cacheComercialComActivo = !!(rows && rows.length);
+    } catch (_) {
+      this._cacheComercialComActivo = false;
+    }
+    return this._cacheComercialComActivo;
+  },
+
   /** Consulta ligera para selects: com_id, com_nombre, com_email. Sin JOIN. */
   async getComercialesForSelect() {
     try {
       const t = await this._resolveTableNameCaseInsensitive('comerciales');
-      const cols = await this._getColumns(t).catch(() => []);
-      const colActivo = this._pickCIFromColumns(cols, ['com_activo', 'Activo', 'activo']);
+      const hasActivo = await this.comercialesHasComActivoColumn();
       let sql = `SELECT com_id, com_nombre, com_email FROM \`${t}\``;
-      if (colActivo) {
-        sql += ` WHERE \`${colActivo}\` = 1`;
+      if (hasActivo) {
+        sql += ' WHERE `com_activo` = 1';
       }
       sql += ' ORDER BY com_nombre ASC';
       const rows = await this.query(sql);
@@ -35,12 +56,11 @@ module.exports = {
    */
   async isComercialActiveById(id) {
     try {
+      if (!(await this.comercialesHasComActivoColumn())) return true;
       const t = await this._resolveTableNameCaseInsensitive('comerciales');
       const cols = await this._getColumns(t).catch(() => []);
-      const colActivo = this._pickCIFromColumns(cols, ['com_activo', 'Activo', 'activo']);
-      if (!colActivo) return true;
       const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'com_id';
-      const rows = await this.query(`SELECT \`${colActivo}\` AS v FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+      const rows = await this.query(`SELECT \`com_activo\` AS v FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
       const v = rows?.[0]?.v;
       if (v === undefined || v === null) return true;
       return Number(v) !== 0;
@@ -148,7 +168,8 @@ module.exports = {
       const colPlataforma = this._pickCIFromColumns(cols, ['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida']) || 'com_plataforma_reunion_preferida';
       const colMeetEmail = this._pickCIFromColumns(cols, ['com_meet_email', 'meet_email']) || 'com_meet_email';
       const colTeamsEmail = this._pickCIFromColumns(cols, ['com_teams_email', 'teams_email']) || 'com_teams_email';
-      const colActivo = this._pickCIFromColumns(cols, ['com_activo', 'Activo', 'activo']);
+      const hasActivoCol = await this.comercialesHasComActivoColumn();
+      const colActivo = hasActivoCol ? 'com_activo' : null;
       const sql = `SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [id]);
       const row = rows.length > 0 ? rows[0] : null;
@@ -311,7 +332,8 @@ module.exports = {
       const colDni = pick(['com_dni', 'DNI', 'dni']) || 'DNI';
       const colPassword = pick(['com_password', 'Password', 'password']) || 'Password';
       const colRoll = pick(['com_roll', 'Roll', 'roll']) || 'Roll';
-      const colActivoIns = pick(['com_activo', 'Activo', 'activo']);
+      const hasActivoCol = await this.comercialesHasComActivoColumn();
+      const colActivoIns = hasActivoCol ? 'com_activo' : null;
       const colMovil = pick(['com_movil', 'Movil', 'movil']) || 'Movil';
       const colDireccion = pick(['com_direccion', 'Direccion', 'direccion']) || 'Direccion';
       const colCodigoPostal = pick(['com_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'CodigoPostal';
@@ -371,6 +393,7 @@ module.exports = {
     try {
       const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales')).catch(() => []);
       const pick = (cands) => this._pickCIFromColumns(cols, cands);
+      const hasComActivoCol = await this.comercialesHasComActivoColumn();
       const colMap = {
         Nombre: pick(['com_nombre', 'Nombre', 'nombre']),
         Email: pick(['com_email', 'Email', 'email']),
@@ -387,7 +410,7 @@ module.exports = {
         meet_email: pick(['com_meet_email', 'meet_email']),
         teams_email: pick(['com_teams_email', 'teams_email']),
         plataforma_reunion_preferida: pick(['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida']),
-        com_activo: pick(['com_activo', 'Activo', 'activo'])
+        com_activo: hasComActivoCol ? 'com_activo' : null
       };
       const pk = pick(['com_id', 'id', 'Id']) || 'id';
       const colActivoEarly = colMap.com_activo;
