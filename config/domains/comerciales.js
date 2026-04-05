@@ -10,7 +10,14 @@ module.exports = {
   async getComercialesForSelect() {
     try {
       const t = await this._resolveTableNameCaseInsensitive('comerciales');
-      const rows = await this.query(`SELECT com_id, com_nombre, com_email FROM \`${t}\` ORDER BY com_nombre ASC`);
+      const cols = await this._getColumns(t).catch(() => []);
+      const colActivo = this._pickCIFromColumns(cols, ['com_activo', 'Activo', 'activo']);
+      let sql = `SELECT com_id, com_nombre, com_email FROM \`${t}\``;
+      if (colActivo) {
+        sql += ` WHERE \`${colActivo}\` = 1`;
+      }
+      sql += ' ORDER BY com_nombre ASC';
+      const rows = await this.query(sql);
       return (rows || []).map(r => ({
         com_id: Number(r.com_id) || 0,
         com_nombre: String(r.com_nombre || '').trim(),
@@ -19,6 +26,51 @@ module.exports = {
     } catch (e) {
       console.error('❌ getComercialesForSelect:', e?.message);
       return [];
+    }
+  },
+
+  /**
+   * Comprueba si el comercial puede acceder al CRM (columna com_activo).
+   * Si la columna no existe, true (compatibilidad).
+   */
+  async isComercialActiveById(id) {
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const cols = await this._getColumns(t).catch(() => []);
+      const colActivo = this._pickCIFromColumns(cols, ['com_activo', 'Activo', 'activo']);
+      if (!colActivo) return true;
+      const pk = this._pickCIFromColumns(cols, ['com_id', 'id', 'Id']) || 'com_id';
+      const rows = await this.query(`SELECT \`${colActivo}\` AS v FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+      const v = rows?.[0]?.v;
+      if (v === undefined || v === null) return true;
+      return Number(v) !== 0;
+    } catch (e) {
+      console.error('❌ isComercialActiveById:', e?.message);
+      return true;
+    }
+  },
+
+  /**
+   * Mueve todos los clientes con cli_com_id = comId al comercial "pool" (pendiente de asignar).
+   */
+  async reassignClientesComercialToPool(comId) {
+    try {
+      const poolId = await this.getComercialIdPool();
+      const cid = Number(comId);
+      const pid = Number(poolId);
+      if (!Number.isFinite(cid) || cid <= 0 || !Number.isFinite(pid) || pid <= 0 || cid === pid) {
+        return { affectedRows: 0 };
+      }
+      const t = await this._resolveTableNameCaseInsensitive('clientes');
+      const cols = await this._getColumns(t).catch(() => []);
+      const colCom = this._pickCIFromColumns(cols, ['cli_com_id', 'Id_Cial', 'id_cial']) || 'cli_com_id';
+      if (!this.connected && !this.pool) await this.connect();
+      const sql = `UPDATE \`${t}\` SET \`${colCom}\` = ? WHERE \`${colCom}\` = ?`;
+      const [result] = await this.pool.execute(sql, [pid, cid]);
+      return { affectedRows: result.affectedRows || 0 };
+    } catch (e) {
+      console.error('❌ reassignClientesComercialToPool:', e?.message);
+      throw e;
     }
   },
 
@@ -96,6 +148,7 @@ module.exports = {
       const colPlataforma = this._pickCIFromColumns(cols, ['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida']) || 'com_plataforma_reunion_preferida';
       const colMeetEmail = this._pickCIFromColumns(cols, ['com_meet_email', 'meet_email']) || 'com_meet_email';
       const colTeamsEmail = this._pickCIFromColumns(cols, ['com_teams_email', 'teams_email']) || 'com_teams_email';
+      const colActivo = this._pickCIFromColumns(cols, ['com_activo', 'Activo', 'activo']);
       const sql = `SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [id]);
       const row = rows.length > 0 ? rows[0] : null;
@@ -116,7 +169,13 @@ module.exports = {
         fijo_mensual: row[colFijoMensual] ?? row.fijo_mensual ?? row.FijoMensual ?? '',
         plataforma_reunion_preferida: row[colPlataforma] ?? row.plataforma_reunion_preferida ?? '',
         meet_email: row[colMeetEmail] ?? row.meet_email ?? '',
-        teams_email: row[colTeamsEmail] ?? row.teams_email ?? ''
+        teams_email: row[colTeamsEmail] ?? row.teams_email ?? '',
+        com_activo: (() => {
+          if (!colActivo) return true;
+          const raw = row[colActivo] ?? row.com_activo ?? row.Activo;
+          if (raw === undefined || raw === null) return true;
+          return Number(raw) !== 0;
+        })()
       };
       return normalized;
     } catch (error) {
@@ -252,6 +311,7 @@ module.exports = {
       const colDni = pick(['com_dni', 'DNI', 'dni']) || 'DNI';
       const colPassword = pick(['com_password', 'Password', 'password']) || 'Password';
       const colRoll = pick(['com_roll', 'Roll', 'roll']) || 'Roll';
+      const colActivoIns = pick(['com_activo', 'Activo', 'activo']);
       const colMovil = pick(['com_movil', 'Movil', 'movil']) || 'Movil';
       const colDireccion = pick(['com_direccion', 'Direccion', 'direccion']) || 'Direccion';
       const colCodigoPostal = pick(['com_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'CodigoPostal';
@@ -259,7 +319,9 @@ module.exports = {
       const colIdProvincia = pick(['com_prov_id', 'Id_Provincia', 'id_Provincia']) || 'Id_Provincia';
       const colIdCodigoPostal = pick(['com_codp_id', 'Id_CodigoPostal', 'id_CodigoPostal']) || 'Id_CodigoPostal';
 
-      const insertCols = [colNombre, colEmail, colDni, colPassword, colRoll, colMovil, colDireccion, colCodigoPostal, colPoblacion, colIdProvincia, colIdCodigoPostal];
+      const insertCols = [colNombre, colEmail, colDni, colPassword, colRoll];
+      if (colActivoIns) insertCols.push(colActivoIns);
+      insertCols.push(colMovil, colDireccion, colCodigoPostal, colPoblacion, colIdProvincia, colIdCodigoPostal);
       const fijoMensualCol = pick(['com_fijo_mensual', 'fijo_mensual', 'FijoMensual']);
       if (fijoMensualCol) insertCols.push(fijoMensualCol);
       const plataformaCol = pick(['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida', 'PlataformaReunionPreferida']);
@@ -277,14 +339,21 @@ module.exports = {
         payload.Email || payload.email || '',
         payload.DNI || payload.dni || null,
         payload.Password || payload.password || null,
-        payload.Roll ? (Array.isArray(payload.Roll) ? JSON.stringify(payload.Roll) : payload.Roll) : '["Comercial"]',
+        payload.Roll ? (Array.isArray(payload.Roll) ? JSON.stringify(payload.Roll) : payload.Roll) : '["Comercial"]'
+      ];
+      if (colActivoIns) {
+        const a = payload.com_activo ?? payload.Activo ?? true;
+        const on = a === true || a === 1 || String(a).toLowerCase() === 'true' || String(a) === '1';
+        params.push(on ? 1 : 0);
+      }
+      params.push(
         payload.Movil || payload.movil || null,
         payload.Direccion || payload.direccion || null,
         codigoPostalTexto || null,
         payload.Poblacion || payload.poblacion || null,
         payload.Id_Provincia || payload.id_Provincia || null,
         idCodigoPostal
-      ];
+      );
       if (fijoMensualCol) params.push(fijoMensual);
       if (plataformaCol) params.push(plataformaPreferida);
 
@@ -317,9 +386,18 @@ module.exports = {
         fijo_mensual: pick(['com_fijo_mensual', 'fijo_mensual', 'FijoMensual']),
         meet_email: pick(['com_meet_email', 'meet_email']),
         teams_email: pick(['com_teams_email', 'teams_email']),
-        plataforma_reunion_preferida: pick(['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida'])
+        plataforma_reunion_preferida: pick(['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida']),
+        com_activo: pick(['com_activo', 'Activo', 'activo'])
       };
       const pk = pick(['com_id', 'id', 'Id']) || 'id';
+      const colActivoEarly = colMap.com_activo;
+      let prevActive = true;
+      if (colActivoEarly && payload && payload.com_activo !== undefined) {
+        const t0 = await this._resolveTableNameCaseInsensitive('comerciales');
+        const prevRows = await this.query(`SELECT \`${colActivoEarly}\` AS v FROM \`${t0}\` WHERE \`${pk}\` = ? LIMIT 1`, [id]);
+        const pv = prevRows?.[0]?.v;
+        prevActive = pv === undefined || pv === null ? true : Number(pv) !== 0;
+      }
 
       const updates = [];
       const params = [];
@@ -449,6 +527,12 @@ module.exports = {
         updates.push(`\`${colMap.plataforma_reunion_preferida}\` = ?`);
         params.push(payload.plataforma_reunion_preferida || 'meet');
       }
+      if (payload.com_activo !== undefined && colMap.com_activo) {
+        const a = payload.com_activo;
+        const on = a === true || a === 1 || String(a).toLowerCase() === 'true' || String(a) === '1';
+        updates.push(`\`${colMap.com_activo}\` = ?`);
+        params.push(on ? 1 : 0);
+      }
 
       if (updates.length === 0) {
         throw new Error('No hay campos para actualizar');
@@ -461,6 +545,13 @@ module.exports = {
         await this.connect();
       }
       const [result] = await this.pool.execute(sql, params);
+      if (colActivoEarly && payload && payload.com_activo !== undefined) {
+        const a = payload.com_activo;
+        const nowActive = a === true || a === 1 || String(a).toLowerCase() === 'true' || String(a) === '1';
+        if (prevActive && !nowActive) {
+          await this.reassignClientesComercialToPool(id);
+        }
+      }
       return { affectedRows: result.affectedRows || 0 };
     } catch (error) {
       console.error('❌ Error actualizando comercial:', error.message);

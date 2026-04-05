@@ -49,7 +49,7 @@
   },
   "comerciales": {
     "pk": "com_id",
-    "cols": ["com_id", "com_nombre", "com_email", "com_dni", "com_password", "com_roll", "com_fijo_mensual", "com_movil", "com_direccion", "com_codp_id", "com_poblacion", "com_codigo_postal", "com_prov_id"]
+    "cols": ["com_id", "com_nombre", "com_email", "com_dni", "com_password", "com_roll", "com_activo", "com_fijo_mensual", "com_movil", "com_direccion", "com_codp_id", "com_poblacion", "com_codigo_postal", "com_prov_id"]
   },
   "pedidos": {
     "pk": "ped_id",

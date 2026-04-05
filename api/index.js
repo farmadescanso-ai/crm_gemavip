@@ -43,7 +43,8 @@ const {
   getCommonNavLinksForRoles,
   getRoleNavLinksForRoles,
   requireLogin,
-  requireLoginJson
+  requireLoginJson,
+  requireSessionComercialActive
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
 const { parsePagination } = require('../lib/pagination');
@@ -480,6 +481,9 @@ app.use(async (req, res, next) => {
 
   next();
 });
+
+// Comercial inactivo: sin acceso al CRM (historial de pedidos/visitas permanece en BD)
+app.use(requireSessionComercialActive);
 
 // Provincia y país por código postal (debe ir DESPUÉS de session para que requireLogin funcione)
 app.get('/api/provincia-by-cp', requireLoginJson, async (req, res) => {

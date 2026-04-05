@@ -700,6 +700,12 @@ class MySQLCRM {
   async getComercialById(id) {
     return domains.comerciales.getComercialById.apply(this, arguments);
   }
+  async isComercialActiveById(id) {
+    return domains.comerciales.isComercialActiveById.apply(this, arguments);
+  }
+  async reassignClientesComercialToPool(comId) {
+    return domains.comerciales.reassignClientesComercialToPool.apply(this, arguments);
+  }
   /**
    * Obtiene el ID del comercial a partir del texto "Comercial asignado":
    * formato "Nombre · Email" (ej. "Farmadescanso 2021 SL · pedidos@farmadescanso.com").

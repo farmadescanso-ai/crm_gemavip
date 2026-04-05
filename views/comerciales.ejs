@@ -54,11 +54,12 @@
     <div class="table-wrap gv-contactos-table-wrap">
       <table class="gv-contactos-table">
         <colgroup>
+          <col style="width: 9%;" />
+          <col style="width: 22%;" />
+          <col style="width: 26%;" />
+          <col style="width: 11%;" />
           <col style="width: 10%;" />
-          <col style="width: 24%;" />
-          <col style="width: 30%;" />
-          <col style="width: 12%;" />
-          <col style="width: 12%;" />
+          <col style="width: 10%;" />
           <col style="width: 12%;" />
         </colgroup>
         <thead>
@@ -68,6 +69,7 @@
             <th>Email</th>
             <th>Móvil</th>
             <th>Provincia</th>
+            <th>Estado</th>
             <th>Rol</th>
           </tr>
         </thead>
@@ -88,6 +90,8 @@
                 if (rolesArr.length === 0) rolesArr = s.includes(',') ? s.split(',').map((x) => x.trim()).filter(Boolean) : (s ? [s] : []);
               } else if (rraw) rolesArr = [String(rraw)];
               const rolesAbrev = [...new Set(rolesArr.map(abrevRol))].filter(Boolean).join(', ') || '—';
+              const rawAct = c.com_activo ?? c.Activo;
+              const esActivo = rawAct === undefined || rawAct === null ? true : Number(rawAct) !== 0;
             %>
             <tr>
               <td>
@@ -121,12 +125,19 @@
               <td><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
               <td><%- include('partials/telefono-display', { telefono: c.Movil ?? '' }) %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
+              <td>
+                <% if (esActivo) { %>
+                  <span class="badge success" style="font-weight:800;">Activo</span>
+                <% } else { %>
+                  <span class="badge warn" style="font-weight:800;">Inactivo</span>
+                <% } %>
+              </td>
               <td><%= rolesAbrev %></td>
             </tr>
           <% }) %>
           <% if (!items || items.length === 0) { %>
             <tr>
-              <td colspan="6" style="color: var(--gv-muted); font-weight:700;">No hay comerciales.</td>
+              <td colspan="7" style="color: var(--gv-muted); font-weight:700;">No hay comerciales.</td>
             </tr>
           <% } %>
         </tbody>

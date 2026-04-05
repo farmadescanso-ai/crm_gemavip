@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../config/mysql-crm');
 const { normalizeRoles } = require('../lib/auth');
+const { comercialRowIsActive } = require('../lib/comercial-helpers');
 const { requireLogin } = require('../lib/auth');
 const { sendPasswordResetEmail, APP_BASE_URL } = require('../lib/mailer');
 const { _n, getStoredPasswordFromRow } = require('../lib/app-helpers');
@@ -24,7 +25,12 @@ router.get('/login', (req, res) => {
   }
   const restablecido = req.query?.restablecido === '1';
   const returnTo = req.query?.returnTo;
-  res.render('login', { title: 'Login', error: null, restablecido, returnTo });
+  let error = null;
+  if (req.query?.cuenta === 'inactiva') {
+    error =
+      'Tu cuenta está desactivada o la sesión se cerró por seguridad. Si necesitas acceso, contacta con administración.';
+  }
+  res.render('login', { title: 'Login', error, restablecido, returnTo });
 });
 
 router.post('/login', loginLimiter, async (req, res, next) => {
@@ -70,6 +76,13 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return res.status(403).render('login', {
         title: 'Login',
         error: 'Esta cuenta es de uso interno (pool). No se puede iniciar sesión.'
+      });
+    }
+
+    if (!comercialRowIsActive(comercial)) {
+      return res.status(403).render('login', {
+        title: 'Login',
+        error: 'Esta cuenta está desactivada. Contacta con administración si necesitas acceso.'
       });
     }
 

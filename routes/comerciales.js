@@ -267,6 +267,9 @@ router.post('/:id([0-9]+)/edit', requireAdmin, async (req, res, next) => {
 
     if (meta && meta.hasMeetEmail) payload.meet_email = String(_n(body.meet_email, '')).trim();
     if (meta && meta.hasTeamsEmail) payload.teams_email = String(_n(body.teams_email, '')).trim();
+    if (meta && meta.hasActivo) {
+      payload.com_activo = String(body.com_activo || '') === '1' ? 1 : 0;
+    }
 
     await db.updateComercial(id, payload);
     if (newPassword) {

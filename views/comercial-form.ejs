@@ -61,6 +61,21 @@
           </div>
         </label>
 
+        <% if (mode === 'edit' && metaSafe.hasActivo) { %>
+          <% const _rAct = item.com_activo ?? item.Activo; const _chkAct = _rAct === undefined || _rAct === null ? true : Number(_rAct) !== 0; %>
+          <label style="display:grid; gap:8px;">
+            <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Estado en el CRM</span>
+            <label style="display:flex; gap:8px; align-items:center; font-weight:700;">
+              <input type="checkbox" name="com_activo" value="1" <%= _chkAct ? 'checked' : '' %> />
+              Activo (puede iniciar sesión y trabajar con la cartera)
+            </label>
+            <div style="color: var(--gv-muted); font-size: 12px; font-weight: 700; line-height: 1.45;">
+              Si lo desactivas, no podrá acceder al CRM; los contactos que tenga asignados pasan al comercial «pool» (pendientes de asignar).
+              El historial de pedidos y visitas se conserva.
+            </div>
+          </label>
+        <% } %>
+
         <label style="display:grid; gap:6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">DNI</span>
           <input class="gv-client-picker__q" name="DNI" value="<%= pickVal('DNI') %>" maxlength="20" />
