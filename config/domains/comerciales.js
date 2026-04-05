@@ -28,6 +28,25 @@ module.exports = {
     return this._cacheComercialComActivo;
   },
 
+  /** Fecha de baja (auditoría); no va en schema-columns. */
+  async comercialesHasFechaBajaColumn() {
+    if (this._cacheComercialFechaBaja === true || this._cacheComercialFechaBaja === false) {
+      return this._cacheComercialFechaBaja;
+    }
+    try {
+      const t = await this._resolveTableNameCaseInsensitive('comerciales');
+      const rows = await this.query(
+        `SELECT 1 AS ok FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND LOWER(TABLE_NAME) = LOWER(?) AND COLUMN_NAME = 'com_fecha_baja' LIMIT 1`,
+        [t]
+      );
+      this._cacheComercialFechaBaja = !!(rows && rows.length);
+    } catch (_) {
+      this._cacheComercialFechaBaja = false;
+    }
+    return this._cacheComercialFechaBaja;
+  },
+
   /** Consulta ligera para selects: com_id, com_nombre, com_email. Sin JOIN. */
   async getComercialesForSelect() {
     try {
@@ -169,11 +188,24 @@ module.exports = {
       const colMeetEmail = this._pickCIFromColumns(cols, ['com_meet_email', 'meet_email']) || 'com_meet_email';
       const colTeamsEmail = this._pickCIFromColumns(cols, ['com_teams_email', 'teams_email']) || 'com_teams_email';
       const hasActivoCol = await this.comercialesHasComActivoColumn();
+      const hasFechaBajaCol = await this.comercialesHasFechaBajaColumn();
       const colActivo = hasActivoCol ? 'com_activo' : null;
       const sql = `SELECT * FROM \`${t}\` WHERE \`${pk}\` = ? LIMIT 1`;
       const rows = await this.query(sql, [id]);
       const row = rows.length > 0 ? rows[0] : null;
       if (!row) return null;
+      let comFechaBajaNorm = null;
+      if (hasFechaBajaCol) {
+        const raw = row.com_fecha_baja ?? row.FechaBaja;
+        if (raw != null && raw !== '') {
+          if (raw instanceof Date) comFechaBajaNorm = raw.toISOString().slice(0, 10);
+          else {
+            const s = String(raw);
+            const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+            comFechaBajaNorm = m ? m[1] : s.slice(0, 10);
+          }
+        }
+      }
       const normalized = {
         ...row,
         id: row[pk] ?? row.id ?? row.Id ?? null,
@@ -196,7 +228,8 @@ module.exports = {
           const raw = row[colActivo] ?? row.com_activo ?? row.Activo;
           if (raw === undefined || raw === null) return true;
           return Number(raw) !== 0;
-        })()
+        })(),
+        com_fecha_baja: comFechaBajaNorm
       };
       return normalized;
     } catch (error) {
@@ -334,6 +367,8 @@ module.exports = {
       const colRoll = pick(['com_roll', 'Roll', 'roll']) || 'Roll';
       const hasActivoCol = await this.comercialesHasComActivoColumn();
       const colActivoIns = hasActivoCol ? 'com_activo' : null;
+      const hasFechaBajaColCreate = await this.comercialesHasFechaBajaColumn();
+      const colFechaBajaIns = hasFechaBajaColCreate ? 'com_fecha_baja' : null;
       const colMovil = pick(['com_movil', 'Movil', 'movil']) || 'Movil';
       const colDireccion = pick(['com_direccion', 'Direccion', 'direccion']) || 'Direccion';
       const colCodigoPostal = pick(['com_codigo_postal', 'CodigoPostal', 'codigo_postal']) || 'CodigoPostal';
@@ -343,6 +378,7 @@ module.exports = {
 
       const insertCols = [colNombre, colEmail, colDni, colPassword, colRoll];
       if (colActivoIns) insertCols.push(colActivoIns);
+      if (colFechaBajaIns) insertCols.push(colFechaBajaIns);
       insertCols.push(colMovil, colDireccion, colCodigoPostal, colPoblacion, colIdProvincia, colIdCodigoPostal);
       const fijoMensualCol = pick(['com_fijo_mensual', 'fijo_mensual', 'FijoMensual']);
       if (fijoMensualCol) insertCols.push(fijoMensualCol);
@@ -367,6 +403,9 @@ module.exports = {
         const a = payload.com_activo ?? payload.Activo ?? true;
         const on = a === true || a === 1 || String(a).toLowerCase() === 'true' || String(a) === '1';
         params.push(on ? 1 : 0);
+      }
+      if (colFechaBajaIns) {
+        params.push(null);
       }
       params.push(
         payload.Movil || payload.movil || null,
@@ -394,6 +433,7 @@ module.exports = {
       const cols = await this._getColumns(await this._resolveTableNameCaseInsensitive('comerciales')).catch(() => []);
       const pick = (cands) => this._pickCIFromColumns(cols, cands);
       const hasComActivoCol = await this.comercialesHasComActivoColumn();
+      const hasFechaBajaCol = await this.comercialesHasFechaBajaColumn();
       const colMap = {
         Nombre: pick(['com_nombre', 'Nombre', 'nombre']),
         Email: pick(['com_email', 'Email', 'email']),
@@ -410,7 +450,8 @@ module.exports = {
         meet_email: pick(['com_meet_email', 'meet_email']),
         teams_email: pick(['com_teams_email', 'teams_email']),
         plataforma_reunion_preferida: pick(['com_plataforma_reunion_preferida', 'plataforma_reunion_preferida']),
-        com_activo: hasComActivoCol ? 'com_activo' : null
+        com_activo: hasComActivoCol ? 'com_activo' : null,
+        com_fecha_baja: hasFechaBajaCol ? 'com_fecha_baja' : null
       };
       const pk = pick(['com_id', 'id', 'Id']) || 'id';
       const colActivoEarly = colMap.com_activo;
@@ -555,6 +596,10 @@ module.exports = {
         const on = a === true || a === 1 || String(a).toLowerCase() === 'true' || String(a) === '1';
         updates.push(`\`${colMap.com_activo}\` = ?`);
         params.push(on ? 1 : 0);
+        if (colMap.com_fecha_baja) {
+          updates.push(`\`${colMap.com_fecha_baja}\` = ?`);
+          params.push(on ? null : new Date().toISOString().slice(0, 10));
+        }
       }
 
       if (updates.length === 0) {

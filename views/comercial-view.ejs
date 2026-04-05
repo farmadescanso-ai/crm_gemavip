@@ -15,12 +15,17 @@
         <p class="card-subtitle"><%= item?.Nombre ?? '' %> · <%= email %></p>
         <% const rawAct = item?.com_activo ?? item?.Activo; %>
         <% const _act = rawAct === undefined || rawAct === null ? true : Number(rawAct) !== 0; %>
+        <% const fbView = item?.com_fecha_baja ?? item?.FechaBaja; %>
+        <% const fbLabel = (fbView != null && String(fbView).trim() !== '') ? (typeof fmtDateES === 'function' ? fmtDateES(fbView) : String(fbView).slice(0, 10)) : ''; %>
         <p style="margin-top:8px;">
           <% if (_act) { %>
             <span class="badge success" style="font-weight:800;">Activo</span>
           <% } else { %>
-            <span class="badge warn" style="font-weight:800;">Inactivo</span>
+            <span class="badge danger" style="font-weight:800;">Inactivo</span>
             <span style="color: var(--gv-muted); font-size: 13px; font-weight:700; margin-left: 8px;">Sin acceso al CRM</span>
+            <% if (fbLabel) { %>
+              <span style="display: block; margin-top: 6px; font-size: 13px; font-weight: 800; color: #b91c1c;">Fecha de baja: <%= fbLabel %></span>
+            <% } %>
           <% } %>
         </p>
       </div>

@@ -73,6 +73,17 @@
               Si lo desactivas, no podrá acceder al CRM; los contactos que tenga asignados pasan al comercial «pool» (pendientes de asignar).
               El historial de pedidos y visitas se conserva.
             </div>
+            <% if (metaSafe.hasFechaBaja) { %>
+              <div style="font-size: 12px; font-weight: 700; color: var(--gv-muted); margin-top: 4px;">
+                <% if (item.com_fecha_baja) { %>
+                  Fecha de baja registrada:
+                  <strong style="color: var(--gv-ink);"><%= typeof fmtDateES === 'function' ? fmtDateES(item.com_fecha_baja) : item.com_fecha_baja %></strong>
+                  (se borra si vuelves a activar el usuario).
+                <% } else { %>
+                  Al pasar a inactivo se guardará automáticamente la fecha de baja (control y auditoría).
+                <% } %>
+              </div>
+            <% } %>
           </label>
         <% } %>
 

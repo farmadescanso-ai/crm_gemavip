@@ -703,6 +703,9 @@ class MySQLCRM {
   async comercialesHasComActivoColumn() {
     return domains.comerciales.comercialesHasComActivoColumn.apply(this, arguments);
   }
+  async comercialesHasFechaBajaColumn() {
+    return domains.comerciales.comercialesHasFechaBajaColumn.apply(this, arguments);
+  }
   async isComercialActiveById(id) {
     return domains.comerciales.isComercialActiveById.apply(this, arguments);
   }

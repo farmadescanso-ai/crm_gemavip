@@ -1,5 +1,5 @@
--- Estado operativo del comercial: inactivo = sin acceso CRM, clientes pasan al pool.
--- Ejecutar una vez en la BD de producción / desarrollo.
+-- Obsoleto: usar `alter-comerciales-activo-y-fecha-baja.sql` (incluye com_fecha_baja).
+-- Se mantiene este archivo por compatibilidad con despliegues antiguos.
 
 ALTER TABLE `comerciales`
   ADD COLUMN `com_activo` TINYINT(1) NOT NULL DEFAULT 1

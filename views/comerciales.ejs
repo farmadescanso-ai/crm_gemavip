@@ -92,6 +92,11 @@
               const rolesAbrev = [...new Set(rolesArr.map(abrevRol))].filter(Boolean).join(', ') || '—';
               const rawAct = c.com_activo ?? c.Activo;
               const esActivo = rawAct === undefined || rawAct === null ? true : Number(rawAct) !== 0;
+              const fbRaw = c.com_fecha_baja ?? c.FechaBaja;
+              let fbTxt = '';
+              if (fbRaw != null && String(fbRaw).trim() !== '') {
+                fbTxt = typeof fmtDateES === 'function' ? fmtDateES(fbRaw) : String(fbRaw).slice(0, 10);
+              }
             %>
             <tr>
               <td>
@@ -129,7 +134,10 @@
                 <% if (esActivo) { %>
                   <span class="badge success" style="font-weight:800;">Activo</span>
                 <% } else { %>
-                  <span class="badge warn" style="font-weight:800;">Inactivo</span>
+                  <span class="badge danger" style="font-weight:800;">Inactivo</span>
+                  <% if (fbTxt) { %>
+                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; margin-top: 4px;">Baja <%= fbTxt %></div>
+                  <% } %>
                 <% } %>
               </td>
               <td><%= rolesAbrev %></td>
