@@ -57,10 +57,10 @@
           <col style="width: 9%;" />
           <col style="width: 22%;" />
           <col style="width: 26%;" />
-          <col style="width: 11%;" />
+          <col style="width: 17%;" />
           <col style="width: 10%;" />
           <col style="width: 10%;" />
-          <col style="width: 12%;" />
+          <col style="width: 6%;" />
         </colgroup>
         <thead>
           <tr>
@@ -128,7 +128,7 @@
               </td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre ?? '' %></td>
               <td><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
-              <td><%- include('partials/telefono-display', { telefono: c.Movil ?? '' }) %></td>
+              <td style="white-space: nowrap;"><%- include('partials/telefono-display', { telefono: c.Movil ?? '' }) %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
               <td>
                 <% if (esActivo) { %>
