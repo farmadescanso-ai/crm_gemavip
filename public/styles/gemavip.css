@@ -2343,21 +2343,40 @@ a.gv-tab{
   font-size: 12px;
 }
 
-/* Teléfono con botones llamar/WhatsApp */
+/* Teléfono: número arriba, iconos abajo (listados CRM) */
 .gv-telefono-display {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
 }
-.gv-telefono-display.gv-telefono-empty { display: inline; }
-.gv-telefono-text { font-weight: 700; color: var(--gv-ink); }
+.gv-telefono-display.gv-telefono-empty { display: inline; flex-direction: row; }
+.gv-telefono-line--num {
+  display: block;
+  line-height: 1.25;
+}
+.gv-telefono-line--actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gv-telefono-text {
+  font-weight: 700;
+  color: var(--gv-ink);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.gv-telefono-label {
+  font-size: 13px;
+}
 .gv-telefono-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: none;
   border-radius: 8px;
@@ -2379,6 +2398,13 @@ button.gv-telefono-btn--call {
 }
 .gv-telefono-btn--wa {
   background: linear-gradient(135deg, #25d366, #128c7e);
+}
+.gv-telefono-btn--email {
+  background: linear-gradient(135deg, #64748b, #475569);
+  color: #fff;
+}
+.gv-contactos .gv-contactos-table td.gv-contactos-col-movil {
+  vertical-align: top;
 }
 
 /* ===========================

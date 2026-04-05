@@ -128,7 +128,7 @@
               </td>
               <td class="gv-contactos-col-nombre"><%= c.Nombre ?? '' %></td>
               <td><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
-              <td style="white-space: nowrap;"><%- include('partials/telefono-display', { telefono: c.Movil ?? '' }) %></td>
+              <td class="gv-contactos-col-movil"><%- include('partials/telefono-display', { telefono: c.Movil ?? '', opts: { email: email } }) %></td>
               <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
               <td>
                 <% if (esActivo) { %>
