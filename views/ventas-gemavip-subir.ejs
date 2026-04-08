@@ -16,6 +16,9 @@
   </div>
   <div class="card-bd">
     <form action="/ventas-gemavip/upload" method="POST" enctype="multipart/form-data" class="ventas-upload-form">
+      <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <% } %>
       <input type="hidden" name="redirect" value="1" />
       <div class="ventas-dropzone ventas-dropzone--simple">
         <label for="ventas-file-input" class="ventas-dropzone__content" style="cursor:pointer;display:block;">

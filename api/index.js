@@ -361,7 +361,12 @@ if (process.env.FIX_NOTIF_FK_ON_STARTUP === '1') {
 
 // CSRF: protección contra cross-site request forgery en formularios POST/PUT/DELETE.
 const { csrfProtection } = require('../lib/csrf');
-app.use(csrfProtection({ skipPaths: ['/api/', '/webhook/', '/health', '/sw.js'] }));
+app.use(
+  csrfProtection({
+    skipPaths: ['/api/', '/webhook/', '/health', '/sw.js'],
+    deferValidationPaths: ['/ventas-gemavip/upload']
+  })
+);
 
 // Request ID estándar (útil para soporte)
 app.use((req, res, next) => {

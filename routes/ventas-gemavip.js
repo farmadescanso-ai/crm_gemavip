@@ -12,6 +12,7 @@ const { requireAdmin } = require('../lib/app-helpers');
 const { parseVentasPdf } = require('../lib/ventas-pdf-parser');
 const { savePdf, getCache, saveCache, listSavedPdfs, readSavedPdf, removePdf } = require('../lib/ventas-storage');
 const { insertOrUpdateVentasMulti, getVentasFiltradas, getCatalogos, clearAllVentas } = require('../lib/ventas-hefame-db');
+const { shouldRejectCsrf, sendCsrfInvalidResponse } = require('../lib/csrf');
 
 const router = express.Router();
 
@@ -270,6 +271,9 @@ router.post('/ventas-gemavip/upload', requireLogin, (req, res, next) => {
   });
 }, async (req, res, next) => {
   try {
+    if (shouldRejectCsrf(req)) {
+      return sendCsrfInvalidResponse(req, res);
+    }
     const files = req.files || [];
     const wantsRedirect = req.body && req.body.redirect === '1';
 
