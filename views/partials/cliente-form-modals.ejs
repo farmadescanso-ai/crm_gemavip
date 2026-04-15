@@ -1,0 +1,92 @@
+    <div class="gv-modal-backdrop" id="gvUnsavedBackdrop" hidden></div>
+    <div class="gv-modal" id="gvUnsavedModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvUnsavedTitle">
+      <div class="gv-modal-card">
+        <div class="gv-modal-hd">
+          <div class="gv-modal-title" id="gvUnsavedTitle">Salir sin guardar</div>
+          <div class="gv-modal-subtitle">Has modificado campos. Si sales ahora, perderás los cambios.</div>
+        </div>
+        <div class="gv-modal-actions">
+          <button type="button" class="btn secondary" id="gvUnsavedStay">Seguir editando</button>
+          <a class="btn" href="<%= cancelHref %>" id="gvUnsavedLeave">Salir sin guardar</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="gv-modal-backdrop" id="gvFormatBackdrop" hidden></div>
+    <div class="gv-modal" id="gvFormatModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvFormatTitle">
+      <div class="gv-modal-card gv-modal-card--format">
+        <div class="gv-modal-hd">
+          <div class="gv-modal-title" id="gvFormatTitle">¿Es correcto el formato?</div>
+          <div class="gv-modal-subtitle" id="gvFormatSubtitle">Para personas se recomienda: Apellido1 Apellido2, Nombre. Para empresas: Nombre de la empresa.</div>
+        </div>
+        <div class="gv-modal-actions">
+          <button type="button" class="btn secondary" id="gvFormatNo">Corregir</button>
+          <button type="button" class="btn" id="gvFormatYes">Sí, es correcto</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gv-modal-backdrop" id="gvDniDupBackdrop" hidden></div>
+    <div class="gv-modal" id="gvDniDupModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvDniDupTitle">
+      <div class="gv-modal-card gv-modal-card--dni-dup" style="max-width: 520px;">
+        <div class="gv-modal-hd">
+          <div class="gv-modal-title" id="gvDniDupTitle">DNI/CIF ya registrado</div>
+          <div class="gv-modal-subtitle" id="gvDniDupSubtitle">Este identificador fiscal ya existe en otro contacto.</div>
+        </div>
+        <div class="gv-modal-bd" id="gvDniDupBody" style="padding: 0 16px 16px; font-size: 14px; line-height: 1.5; color: var(--gv-ink);"></div>
+        <div class="gv-modal-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+          <button type="button" class="btn secondary" id="gvDniDupFocusInput">Corregir DNI/CIF</button>
+          <button type="button" class="btn" id="gvDniDupOk">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <% if (mode === 'edit' && cid) { %>
+      <div class="gv-modal-backdrop" id="gvRelacionesModalBackdrop" hidden></div>
+      <div class="gv-modal" id="gvRelacionesModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvRelacionesModalTitle">
+        <div class="gv-modal-card" style="max-width: 640px;">
+          <div class="gv-modal-hd">
+            <div class="gv-modal-title" id="gvRelacionesModalTitle">Buscar y añadir contactos relacionados</div>
+            <div class="gv-modal-subtitle">Escribe para buscar. Selecciona varios y guarda.</div>
+          </div>
+          <div class="gv-modal-bd" style="padding: 16px;">
+            <input type="search" id="gvRelacionesSearch" placeholder="Buscar por nombre, DNI, email..." style="width:100%; padding:10px 14px; margin-bottom:12px; border:1px solid var(--gv-border); border-radius:8px;" />
+            <div id="gvRelacionesResults" style="max-height: 280px; overflow-y: auto; display:grid; gap: 8px;"></div>
+            <div id="gvRelacionesSelected" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gv-border);"></div>
+          </div>
+          <div class="gv-modal-actions" style="display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" class="btn secondary" id="gvRelacionesModalCerrar">Cancelar</button>
+            <button type="button" class="btn" id="gvRelacionesModalGuardar">Guardar seleccionados</button>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (mode === 'create') { %>
+      <div class="gv-modal-backdrop" id="gvDupBackdrop" hidden></div>
+      <div class="gv-modal" id="gvDupModal" hidden role="dialog" aria-modal="true" aria-labelledby="gvDupTitle">
+        <div class="gv-modal-card" style="max-width: 760px;">
+          <div class="gv-modal-hd">
+            <div class="gv-modal-title" id="gvDupTitle">Posible duplicado por nombre</div>
+            <div class="gv-modal-subtitle">Hay contactos con un nombre parecido (el DNI/CIF no coincide). Revisa si ya existe antes de crear otro registro.</div>
+          </div>
+          <div class="gv-modal-bd" style="padding: 0 16px 10px 16px;">
+            <div id="gvDupList" style="display:grid; gap: 10px;"></div>
+            <% if (typeof admin !== 'undefined' && admin) { %>
+              <p style="font-size:13px; color:var(--gv-muted); margin: 12px 0 0 0;">
+                Para <strong>unificar</strong> varios registros en un solo ID (sincronizar datos), usa
+                <a href="/clientes/duplicados">Clientes → Duplicados</a> y fusiona los contactos.
+              </p>
+            <% } else { %>
+              <p style="font-size:13px; color:var(--gv-muted); margin: 12px 0 0 0;">
+                Si se trata del mismo cliente con dos fichas, un administrador puede unificarlos en <strong>Clientes → Duplicados</strong> para dejar un solo ID.
+              </p>
+            <% } %>
+          </div>
+          <div class="gv-modal-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+            <button type="button" class="btn secondary" id="gvDupContinue">Seguir creando igualmente</button>
+            <a class="btn" href="/clientes" id="gvDupCancel">Volver al listado</a>
+          </div>
+        </div>
+      </div>
+    <% } %>
