@@ -12,6 +12,13 @@ const { requireLogin } = require('../lib/auth');
 const { sendPasswordResetEmail, APP_BASE_URL } = require('../lib/mailer');
 const { _n, getStoredPasswordFromRow } = require('../lib/app-helpers');
 const { loginLimiter, passwordResetLimiter } = require('../lib/rate-limit');
+const { rejectIfValidationFailsHtml } = require('../lib/validation-handlers');
+const {
+  loginPost,
+  forgotPasswordPost,
+  resetPasswordPost,
+  changePasswordPost
+} = require('../lib/validators/auth');
 
 const router = express.Router();
 
@@ -33,13 +40,15 @@ router.get('/login', (req, res) => {
   res.render('login', { title: 'Login', error, restablecido, returnTo });
 });
 
-router.post('/login', loginLimiter, async (req, res, next) => {
+router.post(
+  '/login',
+  loginLimiter,
+  ...loginPost,
+  rejectIfValidationFailsHtml('login', (req) => ({ title: 'Login', returnTo: req.body?.returnTo })),
+  async (req, res, next) => {
   try {
     const email = String(req.body?.email || '').trim();
     const password = String(req.body?.password || '').trim();
-    if (!email || !password) {
-      return res.status(400).render('login', { title: 'Login', error: 'Email y contraseña son obligatorios' });
-    }
 
     const comercial = await db.getComercialByEmail(email);
     if (!comercial) {
@@ -114,17 +123,18 @@ router.get('/login/olvidar-contrasena', (req, res) => {
   res.render('login-olvidar-contrasena', { title: 'Recuperar contraseña', error: null, success: null });
 });
 
-router.post('/login/olvidar-contrasena', passwordResetLimiter, async (req, res, next) => {
+router.post(
+  '/login/olvidar-contrasena',
+  passwordResetLimiter,
+  ...forgotPasswordPost,
+  rejectIfValidationFailsHtml('login-olvidar-contrasena', () => ({
+    title: 'Recuperar contraseña',
+    success: null
+  })),
+  async (req, res, next) => {
   try {
     if (req.session?.user) return res.redirect('/dashboard');
     const email = String(req.body?.email || '').trim().toLowerCase();
-    if (!email) {
-      return res.status(400).render('login-olvidar-contrasena', {
-        title: 'Recuperar contraseña',
-        error: 'Introduce tu email.',
-        success: null
-      });
-    }
     const MAX_EMAIL_ATTEMPTS = 3;
     try {
       if (typeof db.countRecentPasswordResetAttempts === 'function') {
@@ -170,27 +180,18 @@ router.get('/login/restablecer-contrasena', (req, res) => {
   res.render('login-restablecer-contrasena', { title: 'Nueva contraseña', token, error: null });
 });
 
-router.post('/login/restablecer-contrasena', async (req, res, next) => {
+router.post(
+  '/login/restablecer-contrasena',
+  ...resetPasswordPost,
+  rejectIfValidationFailsHtml('login-restablecer-contrasena', (req) => ({
+    title: 'Nueva contraseña',
+    token: String(req.body?.token || '').trim()
+  })),
+  async (req, res, next) => {
   try {
     if (req.session?.user) return res.redirect('/dashboard');
     const token = String(req.body?.token || '').trim();
     const password = String(req.body?.password || '');
-    const passwordConfirm = String(req.body?.password_confirm || '');
-    if (!token) return res.redirect('/login/olvidar-contrasena');
-    if (!password || password.length < 8) {
-      return res.status(400).render('login-restablecer-contrasena', {
-        title: 'Nueva contraseña',
-        token,
-        error: 'La contraseña debe tener al menos 8 caracteres.'
-      });
-    }
-    if (password !== passwordConfirm) {
-      return res.status(400).render('login-restablecer-contrasena', {
-        title: 'Nueva contraseña',
-        token,
-        error: 'Las contraseñas no coinciden.'
-      });
-    }
     const row = await db.findPasswordResetToken(token);
     if (!row) {
       return res.status(400).render('login-restablecer-contrasena', {
@@ -213,34 +214,20 @@ router.get('/cuenta/cambiar-contrasena', requireLogin, (req, res) => {
   res.render('cuenta-cambiar-contrasena', { title: 'Cambiar contraseña', error: null, success: null });
 });
 
-router.post('/cuenta/cambiar-contrasena', requireLogin, async (req, res, next) => {
+router.post(
+  '/cuenta/cambiar-contrasena',
+  requireLogin,
+  ...changePasswordPost,
+  rejectIfValidationFailsHtml('cuenta-cambiar-contrasena', () => ({
+    title: 'Cambiar contraseña',
+    success: null
+  })),
+  async (req, res, next) => {
   try {
     const userId = Number(res.locals.user?.id);
     if (!userId) return res.redirect('/login');
     const current = String(req.body?.current_password || '');
     const newPass = String(req.body?.password || '');
-    const newPassConfirm = String(req.body?.password_confirm || '');
-    if (!current) {
-      return res.status(400).render('cuenta-cambiar-contrasena', {
-        title: 'Cambiar contraseña',
-        error: 'Introduce tu contraseña actual.',
-        success: null
-      });
-    }
-    if (!newPass || newPass.length < 8) {
-      return res.status(400).render('cuenta-cambiar-contrasena', {
-        title: 'Cambiar contraseña',
-        error: 'La contraseña nueva debe tener al menos 8 caracteres.',
-        success: null
-      });
-    }
-    if (newPass !== newPassConfirm) {
-      return res.status(400).render('cuenta-cambiar-contrasena', {
-        title: 'Cambiar contraseña',
-        error: 'Las contraseñas no coinciden.',
-        success: null
-      });
-    }
     const comercial = await db.getComercialById(userId);
     if (!comercial) return res.redirect('/login');
     const stored = getStoredPasswordFromRow(comercial);

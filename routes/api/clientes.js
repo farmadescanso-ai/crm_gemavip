@@ -2,6 +2,12 @@ const express = require('express');
 const db = require('../../config/mysql-crm');
 const { asyncHandler, toBool, toInt, parsePagination } = require('./_utils');
 const { normalizeTelefonoForDB } = require('../../lib/telefono-utils');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const {
+  listClientesQuery,
+  suggestQuery,
+  buscarQuery
+} = require('../../lib/validators/api-clientes-query');
 
 const router = express.Router();
 
@@ -76,6 +82,8 @@ function normalizePayloadTelefonos(payload) {
  */
 router.get(
   '/',
+  ...listClientesQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
@@ -137,6 +145,8 @@ router.get(
  */
 router.get(
   '/suggest',
+  ...suggestQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
@@ -191,6 +201,8 @@ router.get(
  */
 router.get(
   '/buscar',
+  ...buscarQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
