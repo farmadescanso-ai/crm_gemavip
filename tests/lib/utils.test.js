@@ -40,6 +40,7 @@ describe('escapeHtml', () => {
     expect(escapeHtml('a & b')).toBe('a &amp; b');
     expect(escapeHtml('<script>')).toBe('&lt;script&gt;');
     expect(escapeHtml('"hola"')).toBe('&quot;hola&quot;');
+    expect(escapeHtml("a'b")).toBe('a&#39;b');
   });
 
   test('mantiene texto seguro', () => {

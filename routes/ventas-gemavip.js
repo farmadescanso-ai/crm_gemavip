@@ -22,8 +22,14 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024, files: 5 },
   fileFilter: (_req, file, cb) => {
     const ext = (path.extname(file.originalname) || '').toLowerCase();
-    if (ext === '.pdf') return cb(null, true);
-    cb(new Error('Solo se permiten archivos PDF'));
+    if (ext !== '.pdf') return cb(new Error('Solo se permiten archivos PDF'));
+    const mime = String(file.mimetype || '').toLowerCase();
+    const mimeOk =
+      mime === 'application/pdf' ||
+      mime === 'application/x-pdf' ||
+      (mime === 'application/octet-stream' && ext === '.pdf');
+    if (!mimeOk) return cb(new Error('El archivo no tiene tipo MIME de PDF (application/pdf)'));
+    cb(null, true);
   }
 });
 

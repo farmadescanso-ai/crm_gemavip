@@ -47,6 +47,7 @@ const {
   requireSessionComercialActive
 } = require('../lib/auth');
 const { toNum: toNumUtil, escapeHtml: escapeHtmlUtil } = require('../lib/utils');
+const { corsMiddleware } = require('../lib/cors-middleware');
 const { parsePagination } = require('../lib/pagination');
 const { sendPedidoEmail, APP_BASE_URL } = require('../lib/mailer');
 let sendPushToAdmins = () => Promise.resolve();
@@ -212,6 +213,8 @@ app.use((req, _res, next) => {
   next();
 });
 
+app.use(corsMiddleware);
+
 function pathWithoutApiPrefix(pathOnly) {
   if (typeof pathOnly !== 'string' || !pathOnly.startsWith('/api/')) return null;
   const after = pathOnly.slice(4);
@@ -233,13 +236,15 @@ app.get('/health/ip', requireApiKeyIfConfigured, (req, res) => {
   });
 });
 
-// Diagnóstico de login: solo en desarrollo y con DEBUG_LOGIN_SECRET. Nunca en producción.
+// Diagnóstico de login: desactivado por defecto. Solo local con ENABLE_DEBUG_LOGIN=1 y DEBUG_LOGIN_SECRET.
 // GET /api/debug-login?secret=TU_SECRETO&email=tu@email.com
 app.get('/api/debug-login', async (req, res) => {
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
   const secret = process.env.DEBUG_LOGIN_SECRET;
   const providedSecret = String(req.query?.secret || '').trim();
-  const hasAccess = !isProd && secret && secret.length >= 16 && secret === providedSecret;
+  const debugEnabled = String(process.env.ENABLE_DEBUG_LOGIN || '').trim() === '1';
+  const hasAccess =
+    !isProd && debugEnabled && secret && secret.length >= 16 && secret === providedSecret;
   if (!hasAccess) {
     return res.status(404).json({ error: 'No disponible' });
   }
@@ -710,27 +715,8 @@ app.get(
 
 // ===========================
 // ARTÍCULOS (HTML)
-/**
- * @openapi
- * /health:
- *   get:
- *     tags:
- *       - Health
- *     summary: Healthcheck básico del servicio
- *     responses:
- *       200:
- *         description: OK
- */
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    ok: true,
-    service: 'crm_gemavip',
-    timestamp: new Date().toISOString()
-  });
-});
-
 // Comprueba conectividad con la BD configurada en variables de entorno.
-// No devuelve credenciales; solo un diagnóstico básico.
+// En producción no expone host, usuario ni nombre de base de datos.
 /**
  * @openapi
  * /health/db:
@@ -738,7 +724,7 @@ app.get('/health', (_req, res) => {
  *     tags:
  *       - Health
  *     summary: Healthcheck de base de datos (requiere API key si está configurada)
- *     description: Diagnóstico de conectividad a MySQL. No expone credenciales.
+ *     description: Diagnóstico de conectividad a MySQL. En producción la respuesta omite detalles de conexión.
  *     responses:
  *       200:
  *         description: OK
@@ -746,12 +732,21 @@ app.get('/health', (_req, res) => {
  *         description: Error
  */
 app.get('/health/db', requireApiKeyIfConfigured, async (_req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
   const host = process.env.DB_HOST;
   const port = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
   const user = process.env.DB_USER;
   const database = process.env.DB_NAME || 'crm_gemavip';
 
   if (!host || !user || !process.env.DB_PASSWORD) {
+    if (isProduction) {
+      return res.status(500).json({
+        ok: false,
+        service: 'crm_gemavip',
+        error: 'db_configuration_incomplete',
+        timestamp: new Date().toISOString()
+      });
+    }
     return res.status(500).json({
       ok: false,
       service: 'crm_gemavip',
@@ -775,6 +770,13 @@ app.get('/health/db', requireApiKeyIfConfigured, async (_req, res) => {
     const [rows] = await connection.query('SELECT 1 AS ok');
     await connection.end();
 
+    if (isProduction) {
+      return res.status(200).json({
+        ok: true,
+        service: 'crm_gemavip',
+        timestamp: new Date().toISOString()
+      });
+    }
     return res.status(200).json({
       ok: true,
       service: 'crm_gemavip',
@@ -783,6 +785,14 @@ app.get('/health/db', requireApiKeyIfConfigured, async (_req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (err) {
+    if (isProduction) {
+      return res.status(500).json({
+        ok: false,
+        service: 'crm_gemavip',
+        error: 'database_unreachable',
+        timestamp: new Date().toISOString()
+      });
+    }
     return res.status(500).json({
       ok: false,
       service: 'crm_gemavip',
