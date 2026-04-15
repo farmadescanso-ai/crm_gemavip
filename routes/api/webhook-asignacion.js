@@ -6,12 +6,16 @@
  */
 const express = require('express');
 const db = require('../../config/mysql-crm');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const { webhookAsignacionClienteBody } = require('../../lib/validators/api-webhook');
 const { asyncHandler, toInt, toBool } = require('./_utils');
 
 const router = express.Router();
 
 router.post(
   '/asignacion-cliente',
+  ...webhookAsignacionClienteBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const { clienteId, userEmail, aprobado } = req.body || {};
 

@@ -7,6 +7,8 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
 const { importHoldedClientesEs, parseSelectedTagsInput } = require('../../lib/sync-holded-clientes');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const { holdedImportPost } = require('../../lib/validators/api-holded-sync');
 
 const router = express.Router();
 
@@ -21,7 +23,7 @@ function parseTags(body, query) {
   return parseSelectedTagsInput(raw);
 }
 
-router.post('/import', async (req, res, next) => {
+router.post('/import', ...holdedImportPost, rejectIfValidationFailsJson(), async (req, res, next) => {
   try {
     const secret = (process.env.CRON_SECRET || '').trim();
     if (!secret) {

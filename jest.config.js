@@ -1,6 +1,7 @@
 /** @type {import('jest').Config} */
 module.exports = {
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/tests/setup-env.js'],
   testMatch: ['**/tests/**/*.test.js'],
   collectCoverageFrom: ['lib/**/*.js', 'config/**/*.js', '!**/node_modules/**'],
   coverageDirectory: 'coverage',

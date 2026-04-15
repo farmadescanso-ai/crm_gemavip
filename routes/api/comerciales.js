@@ -1,5 +1,7 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const { comercialIdParam, comercialJsonBody } = require('../../lib/validators/api-comerciales');
 const { asyncHandler, toInt } = require('./_utils');
 
 const router = express.Router();
@@ -52,6 +54,8 @@ router.get(
  */
 router.get(
   '/:id',
+  ...comercialIdParam,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -63,6 +67,8 @@ router.get(
 
 router.post(
   '/',
+  ...comercialJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const result = await db.createComercial(req.body || {});
     res.status(201).json({ ok: true, result });
@@ -71,6 +77,9 @@ router.post(
 
 router.put(
   '/:id',
+  ...comercialIdParam,
+  ...comercialJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -81,6 +90,8 @@ router.put(
 
 router.delete(
   '/:id',
+  ...comercialIdParam,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });

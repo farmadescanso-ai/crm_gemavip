@@ -1,5 +1,7 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const { notificacionesListQuery } = require('../../lib/validators/api-notificaciones');
 const { asyncHandler, toInt, parsePagination } = require('./_utils');
 const { isAdminUser } = require('../../lib/auth');
 
@@ -37,6 +39,8 @@ const router = express.Router();
  */
 router.get(
   '/',
+  ...notificacionesListQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const user = req.session?.user;
     if (!user || !isAdminUser(user)) return res.status(403).json({ ok: false, error: 'Solo administrador' });

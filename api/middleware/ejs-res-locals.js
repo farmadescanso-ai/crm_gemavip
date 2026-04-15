@@ -2,6 +2,7 @@
  * res.locals para vistas EJS: usuario, navegación, notificaciones, formatos, teléfonos.
  */
 const { formatTelefonoForDisplay, normalizeTelefonoForDB, getTelefonoForHref } = require('../../lib/telefono-utils');
+const { safeJsonInline } = require('../../lib/safe-json-inline');
 
 function createEjsLocalsMiddleware(deps) {
   const {
@@ -106,6 +107,7 @@ function createEjsLocalsMiddleware(deps) {
     res.locals.fmtTelefono = formatTelefonoForDisplay;
     res.locals.normalizeTelefono = normalizeTelefonoForDB;
     res.locals.getTelefonoForHref = getTelefonoForHref;
+    res.locals.safeJsonInline = safeJsonInline;
 
     next();
   };

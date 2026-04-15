@@ -282,7 +282,7 @@
 <script>
 (function () {
   var statusEl = document.querySelector('.gv-holded-map-saved');
-  var serverMap = <%- JSON.stringify(savedMap || {}) %>;
+  var serverMap = <%- safeJsonInline(savedMap || {}) %>;
 
   function collectMapFromLeft() {
     var m = {};

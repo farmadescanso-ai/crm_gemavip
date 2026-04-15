@@ -4,6 +4,8 @@
 const express = require('express');
 const router = express.Router();
 const { asyncHandler } = require('./_utils');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const { pushSubscribeBody } = require('../../lib/validators/api-push');
 const db = require('../../config/mysql-crm');
 let getVapidKeys = () => null;
 try {
@@ -22,6 +24,8 @@ router.get('/vapid-public', (req, res) => {
 router.post(
   '/subscribe',
   express.json(),
+  ...pushSubscribeBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const user = req.session?.user;
     if (!user?.id) return res.status(401).json({ ok: false, error: 'No autenticado' });

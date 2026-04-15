@@ -33,6 +33,12 @@ const upload = multer({
   }
 });
 
+/** Cabecera binaria %PDF (mitiga ficheros renombrados que pasan solo por extensión/MIME). */
+function bufferLooksLikePdf(buf) {
+  if (!buf || buf.length < 4) return false;
+  return buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
+}
+
 function buildDashboardData(merged) {
   const byMaterial = {};
   const byProvincia = {};
@@ -298,6 +304,17 @@ router.post('/ventas-gemavip/upload', requireLogin, (req, res, next) => {
 
     for (const f of files) {
       try {
+        if (!bufferLooksLikePdf(f.buffer)) {
+          results.push({
+            filename: f.originalname,
+            ventas: [],
+            materiales: [],
+            provincias: [],
+            meses: [],
+            errores: ['El archivo no es un PDF válido (cabecera incorrecta).']
+          });
+          continue;
+        }
         try {
           const r = await savePdf(f.buffer, f.originalname);
           if (r?.savedAs) savedNames.push(r.savedAs);

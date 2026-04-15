@@ -1,10 +1,37 @@
 /**
  * Pool MySQL compartido + sesión express-mysql-session.
  */
+const crypto = require('crypto');
 const session = require('express-session');
 const MySQLStoreFactory = require('express-mysql-session');
 const mysql = require('mysql2/promise');
 const { getPoolConfig } = require('../config/db-pool-config');
+
+function resolveSessionSecret() {
+  const raw = process.env.SESSION_SECRET;
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (trimmed) return trimmed;
+
+  const isProdLike =
+    process.env.NODE_ENV === 'production' ||
+    String(process.env.VERCEL || '').trim() === '1' ||
+    Boolean(process.env.VERCEL);
+
+  if (isProdLike) {
+    console.error('SESSION_SECRET debe estar definido en producción. Configúralo en las variables de entorno.');
+    process.exit(1);
+  }
+
+  const dev = process.env.DEV_SESSION_SECRET;
+  const devTrim = typeof dev === 'string' ? dev.trim() : '';
+  if (devTrim) return devTrim;
+
+  console.warn(
+    '[crm] SESSION_SECRET no definido: usando secreto efímero de desarrollo (las sesiones no sobreviven al reinicio). ' +
+      'Define SESSION_SECRET o DEV_SESSION_SECRET en .env para un valor estable en local.'
+  );
+  return crypto.randomBytes(48).toString('base64url');
+}
 
 /**
  * @param {import('express').Application} app
@@ -38,18 +65,12 @@ function setupSharedPoolAndSession(app, deps) {
     sharedPool
   );
 
-  const sessionSecret =
-    process.env.SESSION_SECRET ||
-    (process.env.NODE_ENV === 'production' || process.env.VERCEL ? null : 'dev-secret-change-me');
-  if (!sessionSecret && (process.env.NODE_ENV === 'production' || process.env.VERCEL)) {
-    console.error('SESSION_SECRET debe estar definido en producción. Configúralo en las variables de entorno.');
-    process.exit(1);
-  }
+  const sessionSecret = resolveSessionSecret();
 
   app.use(
     session({
       name: 'crm_session',
-      secret: sessionSecret || 'dev-secret-change-me',
+      secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
       rolling: true,

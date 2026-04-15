@@ -416,7 +416,7 @@
     // - dto_pct: porcentaje
     var descuentosPedido = (function(){
       try {
-        return <%- JSON.stringify((typeof descuentosPedido !== 'undefined' && Array.isArray(descuentosPedido)) ? descuentosPedido : []) %>;
+        return <%- safeJsonInline((typeof descuentosPedido !== 'undefined' && Array.isArray(descuentosPedido)) ? descuentosPedido : []) %>;
       } catch(_e) {
         return [];
       }

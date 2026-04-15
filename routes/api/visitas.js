@@ -1,5 +1,12 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const {
+  visitasListQuery,
+  visitasEventsQuery,
+  visitaIdParam,
+  visitaJsonBody
+} = require('../../lib/validators/api-visitas');
 const { asyncHandler, toInt, parsePagination } = require('./_utils');
 
 const router = express.Router();
@@ -39,6 +46,8 @@ const { addMinutesHHMM } = require('../../lib/time-utils');
  */
 router.get(
   '/',
+  ...visitasListQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
@@ -94,6 +103,8 @@ router.get(
  */
 router.get(
   '/events',
+  ...visitasEventsQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
@@ -217,6 +228,8 @@ router.get(
 
 router.get(
   '/:id',
+  ...visitaIdParam,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -250,6 +263,8 @@ router.get(
 
 router.post(
   '/',
+  ...visitaJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const result = await db.createVisita(req.body || {});
     res.status(201).json({ ok: true, result });
@@ -276,6 +291,9 @@ router.post(
 
 router.put(
   '/:id',
+  ...visitaIdParam,
+  ...visitaJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -312,6 +330,8 @@ router.put(
 
 router.delete(
   '/:id',
+  ...visitaIdParam,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });

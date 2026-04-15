@@ -1014,8 +1014,8 @@
 
   if (mode === 'create') {
     try {
-      var serverMatches = <%- JSON.stringify(typeof dupMatches !== 'undefined' ? dupMatches : []) %>;
-      var serverOther = <%- JSON.stringify(typeof dupOtherCount !== 'undefined' ? dupOtherCount : 0) %>;
+      var serverMatches = <%- safeJsonInline(typeof dupMatches !== 'undefined' ? dupMatches : []) %>;
+      var serverOther = <%- safeJsonInline(typeof dupOtherCount !== 'undefined' ? dupOtherCount : 0) %>;
       if ((serverMatches && serverMatches.length) || (serverOther && Number(serverOther) > 0)) {
         renderMatches((serverMatches || []).slice(0, 6), Number(serverOther || 0) || 0);
         showDupModal();

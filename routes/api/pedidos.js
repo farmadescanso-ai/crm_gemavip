@@ -1,6 +1,16 @@
 const express = require('express');
 const db = require('../../config/mysql-crm');
 const { isAdminUser } = require('../../lib/auth');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const {
+  pedidosListQuery,
+  pedidosPreciosQuery,
+  pedidoIdParam,
+  pedidoLineaIdParam,
+  pedidoGetByIdQuery,
+  pedidoJsonBody,
+  pedidosLineaDeleteQuery
+} = require('../../lib/validators/api-pedidos');
 const { asyncHandler, toInt, parsePagination } = require('./_utils');
 
 const router = express.Router();
@@ -65,6 +75,8 @@ async function assertPedidoAccess(req, pedidoId, { write = false } = {}) {
  */
 router.get(
   '/',
+  ...pedidosListQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
@@ -122,6 +134,8 @@ router.get(
  */
 router.get(
   '/precios',
+  ...pedidosPreciosQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     // tarifaId: permitir 0 para "PVL" (tarifa base)
     const tarifaId = toInt(req.query.tarifaId, 0);
@@ -141,6 +155,9 @@ router.get(
 
 router.get(
   '/:id',
+  ...pedidoIdParam,
+  ...pedidoGetByIdQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const access = await assertPedidoAccess(req, req.params.id, { write: false });
     if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
@@ -188,6 +205,8 @@ router.get(
 
 router.get(
   '/:id/articulos',
+  ...pedidoIdParam,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -224,6 +243,8 @@ router.get(
 
 router.post(
   '/',
+  ...pedidoJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const sessionUser = req.session?.user || null;
     const isAdmin = isAdminUser(sessionUser);
@@ -271,6 +292,9 @@ router.post(
 
 router.put(
   '/:id',
+  ...pedidoIdParam,
+  ...pedidoJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -328,6 +352,8 @@ router.put(
 
 router.delete(
   '/:id',
+  ...pedidoIdParam,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -366,6 +392,9 @@ router.delete(
 
 router.post(
   '/:id/lineas',
+  ...pedidoIdParam,
+  ...pedidoJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const access = await assertPedidoAccess(req, req.params.id, { write: true });
     if (!access.ok) return res.status(access.status).json({ ok: false, error: access.error });
@@ -406,6 +435,9 @@ router.post(
 
 router.put(
   '/lineas/:id',
+  ...pedidoLineaIdParam,
+  ...pedidoJsonBody,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -450,6 +482,9 @@ router.put(
 
 router.delete(
   '/lineas/:id',
+  ...pedidoLineaIdParam,
+  ...pedidosLineaDeleteQuery,
+  rejectIfValidationFailsJson(),
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
