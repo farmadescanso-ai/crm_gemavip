@@ -12,6 +12,7 @@
     <% } %>
 
     <form method="post" action="<%= mode === 'edit' ? ('/visitas/' + (item.Id || item.id) + '/edit') : '/visitas/new' %>" style="display:grid; gap: 12px;">
+      <%- include('partials/csrf-field') %>
       <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
         <label style="display:grid; gap: 6px;">
           <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Fecha</span>

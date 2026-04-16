@@ -22,6 +22,7 @@
 
     <% if (token) { %>
     <form method="post" action="/login/restablecer-contrasena" class="login-form">
+      <%- include('partials/csrf-field') %>
       <input type="hidden" name="token" value="<%= token %>" />
 
       <label style="display:grid; gap: 6px;">

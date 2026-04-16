@@ -133,12 +133,14 @@
         <% if (admin) { %>
           <div class="gv-article-actions">
             <form method="post" action="/articulos/<%= artId %>/toggle">
+              <%- include('partials/csrf-field') %>
               <input type="hidden" name="Activo" value="<%= artActivo ? 0 : 1 %>" />
               <button class="btn secondary" type="submit">
                 <%= artActivo ? 'Desactivar' : 'Activar' %>
               </button>
             </form>
             <form method="post" action="/articulos/<%= artId %>/delete" id="formDeleteArticulo">
+              <%- include('partials/csrf-field') %>
               <button class="btn secondary danger" type="submit">Eliminar</button>
             </form>
           </div>

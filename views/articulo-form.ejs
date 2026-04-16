@@ -14,6 +14,7 @@
 
     <% const itemId = item.Id ?? item.id ?? item.art_id; const itemIdMarca = item.Id_Marca ?? item.art_mar_id; %>
     <form method="post" action="<%= mode === 'edit' ? ('/articulos/' + itemId + '/edit') : '/articulos/new' %>" style="display:grid; gap: 12px; max-width: 720px;">
+      <%- include('partials/csrf-field') %>
       <div class="grid cols-2" style="gap: 12px;">
         <label style="display:grid; gap:6px; font-weight:700;">
           <span>Código Interno</span>

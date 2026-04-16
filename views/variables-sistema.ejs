@@ -161,6 +161,7 @@
                 </div>
                 <% if (!readOnly) { %>
                 <form method="post" action="<%= actionUrl %>" style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+                  <%- include('partials/csrf-field') %>
                   <input type="hidden" name="clave" value="<%= key %>" />
                   <input type="hidden" name="returnTo" value="<%= returnToUrl %>" />
                   <% const isSecret = Boolean(v.secret); %>

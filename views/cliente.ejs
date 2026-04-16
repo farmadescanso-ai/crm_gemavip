@@ -51,11 +51,13 @@
       <% } %>
       <% if (puedeSolicitarAsignacion) { %>
         <form method="post" action="/clientes/<%= item.Id ?? item.id %>/solicitar-asignacion" style="display:inline;">
+          <%- include('partials/csrf-field') %>
           <button class="btn" type="submit">Solicitar que me asignen este contacto</button>
         </form>
       <% } %>
       <% if (admin) { %>
         <form method="post" action="/clientes/<%= item.Id ?? item.id %>/delete" style="display:inline;" onsubmit="return confirm('¿Mover este contacto a la papelera?');">
+          <%- include('partials/csrf-field') %>
           <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Papelera</button>
         </form>
       <% } %>

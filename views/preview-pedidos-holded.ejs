@@ -61,6 +61,7 @@
 
       <% if ((pedidos || []).length) { %>
         <form id="gv-holded-import-form" method="post" action="/admin/importar-holded/import-selected">
+          <%- include('partials/csrf-field') %>
           <input type="hidden" name="start" value="<%= start || '2026-01-01' %>" />
           <input type="hidden" name="end" value="<%= end || '2026-12-31' %>" />
           <div id="gv-holded-cards">

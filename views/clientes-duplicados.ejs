@@ -60,6 +60,7 @@
             <strong>Motivo:</strong> Mismo nombre, DNI/CIF, email y teléfono (clave de negocio idéntica).
           </p>
           <form class="gv-form-unificar" method="post" action="/clientes/unificar" style="margin-top: 12px;" data-count="<%= grupo.length %>">
+            <%- include('partials/csrf-field') %>
             <input type="hidden" name="ids" value="<%= grupo.map(c => c.id ?? c.Id ?? c.cli_id).join(',') %>" />
             <button type="submit" class="btn">Unificar en un solo contacto</button>
           </form>
@@ -82,6 +83,8 @@
       btn.disabled = true;
       btn.textContent = 'Unificando...';
       var idsVal = (form.querySelector('input[name="ids"]') || {}).value || '';
+      var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+      var csrfToken = csrfMeta && csrfMeta.getAttribute('content') ? String(csrfMeta.getAttribute('content')) : '';
       fetch(form.action, {
         method: 'POST',
         body: 'ids=' + encodeURIComponent(idsVal),
@@ -90,7 +93,8 @@
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'x-csrf-token': csrfToken
         }
       }).then(function(r) {
         if (r.redirected) {

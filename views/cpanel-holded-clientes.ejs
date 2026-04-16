@@ -218,6 +218,7 @@
 
     <div style="display:flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
       <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
+        <%- include('partials/csrf-field') %>
         <input type="hidden" name="dryRun" value="1" />
         <% sel.forEach(function(t) { %>
           <input type="hidden" name="tags" value="<%= t %>" />
@@ -230,6 +231,7 @@
         <button type="submit" class="btn secondary">Simular importación</button>
       </form>
       <form method="post" action="/cpanel/holded-clientes/import" style="display:inline;">
+        <%- include('partials/csrf-field') %>
         <% sel.forEach(function(t) { %>
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
@@ -271,6 +273,7 @@
     <% if (vp === 'errores' && sinCifEnErrores.length > 0 && tagsForLead.length) { %>
     <div style="margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
       <form method="post" action="/cpanel/holded-clientes/alta-leads-sin-cif" style="display: inline;">
+        <%- include('partials/csrf-field') %>
         <% tagsForLead.forEach(function(t) { %>
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
@@ -289,6 +292,7 @@
       <% } %>
       <% if (sinCifEnOmitidos.length > 0) { %>
       <form method="post" action="/cpanel/holded-clientes/alta-leads-sin-cif" style="display: inline;">
+        <%- include('partials/csrf-field') %>
         <% tagsForLead.forEach(function(t) { %>
           <input type="hidden" name="tags" value="<%= t %>" />
         <% }) %>
@@ -390,6 +394,7 @@
                     <a class="btn secondary" style="font-size: 11px; padding: 4px 8px;" href="<%= vistaLink(vp) %>">Actualizar vista previa</a>
                   <% } else { %>
                   <form method="post" action="/cpanel/holded-clientes/export-crm" style="display:inline;">
+                    <%- include('partials/csrf-field') %>
                     <input type="hidden" name="holdedId" value="<%= r.holdedId %>" />
                     <% if (vp !== 'todos') { %><input type="hidden" name="vista" value="<%= vp %>" /><% } %>
                     <% if (seg) { %><input type="hidden" name="segment" value="<%= seg %>" /><% } %>

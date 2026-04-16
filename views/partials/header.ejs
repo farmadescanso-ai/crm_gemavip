@@ -125,6 +125,7 @@
                     <% } %>
                   </div>
                   <form method="post" action="/logout" style="margin:0; padding: 10px;">
+                    <%- include('csrf-field') %>
                     <button class="btn secondary" type="submit" style="width:100%; justify-content:center;">Salir</button>
                   </form>
                 </div>

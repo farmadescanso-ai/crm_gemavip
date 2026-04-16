@@ -121,6 +121,7 @@
                   <% const puedeSolicitar = !admin && uid && !solicRechazada && (cial === 0 || (poolId && cial === Number(poolId))); %>
                   <% if (puedeSolicitar) { %>
                     <form method="post" action="/clientes/<%= cid %>/solicitar-asignacion" style="display:inline; margin:0;" class="gv-solicitar-asignacion-form" data-cid="<%= cid %>">
+                      <%- include('partials/csrf-field') %>
                       <button class="btn icon" type="submit" title="<%= solicPendiente ? 'Solicitud pendiente de aprobación' : 'Solicitar asignación (el admin aprobará o denegará)' %>" aria-label="Solicitar que me asignen este cliente">
                         <span class="gv-btn-loading">
                           <span class="gv-spinner gv-solicitar-spinner" style="display:none;" aria-hidden="true"></span>
@@ -144,6 +145,7 @@
                   <% } %>
                   <% if (admin) { %>
                     <form method="post" action="/clientes/<%= cid %>/delete" onsubmit="return confirm('¿Mover este contacto a la papelera?');">
+                      <%- include('partials/csrf-field') %>
                       <button class="btn secondary icon danger" type="submit" title="Papelera" aria-label="Enviar contacto <%= cid %> a papelera">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <path d="M3 6h18"></path>

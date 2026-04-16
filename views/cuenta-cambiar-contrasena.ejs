@@ -16,6 +16,7 @@
     <% } %>
 
     <form method="post" action="/cuenta/cambiar-contrasena" style="display:grid; gap: 12px;">
+      <%- include('partials/csrf-field') %>
       <label style="display:grid; gap: 6px;">
         <span style="font-weight:700; color: var(--gv-ink); font-size: 13px;">Contraseña actual *</span>
         <input name="current_password" type="password" autocomplete="current-password" required />

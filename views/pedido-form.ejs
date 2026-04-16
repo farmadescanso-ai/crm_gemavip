@@ -24,6 +24,7 @@
       action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id || item.ped_id) + '/edit') : '/pedidos/new' %>"
       class="gv-pedido-form__form"
     >
+      <%- include('partials/csrf-field') %>
       <!-- Serie fija -->
       <input type="hidden" name="Serie" value="P" />
 

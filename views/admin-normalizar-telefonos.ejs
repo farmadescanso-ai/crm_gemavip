@@ -35,6 +35,7 @@
         </div>
         <% if (!result.applied) { %>
           <form method="post" action="/admin/normalizar-telefonos-clientes" style="margin-top: 16px;">
+            <%- include('partials/csrf-field') %>
             <input type="hidden" name="apply" value="1" />
             <button type="submit" class="btn" onclick="return confirm('¿Aplicar la normalización a <%= result.updates.length %> cliente(s)?');">Aplicar normalización</button>
           </form>

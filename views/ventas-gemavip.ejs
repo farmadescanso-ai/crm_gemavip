@@ -455,7 +455,12 @@
       if (!confirm('¿Eliminar todos los datos de ventas? Tendrás que volver a subir los PDFs.')) return;
       clearBtn.disabled = true;
       try {
-        const res = await fetch('/ventas-gemavip/clear', { method: 'POST' });
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfMeta && csrfMeta.getAttribute('content') ? String(csrfMeta.getAttribute('content')) : '';
+        const res = await fetch('/ventas-gemavip/clear', {
+          method: 'POST',
+          headers: csrfToken ? { 'x-csrf-token': csrfToken } : undefined
+        });
         const json = await res.json();
         if (json.ok) {
           window.location.reload();
@@ -496,6 +501,11 @@
 
     const fd = new FormData();
     for (let i = 0; i < fileInput.files.length; i++) fd.append('pdfs', fileInput.files[i]);
+    try {
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+      const csrfToken = csrfMeta && csrfMeta.getAttribute('content') ? String(csrfMeta.getAttribute('content')) : '';
+      if (csrfToken) fd.append('_csrf', csrfToken);
+    } catch (_) {}
 
     try {
       const url = (window.location.origin || '') + '/ventas-gemavip/upload';

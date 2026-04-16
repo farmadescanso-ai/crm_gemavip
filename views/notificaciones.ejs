@@ -18,6 +18,7 @@
     <p class="gv-contactos-hd__sub" style="margin-bottom: 16px; font-weight: 600; color: var(--gv-ink);">
       <span aria-hidden="true">🔔</span> Solicitudes pendientes: <strong><%= typeof paging !== 'undefined' ? paging.total : 0 %></strong>
       <form method="post" action="/notificaciones/borrar-historial" style="display:inline-block; margin-left:16px;">
+        <%- include('partials/csrf-field') %>
         <button type="submit" class="btn secondary" onclick="return confirm('¿Borrar todo el historial de notificaciones? Esta acción no se puede deshacer.');">Borrar historial</button>
       </form>
     </p>
@@ -57,17 +58,20 @@
                   <div class="gv-actions">
                     <% if ((n.estado || '').toLowerCase() === 'pendiente') { %>
                       <form method="post" action="/notificaciones/<%= n.id %>/aprobar">
+                        <%- include('partials/csrf-field') %>
                         <button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </button>
                       </form>
                       <form method="post" action="/notificaciones/<%= n.id %>/rechazar">
+                        <%- include('partials/csrf-field') %>
                         <button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                       </form>
                     <% } %>
                     <form method="post" action="/notificaciones/<%= n.id %>/eliminar" style="display:inline;">
+                      <%- include('partials/csrf-field') %>
                       <button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm('¿Eliminar esta notificación?');" style="color:#6c757d;">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                       </button>
@@ -110,6 +114,9 @@
   var emptyRow = document.getElementById('notif-empty-row');
   var total = <%= (typeof paging !== 'undefined' && paging && paging.total) ? paging.total : 0 %>;
   if (!emptyRow || total === 0) return;
+  var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  var csrfToken = csrfMeta && csrfMeta.getAttribute('content') ? String(csrfMeta.getAttribute('content')) : '';
+  var csrfHidden = csrfToken ? ('<input type="hidden" name="_csrf" value="' + csrfToken.replace(/"/g, '&quot;') + '" />') : '';
   fetch('/api/notificaciones?limit=10')
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -152,9 +159,9 @@
         var tr = document.createElement('tr');
         var acc = '<div class="gv-actions">';
         if (estado === 'pendiente') {
-          acc += '<form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form>';
+          acc += '<form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/aprobar">' + csrfHidden + '<button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/rechazar">' + csrfHidden + '<button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form>';
         }
-        acc += '<form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/eliminar" style="display:inline;"><button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm(\'¿Eliminar esta notificación?\');" style="color:#6c757d;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></form></div>';
+        acc += '<form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/eliminar" style="display:inline;">' + csrfHidden + '<button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm(\\'¿Eliminar esta notificación?\\');" style="color:#6c757d;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></form></div>';
         var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
         var adminNombre = (estado !== 'pendiente') ? (n.admin_nombre || 'Enlace email') : '—';
         var comercialNombre = n.comercial_nombre || ('Comercial #' + n.id_comercial_solicitante);

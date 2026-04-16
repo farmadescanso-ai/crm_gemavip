@@ -99,6 +99,7 @@
       <p style="color: var(--gv-muted); font-size: 14px;">Ningún producto con los filtros actuales.</p>
     <% } else if (rows.length) { %>
       <form method="post" action="/cpanel/holded-articulos/import" id="form-import-art">
+        <%- include('partials/csrf-field') %>
         <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px;">
           <button type="submit" class="btn" <%= hasHoldedColumn ? '' : 'disabled' %>>Importar seleccionados al CRM</button>
           <button type="button" class="btn secondary" id="btn-select-all-art">Marcar todos</button>

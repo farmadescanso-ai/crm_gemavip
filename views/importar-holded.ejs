@@ -43,6 +43,7 @@
         <strong>Migración pendiente</strong>
         <p style="margin: 8px 0 12px 0;">Es necesario ejecutar la migración para añadir la columna <code>ped_id_holded</code> en la tabla pedidos.</p>
         <form method="post" action="/admin/importar-holded/run-migration" style="display: inline;">
+          <%- include('partials/csrf-field') %>
           <button type="submit" class="btn primary">Ejecutar migración</button>
         </form>
       </div>
@@ -50,6 +51,7 @@
 
     <% if (hasApiKey && !needsMigration) { %>
       <form id="gv-holded-sync-form" method="post" action="/admin/importar-holded/sync" style="max-width: 480px;">
+        <%- include('partials/csrf-field') %>
         <div class="form-group" style="margin-bottom: 16px;">
           <label for="gv-holded-start">Fecha inicio</label>
           <input type="date" id="gv-holded-start" name="start" value="2026-01-01" required />

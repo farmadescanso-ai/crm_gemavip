@@ -11,6 +11,7 @@
     <% } %>
 
     <form method="post" action="/clientes/<%= clienteId %>/direcciones/new" style="display:grid; gap: 12px;">
+      <%- include('partials/csrf-field') %>
       <label style="display:grid; gap:6px; font-weight:700;">
         <span>Alias</span>
         <input type="text" name="Alias" value="<%= item.Alias || '' %>" placeholder="Ej: Almacén, Sucursal centro" maxlength="120" />

@@ -30,6 +30,7 @@
     <% } %>
 
     <form method="post" action="/login" class="login-form">
+      <%- include('partials/csrf-field') %>
       <% if (typeof returnTo === 'string' && returnTo) { %>
         <input type="hidden" name="returnTo" value="<%= returnTo %>" />
       <% } %>

@@ -33,6 +33,7 @@
         <a class="btn secondary" href="/comerciales">Volver</a>
         <a class="btn secondary" href="/comerciales/<%= id %>/edit">Editar</a>
         <form method="post" action="/comerciales/<%= id %>/delete" onsubmit="return confirm('¿Eliminar este comercial? Esta acción no se puede deshacer.');">
+          <%- include('partials/csrf-field') %>
           <button class="btn secondary danger" type="submit">Eliminar</button>
         </form>
       </div>

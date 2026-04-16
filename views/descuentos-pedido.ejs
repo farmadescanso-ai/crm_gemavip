@@ -65,6 +65,7 @@
                   </a>
 
                   <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/toggle">
+                    <%- include('partials/csrf-field') %>
                     <% const isActive = (Number(it.activo ?? it.Activo ?? 0) === 1); %>
                     <button class="btn secondary icon <%= isActive ? '' : 'success' %>" type="submit" title="<%= isActive ? 'Desactivar' : 'Activar' %>" aria-label="<%= isActive ? 'Desactivar' : 'Activar' %>">
                       <% if (isActive) { %>
@@ -81,6 +82,7 @@
                   </form>
 
                   <form method="post" action="/admin/descuentos-pedido/<%= it.id ?? it.Id %>/delete" onsubmit="return confirm('¿Borrar este tramo?');">
+                    <%- include('partials/csrf-field') %>
                     <button class="btn secondary icon danger" type="submit" title="Borrar" aria-label="Borrar">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="3 6 5 6 21 6"></polyline>

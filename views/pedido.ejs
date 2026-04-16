@@ -77,6 +77,7 @@
     <% } %>
     <% if (admin) { %>
       <form method="post" action="/pedidos/<%= pedidoId %>/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar este pedido?');">
+        <%- include('partials/csrf-field') %>
         <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
       </form>
     <% } %>

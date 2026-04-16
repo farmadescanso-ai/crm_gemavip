@@ -33,6 +33,7 @@
       <a class="btn secondary" href="/visitas">Volver</a>
       <a class="btn secondary" href="/visitas/<%= item.Id || item.id %>/edit">Editar</a>
       <form method="post" action="/visitas/<%= item.Id || item.id %>/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar esta visita?');">
+        <%- include('partials/csrf-field') %>
         <button class="btn secondary" style="border-color: rgba(255,186,0,.6);" type="submit">Borrar</button>
       </form>
     </div>

@@ -114,6 +114,7 @@
                     </svg>
                   </a>
                   <form method="post" action="/comerciales/<%= id %>/delete" onsubmit="return confirm('¿Eliminar este comercial? Esta acción no se puede deshacer.');">
+                    <%- include('partials/csrf-field') %>
                     <button class="btn secondary icon danger" type="submit" title="Eliminar" aria-label="Eliminar comercial <%= id %>">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M3 6h18"></path>

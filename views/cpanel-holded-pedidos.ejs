@@ -67,6 +67,7 @@
 
     <% if (pedidos.length) { %>
       <form method="post" action="/cpanel/holded-pedidos/import" id="form-holded-import-ped">
+        <%- include('partials/csrf-field') %>
         <input type="hidden" name="start" value="<%= start %>" />
         <input type="hidden" name="end" value="<%= end %>" />
         <input type="hidden" name="provincia" value="<%= typeof provincia === 'string' ? provincia : 'Murcia' %>" />
@@ -144,6 +145,7 @@
 
     <% if (exp.length) { %>
       <form method="post" action="/cpanel/holded-pedidos/export" id="form-holded-export-ped">
+        <%- include('partials/csrf-field') %>
         <input type="hidden" name="start" value="<%= start %>" />
         <input type="hidden" name="end" value="<%= end %>" />
         <input type="hidden" name="provincia" value="<%= typeof provincia === 'string' ? provincia : 'Murcia' %>" />

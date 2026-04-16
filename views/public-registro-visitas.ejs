@@ -57,6 +57,7 @@
     <% } %>
 
     <form class="gv-form" method="post" action="/registro-visitas" autocomplete="on">
+      <%- include('partials/csrf-field') %>
       <div class="gv-form-grid">
         <label class="gv-field">
           <span class="gv-label">Fecha *</span>
