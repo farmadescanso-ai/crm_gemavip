@@ -33,6 +33,15 @@ function resolveSessionSecret() {
   return crypto.randomBytes(48).toString('base64url');
 }
 
+function resolveCookieSameSite() {
+  const raw = process.env.SESSION_COOKIE_SAMESITE;
+  const v = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (!v) return 'lax';
+  if (v === 'lax' || v === 'strict' || v === 'none') return v;
+  console.warn('[crm] SESSION_COOKIE_SAMESITE inválido; usando lax');
+  return 'lax';
+}
+
 /**
  * @param {import('express').Application} app
  * @param {{ db: object, comisionesCrm: object }} deps
@@ -66,6 +75,9 @@ function setupSharedPoolAndSession(app, deps) {
   );
 
   const sessionSecret = resolveSessionSecret();
+  const sameSite = resolveCookieSameSite();
+  const secureBase = process.env.NODE_ENV === 'production';
+  const secure = sameSite === 'none' ? true : secureBase;
 
   app.use(
     session({
@@ -77,8 +89,8 @@ function setupSharedPoolAndSession(app, deps) {
       store: sessionStore,
       cookie: {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite,
+        secure,
         maxAge: sessionMaxAgeMs
       }
     })

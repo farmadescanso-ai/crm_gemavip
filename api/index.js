@@ -61,6 +61,7 @@ app.use(
         fontSrc: ["'self'", 'fonts.gstatic.com', 'fonts.googleapis.com'],
         connectSrc: ["'self'", 'cdn.jsdelivr.net', 'https://cdn.jsdelivr.net'],
         frameSrc: ["'self'", 'https://vercel.live'],
+        frameAncestors: ["'none'"],
         workerSrc: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
