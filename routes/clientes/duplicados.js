@@ -1,6 +1,9 @@
 /**
  * Duplicados y unificación (admin).
  */
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const { unificarDuplicadosValidators } = require('../../lib/validators/html-clientes-ui');
+
 function registerDuplicadosRoutes(router, { db, requireLogin, requireAdmin }) {
   router.get('/duplicados', requireLogin, requireAdmin, async (req, res, next) => {
     try {
@@ -11,7 +14,13 @@ function registerDuplicadosRoutes(router, { db, requireLogin, requireAdmin }) {
     }
   });
 
-  router.post('/unificar', requireLogin, requireAdmin, async (req, res, next) => {
+  router.post(
+    '/unificar',
+    requireLogin,
+    requireAdmin,
+    ...unificarDuplicadosValidators,
+    rejectIfValidationFailsJson(),
+    async (req, res, next) => {
     const wantsJson =
       req.get('Accept')?.includes('application/json') || req.get('X-Requested-With') === 'XMLHttpRequest';
     try {
@@ -38,7 +47,8 @@ function registerDuplicadosRoutes(router, { db, requireLogin, requireAdmin }) {
       req.flash?.('error', e.message || 'Error al unificar clientes.');
       return res.redirect('/clientes/duplicados');
     }
-  });
+    }
+  );
 }
 
 module.exports = { registerDuplicadosRoutes };

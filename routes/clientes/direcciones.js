@@ -2,6 +2,8 @@
  * Direcciones de envío /clientes/:id/direcciones/new
  */
 const { loadSimpleCatalogForSelect } = require('../../lib/cliente-helpers');
+const { rejectIfValidationFailsHtml } = require('../../lib/validation-handlers');
+const { clienteIdParam, direccionEnvioCreateValidators } = require('../../lib/validators/html-clientes-ui');
 const {
   clienteNotFoundPage,
   normalizePayloadTelefonos,
@@ -41,7 +43,31 @@ function registerDireccionesRoutes(router, { db, requireLogin, isAdminUser }) {
     }
   });
 
-  router.post('/:id/direcciones/new', requireLogin, async (req, res, next) => {
+  router.post(
+    '/:id/direcciones/new',
+    requireLogin,
+    ...clienteIdParam,
+    ...direccionEnvioCreateValidators,
+    rejectIfValidationFailsHtml('direccion-envio-form', async (req, res) => {
+      const pr = await parseClienteRouteId(req, db);
+      if (!pr.ok) return {};
+      const { id } = pr;
+      const [cliente, provincias, paises] = await Promise.all([
+        db.getClienteById(id),
+        loadSimpleCatalogForSelect(db, 'provincias'),
+        loadSimpleCatalogForSelect(db, 'paises')
+      ]);
+      const clienteNombre =
+        cliente?.cli_nombre_razon_social ?? cliente?.Nombre_Razon_Social ?? cliente?.Nombre ?? cliente?.nombre ?? '';
+      return {
+        clienteId: id,
+        clienteNombre,
+        item: req.body && typeof req.body === 'object' ? req.body : {},
+        provincias: provincias || [],
+        paises: paises || []
+      };
+    }),
+    async (req, res, next) => {
     try {
       const pr = await parseClienteRouteId(req, db);
       if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
@@ -77,7 +103,8 @@ function registerDireccionesRoutes(router, { db, requireLogin, isAdminUser }) {
     } catch (e) {
       next(e);
     }
-  });
+    }
+  );
 }
 
 module.exports = { registerDireccionesRoutes };

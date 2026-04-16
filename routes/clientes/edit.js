@@ -2,6 +2,8 @@
  * Edición GET/POST /clientes/:id/edit
  */
 const { loadClienteFormCatalogs, buildClienteFormModel, coerceClienteValue } = require('../../lib/cliente-helpers');
+const { rejectIfValidationFailsHtml } = require('../../lib/validation-handlers');
+const { clienteIdParam, clienteEditValidators } = require('../../lib/validators/html-clientes-ui');
 const {
   clienteNotFoundPage,
   normalizePayloadTelefonos,
@@ -15,6 +17,59 @@ const {
 } = require('./helpers');
 
 function registerEditClienteRoutes(router, { db, requireLogin, isAdminUser }) {
+  async function buildEditFormLocals(req, res, { id, baseItem }) {
+    const admin = isAdminUser(res.locals.user);
+    const isSuperAdmin = Number(res.locals.user?.id) === 1;
+    const [item, catalogs, cooperativasCliente] = await Promise.all([
+      db.getClienteById(id),
+      loadClienteFormCatalogs(db),
+      db.getCooperativasByClienteId(id).catch(() => [])
+    ]);
+    const {
+      comerciales,
+      tarifas,
+      provincias,
+      paises,
+      formasPago,
+      tiposClientes,
+      especialidades,
+      idiomas,
+      monedas,
+      estadosCliente,
+      cooperativas,
+      gruposCompras,
+      meta
+    } = catalogs;
+    const model = buildClienteFormModel({
+      mode: 'edit',
+      meta,
+      item: baseItem || item,
+      comerciales,
+      tarifas,
+      provincias,
+      paises,
+      formasPago,
+      tiposClientes,
+      especialidades: especialidades || [],
+      idiomas,
+      monedas,
+      estadosCliente,
+      cooperativas,
+      gruposCompras,
+      canChangeComercial: admin,
+      isAdmin: !!admin,
+      isSuperAdmin
+    });
+    return {
+      ...model,
+      admin,
+      canChangeComercial: admin,
+      clienteId: id,
+      contactoId: id,
+      cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
+    };
+  }
+
   router.get('/:id/edit', requireLogin, async (req, res, next) => {
     try {
       const pr = await parseClienteRouteId(req, db);
@@ -93,7 +148,19 @@ function registerEditClienteRoutes(router, { db, requireLogin, isAdminUser }) {
     }
   });
 
-  router.post('/:id/edit', requireLogin, async (req, res, next) => {
+  router.post(
+    '/:id/edit',
+    requireLogin,
+    ...clienteIdParam,
+    ...clienteEditValidators,
+    rejectIfValidationFailsHtml('cliente-form', async (req, res) => {
+      const pr = await parseClienteRouteId(req, db);
+      if (!pr.ok) return {};
+      const { id } = pr;
+      const payload = req.body && typeof req.body === 'object' ? { ...(req.body || {}) } : {};
+      return await buildEditFormLocals(req, res, { id, baseItem: payload });
+    }),
+    async (req, res, next) => {
     try {
       const pr = await parseClienteRouteId(req, db);
       if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
@@ -366,7 +433,8 @@ function registerEditClienteRoutes(router, { db, requireLogin, isAdminUser }) {
     } catch (e) {
       next(e);
     }
-  });
+    }
+  );
 }
 
 module.exports = { registerEditClienteRoutes };

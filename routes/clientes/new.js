@@ -14,8 +14,52 @@ const {
   stripClienteEtiquetasForNonAdmin,
   stripHoldedSyncSuperOnlyFieldsFromPayload
 } = require('./helpers');
+const { rejectIfValidationFailsHtml } = require('../../lib/validation-handlers');
+const { clienteCreateValidators } = require('../../lib/validators/html-clientes-ui');
 
 function registerNewClienteRoutes(router, { db, requireLogin, isAdminUser }) {
+  async function buildCreateFormLocals(req, res, payload) {
+    const {
+      comerciales,
+      tarifas,
+      provincias,
+      paises,
+      formasPago,
+      tiposClientes,
+      especialidades,
+      idiomas,
+      monedas,
+      estadosCliente,
+      cooperativas,
+      gruposCompras,
+      meta
+    } = await loadClienteFormCatalogs(db);
+    const isAdmin = isAdminUser(res.locals.user);
+    const isSuperAdmin = Number(res.locals.user?.id) === 1;
+    const model = buildClienteFormModel({
+      mode: 'create',
+      meta,
+      item: payload,
+      comerciales: Array.isArray(comerciales) ? comerciales : [],
+      tarifas: Array.isArray(tarifas) ? tarifas : [],
+      provincias: Array.isArray(provincias) ? provincias : [],
+      paises: Array.isArray(paises) ? paises : [],
+      formasPago: Array.isArray(formasPago) ? formasPago : [],
+      tiposClientes: Array.isArray(tiposClientes) ? tiposClientes : [],
+      especialidades: especialidades || [],
+      idiomas: Array.isArray(idiomas) ? idiomas : [],
+      monedas: Array.isArray(monedas) ? monedas : [],
+      estadosCliente: Array.isArray(estadosCliente) ? estadosCliente : [],
+      cooperativas: Array.isArray(cooperativas) ? cooperativas : [],
+      gruposCompras: Array.isArray(gruposCompras) ? gruposCompras : [],
+      canChangeComercial: !!isAdmin,
+      missingFields: [],
+      isAdmin: !!isAdmin,
+      isSuperAdmin
+    });
+    return { ...model, admin: isAdmin, canChangeComercial: !!isAdmin };
+  }
+
   router.get('/new', requireLogin, async (_req, res, next) => {
     try {
       const {
@@ -67,7 +111,15 @@ function registerNewClienteRoutes(router, { db, requireLogin, isAdminUser }) {
     }
   });
 
-  router.post('/new', requireLogin, async (req, res, next) => {
+  router.post(
+    '/new',
+    requireLogin,
+    ...clienteCreateValidators,
+    rejectIfValidationFailsHtml('cliente-form', async (req, res) => {
+      const payload = req.body && typeof req.body === 'object' ? req.body : {};
+      return await buildCreateFormLocals(req, res, payload);
+    }),
+    async (req, res, next) => {
     try {
       const {
         comerciales,
@@ -312,7 +364,8 @@ function registerNewClienteRoutes(router, { db, requireLogin, isAdminUser }) {
     } catch (e) {
       next(e);
     }
-  });
+    }
+  );
 }
 
 module.exports = { registerNewClienteRoutes };

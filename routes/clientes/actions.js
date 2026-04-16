@@ -7,9 +7,16 @@ const {
   parseClienteRouteId,
   sendPushToAdmins
 } = require('./helpers');
+const { rejectIfValidationFailsJson } = require('../../lib/validation-handlers');
+const { clienteIdParam } = require('../../lib/validators/html-clientes-ui');
 
 function registerClienteActionRoutes(router, { db, requireLogin, requireAdmin, isAdminUser }) {
-  router.post('/:id/solicitar-asignacion', requireLogin, async (req, res, next) => {
+  router.post(
+    '/:id/solicitar-asignacion',
+    requireLogin,
+    ...clienteIdParam,
+    rejectIfValidationFailsJson(),
+    async (req, res, next) => {
     try {
       const pr = await parseClienteRouteId(req, db);
       if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
@@ -103,9 +110,15 @@ function registerClienteActionRoutes(router, { db, requireLogin, requireAdmin, i
     } catch (e) {
       next(e);
     }
-  });
+    }
+  );
 
-  router.post('/:id/delete', requireAdmin, async (req, res, next) => {
+  router.post(
+    '/:id/delete',
+    requireAdmin,
+    ...clienteIdParam,
+    rejectIfValidationFailsJson(),
+    async (req, res, next) => {
     try {
       const pr = await parseClienteRouteId(req, db);
       if (!pr.ok && pr.reason === 'notfound') return clienteNotFoundPage(req, res, pr.raw);
@@ -116,7 +129,8 @@ function registerClienteActionRoutes(router, { db, requireLogin, requireAdmin, i
     } catch (e) {
       next(e);
     }
-  });
+    }
+  );
 }
 
 module.exports = { registerClienteActionRoutes };
