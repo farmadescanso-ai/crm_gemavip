@@ -1,7 +1,5 @@
-const crypto = require('crypto');
 const express = require('express');
 const compression = require('compression');
-const helmet = require('helmet');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('../config/swagger');
@@ -44,6 +42,7 @@ const { registerEarlyDiagnostics } = require('./routes/early-diagnostics');
 const { registerJsonHelperRoutes } = require('./routes/json-helpers');
 const { registerOpenApiAndHealthDb } = require('./routes/openapi-and-health-db');
 const { registerHttpErrorHandlers } = require('./middleware/http-error-handlers');
+const { cspNonceMiddleware, cspRoutePickerMiddleware, helmetWithoutCsp } = require('./middleware/csp');
 
 const comisionesCrm = require('../config/mysql-crm-comisiones');
 
@@ -52,69 +51,9 @@ app.set('trust proxy', 1);
 
 app.use(compression());
 
-app.use((req, res, next) => {
-  res.locals.cspNonce = crypto.randomBytes(16).toString('base64url');
-  next();
-});
-
-const cspAppMiddleware = helmet.contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: [
-      "'self'",
-      (req, res) => `'nonce-${res.locals.cspNonce}'`,
-      'https://cdn.jsdelivr.net',
-      'https://vercel.live'
-    ],
-    scriptSrcAttr: ["'unsafe-inline'"],
-    styleSrc: [
-      "'self'",
-      (req, res) => `'nonce-${res.locals.cspNonce}'`,
-      'https://fonts.googleapis.com',
-      'https://cdn.jsdelivr.net'
-    ],
-    styleSrcAttr: ["'unsafe-inline'"],
-    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://fonts.googleapis.com'],
-    connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
-    frameSrc: ["'self'", 'https://vercel.live'],
-    frameAncestors: ["'none'"],
-    workerSrc: ["'self'"],
-    objectSrc: ["'none'"],
-    baseUri: ["'self'"],
-    formAction: ["'self'"]
-  }
-});
-
-/** Swagger UI inyecta scripts/estilos inline sin nonce; CSP más permisiva solo en /api/docs. */
-const cspSwaggerDocsMiddleware = helmet.contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'"],
-    styleSrc: ["'self'", "'unsafe-inline'"],
-    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://fonts.googleapis.com'],
-    connectSrc: ["'self'"],
-    frameAncestors: ["'none'"],
-    workerSrc: ["'self'"],
-    objectSrc: ["'none'"],
-    baseUri: ["'self'"],
-    formAction: ["'self'"]
-  }
-});
-
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/docs')) {
-    return cspSwaggerDocsMiddleware(req, res, next);
-  }
-  return cspAppMiddleware(req, res, next);
-});
-
-app.use(
-  helmet({
-    contentSecurityPolicy: false
-  })
-);
+app.use(cspNonceMiddleware);
+app.use(cspRoutePickerMiddleware);
+app.use(helmetWithoutCsp());
 
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));

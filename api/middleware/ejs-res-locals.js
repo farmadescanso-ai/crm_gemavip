@@ -3,6 +3,7 @@
  */
 const { formatTelefonoForDisplay, normalizeTelefonoForDB, getTelefonoForHref } = require('../../lib/telefono-utils');
 const { safeJsonInline } = require('../../lib/safe-json-inline');
+const { toNum, round2 } = require('../../lib/utils');
 
 function createEjsLocalsMiddleware(deps) {
   const {
@@ -108,6 +109,8 @@ function createEjsLocalsMiddleware(deps) {
     res.locals.normalizeTelefono = normalizeTelefonoForDB;
     res.locals.getTelefonoForHref = getTelefonoForHref;
     res.locals.safeJsonInline = safeJsonInline;
+    res.locals.toNum = toNum;
+    res.locals.round2 = round2;
 
     next();
   };

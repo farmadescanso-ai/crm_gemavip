@@ -1,6 +1,5 @@
 <%
   const p = typeof pedido !== 'undefined' ? pedido : {};
-  const toNum = (v, d) => { const n = Number(String(v || '').replace(',','.')); return Number.isFinite(n) ? n : (d ?? 0); };
   const fmtNumES = (x, dec = 2) => { const n = Number(x); if (!Number.isFinite(n)) return ''; const parts = n.toFixed(dec).split('.'); return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.') + (dec ? ',' + (parts[1]||'').padEnd(dec,'0') : ''); };
   const fmtEur = (n) => { const x = Number(n); return Number.isFinite(x) ? fmtNumES(x,2) + '€' : ''; };
   const lineas = p.lineas || p.productos || [];

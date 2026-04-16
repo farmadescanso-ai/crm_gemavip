@@ -1,34 +1,6 @@
 <%- include('partials/header', { title: 'Pedido' }) %>
 
 <%
-  const toNum = (v, dflt = 0) => {
-    if (v === null || v === undefined) return dflt;
-    const s = String(v).trim();
-    if (!s) return dflt;
-    const n = Number(String(s).replace(',', '.'));
-    return Number.isFinite(n) ? n : dflt;
-  };
-  const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-  // Formato fijo ES: miles con "." y decimales con ","
-  const fmtNumES = (value, decimals = 2) => {
-    const x = Number(value);
-    if (!Number.isFinite(x)) return '';
-    const d = Math.max(0, Math.min(6, Number(decimals) || 0));
-    const sign = x < 0 ? '-' : '';
-    const abs = Math.abs(x);
-    const factor = Math.pow(10, d);
-    const rounded = Math.round((abs + Number.EPSILON) * factor) / factor;
-    const parts = rounded.toFixed(d).split('.');
-    const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const decPart = d ? (',' + (parts[1] || '').padEnd(d, '0')) : '';
-    return sign + intPart + decPart;
-  };
-  const fmtEur = (n) => {
-    const x = Number(n);
-    if (!Number.isFinite(x)) return '';
-    return `${fmtNumES(x, 2)}€`;
-  };
-  const fmtQty = (n) => fmtNumES(n, 0);
   const pedidoId = item?.id ?? item?.Id ?? item?.ped_id ?? '';
   const numPedido = item?.NumPedido ?? item?.ped_numero ?? '';
   const fecha = fmtDateES(item.FechaPedido ?? item.Fecha ?? item?.ped_fecha ?? '');
@@ -321,12 +293,12 @@
                 <td class="is-wrap">
                   <div class="gv-doc-concept"><%= concepto || (codigo ? `Artículo ${codigo}` : '—') %></div>
                 </td>
-                <td class="is-right"><%= fmtEur(pvl) %></td>
-                <td class="is-right"><%= qty ? fmtQty(qty) : '' %></td>
+                <td class="is-right"><%= fmtEurES(pvl) %></td>
+                <td class="is-right"><%= qty ? fmtNumES(qty, 0) : '' %></td>
                 <td class="is-right"><%= `${fmtNumES(dto, 2)}%` %></td>
-                <td class="is-right"><%= fmtEur(base) %></td>
+                <td class="is-right"><%= fmtEurES(base) %></td>
                 <td class="is-right"><%= ivaPct ? `${fmtNumES(ivaPct, 2)}%` : '—' %></td>
-                <td class="is-right"><%= fmtEur(total) %></td>
+                <td class="is-right"><%= fmtEurES(total) %></td>
               </tr>
             <% }) %>
           </tbody>
@@ -348,23 +320,23 @@
         <table>
           <tr>
             <td>SUBTOTAL</td>
-            <td class="is-right"><%= fmtEur(round2(sumBase)) %></td>
+            <td class="is-right"><%= fmtEurES(round2(sumBase)) %></td>
           </tr>
           <% if (dtoPedidoPct) { %>
             <tr>
               <td>DTO PEDIDO (<%= fmtNumES(dtoPedidoPct, 2) %>%)</td>
-              <td class="is-right">−<%= fmtEur(importeDtoPedido) %></td>
+              <td class="is-right">−<%= fmtEurES(importeDtoPedido) %></td>
             </tr>
           <% } %>
           <tr>
             <td>BASE IMPONIBLE</td>
-            <td class="is-right"><%= fmtEur(baseAfterDto) %></td>
+            <td class="is-right"><%= fmtEurES(baseAfterDto) %></td>
           </tr>
           <% Object.keys(ivaByPct || {}).sort((a, b) => Number(a) - Number(b)).forEach((key) => { %>
             <% const iva = ivaByPct[key]; if (iva && iva.sum) { %>
               <tr>
                 <td><%= taxLabel %> (<%= fmtNumES(iva.pct, 2) %>%)</td>
-                <td class="is-right"><%= fmtEur(round2(round2(iva.sum) * factorDto)) %></td>
+                <td class="is-right"><%= fmtEurES(round2(round2(iva.sum) * factorDto)) %></td>
               </tr>
             <% } %>
           <% }) %>
@@ -386,12 +358,12 @@
           <% retenciones.forEach((r) => { %>
             <tr>
               <td>RETENCIÓN (<%= fmtNumES(r.pct, 2) %>%)</td>
-              <td class="is-right">−<%= fmtEur(r.importe) %></td>
+              <td class="is-right">−<%= fmtEurES(r.importe) %></td>
             </tr>
           <% }) %>
           <tr>
             <td class="gv-doc-grand">TOTAL</td>
-            <td class="gv-doc-grand is-right"><%= fmtEur(round2(totalAntesRetenciones - retenciones.reduce((s, r) => s + r.importe, 0))) %></td>
+            <td class="gv-doc-grand is-right"><%= fmtEurES(round2(totalAntesRetenciones - retenciones.reduce((s, r) => s + r.importe, 0))) %></td>
           </tr>
         </table>
       </div>

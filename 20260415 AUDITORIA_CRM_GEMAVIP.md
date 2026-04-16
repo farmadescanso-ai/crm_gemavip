@@ -24,7 +24,7 @@
 
 CRM Gemavip es una aplicacion **Node.js + Express** para gestion comercial (CRM) orientada al sector farmaceutico/parafarmacia. Gestiona clientes (farmacias), comerciales, pedidos, visitas y comisiones, con integraciones externas (Holded ERP, Prestashop, Google OAuth, N8N).
 
-*Valoraciones revisadas tras intervenciones en código (abril 2026): CORS, endurecimiento de endpoints, correcciones XSS y MIME en rutas concretas, validación con express-validator, modularización de `api/index.js` y `routes/clientes`, troceo de `cliente-form.ejs` en partials.*
+*Valoraciones revisadas tras intervenciones en código (abril 2026): CORS, endurecimiento de endpoints, correcciones XSS y MIME en rutas concretas, validación con express-validator, modularización de `api/index.js` y `routes/clientes`, troceo de `cliente-form.ejs` en partials, CSP con nonces (`api/middleware/csp.js`), utilidades de importes (`toNum` / `round2`) expuestas en `res.locals` para EJS.*
 
 | Aspecto | Valoracion |
 |---------|-----------|
@@ -32,9 +32,9 @@ CRM Gemavip es una aplicacion **Node.js + Express** para gestion comercial (CRM)
 | Calidad de Codigo | **6.5/10** - Mejor troceo; aún hay módulos muy extensos (p. ej. capa MySQL, otras vistas) |
 | Esquema BD | **7/10** - Completo; criterio de dumps/credenciales sin cambio sustancial |
 | Arquitectura | **7.5/10** - Entrada API y rutas HTML de clientes más claras; responsabilidades mejor separadas en zonas tocadas |
-| Mantenibilidad | **6/10** - Menos monolitos en puntos calientes; persiste deuda (config/datos, más vistas) |
+| Mantenibilidad | **6.5/10** - Menos duplicación en vistas/servidor (`lib/utils`, CSP extraída); sigue la deuda del núcleo `mysql-crm.js` y vistas extensas (p. ej. `pedidos.ejs`) |
 
-### Puntuacion Global: **7.0 / 10** *(media de la tabla anterior: 8 + 6.5 + 7 + 7.5 + 6 = 35 → 35/5)*
+### Puntuacion Global: **7.1 / 10** *(media de la tabla anterior: 8 + 6.5 + 7 + 7.5 + 6.5 = 35.5 → 35.5/5)*
 
 ---
 
@@ -432,18 +432,19 @@ app.get('/health/db', ...)  // Retorna host, user, database
 
 ### 5.1 Archivos Monoliticos (Alto Riesgo)
 
-| Archivo | Lineas | Problema |
-|---------|--------|----------|
-| `api/index.js` | 876 | Demasiadas responsabilidades |
-| `routes/clientes.js` | ~600+ | Logica compleja mezclada |
-| `config/mysql-crm.js` | ~500+ | Modulo de datos sobrecargado |
-| `views/cliente-form.ejs` | ~900+ | Plantilla demasiado compleja |
+| Archivo | Lineas (aprox.) | Nota |
+|---------|-----------------|------|
+| `api/index.js` | ~145 | Entrada y montaje de middleware/rutas; CSP en `api/middleware/csp.js` |
+| `routes/clientes/*.js` | ~1400 en conjunto | Rutas divididas (`index`, `list`, `edit`, `actions`, …); revisar tamaño individual |
+| `config/mysql-crm.js` | ~1855 | Núcleo + mixins por dominio; principal foco de mantenibilidad futura |
+| `views/cliente-form.ejs` | ~110 | Troceado en partials; complejidad bajada respecto al informe inicial |
+| `views/pedidos.ejs` | ~850+ | Listado + tabs + scripts inline; candidato a extraer JS/CSS a `public/` |
 
 ### 5.2 Duplicacion de Codigo
 
 **Patrones duplicados detectados:**
 
-1. **Resolucion de columnas case-insensitive:** Repetido en `mysql-crm-clientes.js`, `mysql-crm-pedidos.js`, etc.
+1. **Resolucion de columnas case-insensitive:** Implementación única en `MySQLCRM._pickCIFromColumns` (`mysql-crm.js`); los mixins la reutilizan (persiste verbosidad de llamadas, no duplicación de algoritmo).
 2. **Normalizacion de telefonos:** Duplicado en multiples lugares
 3. **Logica de paginacion:** Patron repetido en varios endpoints
 4. **Checks de permisos admin:** Repetido en route handlers
@@ -453,7 +454,7 @@ app.get('/health/db', ...)  // Retorna host, user, database
 
 | Anti-Patron | Ubicacion | Descripcion |
 |-------------|-----------|-------------|
-| God Object | `api/index.js` | Maneja configuracion, middleware, rutas, errores |
+| God Object | `config/mysql-crm.js` | Núcleo de BD + muchos dominios en un solo export |
 | Magic Numbers | Multiples archivos | IDs hardcodeados (pool ID = 26) |
 | Magic Strings | Rutas | Valores de estado como cadenas |
 | Long Methods | `routes/clientes.js` | Handlers de 100+ lineas |

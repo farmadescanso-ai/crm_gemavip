@@ -1,7 +1,7 @@
 /**
  * Tests unitarios para lib/utils.js
  */
-const { toNum, escapeHtml } = require('../../lib/utils');
+const { toNum, round2, escapeHtml } = require('../../lib/utils');
 
 describe('toNum', () => {
   test('devuelve valor por defecto para null/undefined', () => {
@@ -27,6 +27,14 @@ describe('toNum', () => {
   test('acepta número directo', () => {
     expect(toNum(100)).toBe(100);
     expect(toNum(3.14)).toBe(3.14);
+  });
+});
+
+describe('round2', () => {
+  test('redondea a dos decimales', () => {
+    expect(round2(1.005)).toBe(1.01);
+    expect(round2(10.126)).toBe(10.13);
+    expect(round2(0)).toBe(0);
   });
 });
 

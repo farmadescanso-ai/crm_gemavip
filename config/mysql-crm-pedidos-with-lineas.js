@@ -1,5 +1,6 @@
 'use strict';
 
+const { round2 } = require('../lib/utils');
 const { getClienteRegimenId, getEquivalentRate, getDefaultRate, REGIMEN_IVA } = require('../lib/tax-helpers');
 
 module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) {
@@ -301,7 +302,6 @@ module.exports = async function(id, pedidoPayload, lineasPayload, options = {}) 
           const n = (typeof v === 'number') ? v : Number.parseFloat(String(v ?? '').replace(',', '.'));
           return Number.isFinite(n) ? n : d;
         };
-        const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
         const clampPct = (n) => Math.max(0, Math.min(100, Number(n) || 0));
 
         // Pedido especial: descuentos manuales (no aplicar tabla descuentos_pedido)
