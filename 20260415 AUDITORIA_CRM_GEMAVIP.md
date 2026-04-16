@@ -436,9 +436,9 @@ app.get('/health/db', ...)  // Retorna host, user, database
 |---------|-----------------|------|
 | `api/index.js` | ~145 | Entrada y montaje de middleware/rutas; CSP en `api/middleware/csp.js` |
 | `routes/clientes/*.js` | ~1400 en conjunto | Rutas divididas (`index`, `list`, `edit`, `actions`, …); revisar tamaño individual |
-| `config/mysql-crm.js` | ~1855 | Núcleo + mixins por dominio; principal foco de mantenibilidad futura |
+| `config/mysql-crm.js` | ~1810 | Núcleo + mixins (incl. `mysql-crm-push.js`); principal foco de mantenibilidad futura |
 | `views/cliente-form.ejs` | ~110 | Troceado en partials; complejidad bajada respecto al informe inicial |
-| `views/pedidos.ejs` | ~850+ | Listado + tabs + scripts inline; candidato a extraer JS/CSS a `public/` |
+| `views/pedidos.ejs` | ~560 | Tabs/estados: `public/styles/pedidos-page.css`, `public/scripts/pedidos-page.js` y JSON de config mínimo |
 
 ### 5.2 Duplicacion de Codigo
 

@@ -1,23 +1,5 @@
 <%- include('partials/header', { title: 'Pedidos' }) %>
-
-<style nonce="<%= cspNonce %>">
-  /* Spinner de carga (uso puntual en modales) */
-  .gv-spinner{
-    width: 16px;
-    height: 16px;
-    display: inline-block;
-    border-radius: 999px;
-    border: 2px solid rgba(255,255,255,.35);
-    border-top-color: #fff;
-    animation: gvSpin 0.9s linear infinite;
-  }
-  @keyframes gvSpin{ to{ transform: rotate(360deg); } }
-  .gv-btn-loading{
-    display:inline-flex;
-    align-items:center;
-    gap: 8px;
-  }
-</style>
+<link rel="stylesheet" href="/assets/styles/pedidos-page.css" />
 
 <%
       const itemsArr = Array.isArray(items) ? items : [];
@@ -88,6 +70,10 @@
         + (_selectedHasta ? `&hasta=${encodeURIComponent(_selectedHasta)}` : '')
         + ((typeof selectedEstadoId !== 'undefined' && selectedEstadoId) ? `&estado=${selectedEstadoId}` : '')
         + ((typeof selectedComercialId !== 'undefined' && selectedComercialId) ? `&comercial=${selectedComercialId}` : '');
+
+      const revisandoEstado = (typeof estadosPedido !== 'undefined' && Array.isArray(estadosPedido) ? estadosPedido : []).find(function (e) {
+        return String(e.codigo || e.nombre || '').toLowerCase().includes('revis');
+      });
 %>
 
 <section class="card gv-vista" id="gvPedidosTabs">
@@ -172,27 +158,6 @@
               ><%= pr.label %></a>
             <% }) %>
           </div>
-          <script nonce="<%= cspNonce %>">
-          (function(){
-            var btnApply = document.getElementById('gv-fecha-apply');
-            var inputDesde = document.getElementById('gv-fecha-desde');
-            var inputHasta = document.getElementById('gv-fecha-hasta');
-            if (!btnApply || !inputDesde || !inputHasta) return;
-            function applyDateRange() {
-              var d = inputDesde.value || '';
-              var h = inputHasta.value || '';
-              if (!d && !h) return;
-              var base = '<%= _periodoBase %>';
-              if (d) base += '&desde=' + encodeURIComponent(d);
-              if (h) base += '&hasta=' + encodeURIComponent(h);
-              window.location.href = base;
-            }
-            btnApply.addEventListener('click', applyDateRange);
-            inputDesde.addEventListener('change', function(){ if (inputHasta.value) applyDateRange(); });
-            inputHasta.addEventListener('change', function(){ if (inputDesde.value) applyDateRange(); });
-          })();
-          </script>
-
           <% if (typeof admin !== 'undefined' && admin) { %>
             <%
               const _selEstadoId = typeof selectedEstadoId !== 'undefined' ? Number(selectedEstadoId) : null;
@@ -547,160 +512,8 @@
           </div>
         </div>
 
-        <script nonce="<%= cspNonce %>">
-        (function () {
-          var root = document.getElementById('gvPedidosTabs');
-          if (!root) return;
-
-          var modal = document.getElementById('gv-estado-modal');
-          var backdrop = document.getElementById('gv-estado-backdrop');
-          var select = document.getElementById('gv-estado-select');
-          var errBox = document.getElementById('gv-estado-error');
-          var pedidoNumSpan = document.getElementById('gv-estado-pedido-num');
-          var btnCancel = document.getElementById('gv-estado-cancel');
-          var btnNext = document.getElementById('gv-estado-next');
-
-          var cModal = document.getElementById('gv-estado-confirm-modal');
-          var cBackdrop = document.getElementById('gv-estado-confirm-backdrop');
-          var cPedidoNum = document.getElementById('gv-estado-confirm-pedido-num');
-          var cNombre = document.getElementById('gv-estado-confirm-nombre');
-          var cCancel = document.getElementById('gv-estado-confirm-cancel');
-          var cAccept = document.getElementById('gv-estado-confirm-accept');
-          var cSpinner = document.getElementById('gv-estado-spinner');
-          var cAcceptLabel = document.getElementById('gv-estado-accept-label');
-
-          if (!modal || !backdrop || !select || !btnCancel || !btnNext || !cModal || !cBackdrop || !cCancel || !cAccept) return;
-
-          var currentPid = null;
-          var currentPedidoNum = '';
-          var currentBadge = null;
-          var isSaving = false;
-
-          function setSaving(on) {
-            isSaving = !!on;
-            cAccept.disabled = isSaving;
-            cCancel.disabled = isSaving;
-            if (cSpinner) cSpinner.style.display = isSaving ? 'inline-block' : 'none';
-            if (cAcceptLabel) cAcceptLabel.textContent = isSaving ? 'Guardando...' : 'Aceptar';
-          }
-
-          function openSelectModal(pid, pedidoNum, curEstadoId) {
-            currentPid = pid;
-            currentPedidoNum = pedidoNum || String(pid);
-            pedidoNumSpan.textContent = currentPedidoNum;
-            if (errBox) { errBox.style.display = 'none'; errBox.textContent = ''; }
-            if (curEstadoId) {
-              select.value = String(curEstadoId);
-            } else if (select.options && select.options.length) {
-              select.selectedIndex = 0;
-            }
-            backdrop.hidden = false;
-            modal.hidden = false;
-          }
-          function closeSelectModal(resetState) {
-            modal.hidden = true;
-            backdrop.hidden = true;
-            if (resetState) {
-              currentPid = null;
-              currentPedidoNum = '';
-              currentBadge = null;
-            }
-          }
-
-          function openConfirmModal(pedidoNum, estadoNombre) {
-            cPedidoNum.textContent = pedidoNum || '—';
-            cNombre.textContent = estadoNombre || '—';
-            cBackdrop.hidden = false;
-            cModal.hidden = false;
-          }
-          function closeConfirmModal() {
-            cModal.hidden = true;
-            cBackdrop.hidden = true;
-          }
-
-          btnCancel.addEventListener('click', function () { closeSelectModal(true); });
-          backdrop.addEventListener('click', function () { closeSelectModal(true); });
-          btnNext.addEventListener('click', function () {
-            if (!currentPid) return;
-            var opt = select.options[select.selectedIndex];
-            var estadoNombre = opt ? (opt.textContent || '').trim() : '';
-            var pedidoNum = currentPedidoNum || (pedidoNumSpan ? pedidoNumSpan.textContent : String(currentPid));
-            closeSelectModal(false);
-            openConfirmModal(pedidoNum, estadoNombre);
-          });
-
-          cCancel.addEventListener('click', function () {
-            if (isSaving) return;
-            closeConfirmModal();
-            currentPid = null; currentPedidoNum = ''; currentBadge = null;
-          });
-          cBackdrop.addEventListener('click', function () {
-            if (isSaving) return;
-            closeConfirmModal();
-            currentPid = null; currentPedidoNum = ''; currentBadge = null;
-          });
-
-          cAccept.addEventListener('click', async function () {
-            if (!currentBadge) { closeConfirmModal(); return; }
-            var pid = currentBadge.getAttribute('data-pid');
-            var estadoId = select.value;
-            var opt = select.options[select.selectedIndex];
-            var estadoNombre = opt ? (opt.textContent || '').trim() : '';
-
-            try {
-              setSaving(true);
-              var r = await fetch('/pedidos/' + encodeURIComponent(pid) + '/estado', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ estadoId: estadoId })
-              });
-              var json = await r.json().catch(function () { return null; });
-              if (!r.ok || !json || !json.ok) {
-                throw new Error((json && json.error) ? json.error : ('HTTP ' + r.status));
-              }
-              var color = (json.estado && json.estado.color) ? String(json.estado.color) : 'info';
-              var nombre = (json.estado && json.estado.nombre) ? String(json.estado.nombre) : (estadoNombre || '—');
-
-              currentBadge.textContent = nombre;
-              currentBadge.setAttribute('data-estado-id', String(json.estado.id || estadoId || ''));
-              currentBadge.setAttribute('data-estado-label', nombre);
-              currentBadge.classList.remove('ok', 'info', 'warn', 'danger');
-              currentBadge.classList.add(color || 'info');
-
-              closeConfirmModal();
-              currentPid = null; currentPedidoNum = ''; currentBadge = null;
-            } catch (e) {
-              closeConfirmModal();
-              if (errBox) {
-                errBox.textContent = 'No se pudo cambiar el estado. ' + (e && e.message ? e.message : '');
-                errBox.style.display = 'block';
-              }
-              backdrop.hidden = false;
-              modal.hidden = false;
-              if (pedidoNumSpan) pedidoNumSpan.textContent = currentPedidoNum || (pid || '—');
-            } finally {
-              setSaving(false);
-            }
-          });
-
-          root.addEventListener('click', function (ev) {
-            var btn = ev.target && ev.target.closest ? ev.target.closest('button.gv-pedido-estado-badge[data-pid]') : null;
-            if (!btn) return;
-            currentBadge = btn;
-            var pid = btn.getAttribute('data-pid');
-            var pedidoNum = btn.getAttribute('data-num') || '';
-            var curEstadoId = Number(btn.getAttribute('data-estado-id') || 0) || 0;
-            openSelectModal(pid, pedidoNum, curEstadoId);
-          });
-        })();
-        </script>
       <% } %>
 
-      <%
-        const revisandoEstado = (estadosPedido || []).find(function (e) {
-          return String(e.codigo || e.nombre || '').toLowerCase().includes('revis');
-        });
-      %>
       <% if (!admin && revisandoEstado) { %>
         <!-- Comercial: clic en Pendiente → confirmar → Revisando -->
         <div id="gv-comercial-confirm-backdrop" class="gv-modal-backdrop" hidden></div>
@@ -735,123 +548,17 @@
           </div>
         </div>
 
-        <script nonce="<%= cspNonce %>">
-        (function () {
-          var root = document.getElementById('gvPedidosTabs');
-          if (!root) return;
-          var revisandoId = '<%= revisandoEstado.id %>';
-          var cModal = document.getElementById('gv-comercial-confirm-modal');
-          var cBackdrop = document.getElementById('gv-comercial-confirm-backdrop');
-          var cNum = document.getElementById('gv-comercial-confirm-num');
-          var cCancel = document.getElementById('gv-comercial-cancel');
-          var cAccept = document.getElementById('gv-comercial-accept');
-          var cSpinner = document.getElementById('gv-comercial-spinner');
-          var cLabel = document.getElementById('gv-comercial-accept-label');
-          if (!cModal || !cBackdrop || !cCancel || !cAccept) return;
-
-          var activeBadge = null;
-          var saving = false;
-
-          function setSaving(on) {
-            saving = !!on;
-            cAccept.disabled = saving;
-            cCancel.disabled = saving;
-            if (cSpinner) cSpinner.style.display = saving ? 'inline-block' : 'none';
-            if (cLabel) cLabel.textContent = saving ? 'Enviando...' : 'Sí, enviar a revisión';
-          }
-
-          cCancel.addEventListener('click', function () { if (!saving) { cModal.hidden = true; cBackdrop.hidden = true; activeBadge = null; } });
-          cBackdrop.addEventListener('click', function () { if (!saving) { cModal.hidden = true; cBackdrop.hidden = true; activeBadge = null; } });
-
-          cAccept.addEventListener('click', async function () {
-            if (!activeBadge || saving) return;
-            var pid = activeBadge.getAttribute('data-pid');
-            try {
-              setSaving(true);
-              var r = await fetch('/pedidos/' + encodeURIComponent(pid) + '/estado', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ estadoId: revisandoId })
-              });
-              var json = await r.json().catch(function () { return null; });
-              if (!r.ok || !json || !json.ok) {
-                throw new Error((json && json.error) ? json.error : ('HTTP ' + r.status));
-              }
-              var color = (json.estado && json.estado.color) ? String(json.estado.color) : 'info';
-              var nombre = (json.estado && json.estado.nombre) ? String(json.estado.nombre) : 'Revisando';
-              activeBadge.textContent = nombre;
-              activeBadge.classList.remove('ok', 'info', 'warn', 'danger');
-              activeBadge.classList.add(color || 'info');
-              activeBadge.disabled = true;
-              activeBadge.style.cursor = 'default';
-              activeBadge.title = '';
-
-              var tr = activeBadge.closest('tr');
-              if (tr) {
-                var editBtn = tr.querySelector('a[href*="/edit"]');
-                if (editBtn) editBtn.remove();
-              }
-
-              cModal.hidden = true;
-              cBackdrop.hidden = true;
-              activeBadge = null;
-
-              var wh = json.webhook;
-              if (wh && !wh.ok) {
-                alert('Estado actualizado, pero hubo un error al notificar (webhook): ' + (wh.error || 'HTTP ' + wh.status));
-              }
-            } catch (e) {
-              cModal.hidden = true;
-              cBackdrop.hidden = true;
-              alert('No se pudo cambiar el estado: ' + (e && e.message ? e.message : 'Error desconocido'));
-            } finally {
-              setSaving(false);
-            }
-          });
-
-          root.addEventListener('click', function (ev) {
-            var btn = ev.target && ev.target.closest ? ev.target.closest('button.gv-pedido-estado-comercial[data-pid]') : null;
-            if (!btn) return;
-            activeBadge = btn;
-            var num = btn.getAttribute('data-num') || btn.getAttribute('data-pid') || '—';
-            if (cNum) cNum.textContent = num;
-            cBackdrop.hidden = false;
-            cModal.hidden = false;
-          });
-        })();
-        </script>
       <% } %>
   </div>
 </section>
 
-<script nonce="<%= cspNonce %>">
-(function () {
-  var root = document.getElementById('gvPedidosTabs');
-  if (!root) return;
-  var tabButtons = Array.prototype.slice.call(root.querySelectorAll('.gv-vista-tab[data-tab]'));
-  var panels = Array.prototype.slice.call(root.querySelectorAll('.gv-tabpanel[data-tabpanel]'));
-  if (!tabButtons.length || !panels.length) return;
-  function setTab(id) {
-    tabButtons.forEach(function (b) {
-      var active = b.getAttribute('data-tab') === id;
-      b.classList.toggle('is-active', active);
-      b.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    panels.forEach(function (p) {
-      var active = p.getAttribute('data-tabpanel') === id;
-      p.classList.toggle('is-active', active);
-    });
-  }
-  tabButtons.forEach(function (b) {
-    b.addEventListener('click', function () {
-      setTab(b.getAttribute('data-tab'));
-    });
-  });
-  var hash = String(window.location.hash || '').replace('#', '').trim().toLowerCase();
-  if (hash === 'resumen') hash = 'listado';
-  if (hash === 'listado' || hash === 'seguimiento') setTab(hash);
-})();
-</script>
+<script type="application/json" id="pedidos-page-config"><%- safeJsonInline({
+  periodoBase: _periodoBase,
+  revisandoEstadoId: revisandoEstado && (revisandoEstado.estped_id != null || revisandoEstado.id != null)
+    ? Number(revisandoEstado.estped_id ?? revisandoEstado.id)
+    : null
+}) %></script>
+<script defer src="/assets/scripts/pedidos-page.js"></script>
 
 <%- include('partials/footer') %>
 

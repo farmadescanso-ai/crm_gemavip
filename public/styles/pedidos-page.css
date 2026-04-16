@@ -1,0 +1,22 @@
+/* Pedidos: spinner en modales de cambio de estado */
+.gv-spinner {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: gvSpin 0.9s linear infinite;
+}
+
+@keyframes gvSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.gv-btn-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
