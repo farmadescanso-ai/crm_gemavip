@@ -45,7 +45,7 @@
                 result.textContent = '✓ Email enviado correctamente';
                 result.style.color = 'var(--gv-success, green)';
               } else {
-                result.innerHTML = '✗ ' + (data.error || 'Error') + (data.errorCode ? ' (código: ' + data.errorCode + ')' : '') + (data.config?.source ? ' | Origen: ' + JSON.stringify(data.config.source) : '');
+                result.textContent = '✗ ' + (data.error || 'Error') + (data.errorCode ? ' (código: ' + data.errorCode + ')' : '') + (data.config?.source ? ' | Origen: ' + JSON.stringify(data.config.source) : '');
                 result.style.color = 'var(--gv-error, #b91c1c)';
               }
             } catch (e) {

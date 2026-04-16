@@ -427,6 +427,14 @@
     var btnGuardar = document.getElementById('gvRelacionesModalGuardar');
     var selectedIds = {};
     var searchTimeout = null;
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
 
     function hideRelModal() {
       if (modalBackdrop) modalBackdrop.hidden = true;
@@ -456,10 +464,13 @@
         var dni = c.cli_dni_cif || c.DNI_CIF || '';
         var email = c.cli_email || c.Email || '';
         var checked = selectedIds[id] ? 'checked' : '';
+        var idEsc = esc(id);
+        var nomEsc = esc(nom || ('Cliente ' + id));
+        var metaEsc = esc([dni, email].filter(Boolean).join(' · '));
         return '<label style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid var(--gv-border); border-radius:8px; cursor:pointer;">' +
-          '<input type="checkbox" class="gv-rel-check" data-id="' + id + '" ' + checked + ' />' +
-          '<div><div style="font-weight:800;">' + (nom || 'Cliente ' + id) + '</div>' +
-          (dni || email ? '<div style="font-size:12px; color:var(--gv-muted);">' + [dni, email].filter(Boolean).join(' · ') + '</div>' : '') + '</div></label>';
+          '<input type="checkbox" class="gv-rel-check" data-id="' + idEsc + '" ' + checked + ' />' +
+          '<div><div style="font-weight:800;">' + nomEsc + '</div>' +
+          (metaEsc ? '<div style="font-size:12px; color:var(--gv-muted);">' + metaEsc + '</div>' : '') + '</div></label>';
       }).join('');
       resultsDiv.querySelectorAll('.gv-rel-check').forEach(function(cb) {
         cb.addEventListener('change', function() {

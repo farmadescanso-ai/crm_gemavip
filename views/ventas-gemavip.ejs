@@ -284,10 +284,10 @@
   const errorEl = document.getElementById('ventas-error');
   const processingEl = document.getElementById('ventas-processing');
 
-  const initialData = <%- (typeof initialData !== 'undefined' && initialData ? JSON.stringify(initialData) : 'null').replace(/<\//g, '\\x3c/') %>;
-  const savedFiles = <%- (typeof savedFiles !== 'undefined' && savedFiles ? JSON.stringify(savedFiles) : '[]').replace(/<\//g, '\\x3c/') %>;
-  let catalogos = <%- (typeof catalogos !== 'undefined' && catalogos ? JSON.stringify(catalogos) : '{"años":[],"meses":[],"provincias":[],"materiales":[]}').replace(/<\//g, '\\x3c/') %>;
-  const queryParams = <%- (typeof queryParams !== 'undefined' && queryParams ? JSON.stringify(queryParams) : '{"view":"evolucion-mes"}').replace(/<\//g, '\\x3c/') %>;
+  const initialData = <%- safeJsonInline((typeof initialData !== 'undefined' && initialData) ? initialData : null) %>;
+  const savedFiles = <%- safeJsonInline((typeof savedFiles !== 'undefined' && savedFiles) ? savedFiles : []) %>;
+  let catalogos = <%- safeJsonInline((typeof catalogos !== 'undefined' && catalogos) ? catalogos : { años: [], meses: [], provincias: [], materiales: [] }) %>;
+  const queryParams = <%- safeJsonInline((typeof queryParams !== 'undefined' && queryParams) ? queryParams : { view: 'evolucion-mes' }) %>;
 
   const GV_COLORS = {
     primary: '#008bd2',
@@ -301,6 +301,14 @@
   let rawData = null;
 
   const MESES_NOMBRES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
 
   function filterData(data, anio, mes, provinciaCodigo, materialCodigo) {
     if (!data) return data;
@@ -576,22 +584,22 @@
     const materiales = catalogos?.materiales?.length ? catalogos.materiales : (data.materiales || []);
 
     if (anioSelect) {
-      anioSelect.innerHTML = '<option value="all">Todos</option>' + años.map(a => '<option value="' + a + '">' + a + '</option>').join('');
+      anioSelect.innerHTML = '<option value="all">Todos</option>' + años.map(a => '<option value="' + esc(a) + '">' + esc(a) + '</option>').join('');
       if (queryParams?.anio && años.includes(Number(queryParams.anio))) anioSelect.value = String(queryParams.anio);
       else if (años.includes(anioActual)) anioSelect.value = String(anioActual);
     }
     if (mesSelect) {
-      mesSelect.innerHTML = '<option value="all">Todos</option>' + meses.map(m => '<option value="' + m + '">' + (MESES_NOMBRES[m-1] || m) + '</option>').join('');
+      mesSelect.innerHTML = '<option value="all">Todos</option>' + meses.map(m => '<option value="' + esc(m) + '">' + esc(MESES_NOMBRES[m-1] || m) + '</option>').join('');
       if (queryParams?.mes) mesSelect.value = String(queryParams.mes);
     }
     if (provSelect) {
       const provs = provincias.slice().sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
-      provSelect.innerHTML = '<option value="all">Todas</option>' + provs.map(p => '<option value="' + (p.codigo || '') + '">' + (p.nombre || p.codigo || '') + '</option>').join('');
+      provSelect.innerHTML = '<option value="all">Todas</option>' + provs.map(p => '<option value="' + esc(p.codigo || '') + '">' + esc(p.nombre || p.codigo || '') + '</option>').join('');
       if (queryParams?.provincia) provSelect.value = String(queryParams.provincia);
     }
     if (artSelect) {
       const arts = materiales.slice().sort((a, b) => (a.descripcion || '').localeCompare(b.descripcion || ''));
-      artSelect.innerHTML = '<option value="all">Todos</option>' + arts.map(m => '<option value="' + (m.codigo || '') + '">' + ((m.descripcion || m.codigo || '').slice(0, 50) + (m.descripcion && m.descripcion.length > 50 ? '…' : '')) + '</option>').join('');
+      artSelect.innerHTML = '<option value="all">Todos</option>' + arts.map(m => '<option value="' + esc(m.codigo || '') + '">' + esc((m.descripcion || m.codigo || '').slice(0, 50) + (m.descripcion && m.descripcion.length > 50 ? '…' : '')) + '</option>').join('');
       if (queryParams?.articulo) artSelect.value = String(queryParams.articulo);
     }
 
@@ -607,12 +615,12 @@
           tbodyFilter.innerHTML = '';
           (filtered.ventas || []).slice(0, 200).forEach(v => {
             const tr = document.createElement('tr');
-            tr.innerHTML = '<td>' + (v.materialDescripcion || v.materialCodigo) + '</td><td>' + (v.provinciaNombre || v.provinciaCodigo) + '</td><td>' + (v.mesKey || '') + '</td><td>' + (v.cantidad || 0) + '</td>';
+            tr.innerHTML = '<td>' + esc(v.materialDescripcion || v.materialCodigo) + '</td><td>' + esc(v.provinciaNombre || v.provinciaCodigo) + '</td><td>' + esc(v.mesKey || '') + '</td><td>' + esc(v.cantidad || 0) + '</td>';
             tbodyFilter.appendChild(tr);
           });
           if ((filtered.ventas || []).length > 200) {
             const tr = document.createElement('tr');
-            tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + filtered.ventas.length + ' registros</td>';
+            tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + esc(filtered.ventas.length) + ' registros</td>';
             tbodyFilter.appendChild(tr);
           }
         }
@@ -659,15 +667,15 @@
     tbody.innerHTML = '';
     (data.ventas || []).slice(0, 200).forEach(v => {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td>' + (v.materialDescripcion || v.materialCodigo) + '</td>' +
-        '<td>' + (v.provinciaNombre || v.provinciaCodigo) + '</td>' +
-        '<td>' + (v.mesKey || '') + '</td>' +
-        '<td>' + (v.cantidad || 0) + '</td>';
+      tr.innerHTML = '<td>' + esc(v.materialDescripcion || v.materialCodigo) + '</td>' +
+        '<td>' + esc(v.provinciaNombre || v.provinciaCodigo) + '</td>' +
+        '<td>' + esc(v.mesKey || '') + '</td>' +
+        '<td>' + esc(v.cantidad || 0) + '</td>';
       tbody.appendChild(tr);
     });
     if ((data.ventas || []).length > 200) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + data.ventas.length + ' registros</td>';
+      tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + esc(data.ventas.length) + ' registros</td>';
       tbody.appendChild(tr);
     }
 

@@ -116,6 +116,14 @@
       if (!data.ok || !data.items || data.items.length === 0) return;
       var tbody = document.getElementById('notif-tbody');
       emptyRow.remove();
+      var esc = function (s) {
+        return String(s == null ? '' : s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      };
       var fmtDate = function(d) {
         if (!d) return '';
         var s = String(d);
@@ -136,18 +144,29 @@
         }
         var pedidoLabel = (n.pedido_num ? String(n.pedido_num) : ('Pedido #' + pid));
         var clienteLabel = (n.contacto_nombre ? String(n.contacto_nombre) : 'Cliente');
+        var pedidoLabelEsc = esc(pedidoLabel);
+        var clienteLabelEsc = esc(clienteLabel);
         var ref = (tipo === 'pedido_especial' && pid)
-          ? ('<a href="/pedidos/' + pid + '/edit" title="' + pedidoLabel + '">' + clienteLabel + '</a>')
-          : ('<a href="/clientes/' + n.id_contacto + '">' + clienteLabel + '</a>');
+          ? ('<a href="/pedidos/' + encodeURIComponent(pid) + '/edit" title="' + pedidoLabelEsc + '">' + clienteLabelEsc + '</a>')
+          : ('<a href="/clientes/' + encodeURIComponent(n.id_contacto || '') + '">' + clienteLabelEsc + '</a>');
         var tr = document.createElement('tr');
         var acc = '<div class="gv-actions">';
         if (estado === 'pendiente') {
-          acc += '<form method="post" action="/notificaciones/' + n.id + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + n.id + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form>';
+          acc += '<form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/aprobar"><button class="btn secondary icon success" type="submit" title="Aprobar" aria-label="Aprobar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button></form><form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/rechazar"><button class="btn secondary icon danger" type="submit" title="Rechazar" aria-label="Rechazar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></form>';
         }
-        acc += '<form method="post" action="/notificaciones/' + n.id + '/eliminar" style="display:inline;"><button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm(\'¿Eliminar esta notificación?\');" style="color:#6c757d;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></form></div>';
+        acc += '<form method="post" action="/notificaciones/' + encodeURIComponent(n.id || '') + '/eliminar" style="display:inline;"><button class="btn secondary icon" type="submit" title="Eliminar" aria-label="Eliminar notificación" onclick="return confirm(\'¿Eliminar esta notificación?\');" style="color:#6c757d;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></form></div>';
         var fechaResol = (estado !== 'pendiente' && n.fecha_resolucion) ? fmtDate(n.fecha_resolucion) : '—';
         var adminNombre = (estado !== 'pendiente') ? (n.admin_nombre || 'Enlace email') : '—';
-        tr.innerHTML = '<td class="gv-notif-col-acciones">' + acc + '</td><td class="gv-notif-col-fecha">' + fmtDate(n.fecha_creacion) + '</td><td class="gv-notif-col-tipo">' + tipoLabel + '</td><td class="gv-notif-col-referencia">' + ref + '</td><td class="gv-notif-col-comercial">' + (n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante) + '</td><td class="gv-notif-col-estado"><span class="gv-badge gv-badge--' + badgeClass + '">' + estadoLabel + '</span></td><td class="gv-notif-col-fecha-resol">' + fechaResol + '</td><td>' + adminNombre + '</td>';
+        var comercialNombre = n.comercial_nombre || ('Comercial #' + n.id_comercial_solicitante);
+        tr.innerHTML =
+          '<td class="gv-notif-col-acciones">' + acc + '</td>' +
+          '<td class="gv-notif-col-fecha">' + esc(fmtDate(n.fecha_creacion)) + '</td>' +
+          '<td class="gv-notif-col-tipo">' + esc(tipoLabel) + '</td>' +
+          '<td class="gv-notif-col-referencia">' + ref + '</td>' +
+          '<td class="gv-notif-col-comercial">' + esc(comercialNombre) + '</td>' +
+          '<td class="gv-notif-col-estado"><span class="gv-badge gv-badge--' + esc(badgeClass) + '">' + esc(estadoLabel) + '</span></td>' +
+          '<td class="gv-notif-col-fecha-resol">' + esc(fechaResol) + '</td>' +
+          '<td>' + esc(adminNombre) + '</td>';
         tbody.appendChild(tr);
       });
     })
