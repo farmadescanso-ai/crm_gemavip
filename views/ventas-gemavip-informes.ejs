@@ -237,7 +237,7 @@
   </section>
 </div>
 
-<script type="application/json" id="ventas-page-data"><%- safeJsonInline({ initialData: typeof initialData !== 'undefined' ? initialData : null, catalogos: typeof catalogos !== 'undefined' ? catalogos : {}, queryParams: typeof queryParams !== 'undefined' ? queryParams : {}, savedFiles: typeof savedFiles !== 'undefined' ? savedFiles : [] }) %></script>
+<script nonce="<%= cspNonce %>" type="application/json" id="ventas-page-data"><%- safeJsonInline({ initialData: typeof initialData !== 'undefined' ? initialData : null, catalogos: typeof catalogos !== 'undefined' ? catalogos : {}, queryParams: typeof queryParams !== 'undefined' ? queryParams : {}, savedFiles: typeof savedFiles !== 'undefined' ? savedFiles : [] }) %></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="/assets/scripts/ventas-informes.js"></script>
 

@@ -1,6 +1,6 @@
 <%- include('partials/header', { title: 'Pedidos' }) %>
 
-<style>
+<style nonce="<%= cspNonce %>">
   /* Spinner de carga (uso puntual en modales) */
   .gv-spinner{
     width: 16px;
@@ -180,7 +180,7 @@
               ><%= pr.label %></a>
             <% }) %>
           </div>
-          <script>
+          <script nonce="<%= cspNonce %>">
           (function(){
             var btnApply = document.getElementById('gv-fecha-apply');
             var inputDesde = document.getElementById('gv-fecha-desde');
@@ -555,7 +555,7 @@
           </div>
         </div>
 
-        <script>
+        <script nonce="<%= cspNonce %>">
         (function () {
           var root = document.getElementById('gvPedidosTabs');
           if (!root) return;
@@ -743,7 +743,7 @@
           </div>
         </div>
 
-        <script>
+        <script nonce="<%= cspNonce %>">
         (function () {
           var root = document.getElementById('gvPedidosTabs');
           if (!root) return;
@@ -832,7 +832,7 @@
   </div>
 </section>
 
-<script>
+<script nonce="<%= cspNonce %>">
 (function () {
   var root = document.getElementById('gvPedidosTabs');
   if (!root) return;

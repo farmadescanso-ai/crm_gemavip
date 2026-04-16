@@ -1,5 +1,5 @@
 <%- include('partials/header', { title: title || 'Importar Holded' }) %>
-<style>.gv-holded-tab:hover{color:var(--gv-accent,#0d7377)!important;}</style>
+<style nonce="<%= cspNonce %>">.gv-holded-tab:hover{color:var(--gv-accent,#0d7377)!important;}</style>
 
 <section class="card">
   <div class="card-hd">
@@ -74,7 +74,7 @@
         </div>
       </form>
 
-      <script>
+      <script nonce="<%= cspNonce %>">
         (() => {
           const form = document.getElementById('gv-holded-sync-form');
           const btn = document.getElementById('gv-holded-btn');

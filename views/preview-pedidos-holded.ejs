@@ -1,5 +1,5 @@
 <%- include('partials/header', { title: title || 'Vista previa pedidos Holded' }) %>
-<style>
+<style nonce="<%= cspNonce %>">
   .gv-holded-tab:hover{color:var(--gv-accent,#0d7377)!important;}
   .gv-pedido-holded-card.gv-excluido{ display: none !important; }
 </style>
@@ -78,7 +78,7 @@
         <p style="color: var(--gv-muted, #666);">No hay pedidos en Holded para el período seleccionado (o todos fueron omitidos por provincia/contacto).</p>
       <% } %>
 
-      <script>
+      <script nonce="<%= cspNonce %>">
         (() => {
           const form = document.getElementById('gv-holded-import-form');
           const btn = document.getElementById('gv-holded-save-btn');

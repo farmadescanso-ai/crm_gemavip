@@ -109,7 +109,7 @@
     </div>
   </div>
 </section>
-<script>
+<script nonce="<%= cspNonce %>">
 (function() {
   var emptyRow = document.getElementById('notif-empty-row');
   var total = <%= (typeof paging !== 'undefined' && paging && paging.total) ? paging.total : 0 %>;

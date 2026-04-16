@@ -281,7 +281,7 @@
 </section>
 
 <% if (cli && cli.cli_id && holdedFlat.length) { %>
-<script>
+<script nonce="<%= cspNonce %>">
 (function () {
   var statusEl = document.querySelector('.gv-holded-map-saved');
   var serverMap = <%- safeJsonInline(savedMap || {}) %>;

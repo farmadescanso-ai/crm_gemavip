@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const compression = require('compression');
 const helmet = require('helmet');
@@ -50,24 +51,68 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(compression());
+
+app.use((req, res, next) => {
+  res.locals.cspNonce = crypto.randomBytes(16).toString('base64url');
+  next();
+});
+
+const cspAppMiddleware = helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: [
+      "'self'",
+      (req, res) => `'nonce-${res.locals.cspNonce}'`,
+      'https://cdn.jsdelivr.net',
+      'https://vercel.live'
+    ],
+    scriptSrcAttr: ["'unsafe-inline'"],
+    styleSrc: [
+      "'self'",
+      (req, res) => `'nonce-${res.locals.cspNonce}'`,
+      'https://fonts.googleapis.com',
+      'https://cdn.jsdelivr.net'
+    ],
+    styleSrcAttr: ["'unsafe-inline'"],
+    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://fonts.googleapis.com'],
+    connectSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+    frameSrc: ["'self'", 'https://vercel.live'],
+    frameAncestors: ["'none'"],
+    workerSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"]
+  }
+});
+
+/** Swagger UI inyecta scripts/estilos inline sin nonce; CSP más permisiva solo en /api/docs. */
+const cspSwaggerDocsMiddleware = helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "'unsafe-inline'"],
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://fonts.googleapis.com'],
+    connectSrc: ["'self'"],
+    frameAncestors: ["'none'"],
+    workerSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"]
+  }
+});
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/docs')) {
+    return cspSwaggerDocsMiddleware(req, res, next);
+  }
+  return cspAppMiddleware(req, res, next);
+});
+
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'https://vercel.live'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'fonts.googleapis.com', 'cdn.jsdelivr.net'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-        fontSrc: ["'self'", 'fonts.gstatic.com', 'fonts.googleapis.com'],
-        connectSrc: ["'self'", 'cdn.jsdelivr.net', 'https://cdn.jsdelivr.net'],
-        frameSrc: ["'self'", 'https://vercel.live'],
-        frameAncestors: ["'none'"],
-        workerSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"]
-      }
-    }
+    contentSecurityPolicy: false
   })
 );
 

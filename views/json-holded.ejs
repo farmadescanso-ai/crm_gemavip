@@ -1,5 +1,5 @@
 <%- include('partials/header', { title: title || 'JSON Holded' }) %>
-<style>
+<style nonce="<%= cspNonce %>">
   .gv-holded-tab:hover{color:var(--gv-accent,#0d7377)!important;}
   .gv-json-wrap{ background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:8px; overflow-x:auto; font-family:'Consolas','Monaco','Courier New',monospace; font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-all; }
   .gv-mapping-table{ width:100%; border-collapse:collapse; font-size:14px; }

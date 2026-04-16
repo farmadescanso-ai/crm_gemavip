@@ -377,7 +377,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= cspNonce %>">
   (function () {
     var _regfisId = <%= JSON.stringify(Number(item?.ped_regfis_id ?? (typeof cliente !== 'undefined' && cliente ? cliente.cli_regfis_id : 1)) || 1) %>;
     var _taxLabels = { 1: 'IVA', 2: 'IGIC', 3: 'IPSI' };

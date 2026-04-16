@@ -182,7 +182,7 @@
 </section>
 
 <% if (admin) { %>
-<script>
+<script nonce="<%= cspNonce %>">
 (function() {
   var form = document.getElementById('formDeleteArticulo');
   if (form) {

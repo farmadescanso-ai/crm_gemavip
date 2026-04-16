@@ -59,7 +59,7 @@
   </div>
 </section>
 
-<style>
+<style nonce="<%= cspNonce %>">
 .gv-password-wrap { display: flex; align-items: center; }
 .gv-password-wrap input { flex: 1; padding-right: 44px; }
 .gv-password-toggle {
@@ -69,7 +69,7 @@
 }
 .gv-password-toggle:hover { color: var(--gv-ink, #333); }
 </style>
-<script>
+<script nonce="<%= cspNonce %>">
 (function(){
   var btn = document.querySelector('.gv-password-toggle');
   var input = document.getElementById('login-password');

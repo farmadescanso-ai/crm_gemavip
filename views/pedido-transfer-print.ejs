@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pedido Transfer #<%= numPedido || pedidoId %> · CRM Gemavip</title>
-  <style>
+  <style nonce="<%= cspNonce %>">
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #222; }
     .gv-transfer-print { max-width: 800px; margin: 0 auto; }
@@ -73,7 +73,7 @@
     </table>
   </div>
 
-  <script>
+  <script nonce="<%= cspNonce %>">
     (function() {
       function doPrint() {
         try {

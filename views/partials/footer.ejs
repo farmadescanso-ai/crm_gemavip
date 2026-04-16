@@ -3,7 +3,7 @@
     <button id="gv-scroll-top" class="gv-scroll-top" aria-label="Volver arriba" title="Volver arriba">
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
     </button>
-    <style>
+    <style nonce="<%= cspNonce %>">
     .gv-scroll-top {
       position: fixed;
       bottom: 28px;
@@ -39,7 +39,7 @@
       .gv-scroll-top { bottom: 18px; right: 18px; width: 40px; height: 40px; }
     }
     </style>
-    <script>
+    <script nonce="<%= cspNonce %>">
     (function(){
       var btn = document.getElementById('gv-scroll-top');
       if (!btn) return;
@@ -67,7 +67,7 @@
         &copy; 2026 <a href="https://www.linkedin.com/in/paco-lara/overlay/about-this-profile/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base%3BCXmIFvUbQZC2FNV9JKisWQ%3D%3D" target="_blank" rel="noopener noreferrer">Paco Lara</a>
       </div>
     </footer>
-    <script>
+    <script nonce="<%= cspNonce %>">
     (function(){
       var meta = document.querySelector('meta[name="csrf-token"]');
       if (!meta) return;
@@ -112,7 +112,7 @@
     </script>
     <script defer src="/assets/scripts/client-smart-search.js"></script>
     <% if (typeof user !== 'undefined' && user && (roleNavLinks || []).some(function(l){ return l.href === '/notificaciones'; })) { %>
-    <script>
+    <script nonce="<%= cspNonce %>">
     (function(){ if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     var ran = false;
     function urlBase64ToUint8Array(base64) {

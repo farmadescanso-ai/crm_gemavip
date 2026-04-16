@@ -254,7 +254,7 @@
   </div>
 </section>
 
-<style>
+<style nonce="<%= cspNonce %>">
 .gv-field-admin-only {
   border-left: 3px solid var(--gv-danger, #e53e3e);
   padding-left: 8px;
@@ -273,7 +273,7 @@
 }
 </style>
 
-<script>
+<script nonce="<%= cspNonce %>">
 (function () {
   var tabButtons = Array.prototype.slice.call(document.querySelectorAll('.gv-tab[data-tab]'));
   var panels = Array.prototype.slice.call(document.querySelectorAll('.gv-tabpanel[data-tabpanel]'));

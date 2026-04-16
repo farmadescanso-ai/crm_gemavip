@@ -27,7 +27,7 @@
           <span id="gv-email-test-result" style="font-weight: 700;"></span>
         </div>
       </div>
-      <script>
+      <script nonce="<%= cspNonce %>">
         (() => {
           const btn = document.getElementById('gv-email-test-btn');
           const result = document.getElementById('gv-email-test-result');
@@ -80,7 +80,7 @@
       </div>
     <% } %>
     <% if (error || success) { %>
-      <script>
+      <script nonce="<%= cspNonce %>">
         (() => {
           const box = document.getElementById('gv-sysvar-notice');
           if (!box) return;
