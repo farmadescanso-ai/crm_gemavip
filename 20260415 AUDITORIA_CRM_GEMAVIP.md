@@ -72,7 +72,7 @@ CRM Gemavip es una aplicacion **Node.js + Express** para gestion comercial (CRM)
 ```
 CRM_Gemavip/
 ├── api/                        # Punto de entrada (serverless)
-│   ├── index.js               # App principal (876 lineas)
+│   ├── index.js               # App principal (~145 lineas; CSP y errores en middleware/)
 │   ├── health.js              # Health check
 │   └── *.php                  # Legacy PHP endpoints
 ├── config/                     # Configuracion y dominios
@@ -96,7 +96,7 @@ CRM_Gemavip/
 │   ├── scripts/               # JS cliente
 │   └── styles/                # CSS
 ├── scripts/                    # 100+ scripts utilidad
-├── tests/                      # 8 archivos de test
+├── tests/                      # 11+ archivos *.test.js (Jest)
 ├── uploads/                    # Subidas de usuarios
 ├── docs/                       # Documentacion (28+ archivos)
 └── sql/                        # Scripts SQL
@@ -279,9 +279,11 @@ visitas ──→ comerciales (com_id)
 - Implementacion custom con patron Synchronizer Token
 - Tokens almacenados en sesion
 - Validacion en POST/PUT/DELETE para usuarios autenticados
-- Excluye rutas API (protegidas por API key) y webhooks
+- Excluye rutas API (protegidas por API key), webhooks, health y `sw.js`; rutas con flujo especial (p. ej. subida) pueden usar validacion diferida
+- Formularios HTML relevantes incluyen campo oculto `_csrf` vía `views/partials/csrf-field.ejs` donde se integró
+- Cabecera `X-CSRF-Token` admitida en preflight CORS cuando hay lista de orígenes
 
-**Implementacion:** `lib/csrf.js`
+**Implementacion:** `lib/csrf.js`, `api/index.js` (`csrfProtection({ skipPaths, deferValidationPaths })`)
 
 ### 4.3 Inyeccion SQL: BUENA (9/10)
 
@@ -293,29 +295,22 @@ visitas ──→ comerciales (com_id)
 
 **NO SE ENCONTRARON VULNERABILIDADES DE INYECCION SQL**
 
-### 4.4 Vulnerabilidades XSS: CRITICA (3/10)
+### 4.4 Vulnerabilidades XSS: MEJORABLE (5/10)
 
-**Problema grave encontrado:**
+**Situacion actual:**
 
-Multiples plantillas EJS usan `<%= %>` con datos de usuario sin escapar:
+- Sigue habiendo salidas con `<%= %>` sobre datos de usuario o de query (mensajes de error, valores de búsqueda re-reflejados, etc.) donde conviene **`escapeHtml()`** (`lib/utils.js`) o equivalente de forma sistemática.
+- **CSP** con nonces en scripts/estilos inline y sin `'unsafe-inline'` en `script-src`/`style-src` reduce mucho el impacto de un XSS “clásico” (inyectar `<script>`); persisten riesgos de **HTML/attribute injection** y `javascript:` en enlaces si el dato llega a atributos sin comillas seguras.
+- Parte del JS en cliente construye HTML en string (p. ej. duplicados DNI en ficha cliente) usando helpers locales `escapeHtml`; revisar que no queden concatenaciones sin escapar al ampliar esa UI.
+
+**Ejemplos de patron a corregir (no exhaustivo):**
 
 ```ejs
-<!-- views/login.ejs -->
 <div class="gv-alert"><%= error %></div>
-
-<!-- views/clientes.ejs -->
 <input type="search" value="<%= q %>" />
 ```
 
-**Archivos afectados:**
-- `views/login.ejs` - mensajes de error
-- `views/clientes.ejs` - busquedas
-- `views/admin-normalizar-telefonos.ejs` - mensajes
-- Multiples plantillas adicionales
-
-**Nota:** Existe una funcion `escapeHtml()` en `lib/utils.js` pero NO se usa consistentemente.
-
-**Severidad:** CRITICA - Permite ejecucion de JavaScript malicioso en el navegador de otros usuarios.
+**Prioridad:** Alta en pantallas compartidas (login, listados con `q`, mensajes admin) y en cualquier campo que refleje input de terceros.
 
 ### 4.5 Subida de Archivos: MEJORABLE (5/10)
 
@@ -342,54 +337,49 @@ multer({
 ### 4.6 Configuracion de Sesiones: BUENA (9/10)
 
 **Aciertos:**
-- Cookies: `httpOnly: true`, `sameSite: 'lax'`
-- Produccion usa `secure: true` para HTTPS
-- Sesiones rolling (se renuevan con actividad)
-- Almacen MySQL con limpieza automatica
-- Timeout configurable (default 60 minutos)
+- Cookies: `httpOnly: true`; `sameSite` configurable por entorno (`SESSION_COOKIE_SAMESITE`: `lax` / `strict` / `none`)
+- Con `sameSite: 'none'`, `secure: true` es obligatorio; en el resto de casos `secure` sigue el modo producción
+- Sesiones rolling (`rolling: true`)
+- Almacen MySQL (`express-mysql-session`) con expiración y limpieza
+- Timeout / `maxAge` derivados de `SESSION_IDLE_TIMEOUT_MINUTES` y `SESSION_MAX_AGE_DAYS` (ver `api/setup-session-pool.js`)
+- En desarrollo, si falta `SESSION_SECRET`, se usa secreto **efímero** (sesiones no sobreviven al reinicio) o `DEV_SESSION_SECRET` si está definido
 
-### 4.7 Variables de Entorno: MEJORABLE (6/10)
-
-**Aciertos:**
-- `.env.example` proporcionado (sin secrets reales)
-- `SESSION_SECRET` obligatorio en produccion
-- API keys protegidas
-
-**Problemas:**
-
-1. **Secret debil en desarrollo:**
-```javascript
-const sessionSecret = process.env.SESSION_SECRET ||
-  (isProduction ? null : 'dev-secret-change-me');
-```
-
-2. **Endpoint debug expone datos sensibles:**
-```javascript
-app.get('/api/debug-login', ...)  // Puede exponer datos de autenticacion
-```
-
-3. **Health check revela infraestructura:**
-```javascript
-app.get('/health/db', ...)  // Retorna host, user, database
-```
-
-### 4.8 CORS: NO IMPLEMENTADO (0/10)
-
-**Problema critico:** No se encontro configuracion CORS alguna en la aplicacion.
-
-**Riesgo:** La aplicacion puede aceptar peticiones de cualquier origen.
-
-### 4.9 Validacion de Entrada: PARCIAL (5/10)
+### 4.7 Variables de Entorno: MEJORABLE (7/10)
 
 **Aciertos:**
-- Coercion de tipos: `Number(value) || default`
-- Trim de strings: `String(value).trim()`
-- Validacion regex para patrones especificos
+- `.env.example` documenta sesión, CORS, DB, flags de debug, etc.
+- En entornos tipo producción (`NODE_ENV=production` o `VERCEL`), **falta de `SESSION_SECRET` aborta el arranque**
+- API keys y rutas sensibles acotadas con middleware (`requireApiKeyIfConfigured`)
 
-**Problemas:**
-- `express-validator` instalado pero NO usado consistentemente
-- Sin limites de longitud en muchos campos string
-- Validacion inconsistente entre rutas
+**Puntos a vigilar:**
+
+1. **Desarrollo local:** sin `SESSION_SECRET` el secreto es aleatorio en cada arranque; para sesiones estables usar `SESSION_SECRET` o `DEV_SESSION_SECRET` (ya no se usa el literal fijo `dev-secret-change-me` del informe original).
+2. **`/api/debug-login`:** solo responde si **no** es producción, `ENABLE_DEBUG_LOGIN=1`, existe `DEBUG_LOGIN_SECRET` (≥16 caracteres) y coincide con `?secret=…`. En producción típica devuelve **404**. Riesgo residual: configuración errónea en un entorno “no prod” con datos reales.
+3. **`GET /health/db`:** en **producción** la respuesta exitosa es mínima (`ok`, `service`, `timestamp`); el detalle de host/usuario/BD y ping solo en no producción. Sigue protegido por API key si está configurada.
+
+### 4.8 CORS: IMPLEMENTADO (7/10)
+
+**Estado:** Middleware `corsMiddleware` en `lib/cors-middleware.js`, registrado en `api/index.js`.
+
+**Comportamiento:**
+- Variable **`CORS_ORIGINS`**: lista separada por comas de orígenes permitidos (sin barra final).
+- Si la lista está **vacía**, no se envían cabeceras CORS adicionales: el comportamiento por defecto del navegador es mismo origen.
+- Si hay orígenes: se refleja `Access-Control-Allow-Origin` solo para `Origin` permitido, `Access-Control-Allow-Credentials: true`, y respuesta **204** a `OPTIONS` con métodos y cabeceras habituales (incl. `X-API-Key`, `X-CSRF-Token`).
+
+**Riesgo residual:** Origen olvidado en la lista en despliegues con front separado; pruebas de preflight en cada entorno.
+
+### 4.9 Validacion de Entrada: MEJORABLE (6/10)
+
+**Aciertos:**
+- Coercion y trim manual en muchas rutas legacy
+- **`express-validator`** centralizado en módulos bajo `lib/validators/` (API: clientes, pedidos, visitas, comerciales, notificaciones, webhook, holded-sync, push; UI HTML: clientes, pedidos, visitas; `lib/validators/auth.js`)
+- **`lib/validation-handlers.js`** para respuestas JSON uniformes tras validación
+- Tests sobre validadores de query de API clientes (`tests/lib/validators-api-clientes-query.test.js`)
+
+**Problemas persistentes:**
+- Cobertura desigual: no todas las rutas pasan por cadenas `express-validator`
+- Límites de longitud y sanitización de strings no siempre explícitos en HTML/forms
+- Algunos endpoints siguen validando “a mano”
 
 ### 4.10 Autorizacion: BUENA (8/10)
 
@@ -402,12 +392,24 @@ app.get('/health/db', ...)  // Retorna host, user, database
 ### 4.11 Manejo de Errores: BUENA (8/10)
 
 **Aciertos:**
-- Error handler centralizado en `api/index.js`
+- Registro de manejadores HTTP vía `registerHttpErrorHandlers` (`api/middleware/http-error-handlers.js`), montado desde `api/index.js`
 - Paginas de error personalizadas
 - Stack traces solo en desarrollo
-- Request IDs para debugging
+- Request IDs para debugging (`X-Request-Id`)
 
-### 4.12 Credenciales Expuestas en el Dump SQL: CRITICA
+### 4.12 Content Security Policy (CSP) y Helmet: BUENA (8/10)
+
+**Estado:** `api/middleware/csp.js` + `helmet` (CSP desactivada en el bloque principal de Helmet porque la CSP se aplica con middleware dedicado).
+
+**Directivas principales (app HTML):**
+- `default-src 'self'`
+- `script-src` / `style-src`: `'self'`, **nonce por petición**, CDNs usados (p. ej. jsDelivr, fuentes Google), `vercel.live` en scripts donde aplica
+- Sin `'unsafe-inline'` en esas dos directivas para bloques `<script>`/`<style>`; los bloques en EJS llevan `nonce="<%= cspNonce %>"` (vía `res.locals.cspNonce`)
+- **`script-src-attr`** / **`style-src-attr`**: `'unsafe-inline'` de forma **transitoria** (handlers `onclick` / estilos en atributo) hasta migrar a listeners y CSS
+- `frame-ancestors 'none'`
+- **`/api/docs` (Swagger UI):** CSP relajada con `'unsafe-inline'` en script y estilo (Swagger inyecta bloques inline sin nonce)
+
+### 4.13 Credenciales Expuestas en el Dump SQL: CRITICA
 
 **Encontradas en `crm_gemavip (8).sql`:**
 
@@ -529,7 +531,7 @@ app.get('/health/db', ...)  // Retorna host, user, database
 | N+1 queries | Alta | Consultas en bucle en `domains/clientes.js` |
 | Sin cache HTTP | Media | No hay headers de cache en API |
 | Sin cache de datos | Media | Solo cache de metadata de esquema |
-| Plantillas grandes | Baja | `cliente-form.ejs` con 91K tokens |
+| Plantillas grandes | Baja | `cliente-form.ejs` ya troceado; otras vistas (p. ej. informes, panel) pueden seguir siendo pesadas |
 
 ### 6.3 Recomendaciones de Rendimiento
 
@@ -551,17 +553,17 @@ app.get('/health/db', ...)  // Retorna host, user, database
 | 1 | **Rotar TODAS las credenciales expuestas** en el dump SQL | Seguridad |
 | 2 | **Eliminar `crm_gemavip (8).sql` del repositorio** y anadir `*.sql` a `.gitignore` | Seguridad |
 | 3 | **Corregir vulnerabilidades XSS** en plantillas EJS usando escape consistente | Seguridad |
-| 4 | **Implementar CORS** con whitelist de origenes permitidos | Seguridad |
-| 5 | **Desactivar endpoint `/api/debug-login`** en produccion | Seguridad |
+
+*Del borrador original del informe, las acciones “implementar CORS” y “cerrar debug-login en producción” ya están cubiertas en código — ver §4.8 y §4.7. Mantener revisión operativa: `CORS_ORIGINS` correcto por entorno y flags de debug desactivados fuera de local.*
 
 ### ALTO (2-3 semanas)
 
 | # | Accion | Impacto |
 |---|--------|---------|
 | 6 | Validar tipo MIME en subida de archivos | Seguridad |
-| 7 | Usar `express-validator` consistentemente en todas las rutas | Seguridad |
-| 8 | Eliminar secret fallback `'dev-secret-change-me'` | Seguridad |
-| 9 | Dividir `api/index.js` en modulos mas pequenos | Mantenibilidad |
+| 7 | Extender `express-validator` a las rutas API/HTML que aún validan solo a mano | Seguridad |
+| 8 | Revisar documentación de `SESSION_SECRET` / `DEV_SESSION_SECRET` y rotación en equipos | Seguridad |
+| 9 | Continuar troceo de rutas y vistas pesadas (`routes/pedidos.js`, panel Holded, etc.) | Mantenibilidad |
 | 10 | Resolver queries N+1 en modulos de dominio | Rendimiento |
 | 11 | Cifrar tokens OAuth en la base de datos | Seguridad |
 
@@ -594,22 +596,24 @@ app.get('/health/db', ...)  // Retorna host, user, database
 CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en autenticacion, proteccion CSRF y prevencion de inyeccion SQL. Sin embargo, presenta **vulnerabilidades criticas** que requieren atencion inmediata:
 
 ### Fortalezas
-- Autenticacion robusta con bcrypt y sesiones seguras
+- Autenticacion robusta con bcrypt y sesiones seguras (cookies endurecidas, `SESSION_SECRET` obligatorio en prod)
 - Todas las consultas SQL usan parametros preparados
-- Proteccion CSRF implementada correctamente
-- Helmet para headers de seguridad
+- Proteccion CSRF (token de sesión + campos en formularios donde aplica)
+- **Helmet** + **CSP con nonces** y `frame-ancestors 'none'`; CORS con lista blanca opcional
 - Rate limiting en endpoints criticos
-- Arquitectura modular bien organizada
+- Arquitectura modular en crecimiento (`routes/clientes/*`, middleware CSP, assets de `pedidos`)
 
 ### Debilidades Criticas
-- **Credenciales expuestas** en el dump SQL (API keys, SMTP password, OAuth secrets)
-- **Vulnerabilidades XSS** en plantillas EJS por escape inconsistente
-- **CORS no implementado**
-- **Endpoint debug accesible** en produccion
-- **Subida de archivos** sin validacion de tipo MIME
+- **Credenciales expuestas** en el dump SQL (API keys, SMTP password, OAuth secrets) — rotación y retirada del artefacto del repo
+- **XSS reflejado / HTML injection** donde aún no se usa `escapeHtml` de forma uniforme; la CSP mitiga ejecución de scripts arbitrarios pero no sustituye el escape
+- **Subida de archivos** sin validacion de tipo MIME exhaustiva
+
+### Debilidades de seguridad a vigilar (no críticas si la config es correcta)
+- Lista **`CORS_ORIGINS`** y preflights en cada despliegue con front separado
+- **`/api/debug-login`** solo en entornos locales con flags explícitos; evitar datos reales en máquinas compartidas con debug activado
 
 ### Debilidades de Calidad
-- Archivos monoliticos (`api/index.js` con 876 lineas)
+- Núcleo de datos **`config/mysql-crm.js`** y varias rutas/vistas aún voluminosas
 - Duplicacion de codigo significativa
 - Cobertura de tests baja
 - Logging inconsistente
@@ -617,7 +621,7 @@ CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en aut
 
 ### Siguiente Paso Inmediato
 
-**Ejecutar las 5 acciones criticas** de la seccion 7 antes de cualquier nuevo desarrollo. El riesgo de seguridad por las credenciales expuestas y las vulnerabilidades XSS es real y explotable.
+**Priorizar las 3 acciones críticas restantes** de la sección 7 (credenciales del dump, XSS sistemático, MIME en subidas). El riesgo por secretos filtrados sigue siendo el más grave; el XSS debe abordarse además de la CSP.
 
 ---
 
