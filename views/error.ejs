@@ -5,12 +5,12 @@
     <div class="card-hd">
       <div class="gv-error-top">
         <div>
-          <h1 class="gv-error-title"><%= heading || 'Ha ocurrido un problema' %></h1>
-          <p class="gv-error-subtitle"><%= summary || 'No se ha podido completar la acción.' %></p>
+          <h1 class="gv-error-title"><%= escapeHtml(heading || 'Ha ocurrido un problema') %></h1>
+          <p class="gv-error-subtitle"><%= escapeHtml(summary || 'No se ha podido completar la acción.') %></p>
         </div>
         <div class="gv-error-code">
           <div class="gv-error-code-num"><%= status || 500 %></div>
-          <div class="gv-error-code-label"><%= statusLabel || 'Error' %></div>
+          <div class="gv-error-code-label"><%= escapeHtml(statusLabel || 'Error') %></div>
         </div>
       </div>
     </div>
@@ -21,7 +21,7 @@
           <div class="gv-error-what-title">Qué puedes hacer</div>
           <ul class="gv-error-what-list">
             <% whatToDo.forEach((x) => { %>
-              <li><%= x %></li>
+              <li><%= escapeHtml(x) %></li>
             <% }) %>
           </ul>
         </div>
@@ -29,7 +29,7 @@
 
       <div class="gv-error-actions">
         <% if (primaryAction && primaryAction.href) { %>
-          <a class="btn" href="<%= primaryAction.href %>"><%= primaryAction.label || 'Continuar' %></a>
+          <a class="btn" href="<%= primaryAction.href %>"><%= escapeHtml(primaryAction.label || 'Continuar') %></a>
         <% } else { %>
           <a class="btn" href="/dashboard">Volver al Dashboard</a>
         <% } %>
@@ -44,12 +44,12 @@
         </p>
 
         <div class="gv-error-meta">
-          <span class="gv-pill"><strong>ID</strong> <code><%= requestId || '—' %></code></span>
+          <span class="gv-pill"><strong>ID</strong> <code><%= escapeHtml(requestId || '—') %></code></span>
           <span class="gv-pill"><strong>Fecha</strong> <%= fmtDateES(when || new Date()) %></span>
         </div>
 
         <div class="gv-copy">
-          <textarea class="gv-copy-box" id="gvSupportDetails" readonly><%= supportDetails || '' %></textarea>
+          <textarea class="gv-copy-box" id="gvSupportDetails" readonly><%= escapeHtml(supportDetails || '') %></textarea>
           <div class="gv-copy-actions">
             <button class="btn secondary" type="button" id="gvCopyBtn">Copiar detalles</button>
             <span class="gv-copy-hint" id="gvCopyHint" aria-live="polite"></span>

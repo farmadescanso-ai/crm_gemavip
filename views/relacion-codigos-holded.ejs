@@ -16,7 +16,7 @@
     <% if (typeof error === 'string' && error) { %>
       <div class="gv-alert error" role="alert">
         <strong>Error</strong>
-        <p style="margin: 8px 0 0 0;"><%= error %></p>
+        <p style="margin: 8px 0 0 0;"><%= escapeHtml(error) %></p>
       </div>
     <% } else { %>
       <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">

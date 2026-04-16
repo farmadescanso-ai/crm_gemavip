@@ -114,7 +114,7 @@
           type="search"
           class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q"
           placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre"
-          value="<%= typeof q === 'string' ? q : '' %>"
+          value="<%= escapeHtml(typeof q === 'string' && q ? String(q) : '') %>"
         />
         <button class="btn secondary" type="submit">Ver</button>
         <% if ((typeof q === 'string' && q) || selectedMarcaId || (typeof selectedPeriodo === 'string' && selectedPeriodo) || (typeof selectedDesde === 'string' && selectedDesde) || (typeof selectedHasta === 'string' && selectedHasta) || (typeof selectedEstadoId !== 'undefined' && selectedEstadoId) || (typeof selectedComercialId !== 'undefined' && selectedComercialId)) { %><a class="btn secondary" href="/pedidos" title="Limpiar filtros">✕</a><% } %>
@@ -215,7 +215,7 @@
             <form method="get" action="/pedidos" class="gv-vista-pagination__goto" style="display:inline;">
               <input type="hidden" name="limit" value="<%= pedLim %>" />
               <% if (selectedMarcaId) { %><input type="hidden" name="marca" value="<%= selectedMarcaId %>" /><% } %>
-              <% if (typeof q === 'string' && q) { %><input type="hidden" name="q" value="<%= q %>" /><% } %>
+              <% if (typeof q === 'string' && q) { %><input type="hidden" name="q" value="<%= escapeHtml(String(q)) %>" /><% } %>
               <% if (_periodoActual) { %><input type="hidden" name="periodo" value="<%= _periodoActual %>" /><% } %>
               <% if (_selectedDesde) { %><input type="hidden" name="desde" value="<%= _selectedDesde %>" /><% } %>
               <% if (_selectedHasta) { %><input type="hidden" name="hasta" value="<%= _selectedHasta %>" /><% } %>

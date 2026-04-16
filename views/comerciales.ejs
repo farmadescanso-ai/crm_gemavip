@@ -31,7 +31,7 @@
 
     <div style="margin-top: 10px;">
       <% if (error) { %>
-        <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;"><%= error %></div>
+        <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;"><%= escapeHtml(error) %></div>
       <% } %>
       <% if (created) { %>
         <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Comercial creado correctamente.</div>

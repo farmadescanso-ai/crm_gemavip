@@ -28,7 +28,7 @@
     <% if (typeof error === 'string' && error) { %>
       <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
         <strong>Error</strong>
-        <p style="margin: 8px 0 0 0;"><%= error %></p>
+        <p style="margin: 8px 0 0 0;"><%= escapeHtml(error) %></p>
       </div>
     <% } %>
     <% if (typeof success === 'string' && success) { %>

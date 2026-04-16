@@ -30,7 +30,7 @@
     <% if (typeof error === 'string' && error) { %>
       <div class="gv-alert error" role="alert" style="margin-bottom: 16px;">
         <strong>Error</strong>
-        <p style="margin: 8px 0 0 0;"><%= error %></p>
+        <p style="margin: 8px 0 0 0;"><%= escapeHtml(error) %></p>
       </div>
     <% } %>
     <% if (typeof success === 'string' && success) { %>
@@ -43,7 +43,7 @@
     <form method="get" action="/cpanel/holded-comparar" class="gv-holded-comparar-search" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 18px;">
       <label style="flex: 1; min-width: 200px;">
         <span style="display: block; font-size: 12px; font-weight: 700; color: var(--gv-muted); margin-bottom: 6px;">Buscar (nombre, CIF, ID Holded)</span>
-        <input type="search" name="q" value="<%= qVal %>" class="input" style="width: 100%;" placeholder="Ej. farmacia, B123…" />
+        <input type="search" name="q" value="<%= escapeHtml(qVal != null ? String(qVal) : '') %>" class="input" style="width: 100%;" placeholder="Ej. farmacia, B123…" />
       </label>
       <button type="submit" class="btn">Buscar</button>
       <% if (qVal) { %>

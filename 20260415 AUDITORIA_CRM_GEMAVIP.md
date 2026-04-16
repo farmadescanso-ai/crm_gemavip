@@ -295,44 +295,30 @@ visitas ──→ comerciales (com_id)
 
 **NO SE ENCONTRARON VULNERABILIDADES DE INYECCION SQL**
 
-### 4.4 Vulnerabilidades XSS: MEJORABLE (5/10)
+### 4.4 Vulnerabilidades XSS: MEJORABLE (6/10)
 
 **Situacion actual:**
 
-- Sigue habiendo salidas con `<%= %>` sobre datos de usuario o de query (mensajes de error, valores de búsqueda re-reflejados, etc.) donde conviene **`escapeHtml()`** (`lib/utils.js`) o equivalente de forma sistemática.
-- **CSP** con nonces en scripts/estilos inline y sin `'unsafe-inline'` en `script-src`/`style-src` reduce mucho el impacto de un XSS “clásico” (inyectar `<script>`); persisten riesgos de **HTML/attribute injection** y `javascript:` en enlaces si el dato llega a atributos sin comillas seguras.
-- Parte del JS en cliente construye HTML en string (p. ej. duplicados DNI en ficha cliente) usando helpers locales `escapeHtml`; revisar que no queden concatenaciones sin escapar al ampliar esa UI.
+- **`escapeHtml`** disponible en todas las vistas vía `res.locals.escapeHtml` (`api/middleware/ejs-res-locals.js`, implementación en `lib/utils.js`). Mensajes **`error`** en formularios/listados pasan por `escapeHtml(error)` en la mayoría de plantillas.
+- Reflejos de búsqueda **`q`** / **`returnTo`** / textos de error en páginas sensibles (login, `clientes`, `pedidos`, `dashboard`, comparar Holded) escapados en atributos `value` o en texto.
+- La vista **`error.ejs`** escapa título, resumen, pasos, etiqueta de acción, ID de petición y bloque de soporte.
+- **CSP** con nonces limita `<script>` arbitrario; siguen revisándose otras salidas `<%= %>` (nombres de negocio en tablas, etc.) y el JS que construye HTML en string (ficha cliente).
+- Atributo **`href`** en `error.ejs` sigue confiando en valores generados por el servidor (`primaryAction.href`); no reflejar ahí input de usuario sin allowlist.
 
-**Ejemplos de patron a corregir (no exhaustivo):**
+**Prioridad:** Extender el mismo criterio al resto de campos reflejados (URLs en tablas, tooltips con datos externos) y revisar concatenaciones en scripts cliente.
 
-```ejs
-<div class="gv-alert"><%= error %></div>
-<input type="search" value="<%= q %>" />
-```
+### 4.5 Subida de Archivos: MEJORABLE (6/10)
 
-**Prioridad:** Alta en pantallas compartidas (login, listados con `q`, mensajes admin) y en cualquier campo que refleje input de terceros.
+**Configuracion actual (`routes/ventas-gemavip.js`):**
+- `multer` en memoria, límites 15MB y hasta 5 ficheros
+- **`fileFilter`:** extensión `.pdf` y MIME permitidos (`application/pdf`, `application/x-pdf`, u `application/octet-stream` solo si la extensión es `.pdf`)
+- Tras multer, comprobación de **cabecera binaria `%PDF`** (`bufferLooksLikePdf`) para mitigar renombrados
 
-### 4.5 Subida de Archivos: MEJORABLE (5/10)
+**Aciertos:** Límites razonables, doble capa extensión + MIME + firma PDF.
 
-**Configuracion actual:**
-```javascript
-multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 15MB, files: 5 },
-  fileFilter: solo extension .pdf
-});
-```
-
-**Aciertos:**
-- Limite de tamano (15MB)
-- Limite de cantidad (5 archivos)
-- Solo extension .pdf
-- Usa memoria (no escribe en disco directamente)
-
-**Problemas:**
-- Sin validacion de tipo MIME (solo extension)
-- Sin escaneo de virus
-- Nombre de archivo no sanitizado
+**Problemas residuales:**
+- Sin escaneo antivirus
+- Nombre de archivo al persistir: revisar sanitización en `lib/ventas-storage` si se expone al cliente o al disco
 
 ### 4.6 Configuracion de Sesiones: BUENA (9/10)
 
@@ -552,15 +538,15 @@ multer({
 |---|--------|---------|
 | 1 | **Rotar TODAS las credenciales expuestas** en el dump SQL | Seguridad |
 | 2 | **Eliminar `crm_gemavip (8).sql` del repositorio** y anadir `*.sql` a `.gitignore` | Seguridad |
-| 3 | **Corregir vulnerabilidades XSS** en plantillas EJS usando escape consistente | Seguridad |
+| 3 | **Seguir endureciendo XSS** (revisar salidas `<%= %>` restantes, HTML generado en cliente, `href` dinámicos) | Seguridad |
 
-*Del borrador original del informe, las acciones “implementar CORS” y “cerrar debug-login en producción” ya están cubiertas en código — ver §4.8 y §4.7. Mantener revisión operativa: `CORS_ORIGINS` correcto por entorno y flags de debug desactivados fuera de local.*
+*Del borrador original del informe, las acciones “implementar CORS” y “cerrar debug-login en producción” ya están cubiertas en código — ver §4.8 y §4.7. Mantener revisión operativa: `CORS_ORIGINS` correcto por entorno y flags de debug desactivados fuera de local. Volcados SQL: además de `data/bd-dumps/*.sql`, se ignora `/*.sql` en la raíz del repo.*
 
 ### ALTO (2-3 semanas)
 
 | # | Accion | Impacto |
 |---|--------|---------|
-| 6 | Validar tipo MIME en subida de archivos | Seguridad |
+| 6 | Revisar nombres de fichero y pipeline de subidas (Holded/otros) si aplica el mismo patrón | Seguridad |
 | 7 | Extender `express-validator` a las rutas API/HTML que aún validan solo a mano | Seguridad |
 | 8 | Revisar documentación de `SESSION_SECRET` / `DEV_SESSION_SECRET` y rotación en equipos | Seguridad |
 | 9 | Continuar troceo de rutas y vistas pesadas (`routes/pedidos.js`, panel Holded, etc.) | Mantenibilidad |
@@ -605,8 +591,8 @@ CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en aut
 
 ### Debilidades Criticas
 - **Credenciales expuestas** en el dump SQL (API keys, SMTP password, OAuth secrets) — rotación y retirada del artefacto del repo
-- **XSS reflejado / HTML injection** donde aún no se usa `escapeHtml` de forma uniforme; la CSP mitiga ejecución de scripts arbitrarios pero no sustituye el escape
-- **Subida de archivos** sin validacion de tipo MIME exhaustiva
+- **XSS reflejado / HTML injection** en salidas que aún no pasan por `escapeHtml` o allowlist; la CSP ayuda pero no sustituye el escape
+- **Otras subidas** (si existen fuera de ventas PDF) sin el mismo rigor MIME + firma
 
 ### Debilidades de seguridad a vigilar (no críticas si la config es correcta)
 - Lista **`CORS_ORIGINS`** y preflights en cada despliegue con front separado
@@ -621,7 +607,7 @@ CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en aut
 
 ### Siguiente Paso Inmediato
 
-**Priorizar las 3 acciones críticas restantes** de la sección 7 (credenciales del dump, XSS sistemático, MIME en subidas). El riesgo por secretos filtrados sigue siendo el más grave; el XSS debe abordarse además de la CSP.
+**Priorizar las acciones críticas restantes** de la sección 7 (sobre todo credenciales del dump y rotación). XSS y subidas PDF: mitigaciones aplicadas en código — mantener auditoría de nuevas vistas y rutas.
 
 ---
 

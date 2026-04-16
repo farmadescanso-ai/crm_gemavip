@@ -27,6 +27,8 @@ scripts/salida-importar/
 
 # Volcados SQL con datos personales (no versionar)
 data/bd-dumps/*.sql
+# Dump accidental en la raíz del repo (p. ej. export desde cliente MySQL)
+/*.sql
 
 # Excel generado (npm run export:clientes-holded)
 exports/

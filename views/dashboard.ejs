@@ -86,7 +86,7 @@
           <% }) %>
         </select>
         <label for="q-dash" class="gv-pedidos-search-form__label">Buscar</label>
-        <input type="search" id="q-dash" name="q" class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q" placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre" value="<%= qDash %>" />
+        <input type="search" id="q-dash" name="q" class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q" placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre" value="<%= escapeHtml(qDash != null ? String(qDash) : '') %>" />
         <button class="btn secondary" type="submit">Ver</button>
         <% if (qDash || f.zone || f.comercial || f.marca || _dEstadoId || _dPeriodo || _dDesde || _dHasta) { %>
           <a class="btn secondary" href="/dashboard" title="Limpiar filtros">✕</a>
