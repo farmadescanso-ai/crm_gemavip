@@ -10,8 +10,19 @@ const { parsePagination } = require('../lib/pagination');
 const { addMinutesHHMM } = require('../lib/time-utils');
 const { getClientesForSelect, visitaTipoColumnaEsId } = require('../lib/cliente-helpers');
 const { queryVisitasListPage, queryVisitasCalendarMonthCount } = require('../lib/visita-queries');
+const { rejectIfValidationFailsHtml, rejectIfValidationFailsJson } = require('../lib/validation-handlers');
+const { visitaIdParam, visitasCreateValidators, visitasEditValidators } = require('../lib/validators/html-visitas-ui');
 
 const router = express.Router();
+
+async function buildVisitaFormLocals(req, res, { mode, meta, admin, item, error }) {
+  const tiposVisita = await db.getTiposVisita().catch(() => []);
+  const estadosVisita = await db.getEstadosVisita().catch(() => []);
+  const comerciales = admin ? await db.getComerciales() : [];
+  const clientes = await getClientesForSelect(db);
+  const tipoIsId = visitaTipoColumnaEsId(meta);
+  return { mode, admin, meta, tiposVisita, estadosVisita, tipoIsId, comerciales, clientes, item, error: error || null };
+}
 
 router.get('/', requireLogin, async (req, res, next) => {
   try {
@@ -146,7 +157,26 @@ router.get('/new', requireLogin, async (req, res, next) => {
   }
 });
 
-router.post('/new', requireLogin, async (req, res, next) => {
+router.post(
+  '/new',
+  requireLogin,
+  ...visitasCreateValidators,
+  rejectIfValidationFailsHtml('visita-form', async (req, res) => {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+    const item = {
+      Fecha: String(req.body?.Fecha || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+      Hora: String(req.body?.Hora || '').slice(0, 5),
+      Hora_Final: String(req.body?.Hora_Final || '').slice(0, 5),
+      TipoVisita: String(req.body?.TipoVisita || '').trim(),
+      Estado: String(req.body?.Estado || '').slice(0, 40),
+      ClienteId: req.body?.ClienteId ? Number(req.body.ClienteId) : null,
+      ComercialId: admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id),
+      Notas: String(req.body?.Notas || '').slice(0, 500)
+    };
+    return await buildVisitaFormLocals(req, res, { mode: 'create', meta, admin, item, error: 'Revisa los campos del formulario.' });
+  }),
+  async (req, res, next) => {
   try {
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
@@ -212,7 +242,8 @@ router.post('/new', requireLogin, async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-});
+  }
+);
 
 router.get('/:id', requireLogin, async (req, res, next) => {
   try {
@@ -269,7 +300,31 @@ router.get('/:id/edit', requireLogin, async (req, res, next) => {
   }
 });
 
-router.post('/:id/edit', requireLogin, async (req, res, next) => {
+router.post(
+  '/:id/edit',
+  requireLogin,
+  ...visitaIdParam,
+  ...visitasEditValidators,
+  rejectIfValidationFailsHtml('visita-form', async (req, res) => {
+    const admin = isAdminUser(res.locals.user);
+    const meta = await db._ensureVisitasMeta();
+    const id = Number(req.params.id);
+    const row = await db.getVisitaById(id);
+    if (!row) return {};
+    const item = {
+      ...row,
+      Fecha: String(req.body?.Fecha || '').slice(0, 10) || String(row?.Fecha || row?.[meta.colFecha] || '').slice(0, 10),
+      Hora: String(req.body?.Hora || '').slice(0, 5),
+      Hora_Final: String(req.body?.Hora_Final || '').slice(0, 5),
+      TipoVisita: String(req.body?.TipoVisita || '').trim(),
+      Estado: String(req.body?.Estado || '').slice(0, 40),
+      ClienteId: req.body?.ClienteId ? Number(req.body.ClienteId) : (meta.colCliente ? row?.[meta.colCliente] : null),
+      ComercialId: admin ? Number(req.body?.ComercialId || 0) : Number(res.locals.user.id),
+      Notas: String(req.body?.Notas || '').slice(0, 500)
+    };
+    return await buildVisitaFormLocals(req, res, { mode: 'edit', meta, admin, item, error: 'Revisa los campos del formulario.' });
+  }),
+  async (req, res, next) => {
   try {
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
@@ -312,9 +367,15 @@ router.post('/:id/edit', requireLogin, async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-});
+  }
+);
 
-router.post('/:id/delete', requireLogin, async (req, res, next) => {
+router.post(
+  '/:id/delete',
+  requireLogin,
+  ...visitaIdParam,
+  rejectIfValidationFailsJson(),
+  async (req, res, next) => {
   try {
     const admin = isAdminUser(res.locals.user);
     const meta = await db._ensureVisitasMeta();
@@ -332,6 +393,7 @@ router.post('/:id/delete', requireLogin, async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-});
+  }
+);
 
 module.exports = router;
