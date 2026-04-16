@@ -430,35 +430,39 @@ app.get('/health/db', ...)  // Retorna host, user, database
 
 ## 5. Calidad de Codigo
 
+*Revisión de coherencia (post-cambios en código): métricas de líneas alineadas con el repo; rutas de clientes ya no son un único archivo; tests y utilidades comunes mejor documentados.*
+
 ### 5.1 Archivos Monoliticos (Alto Riesgo)
 
-| Archivo | Lineas (aprox.) | Nota |
-|---------|-----------------|------|
+| Archivo | Lineas (conteo repo) | Nota |
+|---------|----------------------|------|
 | `api/index.js` | ~145 | Entrada y montaje de middleware/rutas; CSP en `api/middleware/csp.js` |
-| `routes/clientes/*.js` | ~1400 en conjunto | Rutas divididas (`index`, `list`, `edit`, `actions`, …); revisar tamaño individual |
-| `config/mysql-crm.js` | ~1810 | Núcleo + mixins (incl. `mysql-crm-push.js`); principal foco de mantenibilidad futura |
-| `views/cliente-form.ejs` | ~110 | Troceado en partials; complejidad bajada respecto al informe inicial |
-| `views/pedidos.ejs` | ~560 | Tabs/estados: `public/styles/pedidos-page.css`, `public/scripts/pedidos-page.js` y JSON de config mínimo |
+| `routes/clientes/*.js` | ~1460 en conjunto | Carpeta modular (`edit.js` ~440 líneas es el mayor; luego `new.js`); conviene seguir troceando handlers largos |
+| `config/mysql-crm.js` | ~1810 | Núcleo + mixins (`mysql-crm-*.js`, p. ej. `mysql-crm-push.js`); sigue siendo el mayor acoplamiento de datos |
+| `views/cliente-form.ejs` | ~112 | Troceado en partials; carga principal en componentes incluidos |
+| `views/pedidos.ejs` | ~565 | Lógica de tabs/estados en `public/scripts/pedidos-page.js` + `public/styles/pedidos-page.css`; queda HTML/EJS y un JSON de config |
+
+**Otros candidatos** (no tabulados arriba): `lib/pedido-helpers.js`, `routes/pedidos.js` o vistas de panel Holded pueden superar con holgura las 400–600 líneas; conviene revisión por dominio.
 
 ### 5.2 Duplicacion de Codigo
 
-**Patrones duplicados detectados:**
+**Patrones duplicados o parcialmente mitigados:**
 
-1. **Resolucion de columnas case-insensitive:** Implementación única en `MySQLCRM._pickCIFromColumns` (`mysql-crm.js`); los mixins la reutilizan (persiste verbosidad de llamadas, no duplicación de algoritmo).
-2. **Normalizacion de telefonos:** Duplicado en multiples lugares
-3. **Logica de paginacion:** Patron repetido en varios endpoints
-4. **Checks de permisos admin:** Repetido en route handlers
-5. **Validacion de sesion:** Logica duplicada
+1. **Resolucion de columnas case-insensitive:** Implementación única en `MySQLCRM._pickCIFromColumns` (`mysql-crm.js`); los mixins la reutilizan (persiste verbosidad de llamadas, no duplicación del algoritmo).
+2. **Numeros en vistas (importes, redondeos):** `toNum` y `round2` centralizados en `lib/utils.js` y expuestos en `res.locals` (`ejs-res-locals.js`); aún puede quedar lógica numérica puntual en EJS o partials legacy.
+3. **Normalizacion de telefonos:** Base en `lib/telefono-utils.js` + helpers EJS; revisar que no se reintroduzcan variantes en rutas sueltas.
+4. **Logica de paginacion:** Patron repetido en varios endpoints (existe `lib/pagination.js` con tests; adopción desigual).
+5. **Checks de permisos admin / validacion de sesion:** Middlewares en `lib/auth.js` y rutas; aún hay repetición de `requireLogin` / `isAdminUser` en handlers.
 
 ### 5.3 Anti-Patrones
 
 | Anti-Patron | Ubicacion | Descripcion |
 |-------------|-----------|-------------|
-| God Object | `config/mysql-crm.js` | Núcleo de BD + muchos dominios en un solo export |
-| Magic Numbers | Multiples archivos | IDs hardcodeados (pool ID = 26) |
-| Magic Strings | Rutas | Valores de estado como cadenas |
-| Long Methods | `routes/clientes.js` | Handlers de 100+ lineas |
-| Null inconsistente | Global | Mezcla `??`, `||` y checks manuales |
+| God Object | `config/mysql-crm.js` | Núcleo de BD + muchos dominios mezclados en una clase instanciada una vez |
+| Magic Numbers | Multiples archivos | IDs o constantes de negocio embebidos (revisar al tocar pool/config) |
+| Magic Strings | Rutas / estados | Valores de estado o códigos como cadenas sin enum centralizado |
+| Handlers largos | `routes/clientes/edit.js`, `routes/pedidos.js` | Rutas con bloques de 100+ líneas (ya no aplica un único `routes/clientes.js`) |
+| Null inconsistente | Global | Mezcla `??`, `||` y checks manuales según archivo |
 
 ### 5.4 Convenciones de API
 
@@ -478,15 +482,17 @@ app.get('/health/db', ...)  // Retorna host, user, database
 | Metrica | Estado |
 |---------|--------|
 | Framework | Jest 30.2.0 + Supertest |
-| Archivos test | 8 |
-| Cobertura estimada | Baja (< 20%) |
-| Tipos test | Principalmente integracion |
+| Archivos `*.test.js` | 11 (carpeta `tests/`, p. ej. `lib/utils`, `pagination`, `tax-helpers`, `validators-api-clientes-query`, …) |
+| Cobertura estimada | Baja global; algo de cobertura en utilidades puras (`lib/`) |
+| Tipos test | Mayoría unitarios sobre helpers; `tests/health.test.js` como smoke HTTP |
+
+**Aciertos recientes:**
+- Tests sobre `toNum` / `round2`, `safeJsonInline`, CORS parse, paginación, validadores de query API clientes, timezone del pool MySQL.
 
 **Carencias:**
-- Sin tests unitarios de modulos de dominio
-- Sin tests de seguridad
-- Sin tests de rendimiento
-- Sin tests de integracion completa
+- Pocos o ningún test sobre rutas HTML dominantes (`pedidos`, `clientes`) o capa `config/mysql-crm-*`
+- Sin batería dedicada de seguridad (CSP, CSRF, auth) ni de rendimiento
+- Sin suite de integración amplia (BD + flujos E2E)
 
 ### 5.6 Logging
 
