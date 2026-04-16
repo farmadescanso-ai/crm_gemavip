@@ -24,6 +24,13 @@ const { parsePagination } = require('../lib/pagination');
 const { sendTransferExcelEmail, getSmtpStatus, getGraphStatus, APP_BASE_URL } = require('../lib/mailer');
 const { loadMarcasForSelect } = require('../lib/articulo-helpers');
 const { loadSimpleCatalogForSelect } = require('../lib/cliente-helpers');
+const { rejectIfValidationFailsHtml, rejectIfValidationFailsJson } = require('../lib/validation-handlers');
+const {
+  pedidoIdParam,
+  pedidoCreateValidators,
+  pedidoEditValidators,
+  pedidoEstadoValidators
+} = require('../lib/validators/html-pedidos-ui');
 let sendPushToAdmins = () => Promise.resolve();
 try {
   const wp = require('../lib/web-push');
@@ -46,6 +53,77 @@ const {
 const router = express.Router();
 const loadPedidoAndCheckOwner = createLoadPedidoAndCheckOwner('id');
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+async function buildPedidoFormLocalsForCreate(req, res, { item, lineas, error }) {
+  const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido, provincias, paises] = await Promise.all([
+    db.getComerciales().catch(() => []),
+    db.getTarifas().catch(() => []),
+    db.getFormasPago().catch(() => []),
+    db.getTiposPedido().catch(() => []),
+    db.getDescuentosPedidoActivos().catch(() => []),
+    db.getEstadosPedidoActivos().catch(() => []),
+    loadSimpleCatalogForSelect(db, 'provincias'),
+    loadSimpleCatalogForSelect(db, 'paises')
+  ]);
+  const articulos = await db.getArticulos({}).catch(() => []);
+  const admin = isAdminUser(res.locals.user);
+  const clientesFilters = { comercial: res.locals.user?.id };
+  const clientesRecent = await db
+    .getClientesOptimizadoPaged(clientesFilters, { limit: 10, offset: 0, compact: true, order: 'desc' })
+    .catch(() => []);
+  const _ftCreate = filterOutTransferOptions(formasPago, tiposPedido);
+  return {
+    mode: 'create',
+    admin,
+    comerciales,
+    tarifas,
+    formasPago: _ftCreate.formasPago,
+    tiposPedido: _ftCreate.tiposPedido,
+    descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+    estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
+    articulos,
+    provincias: Array.isArray(provincias) ? provincias : [],
+    paises: Array.isArray(paises) ? paises : [],
+    item: item || {},
+    lineas: Array.isArray(lineas) && lineas.length ? lineas : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
+    clientes: Array.isArray(clientesRecent) ? clientesRecent : [],
+    canEdit: true,
+    error: error || null
+  };
+}
+
+async function buildPedidoFormLocalsForEdit(req, res, { existing, item, lineas, error }) {
+  const [tarifas, formasPago, comerciales, tiposPedido, descuentosPedido, estadosPedido, provincias, paises] = await Promise.all([
+    db.getTarifas().catch(() => []),
+    db.getFormasPago().catch(() => []),
+    db.getComerciales().catch(() => []),
+    db.getTiposPedido().catch(() => []),
+    db.getDescuentosPedidoActivos().catch(() => []),
+    db.getEstadosPedidoActivos().catch(() => []),
+    loadSimpleCatalogForSelect(db, 'provincias'),
+    loadSimpleCatalogForSelect(db, 'paises')
+  ]);
+  const articulos = await db.getArticulos({}).catch(() => []);
+  const admin = res.locals.pedidoAdmin ?? isAdminUser(res.locals.user);
+  const _ftUpdate = filterOutTransferOptions(formasPago, tiposPedido);
+  return {
+    mode: 'edit',
+    admin,
+    item: { ...(existing || {}), ...(item || {}) },
+    lineas: Array.isArray(lineas) && lineas.length ? lineas : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }],
+    tarifas,
+    formasPago: _ftUpdate.formasPago,
+    tiposPedido: _ftUpdate.tiposPedido,
+    descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+    estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
+    comerciales,
+    articulos,
+    provincias: Array.isArray(provincias) ? provincias : [],
+    paises: Array.isArray(paises) ? paises : [],
+    canEdit: true,
+    error: error || null
+  };
+}
 
 function ensureTransferTarifaYFormaPago(payload, body, tarifas, formasPago, tiposPedido) {
   const idTipo = Number(body.Id_TipoPedido) || 0;
@@ -624,7 +702,13 @@ router.get('/', requireLogin, async (req, res, next) => {
 });
 
 // Cambiar estado del pedido: admin puede cambiar a cualquiera; comercial solo de Pendiente→Revisando
-router.post('/:id([0-9]+)/estado', requireLogin, async (req, res, next) => {
+router.post(
+  '/:id([0-9]+)/estado',
+  requireLogin,
+  ...pedidoIdParam,
+  ...pedidoEstadoValidators,
+  rejectIfValidationFailsJson(),
+  async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ ok: false, error: 'ID no válido' });
@@ -742,7 +826,18 @@ router.get('/new', requireLogin, async (_req, res, next) => {
   }
 });
 
-router.post('/new', requireLogin, async (req, res, next) => {
+router.post(
+  '/new',
+  requireLogin,
+  ...pedidoCreateValidators,
+  rejectIfValidationFailsHtml('pedido-form', async (req, res) => {
+    const body = req.body || {};
+    const lineasRaw = (body.lineas || body.Lineas)
+      ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas))
+      : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
+    return await buildPedidoFormLocalsForCreate(req, res, { item: body, lineas: lineasRaw, error: 'Revisa los campos del formulario.' });
+  }),
+  async (req, res, next) => {
   try {
     const [comerciales, tarifas, formasPago, tiposPedido, descuentosPedido, estadosPedido, provincias, paises] = await Promise.all([
       db.getComerciales().catch(() => []),
@@ -1355,7 +1450,21 @@ router.get('/:id([0-9]+)/edit', requireLogin, loadPedidoAndCheckOwner, async (re
   }
 });
 
-router.post('/:id([0-9]+)/edit', requireLogin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.post(
+  '/:id([0-9]+)/edit',
+  requireLogin,
+  loadPedidoAndCheckOwner,
+  ...pedidoIdParam,
+  ...pedidoEditValidators,
+  rejectIfValidationFailsHtml('pedido-form', async (req, res) => {
+    const existing = res.locals.pedido;
+    const body = req.body || {};
+    const lineasRaw = (body.lineas || body.Lineas)
+      ? (Array.isArray(body.lineas || body.Lineas) ? (body.lineas || body.Lineas) : Object.values(body.lineas || body.Lineas))
+      : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
+    return await buildPedidoFormLocalsForEdit(req, res, { existing, item: body, lineas: lineasRaw, error: 'Revisa los campos del formulario.' });
+  }),
+  async (req, res, next) => {
   try {
     const existing = res.locals.pedido;
     const admin = res.locals.pedidoAdmin;
@@ -1468,7 +1577,14 @@ router.post('/:id([0-9]+)/edit', requireLogin, loadPedidoAndCheckOwner, async (r
   }
 });
 
-router.post('/:id([0-9]+)/delete', requireLogin, requireAdmin, loadPedidoAndCheckOwner, async (req, res, next) => {
+router.post(
+  '/:id([0-9]+)/delete',
+  requireLogin,
+  requireAdmin,
+  loadPedidoAndCheckOwner,
+  ...pedidoIdParam,
+  rejectIfValidationFailsJson(),
+  async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     await db.deletePedido(id);
