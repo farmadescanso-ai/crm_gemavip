@@ -20,7 +20,13 @@
     // eslint-disable-next-line no-undef
     const Calendar = window.FullCalendar?.Calendar;
     if (!Calendar) {
-      el.innerHTML = '<div class="badge warn" style="border-radius:14px; display:inline-flex;">No se pudo cargar el calendario</div>';
+      const wrap = document.createElement('div');
+      wrap.className = 'badge warn';
+      wrap.style.borderRadius = '14px';
+      wrap.style.display = 'inline-flex';
+      wrap.textContent = 'No se pudo cargar el calendario';
+      el.textContent = '';
+      el.appendChild(wrap);
       return;
     }
 

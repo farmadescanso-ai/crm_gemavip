@@ -20,6 +20,14 @@
   let rawData = null;
   const MESES_NOMBRES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const anioActual = new Date().getFullYear();
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
 
   function filterData(data, anio, mes, provinciaCodigo, materialCodigo) {
     if (!data) return data;
@@ -139,7 +147,7 @@
     Object.values(charts).forEach(c => { if (c) c.destroy(); });
     charts = {};
     const provMesEl = document.getElementById('chart-provincia-mes');
-    if (provMesEl) provMesEl.innerHTML = '';
+    if (provMesEl) provMesEl.textContent = '';
   }
 
   function renderCharts(data) {
@@ -150,15 +158,15 @@
       tbody.innerHTML = '';
       (data.ventas || []).slice(0, 200).forEach(v => {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + (v.materialDescripcion || v.materialCodigo) + '</td>' +
-          '<td>' + (v.provinciaNombre || v.provinciaCodigo) + '</td>' +
-          '<td>' + (v.mesKey || '') + '</td>' +
-          '<td>' + (v.cantidad || 0) + '</td>';
+        tr.innerHTML = '<td>' + esc(v.materialDescripcion || v.materialCodigo) + '</td>' +
+          '<td>' + esc(v.provinciaNombre || v.provinciaCodigo) + '</td>' +
+          '<td>' + esc(v.mesKey || '') + '</td>' +
+          '<td>' + esc(v.cantidad || 0) + '</td>';
         tbody.appendChild(tr);
       });
       if ((data.ventas || []).length > 200) {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + data.ventas.length + ' registros</td>';
+        tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + esc(data.ventas.length) + ' registros</td>';
         tbody.appendChild(tr);
       }
     }
@@ -210,7 +218,7 @@
         thr.innerHTML = '<th>Provincia</th>' + mesesLabels.map(m => {
           const parts = m.split('.');
           const label = parts.length === 2 ? (MESES_CORTOS[parseInt(parts[0],10)-1] || parts[0]) + ' ' + parts[1] : m;
-          return '<th>' + label + '</th>';
+          return '<th>' + esc(label) + '</th>';
         }).join('') + '<th>Total</th>';
         thead.appendChild(thr);
         table.appendChild(thead);
@@ -219,18 +227,18 @@
           const totales = p.totales || [];
           const total = totales.reduce((s, v) => s + (v || 0), 0);
           const tr = document.createElement('tr');
-          let cells = '<td class="ventas-heatmap__prov">' + (p.nombre || p.codigo) + '</td>';
+          let cells = '<td class="ventas-heatmap__prov">' + esc(p.nombre || p.codigo) + '</td>';
           totales.forEach((v) => {
             const pct = maxVal > 0 ? (v || 0) / maxVal : 0;
             const opacity = 0.12 + pct * 0.78;
-            cells += '<td class="ventas-heatmap__cell" style="background:rgba(0,139,210,' + opacity.toFixed(2) + ');color:' + (opacity > 0.5 ? '#fff' : 'inherit') + ';" title="' + (v || 0) + '">' + (v || 0).toLocaleString('es-ES') + '</td>';
+            cells += '<td class="ventas-heatmap__cell" style="background:rgba(0,139,210,' + opacity.toFixed(2) + ');color:' + (opacity > 0.5 ? '#fff' : 'inherit') + ';" title="' + esc(v || 0) + '">' + esc((v || 0).toLocaleString('es-ES')) + '</td>';
           });
-          cells += '<td class="ventas-heatmap__total"><strong>' + total.toLocaleString('es-ES') + '</strong></td>';
+          cells += '<td class="ventas-heatmap__total"><strong>' + esc(total.toLocaleString('es-ES')) + '</strong></td>';
           tr.innerHTML = cells;
           tbody.appendChild(tr);
         });
         table.appendChild(tbody);
-        el.innerHTML = '';
+        el.textContent = '';
         el.appendChild(table);
       }
     }
@@ -313,22 +321,22 @@
     const materiales = catalogos?.materiales?.length ? catalogos.materiales : (data.materiales || []);
 
     if (anioSelect) {
-      anioSelect.innerHTML = '<option value="all">Todos</option>' + años.map(a => '<option value="' + a + '">' + a + '</option>').join('');
+      anioSelect.innerHTML = '<option value="all">Todos</option>' + años.map(a => '<option value="' + esc(a) + '">' + esc(a) + '</option>').join('');
       if (queryParams?.anio && años.includes(Number(queryParams.anio))) anioSelect.value = String(queryParams.anio);
       else if (años.includes(anioActual)) anioSelect.value = String(anioActual);
     }
     if (mesSelect) {
-      mesSelect.innerHTML = '<option value="all">Todos</option>' + meses.map(m => '<option value="' + m + '">' + (MESES_NOMBRES[m-1] || m) + '</option>').join('');
+      mesSelect.innerHTML = '<option value="all">Todos</option>' + meses.map(m => '<option value="' + esc(m) + '">' + esc(MESES_NOMBRES[m-1] || m) + '</option>').join('');
       if (queryParams?.mes) mesSelect.value = String(queryParams.mes);
     }
     if (provSelect) {
       const provs = provincias.slice().sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
-      provSelect.innerHTML = '<option value="all">Todas</option>' + provs.map(p => '<option value="' + (p.codigo || '') + '">' + (p.nombre || p.codigo || '') + '</option>').join('');
+      provSelect.innerHTML = '<option value="all">Todas</option>' + provs.map(p => '<option value="' + esc(p.codigo || '') + '">' + esc(p.nombre || p.codigo || '') + '</option>').join('');
       if (queryParams?.provincia) provSelect.value = String(queryParams.provincia);
     }
     if (artSelect) {
       const arts = materiales.slice().sort((a, b) => (a.descripcion || '').localeCompare(b.descripcion || ''));
-      artSelect.innerHTML = '<option value="all">Todos</option>' + arts.map(m => '<option value="' + (m.codigo || '') + '">' + ((m.descripcion || m.codigo || '').slice(0, 50) + (m.descripcion && m.descripcion.length > 50 ? '…' : '')) + '</option>').join('');
+      artSelect.innerHTML = '<option value="all">Todos</option>' + arts.map(m => '<option value="' + esc(m.codigo || '') + '">' + esc((m.descripcion || m.codigo || '').slice(0, 50) + (m.descripcion && m.descripcion.length > 50 ? '…' : '')) + '</option>').join('');
       if (queryParams?.articulo) artSelect.value = String(queryParams.articulo);
     }
 
@@ -365,12 +373,12 @@
         tbodyFilter.innerHTML = '';
         (filtered.ventas || []).slice(0, 200).forEach(v => {
           const tr = document.createElement('tr');
-          tr.innerHTML = '<td>' + (v.materialDescripcion || v.materialCodigo) + '</td><td>' + (v.provinciaNombre || v.provinciaCodigo) + '</td><td>' + (v.mesKey || '') + '</td><td>' + (v.cantidad || 0) + '</td>';
+          tr.innerHTML = '<td>' + esc(v.materialDescripcion || v.materialCodigo) + '</td><td>' + esc(v.provinciaNombre || v.provinciaCodigo) + '</td><td>' + esc(v.mesKey || '') + '</td><td>' + esc(v.cantidad || 0) + '</td>';
           tbodyFilter.appendChild(tr);
         });
         if ((filtered.ventas || []).length > 200) {
           const tr = document.createElement('tr');
-          tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + filtered.ventas.length + ' registros</td>';
+          tr.innerHTML = '<td colspan="4" style="color:var(--gv-muted);">Mostrando 200 de ' + esc(filtered.ventas.length) + ' registros</td>';
           tbodyFilter.appendChild(tr);
         }
       }
