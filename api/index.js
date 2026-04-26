@@ -55,7 +55,15 @@ app.use(cspNonceMiddleware);
 app.use(cspRoutePickerMiddleware);
 app.use(helmetWithoutCsp());
 
-app.use(express.json({ limit: '50kb' }));
+const jsonBodyParserDefault = express.json({ limit: '50kb' });
+const jsonBodyParserMurciaSql = express.json({ limit: '2mb' });
+app.use((req, res, next) => {
+  const p = String(req.originalUrl || req.url || '');
+  if (req.method === 'POST' && p.includes('/admin/sql-centro-murciasalud/generate')) {
+    return jsonBodyParserMurciaSql(req, res, next);
+  }
+  return jsonBodyParserDefault(req, res, next);
+});
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
 app.use(vercelPathRewrite);

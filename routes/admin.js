@@ -208,32 +208,52 @@ router.get('/sql-centro-murciasalud', requireAdmin, (req, res) => {
   res.render('admin-sql-centro-murciasalud', {
     title: 'MurciaSalud → SQL centro',
     subtitle:
-      'Pega la URL de la ficha del centro en MurciaSalud; el CRM descarga la página y muestra el INSERT para la tabla centros_prescriptores (copiar en phpMyAdmin o cliente MySQL).',
+      'URL de la ficha (descarga desde el servidor) o HTML pegado si MurciaSalud bloquea con CAPTCHA. Genera el INSERT para centros_prescriptores.',
     error
   });
 });
 
+const MURCIA_HTML_MIN = 400;
+const MURCIA_HTML_MAX = 1_500_000;
+
 router.post('/sql-centro-murciasalud/generate', requireAdmin, async (req, res) => {
   const wantsJson = /application\/json/i.test(req.headers.accept || '');
   const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  const htmlRaw = typeof req.body?.html === 'string' ? req.body.html : '';
+  const htmlPaste = htmlRaw.trim();
   const idRutaRaw = req.body?.cent_Id_Ruta;
   const idRutaNum =
     idRutaRaw != null && String(idRutaRaw).trim() !== '' ? Number(String(idRutaRaw).trim()) : null;
   const cent_Id_Ruta = Number.isFinite(idRutaNum) ? idRutaNum : null;
 
-  if (!url) {
-    if (wantsJson) return res.status(400).json({ ok: false, error: 'Indica la URL del centro.' });
-    return res.redirect('/admin/sql-centro-murciasalud?error=' + encodeURIComponent('Indica la URL del centro.'));
+  const useHtmlPaste = htmlPaste.length >= MURCIA_HTML_MIN;
+  if (htmlPaste.length > MURCIA_HTML_MAX) {
+    const tooBig = 'El HTML pegado supera el tamaño máximo permitido; guarda solo la página de la ficha o un fragmento que incluya el H1 y las listas.';
+    if (wantsJson) return res.status(400).json({ ok: false, error: tooBig });
+    return res.redirect('/admin/sql-centro-murciasalud?error=' + encodeURIComponent(tooBig));
+  }
+
+  if (!url && !useHtmlPaste) {
+    const errNeed =
+      'Indica la URL del centro o pega el HTML de la ficha (bloque inferior), por ejemplo si MurciaSalud bloquea al servidor.';
+    if (wantsJson) return res.status(400).json({ ok: false, error: errNeed });
+    return res.redirect('/admin/sql-centro-murciasalud?error=' + encodeURIComponent(errNeed));
   }
 
   try {
-    const html = await fetchMurciaCentroPageHtml(url);
-    const row = parseMurciaCentroHtml(html);
+    let row;
+    if (useHtmlPaste) {
+      row = parseMurciaCentroHtml(htmlPaste);
+    } else {
+      const html = await fetchMurciaCentroPageHtml(url);
+      row = parseMurciaCentroHtml(html);
+    }
     const sql = buildInsertCentroPrescriptor(row, { cent_Id_Ruta });
     if (wantsJson) {
       return res.json({
         ok: true,
         sql,
+        source: useHtmlPaste ? 'html' : 'fetch',
         meta: {
           cent_Nombre_Centro: row.cent_Nombre_Centro,
           cent_codigo: row.cent_codigo
@@ -243,16 +263,20 @@ router.post('/sql-centro-murciasalud/generate', requireAdmin, async (req, res) =
     return res.render('admin-sql-centro-murciasalud', {
       title: 'MurciaSalud → SQL centro',
       subtitle:
-        'Pega la URL de la ficha del centro en MurciaSalud; el CRM descarga la página y muestra el INSERT para la tabla centros_prescriptores (copiar en phpMyAdmin o cliente MySQL).',
+        'URL o HTML de la ficha MurciaSalud → INSERT para centros_prescriptores (phpMyAdmin / cliente MySQL).',
       generatedSql: sql,
-      lastUrl: url
+      lastUrl: url || null
     });
   } catch (e) {
     const msg = e?.message || String(e);
     warn('[admin] sql-centro-murciasalud:', msg);
     if (wantsJson) {
       const status = e?.code === 'MURCIA_BLOCKED' ? 422 : 400;
-      return res.status(status).json({ ok: false, error: msg, code: e?.code || null });
+      const hint =
+        e?.code === 'MURCIA_BLOCKED'
+          ? 'Abre la misma URL en tu navegador, guarda la página (solo HTML) y pégala en el cuadro «HTML de la ficha» más abajo; vuelve a pulsar Generar.'
+          : null;
+      return res.status(status).json({ ok: false, error: msg, code: e?.code || null, hint });
     }
     return res.redirect('/admin/sql-centro-murciasalud?error=' + encodeURIComponent(msg));
   }
