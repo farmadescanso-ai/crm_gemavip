@@ -190,6 +190,51 @@
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
+  /**
+   * Evita POST 400 en consola: mismas reglas que el servidor si solo se usa URL (sin HTML pegado).
+   * @returns {{ msg: string, hint?: string }|null}
+   */
+  function clientValidateMurciaUrlForFetch(u, useHtml) {
+    if (useHtml) return null;
+    if (!u) return null;
+    try {
+      var parsed = new URL(u);
+      var host = parsed.hostname.toLowerCase();
+      if (host !== 'www.murciasalud.es' && host !== 'murciasalud.es') return null;
+      var path = (parsed.pathname || '/').replace(/\/+$/, '') || '/';
+      if (path !== '/caps.php') {
+        return {
+          msg: 'La ruta debe ser /caps.php.',
+          hint: 'Ejemplo: https://www.murciasalud.es/caps.php?op=mostrar_centro&id_centro=16&idsec=6'
+        };
+      }
+      var op = parsed.searchParams.get('op');
+      if (op !== 'mostrar_centro') {
+        if (op === 'mostrar_zbs') {
+          return {
+            msg:
+              'Has indicado una URL de zona básica de salud (op=mostrar_zbs). Este generador solo admite la ficha de un centro (op=mostrar_centro e id_centro).',
+            hint:
+              'Abre un centro concreto desde MurciaSalud y copia su URL, o guarda la ficha del centro como HTML y pégala abajo (mín. ' + MIN_HTML + ' caracteres).'
+          };
+        }
+        return {
+          msg: 'La URL debe usar op=mostrar_centro (ficha de un centro). Ahora es: ' + (op ? 'op=' + op : 'sin parámetro op') + '.',
+          hint: 'No valen enlaces de zona básica, área u otros listados; solo la página de un centro.'
+        };
+      }
+      if (!parsed.searchParams.get('id_centro')) {
+        return {
+          msg: 'Falta el parámetro id_centro en la URL.',
+          hint: 'Ejemplo: …&id_centro=16&…'
+        };
+      }
+    } catch (e1) {
+      return { msg: 'URL no válida (no se puede interpretar).', hint: 'Revisa que empiece por https:// y sea una dirección completa.' };
+    }
+    return null;
+  }
+
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
     var u = (urlIn.value || '').trim();
@@ -197,6 +242,12 @@
     var useHtml = html.length >= MIN_HTML;
     if (!u && !useHtml) {
       showFetchErr('Indica la URL del centro o pega el HTML de la ficha (mínimo ' + MIN_HTML + ' caracteres).', null);
+      return;
+    }
+    var bad = clientValidateMurciaUrlForFetch(u, useHtml);
+    if (bad) {
+      statusEl.textContent = '';
+      showFetchErr(bad.msg, bad.hint || null);
       return;
     }
     clearFetchErr();
