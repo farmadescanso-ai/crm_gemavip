@@ -42,7 +42,22 @@ const SCHEMA_COLUMNS = {
   equivalencias_impuesto: ['eqimp_id', 'eqimp_timp_origen_id', 'eqimp_timp_destino_id'],
   estados_visita: ['estvis_id', 'estvis_nombre', 'estvis_activo'],
   tiposcargorol: ['tipcar_id', 'tipcar_nombre', 'tipcar_activo'],
-  centros_prescriptores: ['cent_id', 'cent_nombre', 'cent_direccion', 'cent_poblacion', 'cent_codigo_postal', 'cent_prov_id', 'cent_telefono', 'cent_activo'],
+  centros_prescriptores: [
+    'cent_id',
+    'cent_Id_Ruta',
+    'cent_Nombre_Centro',
+    'cent_codigo',
+    'cent_Direccion',
+    'cent_Poblacion',
+    'cent_Cod_Postal',
+    'cent_Municipio',
+    'cent_Telefono',
+    'cent_Email',
+    'cent_Coordinador',
+    'cent_Telf_Coordinador',
+    'cent_Email_Coordinador',
+    'cent_Area_Salud'
+  ],
   bancos: ['banco_id', 'banco_nombre', 'banco_entidad', 'banco_swift_bic', 'banco_fecha_alta']
 };
 

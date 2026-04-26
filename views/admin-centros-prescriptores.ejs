@@ -1,0 +1,90 @@
+<%- include('partials/header', { title: title || 'Centros prescriptores' }) %>
+
+<section class="card" style="max-width: 1200px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Centros prescriptores</h1>
+    <% if (typeof subtitle === 'string' && subtitle) { %>
+      <p class="card-subtitle"><%= subtitle %></p>
+    <% } %>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert gv-alert--warn"><%- escapeHtml(error) %></div>
+      <div style="height: 12px;"></div>
+    <% } %>
+
+    <form method="get" action="/admin/sql-centro-murciasalud" class="gv-stack" style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+      <div style="flex: 1; min-width: 200px;">
+        <label for="q" class="gv-label">Buscar</label>
+        <input
+          class="gv-input"
+          type="search"
+          id="q"
+          name="q"
+          value="<%- escapeHtml(typeof q === 'string' ? String(q) : '') %>"
+          placeholder="Nombre, población, municipio o código…"
+          autocomplete="off"
+          maxlength="120"
+        />
+      </div>
+      <div class="gv-actions" style="padding-bottom: 2px;">
+        <button class="btn" type="submit">Filtrar</button>
+        <% if (typeof q === 'string' && q) { %>
+          <a class="btn secondary" href="/admin/sql-centro-murciasalud">Limpiar</a>
+        <% } %>
+      </div>
+    </form>
+
+    <% const list = Array.isArray(rows) ? rows : []; %>
+    <p class="gv-muted" style="font-size: 13px; margin: 0 0 12px 0;">
+      <%= list.length %> <%= list.length === 1 ? 'centro' : 'centros' %>
+      <% if (typeof q === 'string' && q) { %> (filtro activo)<% } %>
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left;">Código</th>
+            <th style="text-align:left;">Nombre</th>
+            <th style="text-align:left;">Dirección</th>
+            <th style="text-align:left;">CP</th>
+            <th style="text-align:left;">Población</th>
+            <th style="text-align:left;">Municipio</th>
+            <th style="text-align:left;">Teléfono</th>
+            <th style="text-align:left;">Email</th>
+            <th style="text-align:left;">Coordinador</th>
+            <th style="text-align:left;">Área de salud</th>
+            <th style="text-align:left;">Ruta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!list.length) { %>
+            <tr>
+              <td colspan="11" style="color: var(--gv-muted); padding: 16px;">
+                No hay centros que mostrar. Si la tabla existe pero está vacía, importa datos con los scripts SQL del repositorio.
+              </td>
+            </tr>
+          <% } %>
+          <% list.forEach((row) => { %>
+            <tr>
+              <td><%= row.cent_codigo != null && row.cent_codigo !== '' ? escapeHtml(String(row.cent_codigo)) : '—' %></td>
+              <td style="font-weight: 600;"><%= row.cent_Nombre_Centro ? escapeHtml(String(row.cent_Nombre_Centro)) : '—' %></td>
+              <td style="max-width: 220px; word-break: break-word;"><%= row.cent_Direccion ? escapeHtml(String(row.cent_Direccion)) : '—' %></td>
+              <td><%= row.cent_Cod_Postal ? escapeHtml(String(row.cent_Cod_Postal)) : '—' %></td>
+              <td><%= row.cent_Poblacion ? escapeHtml(String(row.cent_Poblacion)) : '—' %></td>
+              <td><%= row.cent_Municipio ? escapeHtml(String(row.cent_Municipio)) : '—' %></td>
+              <td style="white-space: nowrap;"><%= row.cent_Telefono ? escapeHtml(String(row.cent_Telefono)) : '—' %></td>
+              <td style="max-width: 140px; word-break: break-word;"><%= row.cent_Email ? escapeHtml(String(row.cent_Email)) : '—' %></td>
+              <td style="max-width: 160px; word-break: break-word;"><%= row.cent_Coordinador ? escapeHtml(String(row.cent_Coordinador)) : '—' %></td>
+              <td style="max-width: 180px; word-break: break-word;"><%= row.cent_Area_Salud ? escapeHtml(String(row.cent_Area_Salud)) : '—' %></td>
+              <td><%= row.cent_Id_Ruta != null && row.cent_Id_Ruta !== '' ? escapeHtml(String(row.cent_Id_Ruta)) : '—' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

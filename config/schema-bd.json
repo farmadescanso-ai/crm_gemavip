@@ -73,7 +73,25 @@
     "holded": "art_id_holded = product.id (GET /products). Líneas documento Holded emparejan por items[].sku con catálogo. Ver scripts/alter-articulos-holded-sync.sql",
     "cols": ["art_id", "art_sku", "art_codigo_interno", "art_nombre", "art_presentacion", "art_mar_id", "art_ean13", "art_id_holded", "art_holded_sync_at", "art_activo"]
   },
-  "centros_prescriptores": { "pk": "cent_id", "cols": ["cent_id"] },
+  "centros_prescriptores": {
+    "pk": "cent_id",
+    "cols": [
+      "cent_id",
+      "cent_Id_Ruta",
+      "cent_Nombre_Centro",
+      "cent_codigo",
+      "cent_Direccion",
+      "cent_Poblacion",
+      "cent_Cod_Postal",
+      "cent_Municipio",
+      "cent_Telefono",
+      "cent_Email",
+      "cent_Coordinador",
+      "cent_Telf_Coordinador",
+      "cent_Email_Coordinador",
+      "cent_Area_Salud"
+    ]
+  },
   "clientes_contactos": { "pk": ["clicont_cli_id", "clicont_ag_id"], "cols": ["clicont_cli_id", "clicont_ag_id"] },
   "clientes_cooperativas": { "pk": "detco_id", "cols": ["detco_id", "detco_Id_Cooperativa", "detco_Id_Cliente", "detco_NumAsociado"], "fk": { "detco_Id_Cliente": "clientes", "detco_Id_Cooperativa": "cooperativas" } },
   "clientes_gruposCompras": { "pk": "detgru_id", "cols": ["detgru_id"] },
