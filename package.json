@@ -22,7 +22,9 @@
     "export:holded-contactos-crm:md": "node scripts/export-holded-contactos-crm-excel.js --md",
     "normalizar-clientes-espana:dry": "node scripts/normalizar-clientes-espana.js --dry-run",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:ejs-xss-smoke": "jest --testPathPatterns=ejs-xss-smoke",
+    "murciasalud:centros-sql": "node scripts/murciasalud-centros-prescriptores-sql.js"
   },
   "keywords": [
     "farmadescaso",
@@ -57,7 +59,8 @@
     "pdf-parse": "^1.1.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "cheerio": "^1.0.0"
   },
   "devDependencies": {
     "jest": "^30.2.0",

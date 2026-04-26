@@ -1,0 +1,4 @@
+# Una URL de ficha por línea (MurciaSalud → caps.php?op=mostrar_centro)
+# Líneas con # se ignoran.
+
+https://www.murciasalud.es/caps.php?op=mostrar_centro&id_centro=16&idsec=6

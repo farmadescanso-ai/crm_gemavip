@@ -1,0 +1,144 @@
+<%- include('partials/header', { title: title || 'MurciaSalud → SQL centro' }) %>
+
+<section class="card">
+  <div class="card-hd">
+    <h1 class="card-title"><%= title %></h1>
+    <p class="card-subtitle"><%= subtitle %></p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="gv-alert gv-alert--error" style="margin-bottom: 16px;" id="gv-ms-error"><%- escapeHtml(error) %></div>
+    <% } %>
+
+    <p style="margin-bottom: 12px; color: var(--gv-muted); font-size: 14px;">
+      Ejemplo de URL:
+      <code style="word-break: break-all;">https://www.murciasalud.es/caps.php?op=mostrar_centro&amp;id_centro=16&amp;idsec=6</code>
+    </p>
+
+    <form id="gv-murcia-sql-form" style="display: grid; gap: 14px; max-width: 720px;">
+      <label style="display: grid; gap: 6px;">
+        <span style="font-weight: 700;">URL de la ficha del centro</span>
+        <input
+          type="url"
+          name="url"
+          id="gv-murcia-url"
+          class="input"
+          required
+          placeholder="https://www.murciasalud.es/caps.php?op=mostrar_centro&id_centro=…"
+          value="<%= typeof lastUrl !== 'undefined' && lastUrl ? escapeHtml(String(lastUrl)) : '' %>"
+          autocomplete="off"
+          style="width: 100%;"
+        />
+      </label>
+      <label style="display: grid; gap: 6px;">
+        <span style="font-weight: 700;">cent_Id_Ruta <span style="font-weight: 400; color: var(--gv-muted);">(opcional)</span></span>
+        <input type="number" name="cent_Id_Ruta" id="gv-murcia-ruta" class="input" placeholder="Dejar vacío = NULL" min="0" step="1" style="max-width: 220px;" />
+      </label>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+        <button type="submit" class="btn" id="gv-murcia-submit">Generar SQL</button>
+        <span id="gv-murcia-status" style="font-size: 14px; color: var(--gv-muted);" aria-live="polite"></span>
+      </div>
+    </form>
+
+    <% if (typeof generatedSql !== 'undefined' && generatedSql) { %>
+      <div class="gv-alert gv-alert--success" style="margin-top: 20px;">SQL generado (también puedes volver a generar con el formulario).</div>
+      <textarea class="input" readonly rows="18" style="margin-top: 12px; font-family: ui-monospace, monospace; font-size: 13px;"><%= generatedSql %></textarea>
+    <% } %>
+  </div>
+</section>
+
+<dialog id="gv-murcia-sql-modal" class="gv-modal" style="max-width: min(920px, 96vw); width: 100%; border: none; border-radius: 12px; padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,0.18);">
+  <div style="padding: 20px 22px 16px;">
+    <h2 style="margin: 0 0 8px; font-size: 1.15rem;">INSERT generado</h2>
+    <p style="margin: 0 0 14px; color: var(--gv-muted); font-size: 14px;">Copia el texto y ejecútalo en tu base de datos (phpMyAdmin, DBeaver, etc.).</p>
+    <textarea id="gv-murcia-sql-ta" readonly rows="20" class="input" style="width: 100%; font-family: ui-monospace, monospace; font-size: 13px; box-sizing: border-box;"></textarea>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: flex-end;">
+      <button type="button" class="btn secondary" id="gv-murcia-sql-close">Cerrar</button>
+      <button type="button" class="btn" id="gv-murcia-sql-copy">Copiar al portapapeles</button>
+    </div>
+  </div>
+</dialog>
+
+<style nonce="<%= cspNonce %>">
+  .gv-modal::backdrop { background: rgba(15, 23, 42, 0.45); }
+</style>
+
+<script nonce="<%= cspNonce %>">
+(function () {
+  var form = document.getElementById('gv-murcia-sql-form');
+  var urlIn = document.getElementById('gv-murcia-url');
+  var rutaIn = document.getElementById('gv-murcia-ruta');
+  var btn = document.getElementById('gv-murcia-submit');
+  var statusEl = document.getElementById('gv-murcia-status');
+  var dlg = document.getElementById('gv-murcia-sql-modal');
+  var ta = document.getElementById('gv-murcia-sql-ta');
+  var btnCopy = document.getElementById('gv-murcia-sql-copy');
+  var btnClose = document.getElementById('gv-murcia-sql-close');
+  if (!form || !urlIn || !dlg || !ta) return;
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var u = (urlIn.value || '').trim();
+    if (!u) return;
+    statusEl.textContent = 'Descargando y parseando…';
+    if (btn) btn.disabled = true;
+    fetch('/admin/sql-centro-murciasalud/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        url: u,
+        cent_Id_Ruta: (rutaIn && rutaIn.value && String(rutaIn.value).trim() !== '') ? rutaIn.value : null
+      })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
+      .then(function (x) {
+        if (x.j && x.j.ok && x.j.sql) {
+          ta.value = x.j.sql;
+          if (typeof x.j.meta === 'object' && x.j.meta && x.j.meta.cent_Nombre_Centro) {
+            statusEl.textContent = 'Listo: ' + x.j.meta.cent_Nombre_Centro + ' (código ' + x.j.meta.cent_codigo + ')';
+          } else {
+            statusEl.textContent = 'Listo.';
+          }
+          dlg.showModal();
+          return;
+        }
+        var err = (x.j && x.j.error) ? x.j.error : ('Error HTTP ' + x.status);
+        statusEl.textContent = '';
+        alert(err);
+      })
+      .catch(function () {
+        statusEl.textContent = '';
+        alert('No se pudo completar la petición. Revisa la conexión o recarga la página.');
+      })
+      .finally(function () {
+        if (btn) btn.disabled = false;
+      });
+  });
+
+  if (btnCopy) {
+    btnCopy.addEventListener('click', function () {
+      var txt = ta.value;
+      var done = function () {
+        btnCopy.textContent = 'Copiado';
+        setTimeout(function () { btnCopy.textContent = 'Copiar al portapapeles'; }, 2000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(done).catch(function () {
+          ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          done();
+        });
+      } else {
+        ta.select();
+        try { document.execCommand('copy'); } catch (e2) {}
+        done();
+      }
+    });
+  }
+  if (btnClose) {
+    btnClose.addEventListener('click', function () { dlg.close(); });
+  }
+})();
+</script>
+
+<%- include('partials/footer') %>

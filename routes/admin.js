@@ -198,6 +198,67 @@ router.post('/normalizar-telefonos-clientes', requireAdmin, async (req, res, nex
 });
 
 // ===========================
+// SQL INSERT centros_prescriptores desde ficha MurciaSalud (solo admin)
+// ===========================
+const { fetchMurciaCentroPageHtml } = require('../lib/murciasalud-centro-fetch');
+const { parseMurciaCentroHtml, buildInsertCentroPrescriptor } = require('../lib/murciasalud-centro-parse');
+
+router.get('/sql-centro-murciasalud', requireAdmin, (req, res) => {
+  const error = typeof req.query.error === 'string' ? req.query.error : null;
+  res.render('admin-sql-centro-murciasalud', {
+    title: 'MurciaSalud → SQL centro',
+    subtitle:
+      'Pega la URL de la ficha del centro en MurciaSalud; el CRM descarga la página y muestra el INSERT para la tabla centros_prescriptores (copiar en phpMyAdmin o cliente MySQL).',
+    error
+  });
+});
+
+router.post('/sql-centro-murciasalud/generate', requireAdmin, async (req, res) => {
+  const wantsJson = /application\/json/i.test(req.headers.accept || '');
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  const idRutaRaw = req.body?.cent_Id_Ruta;
+  const idRutaNum =
+    idRutaRaw != null && String(idRutaRaw).trim() !== '' ? Number(String(idRutaRaw).trim()) : null;
+  const cent_Id_Ruta = Number.isFinite(idRutaNum) ? idRutaNum : null;
+
+  if (!url) {
+    if (wantsJson) return res.status(400).json({ ok: false, error: 'Indica la URL del centro.' });
+    return res.redirect('/admin/sql-centro-murciasalud?error=' + encodeURIComponent('Indica la URL del centro.'));
+  }
+
+  try {
+    const html = await fetchMurciaCentroPageHtml(url);
+    const row = parseMurciaCentroHtml(html);
+    const sql = buildInsertCentroPrescriptor(row, { cent_Id_Ruta });
+    if (wantsJson) {
+      return res.json({
+        ok: true,
+        sql,
+        meta: {
+          cent_Nombre_Centro: row.cent_Nombre_Centro,
+          cent_codigo: row.cent_codigo
+        }
+      });
+    }
+    return res.render('admin-sql-centro-murciasalud', {
+      title: 'MurciaSalud → SQL centro',
+      subtitle:
+        'Pega la URL de la ficha del centro en MurciaSalud; el CRM descarga la página y muestra el INSERT para la tabla centros_prescriptores (copiar en phpMyAdmin o cliente MySQL).',
+      generatedSql: sql,
+      lastUrl: url
+    });
+  } catch (e) {
+    const msg = e?.message || String(e);
+    warn('[admin] sql-centro-murciasalud:', msg);
+    if (wantsJson) {
+      const status = e?.code === 'MURCIA_BLOCKED' ? 422 : 400;
+      return res.status(status).json({ ok: false, error: msg, code: e?.code || null });
+    }
+    return res.redirect('/admin/sql-centro-murciasalud?error=' + encodeURIComponent(msg));
+  }
+});
+
+// ===========================
 // DESCUENTOS PEDIDO
 // ===========================
 router.get('/descuentos-pedido', requireAdmin, async (_req, res, next) => {
