@@ -40,6 +40,20 @@
       </div>
     </form>
 
+    <div id="gv-murcia-sql-panel" class="gv-murcia-sql-panel" hidden>
+      <div class="gv-murcia-sql-panel__hd">
+        <h2 class="gv-murcia-sql-panel__title">INSERT generado</h2>
+        <p class="gv-murcia-sql-panel__hint">
+          Copia el texto y ejecútalo en tu base de datos (phpMyAdmin, DBeaver, etc.). Puedes seguir editando la URL arriba y volver a generar.
+        </p>
+      </div>
+      <textarea id="gv-murcia-sql-ta" readonly class="input gv-murcia-sql-panel__ta" rows="16"></textarea>
+      <div class="gv-murcia-sql-panel__actions">
+        <button type="button" class="btn secondary" id="gv-murcia-sql-hide">Ocultar resultado</button>
+        <button type="button" class="btn" id="gv-murcia-sql-copy">Copiar al portapapeles</button>
+      </div>
+    </div>
+
     <% if (typeof generatedSql !== 'undefined' && generatedSql) { %>
       <div class="gv-alert gv-alert--success" style="margin-top: 20px;">SQL generado (también puedes volver a generar con el formulario).</div>
       <textarea class="input" readonly rows="18" style="margin-top: 12px; font-family: ui-monospace, monospace; font-size: 13px;"><%= generatedSql %></textarea>
@@ -47,20 +61,50 @@
   </div>
 </section>
 
-<dialog id="gv-murcia-sql-modal" class="gv-modal" style="max-width: min(920px, 96vw); width: 100%; border: none; border-radius: 12px; padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,0.18);">
-  <div style="padding: 20px 22px 16px;">
-    <h2 style="margin: 0 0 8px; font-size: 1.15rem;">INSERT generado</h2>
-    <p style="margin: 0 0 14px; color: var(--gv-muted); font-size: 14px;">Copia el texto y ejecútalo en tu base de datos (phpMyAdmin, DBeaver, etc.).</p>
-    <textarea id="gv-murcia-sql-ta" readonly rows="20" class="input" style="width: 100%; font-family: ui-monospace, monospace; font-size: 13px; box-sizing: border-box;"></textarea>
-    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: flex-end;">
-      <button type="button" class="btn secondary" id="gv-murcia-sql-close">Cerrar</button>
-      <button type="button" class="btn" id="gv-murcia-sql-copy">Copiar al portapapeles</button>
-    </div>
-  </div>
-</dialog>
-
 <style nonce="<%= cspNonce %>">
-  .gv-modal::backdrop { background: rgba(15, 23, 42, 0.45); }
+  .gv-murcia-sql-panel {
+    margin-top: 22px;
+    max-width: min(920px, 100%);
+    padding: 18px 20px 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: rgba(248, 250, 252, 0.95);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+  }
+  .gv-murcia-sql-panel[hidden] {
+    display: none !important;
+  }
+  .gv-murcia-sql-panel__hd {
+    margin-bottom: 12px;
+  }
+  .gv-murcia-sql-panel__title {
+    margin: 0 0 6px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gv-ink, #0f172a);
+  }
+  .gv-murcia-sql-panel__hint {
+    margin: 0;
+    font-size: 14px;
+    color: var(--gv-muted, #64748b);
+    line-height: 1.45;
+  }
+  .gv-murcia-sql-panel__ta {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    resize: vertical;
+    min-height: 200px;
+  }
+  .gv-murcia-sql-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+    justify-content: flex-end;
+  }
 </style>
 
 <script nonce="<%= cspNonce %>">
@@ -70,11 +114,17 @@
   var rutaIn = document.getElementById('gv-murcia-ruta');
   var btn = document.getElementById('gv-murcia-submit');
   var statusEl = document.getElementById('gv-murcia-status');
-  var dlg = document.getElementById('gv-murcia-sql-modal');
+  var panel = document.getElementById('gv-murcia-sql-panel');
   var ta = document.getElementById('gv-murcia-sql-ta');
   var btnCopy = document.getElementById('gv-murcia-sql-copy');
-  var btnClose = document.getElementById('gv-murcia-sql-close');
-  if (!form || !urlIn || !dlg || !ta) return;
+  var btnHide = document.getElementById('gv-murcia-sql-hide');
+  if (!form || !urlIn || !panel || !ta) return;
+
+  function showPanelWithSql(sql) {
+    ta.value = sql;
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
@@ -93,13 +143,12 @@
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
       .then(function (x) {
         if (x.j && x.j.ok && x.j.sql) {
-          ta.value = x.j.sql;
           if (typeof x.j.meta === 'object' && x.j.meta && x.j.meta.cent_Nombre_Centro) {
             statusEl.textContent = 'Listo: ' + x.j.meta.cent_Nombre_Centro + ' (código ' + x.j.meta.cent_codigo + ')';
           } else {
             statusEl.textContent = 'Listo.';
           }
-          dlg.showModal();
+          showPanelWithSql(x.j.sql);
           return;
         }
         var err = (x.j && x.j.error) ? x.j.error : ('Error HTTP ' + x.status);
@@ -135,8 +184,10 @@
       }
     });
   }
-  if (btnClose) {
-    btnClose.addEventListener('click', function () { dlg.close(); });
+  if (btnHide) {
+    btnHide.addEventListener('click', function () {
+      panel.hidden = true;
+    });
   }
 })();
 </script>
