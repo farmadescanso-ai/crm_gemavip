@@ -86,6 +86,19 @@ function vercelPathRewrite(req, _res, next) {
   next();
 }
 
+/**
+ * Ficha de contacto solo numérica: /clientes/123 (no /edit).
+ * Debe reescribirse desde /api/clientes/123 igual que /edit, salvo peticiones API (Accept JSON sin HTML).
+ */
+const RE_CLIENTES_VISTA_NUMERICA = /^clientes\/\d+\/?$/;
+
+function acceptLooksJsonApiOnly(accept) {
+  const a = String(accept || '').toLowerCase();
+  if (!a.includes('application/json')) return false;
+  if (a.includes('text/html')) return false;
+  return true;
+}
+
 const HTML_UI_PREFIXES = [
   /^clientes\/(?:new|duplicados|unificar|[^/]+\/(?:edit|delete))(?:\/|$)/,
   /^login(?:\/|$)/,
@@ -114,7 +127,12 @@ function apiHtmlUiPathRewrite(req, _res, next) {
   const rest = pathWithoutApiPrefix(pathOnly);
   if (rest == null) return next();
 
-  const hit = HTML_UI_PREFIXES.some((re) => re.test(rest));
+  const vistaPkSoloDigitos = RE_CLIENTES_VISTA_NUMERICA.test(rest);
+  if (vistaPkSoloDigitos && acceptLooksJsonApiOnly(req.headers.accept)) {
+    return next();
+  }
+
+  const hit = HTML_UI_PREFIXES.some((re) => re.test(rest)) || vistaPkSoloDigitos;
   if (!hit) return next();
 
   req.url = stripVercelPathFromQueryString(`/${rest}${qs}`);
