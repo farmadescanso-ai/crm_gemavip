@@ -45,12 +45,12 @@
                       <a class="btn secondary icon" href="/clientes/<%= cid %>/edit" title="Editar">Editar</a>
                     </td>
                     <td><%= cid %></td>
-                    <td><%= c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '' %></td>
-                    <td><span class="gv-badge gv-badge--<%= ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa') ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona') ? 'persona' : 'otros' %>"><%= c.TipoContacto ?? c.cli_tipo_contacto ?? '—' %></span></td>
+                    <td><%- escapeHtml(String(c.Nombre_Razon_Social ?? c.cli_nombre_razon_social ?? c.Nombre ?? '')) %></td>
+                    <td><span class="gv-badge gv-badge--<%= ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'empresa') ? 'empresa' : ((c.TipoContacto ?? c.cli_tipo_contacto ?? '').toLowerCase() === 'persona') ? 'persona' : 'otros' %>"><%- escapeHtml(String(c.TipoContacto ?? c.cli_tipo_contacto ?? '—')) %></span></td>
                     <td><% const tel = String(c.Telefono ?? c.cli_telefono ?? c.Movil ?? c.cli_movil ?? '').trim(); %><%- include('partials/telefono-display', { telefono: tel }) %></td>
-                    <td><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
-                    <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? '') %></td>
-                    <td><% const estVal = c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? ''; %><%= (estVal === 'OK' || estVal === 'ok') ? 'Activo' : estVal %></td>
+                    <td><% const email = String(c.Email ?? c.cli_email ?? '').trim(); %><% if (email) { %><a href="mailto:<%= encodeURIComponent(email) %>" class="gv-contactos-link"><%- escapeHtml(email) %></a><% } else { %>—<% } %></td>
+                    <td><%- escapeHtml(String(c.ProvinciaNombre ?? (c.Id_Provincia ?? c.cli_prov_id ?? ''))) %></td>
+                    <td><% const estVal = c.EstadoClienteNombre ?? c.OK_KO ?? c.cli_ok_ko ?? ''; %><% if (estVal === 'OK' || estVal === 'ok') { %>Activo<% } else { %><%- escapeHtml(String(estVal)) %><% } %></td>
                   </tr>
                 <% }) %>
               </tbody>

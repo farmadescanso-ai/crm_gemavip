@@ -31,7 +31,7 @@
             id="gv-vis-date"
             type="date"
             name="date"
-            value="<%= selectedDate ? selectedDate : '' %>"
+            value="<%- escapeHtml(String(selectedDate || '')) %>"
             class="gv-client-picker__q gv-vista-visitas-filter-form__input"
           />
           <label for="gv-vis-id" class="gv-vista-visitas-filter-form__label">ID visita</label>
@@ -57,7 +57,7 @@
       <% } else { %>
         · <%= items.length %> resultados
       <% } %>
-      <% if (selectedDate) { %> · <span class="badge info"><%= selectedDate %></span><% } %>
+      <% if (selectedDate) { %> · <span class="badge info"><%- escapeHtml(String(selectedDate)) %></span><% } %>
     </p>
   </div>
   <div class="card-bd">
@@ -71,7 +71,7 @@
         <form method="get" action="/visitas" class="gv-vista-pagination__goto" style="display:inline;">
           <input type="hidden" name="view" value="list" />
           <input type="hidden" name="limit" value="<%= lim %>" />
-          <% if (selectedDate) { %><input type="hidden" name="date" value="<%= selectedDate %>" /><% } %>
+          <% if (selectedDate) { %><input type="hidden" name="date" value="<%- escapeHtml(String(selectedDate)) %>" /><% } %>
           <% if (typeof id !== 'undefined' && id) { %><input type="hidden" name="id" value="<%= id %>" /><% } %>
           <input type="number" name="page" min="1" max="<%= totalPages %>" value="<%= pg %>" class="gv-vista-pagination__input" aria-label="Ir a página" title="Ir a página" />
           <button type="submit" class="btn secondary icon gv-vista-pagination__btn">Ir</button>
@@ -143,14 +143,14 @@
               <td><%= fmtDateES(v.Fecha ?? v.vis_fecha ?? '') %></td>
               <td><%= fmtTimeHM(v.Hora ?? v.vis_hora ?? '') %></td>
               <td><%= fmtTimeHM(v.HoraFinal ?? v.vis_hora_final ?? v.Hora_Final ?? '') %></td>
-              <td><%= v.TipoVisita ?? v.vis_tipo ?? '' %></td>
-              <td><%= (v.ClienteRazonSocial || v.ClienteNombre || v.cli_nombre_razon_social) ? (v.ClienteRazonSocial || v.ClienteNombre || v.cli_nombre_razon_social) : (v.ClienteId ?? v.vis_cli_id ?? '') %></td>
+              <td><%- escapeHtml(String(v.TipoVisita ?? v.vis_tipo ?? '')) %></td>
+              <td><%- escapeHtml(String((v.ClienteRazonSocial || v.ClienteNombre || v.cli_nombre_razon_social) ? (v.ClienteRazonSocial || v.ClienteNombre || v.cli_nombre_razon_social) : (v.ClienteId ?? v.vis_cli_id ?? ''))) %></td>
               <% if (admin) { %>
-                <td><%= v.ComercialNombre ?? v.com_nombre ?? (v.ComercialId ?? v.vis_com_id ?? '') %></td>
+                <td><%- escapeHtml(String(v.ComercialNombre ?? v.com_nombre ?? (v.ComercialId ?? v.vis_com_id ?? ''))) %></td>
               <% } %>
               <td>
                 <% if (est) { %>
-                  <span class="badge <%= bcls %>" style="font-size: 11px; padding: 3px 8px;"><%= est %></span>
+                  <span class="badge <%= bcls %>" style="font-size: 11px; padding: 3px 8px;"><%- escapeHtml(est) %></span>
                 <% } else { %>
                   —
                 <% } %>

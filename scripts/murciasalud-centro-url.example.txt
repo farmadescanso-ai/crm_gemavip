@@ -1,0 +1,6 @@
+# MurciaSalud — URL del centro (una sola linea util, sin # al inicio)
+# Copia este fichero a murciasalud-centro-url.txt (esta ultima ruta esta en .gitignore)
+# y sustituye la linea de abajo por la URL completa de la ficha (con &).
+# Luego doble clic en run-murciasalud-centro-desde-archivo.cmd (en la raiz del CRM).
+
+https://www.murciasalud.es/caps.php?op=mostrar_centro&id_centro=12&idsec=6

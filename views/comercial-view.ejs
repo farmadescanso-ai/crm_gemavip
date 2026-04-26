@@ -12,7 +12,7 @@
     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; flex-wrap:wrap;">
       <div>
         <h1 class="card-title">Comercial <span style="color: var(--gv-muted); font-weight:800;">#<%= id %></span></h1>
-        <p class="card-subtitle"><%= item?.Nombre ?? '' %> · <%= email %></p>
+        <p class="card-subtitle"><%- escapeHtml(String(item?.Nombre ?? '')) %> · <% if (email) { %><a href="mailto:<%= encodeURIComponent(String(email)) %>"><%- escapeHtml(String(email)) %></a><% } else { %>—<% } %></p>
         <% const rawAct = item?.com_activo ?? item?.Activo; %>
         <% const _act = rawAct === undefined || rawAct === null ? true : Number(rawAct) !== 0; %>
         <% const fbView = item?.com_fecha_baja ?? item?.FechaBaja; %>
@@ -24,7 +24,7 @@
             <span class="badge danger" style="font-weight:800;">Inactivo</span>
             <span style="color: var(--gv-muted); font-size: 13px; font-weight:700; margin-left: 8px;">Sin acceso al CRM</span>
             <% if (fbLabel) { %>
-              <span style="display: block; margin-top: 6px; font-size: 13px; font-weight: 800; color: #b91c1c;">Fecha de baja: <%= fbLabel %></span>
+              <span style="display: block; margin-top: 6px; font-size: 13px; font-weight: 800; color: #b91c1c;">Fecha de baja: <%- escapeHtml(String(fbLabel)) %></span>
             <% } %>
           <% } %>
         </p>
@@ -52,27 +52,27 @@
       <div style="padding: 12px; border: 1px solid var(--gv-border, #e9ecef); border-radius: 14px;">
         <div style="font-weight: 900; color: var(--gv-ink); margin-bottom: 8px;">Datos</div>
         <div style="display:grid; gap:6px; font-weight:700;">
-          <div><span style="color: var(--gv-muted);">Nombre</span><br /><%= item?.Nombre ?? '' %></div>
-          <div><span style="color: var(--gv-muted);">Email</span><br /><%= email %></div>
-          <div><span style="color: var(--gv-muted);">DNI</span><br /><%= item?.DNI ?? '—' %></div>
-          <div><span style="color: var(--gv-muted);">Móvil</span><br /><%= item?.Movil ?? '—' %></div>
+          <div><span style="color: var(--gv-muted);">Nombre</span><br /><%- escapeHtml(String(item?.Nombre ?? '')) %></div>
+          <div><span style="color: var(--gv-muted);">Email</span><br /><% if (email) { %><a href="mailto:<%= encodeURIComponent(String(email)) %>"><%- escapeHtml(String(email)) %></a><% } else { %>—<% } %></div>
+          <div><span style="color: var(--gv-muted);">DNI</span><br /><%- escapeHtml(String(item?.DNI ?? '—')) %></div>
+          <div><span style="color: var(--gv-muted);">Móvil</span><br /><%- escapeHtml(String(item?.Movil ?? '—')) %></div>
         </div>
       </div>
 
       <div style="padding: 12px; border: 1px solid var(--gv-border, #e9ecef); border-radius: 14px;">
         <div style="font-weight: 900; color: var(--gv-ink); margin-bottom: 8px;">Dirección</div>
         <div style="display:grid; gap:6px; font-weight:700;">
-          <div><span style="color: var(--gv-muted);">Dirección</span><br /><%= item?.Direccion ?? '—' %></div>
-          <div><span style="color: var(--gv-muted);">CP</span><br /><%= item?.CodigoPostal ?? '—' %></div>
-          <div><span style="color: var(--gv-muted);">Población</span><br /><%= item?.Poblacion ?? '—' %></div>
-          <div><span style="color: var(--gv-muted);">Provincia</span><br /><%= item?.ProvinciaNombre ?? (item?.Id_Provincia ?? '—') %></div>
+          <div><span style="color: var(--gv-muted);">Dirección</span><br /><%- escapeHtml(String(item?.Direccion ?? '—')) %></div>
+          <div><span style="color: var(--gv-muted);">CP</span><br /><%- escapeHtml(String(item?.CodigoPostal ?? '—')) %></div>
+          <div><span style="color: var(--gv-muted);">Población</span><br /><%- escapeHtml(String(item?.Poblacion ?? '—')) %></div>
+          <div><span style="color: var(--gv-muted);">Provincia</span><br /><%- escapeHtml(String(item?.ProvinciaNombre ?? (item?.Id_Provincia ?? '—'))) %></div>
         </div>
       </div>
     </div>
 
     <div style="margin-top: 12px; padding: 12px; border: 1px solid var(--gv-border, #e9ecef); border-radius: 14px;">
       <div style="font-weight: 900; color: var(--gv-ink); margin-bottom: 8px;">Permisos</div>
-      <div style="font-weight: 800;"><span style="color: var(--gv-muted);">Roles</span><br /><%= rolesText || '—' %></div>
+      <div style="font-weight: 800;"><span style="color: var(--gv-muted);">Roles</span><br /><%- escapeHtml(String(rolesText || '—')) %></div>
     </div>
   </div>
 </section>

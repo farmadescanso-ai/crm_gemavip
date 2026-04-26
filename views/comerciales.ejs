@@ -19,7 +19,7 @@
     <div class="gv-contactos-hd__bar">
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <form method="get" action="/comerciales" class="gv-contactos-search" style="display:inline-flex; align-items:center; gap:8px;">
-          <input type="search" name="q" placeholder="Buscar por nombre, email, móvil..." value="<%= (typeof q !== 'undefined' && q) ? q : '' %>" class="gv-contactos-search__input" style="min-width: 260px;" />
+          <input type="search" name="q" placeholder="Buscar por nombre, email, móvil..." value="<%- escapeHtml(String((typeof q !== 'undefined' && q) ? q : '')) %>" class="gv-contactos-search__input" style="min-width: 260px;" />
           <button class="btn secondary" type="submit">Buscar</button>
           <% if (typeof q !== 'undefined' && q) { %>
             <a class="btn secondary" href="/comerciales">Limpiar</a>
@@ -31,7 +31,7 @@
 
     <div style="margin-top: 10px;">
       <% if (error) { %>
-        <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;"><%= escapeHtml(error) %></div>
+        <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;"><%- escapeHtml(error) %></div>
       <% } %>
       <% if (created) { %>
         <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Comercial creado correctamente.</div>
@@ -46,7 +46,7 @@
 
     <p class="gv-contactos-hd__sub">
       Mostrando <%= (items || []).length %> comerciales
-      <% if (typeof q !== 'undefined' && q) { %> · Buscando: "<%= q %>"<% } %>
+      <% if (typeof q !== 'undefined' && q) { %> · Buscando: "<%- escapeHtml(String(q)) %>"<% } %>
     </p>
   </div>
 
@@ -127,21 +127,21 @@
                   </form>
                 </div>
               </td>
-              <td class="gv-contactos-col-nombre"><%= c.Nombre ?? '' %></td>
-              <td><% if (email) { %><a href="mailto:<%= email %>" class="gv-contactos-link"><%= email %></a><% } else { %>—<% } %></td>
+              <td class="gv-contactos-col-nombre"><%- escapeHtml(String(c.Nombre ?? '')) %></td>
+              <td><% if (email) { %><a href="mailto:<%= encodeURIComponent(String(email)) %>" class="gv-contactos-link"><%- escapeHtml(String(email)) %></a><% } else { %>—<% } %></td>
               <td class="gv-contactos-col-movil"><%- include('partials/telefono-display', { telefono: c.Movil ?? '', opts: { email: email } }) %></td>
-              <td><%= c.ProvinciaNombre ?? (c.Id_Provincia ?? '') %></td>
+              <td><%- escapeHtml(String(c.ProvinciaNombre ?? (c.Id_Provincia ?? ''))) %></td>
               <td>
                 <% if (esActivo) { %>
                   <span class="badge success" style="font-weight:800;">Activo</span>
                 <% } else { %>
                   <span class="badge danger" style="font-weight:800;">Inactivo</span>
                   <% if (fbTxt) { %>
-                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; margin-top: 4px;">Baja <%= fbTxt %></div>
+                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; margin-top: 4px;">Baja <%- escapeHtml(String(fbTxt)) %></div>
                   <% } %>
                 <% } %>
               </td>
-              <td><%= rolesAbrev %></td>
+              <td><%- escapeHtml(String(rolesAbrev)) %></td>
             </tr>
           <% }) %>
           <% if (!items || items.length === 0) { %>

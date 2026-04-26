@@ -7,10 +7,10 @@
   </div>
   <div class="card-bd">
     <div class="kpi">
-      <span class="pill">Fecha: <%= fmtDateES(item[meta.colFecha] || item.Fecha || '') %></span>
-      <span class="pill">Hora: <%= fmtTimeHM(item[meta.colHora] || item.Hora || '') %></span>
-      <span class="pill">Tipo: <%= item[meta.colTipo] || item.TipoVisita || '—' %></span>
-      <span class="pill">Estado: <%= item[meta.colEstado] || item.Estado || '—' %></span>
+      <span class="pill">Fecha: <%- escapeHtml(String(fmtDateES(item[meta.colFecha] || item.Fecha || ''))) %></span>
+      <span class="pill">Hora: <%- escapeHtml(String(fmtTimeHM(item[meta.colHora] || item.Hora || ''))) %></span>
+      <span class="pill">Tipo: <%- escapeHtml(String(item[meta.colTipo] || item.TipoVisita || '—')) %></span>
+      <span class="pill">Estado: <%- escapeHtml(String(item[meta.colEstado] || item.Estado || '—')) %></span>
     </div>
 
     <div style="margin-top: 14px;" class="table-wrap">
@@ -21,8 +21,8 @@
         <tbody>
           <% Object.keys(item || {}).forEach((k) => { %>
             <tr>
-              <td style="font-weight:700;"><%= k %></td>
-              <td><%= (item[k] === null || item[k] === undefined) ? '' : String(item[k]) %></td>
+              <td style="font-weight:700;"><%- escapeHtml(String(k)) %></td>
+              <td><%- escapeHtml((item[k] === null || item[k] === undefined) ? '' : String(item[k])) %></td>
             </tr>
           <% }) %>
         </tbody>

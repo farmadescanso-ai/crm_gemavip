@@ -24,13 +24,13 @@
 
 CRM Gemavip es una aplicacion **Node.js + Express** para gestion comercial (CRM) orientada al sector farmaceutico/parafarmacia. Gestiona clientes (farmacias), comerciales, pedidos, visitas y comisiones, con integraciones externas (Holded ERP, Prestashop, Google OAuth, N8N).
 
-*Valoraciones revisadas tras intervenciones en código (abril 2026): CORS, endurecimiento de endpoints, correcciones XSS y MIME en rutas concretas, validación con express-validator, modularización de `api/index.js` y `routes/clientes`, troceo de `cliente-form.ejs` en partials, CSP con nonces (`api/middleware/csp.js`), utilidades de importes (`toNum` / `round2`) expuestas en `res.locals` para EJS.*
+*Valoraciones revisadas tras intervenciones en código (abril 2026): CORS, endurecimiento de endpoints, correcciones XSS y MIME en rutas concretas, validación con express-validator, modularización de `api/index.js` y `routes/clientes`, troceo de `cliente-form.ejs` en partials, CSP con nonces (`api/middleware/csp.js`), utilidades de importes (`toNum` / `round2`) expuestas en `res.locals` para EJS. **Volcado SQL / credenciales en repo:** incidente operativo cerrado en abril 2026 (ver §7 y §8).*
 
 | Aspecto | Valoracion |
 |---------|-----------|
 | Seguridad General | **8/10** - Buena base; CORS y varios frentes del §4 cerrados; revisar XSS/superficie restante |
 | Calidad de Codigo | **6.5/10** - Mejor troceo; aún hay módulos muy extensos (p. ej. capa MySQL, otras vistas) |
-| Esquema BD | **7/10** - Completo; criterio de dumps/credenciales sin cambio sustancial |
+| Esquema BD | **7/10** - Completo; riesgo de dump con credenciales en repo **mitigado** (abril 2026); mantener buenas practicas en migraciones |
 | Arquitectura | **7.5/10** - Entrada API y rutas HTML de clientes más claras; responsabilidades mejor separadas en zonas tocadas |
 | Mantenibilidad | **6.5/10** - Menos duplicación en vistas/servidor (`lib/utils`, CSP extraída); sigue la deuda del núcleo `mysql-crm.js` y vistas extensas (p. ej. `pedidos.ejs`) |
 
@@ -305,7 +305,11 @@ visitas ──→ comerciales (com_id)
 - **CSP** con nonces limita `<script>` arbitrario; siguen revisándose otras salidas `<%= %>` (nombres de negocio en tablas, etc.) y el JS que construye HTML en string (ficha cliente).
 - Atributo **`href`** en `error.ejs` sigue confiando en valores generados por el servidor (`primaryAction.href`); no reflejar ahí input de usuario sin allowlist.
 
-**Prioridad:** Extender el mismo criterio al resto de campos reflejados (URLs en tablas, tooltips con datos externos) y revisar concatenaciones en scripts cliente.
+**Convencion en plantillas EJS:** para texto o atributos que vienen de BD o query, usar **`<%- escapeHtml(String(...))`** (salida sin escapado de EJS + escape explícito). No usar **`<%= escapeHtml(...)`** porque EJS escaparia de nuevo y se verian entidades dobles. En `mailto:` escapar el texto visible y codificar la direccion con **`encodeURIComponent`** donde proceda. Clases CSS derivadas de estado deben ir por **lista blanca**, no concatenar valores crudos del usuario.
+
+**Tests automaticos (humo, sin servidor ni BD):** Jest renderiza la vista con datos maliciosos y comprueba que el HTML no contiene tags de script ejecutables. Archivos bajo `tests/views/` con sufijo **`ejs-xss-smoke`**: `clientes`, `pedidos`, `dashboard`, `articulos`, `notificaciones`. Ejecucion local: **`npm run test:ejs-xss-smoke`**. En CI (`.github/workflows/ci.yml`) el workflow ejecuta primero ese script y despues **`npm test`** (la suite completa incluye de nuevo esos casos).
+
+**Prioridad:** Extender el mismo criterio al resto de campos reflejados (URLs en tablas, tooltips con datos externos) y revisar concatenaciones en scripts cliente. Al añadir listados con datos externos, sumar un caso de humo en el mismo patron o ampliar uno existente.
 
 ### 4.5 Subida de Archivos: MEJORABLE (6/10)
 
@@ -536,11 +540,11 @@ visitas ──→ comerciales (com_id)
 
 | # | Accion | Impacto |
 |---|--------|---------|
-| 1 | **Rotar TODAS las credenciales expuestas** en el dump SQL | Seguridad |
-| 2 | **Eliminar `crm_gemavip (8).sql` del repositorio** y anadir `*.sql` a `.gitignore` | Seguridad |
-| 3 | **Seguir endureciendo XSS** (revisar salidas `<%= %>` restantes, HTML generado en cliente, `href` dinámicos) | Seguridad |
+| 1 | ~~**Rotar TODAS las credenciales expuestas** en el dump SQL~~ **Hecho** (abril 2026) | Seguridad |
+| 2 | ~~**Eliminar volcado sensible del repositorio** y política `.gitignore`~~ **Hecho** (abril 2026) | Seguridad |
+| 3 | **Seguir endureciendo XSS** (revisar salidas `<%= %>` restantes, HTML generado en cliente, `href` dinámicos); convencion y tests en §4.4 (`npm run test:ejs-xss-smoke`, CI) | Seguridad |
 
-*Del borrador original del informe, las acciones “implementar CORS” y “cerrar debug-login en producción” ya están cubiertas en código — ver §4.8 y §4.7. Mantener revisión operativa: `CORS_ORIGINS` correcto por entorno y flags de debug desactivados fuera de local. Volcados SQL: además de `data/bd-dumps/*.sql`, se ignora `/*.sql` en la raíz del repo.*
+*Del borrador original del informe, las acciones “implementar CORS” y “cerrar debug-login en producción” ya están cubiertas en código — ver §4.8 y §4.7. Mantener revisión operativa: `CORS_ORIGINS` correcto por entorno y flags de debug desactivados fuera de local. Volcados SQL: además de `data/bd-dumps/*.sql`, se ignora `/*.sql` en la raíz del repo. **Incidencia dump/credenciales (filas 1-2): cerrada en proyecto** — conviene no reintroducir dumps con datos reales en el arbol de fuentes.*
 
 ### ALTO (2-3 semanas)
 
@@ -579,7 +583,7 @@ visitas ──→ comerciales (com_id)
 
 ## 8. Conclusion
 
-CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en autenticacion, proteccion CSRF y prevencion de inyeccion SQL. Sin embargo, presenta **vulnerabilidades criticas** que requieren atencion inmediata:
+CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en autenticacion, proteccion CSRF y prevencion de inyeccion SQL. El **riesgo critico del volcado SQL con credenciales** quedo **cerrado en operacion** (rotacion y retirada del artefacto del repo, abril 2026); siguen siendo prioritarios el endurecimiento de XSS y otros puntos del §7.
 
 ### Fortalezas
 - Autenticacion robusta con bcrypt y sesiones seguras (cookies endurecidas, `SESSION_SECRET` obligatorio en prod)
@@ -589,8 +593,8 @@ CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en aut
 - Rate limiting en endpoints criticos
 - Arquitectura modular en crecimiento (`routes/clientes/*`, middleware CSP, assets de `pedidos`)
 
-### Debilidades Criticas
-- **Credenciales expuestas** en el dump SQL (API keys, SMTP password, OAuth secrets) — rotación y retirada del artefacto del repo
+### Debilidades Criticas (actualizacion abril 2026)
+- ~~**Credenciales / dump en repo**~~ — **Mitigado en proyecto** (rotacion + sin volcado sensible en el repositorio); mantener disciplina para no repetir el incidente
 - **XSS reflejado / HTML injection** en salidas que aún no pasan por `escapeHtml` o allowlist; la CSP ayuda pero no sustituye el escape
 - **Otras subidas** (si existen fuera de ventas PDF) sin el mismo rigor MIME + firma
 
@@ -607,7 +611,7 @@ CRM Gemavip es una aplicacion funcional con **buenas bases de seguridad** en aut
 
 ### Siguiente Paso Inmediato
 
-**Priorizar las acciones críticas restantes** de la sección 7 (sobre todo credenciales del dump y rotación). XSS y subidas PDF: mitigaciones aplicadas en código — mantener auditoría de nuevas vistas y rutas.
+**Enfocar el bloque critico restante del §7 en XSS (fila 3):** vistas y scripts sin humo aún, salidas `<%= %>` pendientes y `href` dinamicos. Mantener auditoria de nuevas vistas; los humos EJS-XSS en CI (`test:ejs-xss-smoke`) cubren regresiones en listados ya incluidos (ver §4.4). A continuacion, subir prioridad a filas **ALTO** (p. ej. `express-validator` §7#7, subidas Holded §7#6) segun roadmap del equipo.
 
 ---
 

@@ -3,7 +3,7 @@
 <section class="card" style="max-width: 980px; margin: 0 auto;">
   <div class="card-hd">
     <h1 class="card-title">Contacto #<%= item.Id ?? item.id %></h1>
-    <p class="card-subtitle"><%= item.Nombre_Razon_Social ?? item.Nombre ?? 'Detalle de contacto' %></p>
+    <p class="card-subtitle"><%- escapeHtml(String(item.Nombre_Razon_Social ?? item.Nombre ?? 'Detalle de contacto')) %></p>
   </div>
   <div class="card-bd">
     <%
@@ -22,7 +22,7 @@
     <div class="kpi">
       <span class="pill">Tarifa: <%= item.Tarifa ?? item.Id_Tarifa ?? 0 %></span>
       <span class="pill">Dto: <%= item.Dto ?? 0 %>%</span>
-      <span class="pill">Estado: <%= estadoVisible || '—' %></span>
+      <span class="pill">Estado: <%- escapeHtml(String(estadoVisible || '—')) %></span>
     </div>
 
     <div style="margin-top: 14px;" class="table-wrap">
@@ -33,8 +33,8 @@
         <tbody>
           <% Object.keys(item || {}).forEach((k) => { %>
             <tr>
-              <td style="font-weight:700;"><%= k %></td>
-              <td><%= (item[k] === null || item[k] === undefined) ? '' : String(item[k]) %></td>
+              <td style="font-weight:700;"><%- escapeHtml(String(k)) %></td>
+              <td><%- escapeHtml((item[k] === null || item[k] === undefined) ? '' : String(item[k])) %></td>
             </tr>
           <% }) %>
         </tbody>

@@ -16,11 +16,11 @@
       <h2 class="card-title" style="color: #dc2626;">Errores al cargar el Dashboard</h2>
     </div>
     <div class="card-bd" style="font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-word;">
-      <% if (errs.clientes) { %><p><strong>Contactos:</strong> <%= errs.clientes %></p><% } %>
-      <% if (errs.pedidos) { %><p><strong>Pedidos:</strong> <%= errs.pedidos %></p><% } %>
-      <% if (errs.rankingComerciales) { %><p><strong>Ranking Comerciales:</strong> <%= errs.rankingComerciales %></p><% } %>
-      <% if (errs.rankingZona) { %><p><strong>Desglose Zona:</strong> <%= errs.rankingZona %></p><% } %>
-      <% if (errs.rankingProductos) { %><p><strong>Ranking Productos:</strong> <%= errs.rankingProductos %></p><% } %>
+      <% if (errs.clientes) { %><p><strong>Contactos:</strong> <%- escapeHtml(String(errs.clientes)) %></p><% } %>
+      <% if (errs.pedidos) { %><p><strong>Pedidos:</strong> <%- escapeHtml(String(errs.pedidos)) %></p><% } %>
+      <% if (errs.rankingComerciales) { %><p><strong>Ranking Comerciales:</strong> <%- escapeHtml(String(errs.rankingComerciales)) %></p><% } %>
+      <% if (errs.rankingZona) { %><p><strong>Desglose Zona:</strong> <%- escapeHtml(String(errs.rankingZona)) %></p><% } %>
+      <% if (errs.rankingProductos) { %><p><strong>Ranking Productos:</strong> <%- escapeHtml(String(errs.rankingProductos)) %></p><% } %>
     </div>
   </section>
 <% } %>
@@ -35,7 +35,7 @@
       <span class="gv-vista-hd__tooltip" role="tooltip">Mismos criterios que en Pedidos: marca, búsqueda inteligente, rango de fechas y periodos. Sin selector de año: el periodo por defecto es el año en curso.</span>
     </div>
     <p class="gv-vista-hd__sub" style="margin-top:0;">
-      <%= isAdmin ? 'Panel de control general' : 'Panel de gestión operativa' %> · Usuario: <strong><%= user?.nombre ?? user?.name ?? user?.email ?? '—' %></strong>
+      <%= isAdmin ? 'Panel de control general' : 'Panel de gestión operativa' %> · Usuario: <strong><%- escapeHtml(String(user?.nombre ?? user?.name ?? user?.email ?? '—')) %></strong>
     </p>
   </div>
   <div class="card-bd">
@@ -60,14 +60,14 @@
           <select id="zone" name="zone" class="gv-client-picker__q gv-pedidos-search-form__select">
             <option value="">Todas</option>
             <% (zonasList || []).forEach((z) => { %>
-              <option value="<%= z.value ?? z.codpos_ComunidadAutonoma ?? '' %>" <%= (f.zone || '') === (z.value ?? z.codpos_ComunidadAutonoma ?? '') ? 'selected' : '' %>><%= z.value ?? z.codpos_ComunidadAutonoma ?? '' %></option>
+              <option value="<%= z.value ?? z.codpos_ComunidadAutonoma ?? '' %>" <%= (f.zone || '') === (z.value ?? z.codpos_ComunidadAutonoma ?? '') ? 'selected' : '' %>><%- escapeHtml(String(z.value ?? z.codpos_ComunidadAutonoma ?? '')) %></option>
             <% }) %>
           </select>
           <label for="comercial" class="gv-pedidos-search-form__label">Comercial</label>
           <select id="comercial" name="comercial" class="gv-client-picker__q gv-pedidos-search-form__select">
             <option value="">Todos</option>
             <% (comercialesListSafe || []).forEach((co) => { %>
-              <option value="<%= co.id ?? co.com_id %>" <%= (f.comercial || '') === String(co.id ?? co.com_id ?? '') ? 'selected' : '' %>><%= co.nombre ?? co.com_nombre ?? '' %></option>
+              <option value="<%= co.id ?? co.com_id %>" <%= (f.comercial || '') === String(co.id ?? co.com_id ?? '') ? 'selected' : '' %>><%- escapeHtml(String(co.nombre ?? co.com_nombre ?? '')) %></option>
             <% }) %>
           </select>
         <% } %>
@@ -75,18 +75,18 @@
         <select id="marca" name="marca" class="gv-client-picker__q gv-pedidos-search-form__select">
           <option value="">Todas</option>
           <% (marcasListSafe || []).forEach((m) => { %>
-            <option value="<%= m.id ?? m.mar_id %>" <%= (f.marca || '') === String(m.id ?? m.mar_id ?? '') ? 'selected' : '' %>><%= m.nombre ?? m.mar_nombre ?? '' %></option>
+            <option value="<%= m.id ?? m.mar_id %>" <%= (f.marca || '') === String(m.id ?? m.mar_id ?? '') ? 'selected' : '' %>><%- escapeHtml(String(m.nombre ?? m.mar_nombre ?? '')) %></option>
           <% }) %>
         </select>
         <label for="estado" class="gv-pedidos-search-form__label">Estado</label>
         <select id="estado" name="estado" class="gv-client-picker__q gv-pedidos-search-form__select">
           <option value="">Todos</option>
           <% _dEstadosArr.forEach((e) => { %>
-            <option value="<%= e.estped_id ?? e.id %>" <%= _dEstadoId === Number(e.estped_id ?? e.id) ? 'selected' : '' %>><%= e.estped_nombre ?? e.nombre ?? e.Nombre %></option>
+            <option value="<%= e.estped_id ?? e.id %>" <%= _dEstadoId === Number(e.estped_id ?? e.id) ? 'selected' : '' %>><%- escapeHtml(String(e.estped_nombre ?? e.nombre ?? e.Nombre ?? '')) %></option>
           <% }) %>
         </select>
         <label for="q-dash" class="gv-pedidos-search-form__label">Buscar</label>
-        <input type="search" id="q-dash" name="q" class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q" placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre" value="<%= escapeHtml(qDash != null ? String(qDash) : '') %>" />
+        <input type="search" id="q-dash" name="q" class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q" placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre" value="<%- escapeHtml(qDash != null ? String(qDash) : '') %>" />
         <button class="btn secondary" type="submit">Ver</button>
         <% if (qDash || f.zone || f.comercial || f.marca || _dEstadoId || _dPeriodo || _dDesde || _dHasta) { %>
           <a class="btn secondary" href="/dashboard" title="Limpiar filtros">✕</a>
@@ -144,7 +144,7 @@
       function apply() {
         var d = desde.value || '', h = hasta.value || '';
         if (!d && !h) return;
-        var base = '<%= _dPeriodoBase %>';
+        var base = <%- safeJsonInline(_dPeriodoBase) %>;
         if (d) base += '&desde=' + encodeURIComponent(d);
         if (h) base += '&hasta=' + encodeURIComponent(h);
         window.location.href = base;
@@ -244,8 +244,8 @@
               <tbody>
                 <% (rankingComerciales || []).forEach((r) => { %>
                   <tr>
-                    <td><%= r.Comercial ?? '' %></td>
-                    <td><%= r.Zona ?? '—' %></td>
+                    <td><%- escapeHtml(String(r.Comercial ?? '')) %></td>
+                    <td><%- escapeHtml(String(r.Zona ?? '—')) %></td>
                     <td><%= fmtEurES(r.Ventas ?? 0) %></td>
                     <td><%= r.Pedidos ?? 0 %></td>
                     <td><%= fmtEurES(r.TicketMedio ?? 0) %></td>
@@ -269,7 +269,7 @@
               <tbody>
                 <% (rankingZona || []).forEach((r) => { %>
                   <tr>
-                    <td><%= r.Zona ?? '' %></td>
+                    <td><%- escapeHtml(String(r.Zona ?? '')) %></td>
                     <td><%= fmtEurES(r.Ventas ?? 0) %></td>
                     <td><%= r.Pedidos ?? 0 %></td>
                     <td><%= fmtEurES(r.TicketMedio ?? 0) %></td>
@@ -294,9 +294,10 @@
               <thead><tr><th>Estado</th><th>Pedidos</th><th>Ventas</th></tr></thead>
               <tbody>
                 <% _desgloseEstadoArr.forEach((r) => { %>
-                  <% const _bCls = String(r.color || '').toLowerCase() || 'info'; %>
+                  <% const _bClsRaw = String(r.color || '').trim().toLowerCase(); %>
+                  <% const _bCls = ['ok', 'danger', 'warn', 'info'].includes(_bClsRaw) ? _bClsRaw : 'info'; %>
                   <tr>
-                    <td><span class="badge <%= _bCls %>" style="font-size:11px; padding:3px 8px;"><%= r.estado || '—' %></span></td>
+                    <td><span class="badge <%= _bCls %>" style="font-size:11px; padding:3px 8px;"><%- escapeHtml(String(r.estado || '—')) %></span></td>
                     <td><%= r.pedidos ?? 0 %></td>
                     <td><%= fmtEurES(r.ventas ?? 0) %></td>
                   </tr>
@@ -320,7 +321,7 @@
           <tbody>
             <% (rankingProductos || []).forEach((r) => { %>
               <tr>
-                <td><%= r.Producto ?? r.art_nombre ?? '' %></td>
+                <td><%- escapeHtml(String(r.Producto ?? r.art_nombre ?? '')) %></td>
                 <td><%= fmtEurES(r.Ventas ?? 0) %></td>
                 <td><%= r.Unidades ?? 0 %></td>
                 <td><%= (r.PctTotal ?? 0) %>%</td>
@@ -355,8 +356,8 @@
                   <td class="dash-td-actions">
                     <a class="btn secondary icon" href="/clientes/<%= cid %>" title="Ver">Ver</a>
                   </td>
-                  <td><%= c.Nombre_Razon_Social ?? '' %></td>
-                  <td><%= c.Poblacion ?? '' %></td>
+                  <td><%- escapeHtml(String(c.Nombre_Razon_Social ?? '')) %></td>
+                  <td><%- escapeHtml(String(c.Poblacion ?? '')) %></td>
                   <td><%= fmtEurES(c.TotalFacturado ?? 0) %></td>
                 </tr>
               <% }) %>
@@ -379,10 +380,10 @@
                 <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                 <tr>
                   <td><a class="btn secondary icon" href="/pedidos/<%= pid %>" title="Ver">Ver</a></td>
-                  <td><%= p.NumPedido ?? p.ped_numero ?? '' %></td>
+                  <td><%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? '')) %></td>
                   <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? '') %></td>
                   <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? 0) %></td>
-                  <td><%= p.EstadoPedido ?? p.ped_estado_txt ?? '' %></td>
+                  <td><%- escapeHtml(String(p.EstadoPedido ?? p.ped_estado_txt ?? '')) %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -404,10 +405,10 @@
             <% (latest.visitas || []).forEach((v) => { %>
               <tr>
                 <td><%= fmtDateES(v.Fecha ?? '') %></td>
-                <td><%= v.TipoVisita ?? '' %></td>
-                <td><%= v.ClienteNombre ?? '' %></td>
-                <td><%= v.ComercialNombre ?? '' %></td>
-                <td><%= v.Estado ?? '' %></td>
+                <td><%- escapeHtml(String(v.TipoVisita ?? '')) %></td>
+                <td><%- escapeHtml(String(v.ClienteNombre ?? '')) %></td>
+                <td><%- escapeHtml(String(v.ComercialNombre ?? '')) %></td>
+                <td><%- escapeHtml(String(v.Estado ?? '')) %></td>
               </tr>
             <% }) %>
           </tbody>
@@ -431,7 +432,7 @@
               <% (latest.clientes || []).forEach((c) => { %>
                 <% const cid = c.Id ?? c.id ?? c.cli_id; %>
                 <tr>
-                  <td><a href="/clientes/<%= cid %>"><%= c.Nombre_Razon_Social ?? '' %></a></td>
+                  <td><a href="/clientes/<%= cid %>"><%- escapeHtml(String(c.Nombre_Razon_Social ?? '')) %></a></td>
                   <td><%= fmtEurES(c.TotalFacturado ?? 0) %></td>
                   <td><%= c.NumPedidos ?? 0 %></td>
                   <td><%= c.TicketMedio != null ? fmtEurES(c.TicketMedio) : '—' %></td>
@@ -458,10 +459,10 @@
                 <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                 <tr>
                   <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? '') %></td>
-                  <td><%= p.ClienteNombre ?? '' %></td>
-                  <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? '' %></a></td>
+                  <td><%- escapeHtml(String(p.ClienteNombre ?? '')) %></td>
+                  <td><a href="/pedidos/<%= pid %>"><%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? '')) %></a></td>
                   <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? 0) %></td>
-                  <td><%= p.EstadoPedido ?? p.ped_estado_txt ?? '' %></td>
+                  <td><%- escapeHtml(String(p.EstadoPedido ?? p.ped_estado_txt ?? '')) %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -481,9 +482,10 @@
               <thead><tr><th>Estado</th><th>Pedidos</th><th>Ventas</th></tr></thead>
               <tbody>
                 <% _desgloseEstadoArr.forEach((r) => { %>
-                  <% const _bCls2 = String(r.color || '').toLowerCase() || 'info'; %>
+                  <% const _bCls2Raw = String(r.color || '').trim().toLowerCase(); %>
+                  <% const _bCls2 = ['ok', 'danger', 'warn', 'info'].includes(_bCls2Raw) ? _bCls2Raw : 'info'; %>
                   <tr>
-                    <td><span class="badge <%= _bCls2 %>" style="font-size:11px; padding:3px 8px;"><%= r.estado || '—' %></span></td>
+                    <td><span class="badge <%= _bCls2 %>" style="font-size:11px; padding:3px 8px;"><%- escapeHtml(String(r.estado || '—')) %></span></td>
                     <td><%= r.pedidos ?? 0 %></td>
                     <td><%= fmtEurES(r.ventas ?? 0) %></td>
                   </tr>
@@ -505,7 +507,7 @@
             <tbody>
               <% (rankingProductos || []).forEach((r) => { %>
                 <tr>
-                  <td><%= r.Producto ?? '' %></td>
+                  <td><%- escapeHtml(String(r.Producto ?? '')) %></td>
                   <td><%= fmtEurES(r.Ventas ?? 0) %></td>
                   <td><%= r.Unidades ?? 0 %></td>
                 </tr>
@@ -528,9 +530,9 @@
                 <% const vid = v.Id ?? v.id ?? v.vis_id; %>
                 <tr>
                   <td><%= fmtDateES(v.Fecha ?? '') %></td>
-                  <td><a href="/visitas/<%= vid %>"><%= v.ClienteNombre ?? '' %></a></td>
-                  <td><%= v.TipoVisita ?? '' %></td>
-                  <td><%= v.Estado ?? '' %></td>
+                  <td><a href="/visitas/<%= vid %>"><%- escapeHtml(String(v.ClienteNombre ?? '')) %></a></td>
+                  <td><%- escapeHtml(String(v.TipoVisita ?? '')) %></td>
+                  <td><%- escapeHtml(String(v.Estado ?? '')) %></td>
                 </tr>
               <% }) %>
             </tbody>

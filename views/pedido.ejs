@@ -31,9 +31,10 @@
 
   const idEstadoPedido = Number(item?.Id_EstadoPedido ?? item?.id_estado_pedido ?? item?.ped_estped_id ?? 0) || 0;
   const estadoDisplay = (typeof estadoLabel !== 'undefined' && estadoLabel) ? estadoLabel : String(estadoPedido?.nombre ?? estadoPedido?.Nombre ?? estadoPedido?.estped_nombre ?? item?.EstadoPedido ?? item?.Estado ?? item?.ped_estado_txt ?? '').trim();
-  const estadoColor = String(estadoPedido?.color ?? estadoPedido?.Color ?? item?.EstadoColor ?? '').trim().toLowerCase();
+  const estadoColorRaw = String(estadoPedido?.color ?? estadoPedido?.Color ?? item?.EstadoColor ?? '').trim().toLowerCase();
   const st = (estadoDisplay || '').toLowerCase();
-  const estadoCls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info')));
+  const clsPalette = st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'));
+  const estadoCls = ['ok', 'danger', 'warn', 'info'].includes(estadoColorRaw) ? estadoColorRaw : clsPalette;
 
   const idComercial = Number(item?.Id_Cial ?? item?.id_cial ?? item?.ped_com_id ?? item?.ComercialId ?? item?.comercialId ?? 0) || 0;
   const comercialDisplay = (typeof comercialLabel !== 'undefined' && comercialLabel) ? comercialLabel : String(comercial?.Nombre ?? comercial?.com_nombre ?? comercial?.nombre ?? item?.ComercialNombre ?? '').trim() || (idComercial ? String(idComercial) : '');
@@ -106,21 +107,21 @@
       <small>pedidosespana@gemavip.com · +34 686 48 36 84</small>
     </div>
     <div class="gv-doc-meta">
-      <div class="gv-doc-title">PEDIDO #<%= numPedido || pedidoId %></div>
+      <div class="gv-doc-title">PEDIDO #<%- escapeHtml(String(numPedido || pedidoId || '')) %></div>
       <div class="gv-doc-kv">
-        <div><span>Fecha</span><b><%= fecha %></b></div>
+        <div><span>Fecha</span><b><%- escapeHtml(String(fecha)) %></b></div>
         <% if (entrega) { %>
-          <div><span>Entrega</span><b><%= entrega %></b></div>
+          <div><span>Entrega</span><b><%- escapeHtml(String(entrega)) %></b></div>
         <% } %>
         <% if (item.NumPedidoCliente || item.Num_Pedido_Cliente) { %>
-          <div><span>Ref. cliente</span><b><%= item.NumPedidoCliente ?? item.Num_Pedido_Cliente %></b></div>
+          <div><span>Ref. cliente</span><b><%- escapeHtml(String(item.NumPedidoCliente ?? item.Num_Pedido_Cliente ?? '')) %></b></div>
         <% } %>
         <% if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) { %>
-          <div><span>Cooperativa</span><b><%= mayoristaInfo.nombre || '—' %></b></div>
-          <div><span>Nº asociado (<%= mayoristaInfo.nombre || 'Mayorista' %>)</span><b><%= mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—') %></b></div>
+          <div><span>Cooperativa</span><b><%- escapeHtml(String(mayoristaInfo.nombre || '—')) %></b></div>
+          <div><span>Nº asociado (<%- escapeHtml(String(mayoristaInfo.nombre || 'Mayorista')) %>)</span><b><%- escapeHtml(String(mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—'))) %></b></div>
         <% } else if (item.NumAsociadoHefame || item.num_asociado_hefame) { %>
           <% const _mNom = /transfer\s+(.+)/i.test(tipoPedidoDisplay || '') ? RegExp.$1.trim() : 'Mayorista'; %>
-          <div><span>Nº asociado (<%= _mNom %>)</span><b><%= item.NumAsociadoHefame ?? item.num_asociado_hefame %></b></div>
+          <div><span>Nº asociado (<%- escapeHtml(String(_mNom)) %>)</span><b><%- escapeHtml(String(item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '')) %></b></div>
         <% } %>
         <% if (Number(item.EsEspecial ?? item.es_especial ?? 0) === 1) { %>
           <% const est = String(item.EspecialEstado ?? item.especial_estado ?? 'pendiente').trim().toLowerCase() || 'pendiente'; %>
@@ -142,30 +143,30 @@
         <div class="gv-doc-box">
           <h3>Cliente</h3>
           <div class="gv-doc-lines">
-            <div><%= clienteNombre || (item.Id_Cliente ?? '') %></div>
-            <% if (clienteCif) { %><small><%= clienteCif %></small><% } %>
-            <% if (clienteDir) { %><small><%= clienteDir %></small><% } %>
-            <% if (clienteCp || clientePob) { %><small><%= [clienteCp, clientePob].filter(Boolean).join(' ') %></small><% } %>
-            <% if (clienteEmail || clienteTel) { %><small><% if (clienteEmail) { %><a href="mailto:<%= clienteEmail %>" class="gv-contactos-link"><%= clienteEmail %></a><% } %><% if (clienteEmail && clienteTel) { %> · <% } %><% if (clienteTel) { %><%- include('partials/telefono-display', { telefono: clienteTel }) %><% } %></small><% } %>
+            <div><%- escapeHtml(String(clienteNombre || (item.Id_Cliente ?? ''))) %></div>
+            <% if (clienteCif) { %><small><%- escapeHtml(String(clienteCif)) %></small><% } %>
+            <% if (clienteDir) { %><small><%- escapeHtml(String(clienteDir)) %></small><% } %>
+            <% if (clienteCp || clientePob) { %><small><%- escapeHtml([clienteCp, clientePob].filter(Boolean).join(' ')) %></small><% } %>
+            <% if (clienteEmail || clienteTel) { %><small><% if (clienteEmail) { %><a href="mailto:<%= encodeURIComponent(String(clienteEmail)) %>" class="gv-contactos-link"><%- escapeHtml(String(clienteEmail)) %></a><% } %><% if (clienteEmail && clienteTel) { %> · <% } %><% if (clienteTel) { %><%- include('partials/telefono-display', { telefono: clienteTel }) %><% } %></small><% } %>
           </div>
         </div>
 
         <div class="gv-doc-box">
           <h3>Cabecera</h3>
           <div class="gv-doc-kv" style="margin-top: 0;">
-            <div><span>Serie</span><b><%= serie || '—' %></b></div>
+            <div><span>Serie</span><b><%- escapeHtml(String(serie || '—')) %></b></div>
             <div><span>Estado</span><b>
               <% if (estadoDisplay) { %>
-                <span class="badge <%= estadoCls %>"><%= estadoDisplay %></span>
+                <span class="badge <%= estadoCls %>"><%- escapeHtml(String(estadoDisplay)) %></span>
               <% } else { %>
                 —
               <% } %>
             </b></div>
-            <div><span>Comercial</span><b><%= comercialDisplay || '—' %></b></div>
-            <div><span>Tarifa</span><b><%= tarifaDisplay || '—' %></b></div>
-            <div><span>Forma pago</span><b><%= formaPagoDisplay || '—' %></b></div>
-            <div><span>Tipo pedido</span><b><%= tipoPedidoDisplay || '—' %></b></div>
-            <div><span>Ref. cliente</span><b><%= (item.NumPedidoCliente ?? item.Num_Pedido_Cliente) || '—' %></b></div>
+            <div><span>Comercial</span><b><%- escapeHtml(String(comercialDisplay || '—')) %></b></div>
+            <div><span>Tarifa</span><b><%- escapeHtml(String(tarifaDisplay || '—')) %></b></div>
+            <div><span>Forma pago</span><b><%- escapeHtml(String(formaPagoDisplay || '—')) %></b></div>
+            <div><span>Tipo pedido</span><b><%- escapeHtml(String(tipoPedidoDisplay || '—')) %></b></div>
+            <div><span>Ref. cliente</span><b><%- escapeHtml(String((item.NumPedidoCliente ?? item.Num_Pedido_Cliente) || '—')) %></b></div>
             <div><span>Dto pedido</span><b><%= dtoPedidoPct ? `${fmtNumES(dtoPedidoPct, 2)}%` : '—' %></b></div>
             <div><span>Especial</span><b><%= Number(item.EsEspecial ?? item.es_especial ?? 0) === 1 ? 'Sí' : '—' %></b></div>
             <% if (Number(item.EsEspecial ?? item.es_especial ?? 0) === 1) { %>
@@ -173,11 +174,11 @@
               <div><span>Estado esp.</span><b><%= est === 'aprobado' ? 'Aprobado' : (est === 'rechazado' ? 'Rechazado' : 'Pendiente') %></b></div>
             <% } %>
             <% if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) { %>
-              <div><span>Cooperativa</span><b><%= mayoristaInfo.nombre || '—' %></b></div>
-              <div><span>Nº asociado (<%= mayoristaInfo.nombre || 'Mayorista' %>)</span><b><%= mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—') %></b></div>
+              <div><span>Cooperativa</span><b><%- escapeHtml(String(mayoristaInfo.nombre || '—')) %></b></div>
+              <div><span>Nº asociado (<%- escapeHtml(String(mayoristaInfo.nombre || 'Mayorista')) %>)</span><b><%- escapeHtml(String(mayoristaInfo.codigoAsociado || (item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '—'))) %></b></div>
             <% } else if ((item.NumAsociadoHefame ?? item.num_asociado_hefame)) { %>
               <% const _mNom2 = /transfer\s+(.+)/i.test(tipoPedidoDisplay || '') ? RegExp.$1.trim() : 'Mayorista'; %>
-              <div><span>Nº asociado (<%= _mNom2 %>)</span><b><%= (item.NumAsociadoHefame ?? item.num_asociado_hefame) %></b></div>
+              <div><span>Nº asociado (<%- escapeHtml(String(_mNom2)) %>)</span><b><%- escapeHtml(String(item.NumAsociadoHefame ?? item.num_asociado_hefame ?? '')) %></b></div>
             <% } %>
           </div>
         </div>
@@ -188,7 +189,7 @@
           <div class="gv-doc-box">
             <h3>Observaciones</h3>
             <div class="gv-doc-lines" style="font-weight: 600; color: var(--gv-text);">
-              <div style="white-space:pre-wrap;"><%= observaciones %></div>
+              <div style="white-space:pre-wrap;"><%- escapeHtml(observaciones) %></div>
             </div>
           </div>
         </div>
@@ -201,17 +202,17 @@
           <h3>Datos de envío</h3>
           <div class="gv-doc-lines">
             <% if (dir) { %>
-              <div><%= dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—' %></div>
+              <div><%- escapeHtml(String(dir.Alias || dir.Nombre_Destinatario || clienteNombre || '—')) %></div>
               <% if (idDireccionEnvio) { %><small>ID dirección: <%= idDireccionEnvio %></small><% } %>
-              <% if (dir.Nombre_Destinatario && dir.Alias) { %><small><%= dir.Nombre_Destinatario %></small><% } %>
-              <% if (dir.Direccion) { %><small><%= dir.Direccion %></small><% } %>
-              <% if (dir.Direccion2) { %><small><%= dir.Direccion2 %></small><% } %>
-              <% if (dir.CodigoPostal || dir.Poblacion) { %><small><%= [dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' ') %></small><% } %>
-              <% if (dir.Pais) { %><small><%= dir.Pais %></small><% } %>
-              <% if (dir.Email || dir.Telefono || dir.Movil) { %><small><% if (dir.Email) { %><a href="mailto:<%= dir.Email %>" class="gv-contactos-link"><%= dir.Email %></a><% } %><% const dirTel = dir.Telefono || dir.Movil || dir.direnv_telefono || dir.direnv_movil || ''; %><% if (dir.Email && dirTel) { %> · <% } %><% if (dirTel) { %><%- include('partials/telefono-display', { telefono: dirTel }) %><% } %></small><% } %>
-              <% if (dir.Observaciones) { %><small><%= dir.Observaciones %></small><% } %>
+              <% if (dir.Nombre_Destinatario && dir.Alias) { %><small><%- escapeHtml(String(dir.Nombre_Destinatario)) %></small><% } %>
+              <% if (dir.Direccion) { %><small><%- escapeHtml(String(dir.Direccion)) %></small><% } %>
+              <% if (dir.Direccion2) { %><small><%- escapeHtml(String(dir.Direccion2)) %></small><% } %>
+              <% if (dir.CodigoPostal || dir.Poblacion) { %><small><%- escapeHtml([dir.CodigoPostal, dir.Poblacion].filter(Boolean).join(' ')) %></small><% } %>
+              <% if (dir.Pais) { %><small><%- escapeHtml(String(dir.Pais)) %></small><% } %>
+              <% if (dir.Email || dir.Telefono || dir.Movil) { %><small><% if (dir.Email) { %><a href="mailto:<%= encodeURIComponent(String(dir.Email)) %>" class="gv-contactos-link"><%- escapeHtml(String(dir.Email)) %></a><% } %><% const dirTel = dir.Telefono || dir.Movil || dir.direnv_telefono || dir.direnv_movil || ''; %><% if (dir.Email && dirTel) { %> · <% } %><% if (dirTel) { %><%- include('partials/telefono-display', { telefono: dirTel }) %><% } %></small><% } %>
+              <% if (dir.Observaciones) { %><small><%- escapeHtml(String(dir.Observaciones)) %></small><% } %>
             <% } else { %>
-              <div><%= clienteNombre || '—' %></div>
+              <div><%- escapeHtml(String(clienteNombre || '—')) %></div>
               <% if (idDireccionEnvio) { %><small>ID dirección: <%= idDireccionEnvio %></small><% } %>
               <small>(Sin dirección de envío asociada)</small>
             <% } %>
@@ -289,9 +290,9 @@
                 }
               %>
               <tr>
-                <td><%= codigo %></td>
+                <td><%- escapeHtml(String(codigo)) %></td>
                 <td class="is-wrap">
-                  <div class="gv-doc-concept"><%= concepto || (codigo ? `Artículo ${codigo}` : '—') %></div>
+                  <div class="gv-doc-concept"><%- escapeHtml(String(concepto || (codigo ? `Artículo ${codigo}` : '—'))) %></div>
                 </td>
                 <td class="is-right"><%= fmtEurES(pvl) %></td>
                 <td class="is-right"><%= qty ? fmtNumES(qty, 0) : '' %></td>

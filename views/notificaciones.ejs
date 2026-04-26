@@ -10,7 +10,7 @@
       <div class="gv-alert gv-alert--success" style="margin-bottom:12px;"><%= resuelto === 'aprobada' ? 'Solicitud aprobada.' : 'Solicitud rechazada.' %></div>
     <% } %>
     <% if (typeof borrado !== 'undefined' && borrado !== '' && borrado !== null) { %>
-      <div class="gv-alert gv-alert--info" style="margin-bottom:12px;">Historial borrado: <strong><%= borrado %></strong> notificaciones eliminadas.</div>
+      <div class="gv-alert gv-alert--info" style="margin-bottom:12px;">Historial borrado: <strong><%- escapeHtml(String(borrado)) %></strong> notificaciones eliminadas.</div>
     <% } %>
     <% if (typeof eliminada !== 'undefined' && eliminada) { %>
       <div class="gv-alert gv-alert--success" style="margin-bottom:12px;">Notificación eliminada.</div>
@@ -78,7 +78,7 @@
                     </form>
                   </div>
                 </td>
-                <td class="gv-notif-col-fecha"><%= typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || '') %></td>
+                <td class="gv-notif-col-fecha"><%- escapeHtml(String(typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || ''))) %></td>
                 <td class="gv-notif-col-tipo">
                   <%= (n.tipo || '').toLowerCase() === 'pedido_especial' ? 'Pedido especial' : 'Asignación cliente' %>
                 </td>
@@ -88,19 +88,19 @@
                   <% const pid = (n.id_pedido != null ? Number(n.id_pedido) : null) || pidFromNotas; %>
                   <% if (tipoN === 'pedido_especial' && pid) { %>
                     <% const clienteName = String(n.contacto_nombre || '').trim(); %>
-                    <a href="/pedidos/<%= pid %>/edit" title="<%= n.pedido_num ? String(n.pedido_num) : ('Pedido #' + pid) %>"><%= clienteName || 'Cliente' %></a>
+                    <a href="/pedidos/<%= pid %>/edit" title="<%- escapeHtml(String(n.pedido_num ? String(n.pedido_num) : ('Pedido #' + pid))) %>"><%- escapeHtml(String(clienteName || 'Cliente')) %></a>
                   <% } else { %>
-                    <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente' %></a>
+                    <a href="/clientes/<%= n.id_contacto %>"><%- escapeHtml(String(n.contacto_nombre || 'Cliente')) %></a>
                   <% } %>
                 </td>
-                <td class="gv-notif-col-comercial"><%= n.comercial_nombre || 'Comercial #' + n.id_comercial_solicitante %></td>
+                <td class="gv-notif-col-comercial"><%- escapeHtml(String(n.comercial_nombre || ('Comercial #' + n.id_comercial_solicitante))) %></td>
                 <td class="gv-notif-col-estado">
                   <span class="gv-badge gv-badge--<%= (n.estado || '').toLowerCase() === 'pendiente' ? 'otros' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'persona' : 'empresa') %>">
                     <%= (n.estado || '').toLowerCase() === 'pendiente' ? 'Pendiente' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'Aprobada' : 'Rechazada') %>
                   </span>
                 </td>
-                <td class="gv-notif-col-fecha-resol"><%= (n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion ? (typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion) : '—' %></td>
-                <td><%= (n.estado || '').toLowerCase() !== 'pendiente' ? (n.admin_nombre || 'Enlace email') : '—' %></td>
+                <td class="gv-notif-col-fecha-resol"><% if ((n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion) { %><%- escapeHtml(String(typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion)) %><% } else { %>—<% } %></td>
+                <td><% if ((n.estado || '').toLowerCase() !== 'pendiente') { %><%- escapeHtml(String(n.admin_nombre || 'Enlace email')) %><% } else { %>—<% } %></td>
               </tr>
             <% }) %>
           <% } %>

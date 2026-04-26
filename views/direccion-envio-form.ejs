@@ -7,7 +7,7 @@
   </div>
   <div class="card-bd">
     <% if (error) { %>
-      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= escapeHtml(error) %></div>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%- escapeHtml(error) %></div>
     <% } %>
 
     <form method="post" action="/clientes/<%= clienteId %>/direcciones/new" style="display:grid; gap: 12px;">

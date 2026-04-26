@@ -20,5 +20,8 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Tests
+      - name: Humo XSS en vistas EJS
+        run: npm run test:ejs-xss-smoke
+
+      - name: Tests (suite completa Jest)
         run: npm test

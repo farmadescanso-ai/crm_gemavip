@@ -104,7 +104,7 @@
         <select id="marca" name="marca" class="gv-client-picker__q gv-pedidos-search-form__select">
           <option value="" <%= !selectedMarcaId ? 'selected' : '' %>>Todas</option>
           <% (marcas || []).forEach((m) => { %>
-            <option value="<%= m.id %>" <%= Number(selectedMarcaId) === Number(m.id) ? 'selected' : '' %>><%= m.nombre ?? m.Nombre ?? m.marca ?? m.Marca ?? m.id %></option>
+            <option value="<%= m.id %>" <%= Number(selectedMarcaId) === Number(m.id) ? 'selected' : '' %>><%- escapeHtml(String(m.nombre ?? m.Nombre ?? m.marca ?? m.Marca ?? m.id ?? '')) %></option>
           <% }) %>
         </select>
         <label for="q" class="gv-pedidos-search-form__label">Buscar</label>
@@ -114,7 +114,7 @@
           type="search"
           class="gv-client-picker__q gv-vista-search__input gv-pedidos-search-form__q"
           placeholder="Ej: provincia:Murcia comercial:Paco estado:pendiente · o texto libre"
-          value="<%= escapeHtml(typeof q === 'string' && q ? String(q) : '') %>"
+          value="<%- escapeHtml(typeof q === 'string' && q ? String(q) : '') %>"
         />
         <button class="btn secondary" type="submit">Ver</button>
         <% if ((typeof q === 'string' && q) || selectedMarcaId || (typeof selectedPeriodo === 'string' && selectedPeriodo) || (typeof selectedDesde === 'string' && selectedDesde) || (typeof selectedHasta === 'string' && selectedHasta) || (typeof selectedEstadoId !== 'undefined' && selectedEstadoId) || (typeof selectedComercialId !== 'undefined' && selectedComercialId)) { %><a class="btn secondary" href="/pedidos" title="Limpiar filtros">✕</a><% } %>
@@ -177,7 +177,7 @@
                 <select id="gv-filter-estado" style="font-size:12px; padding:4px 8px; min-width:140px;" onchange="window.location.href='<%= _filtroBase %>' + (this.value ? '&estado=' + this.value : '') + '<%= _selComercialId ? '&comercial=' + _selComercialId : '' %>'">
                   <option value="">Todos</option>
                   <% _estadosArr.forEach((e) => { %>
-                    <option value="<%= e.estped_id ?? e.id %>" <%= _selEstadoId === Number(e.estped_id ?? e.id) ? 'selected' : '' %>><%= e.estped_nombre ?? e.nombre ?? e.Nombre %></option>
+                    <option value="<%= e.estped_id ?? e.id %>" <%= _selEstadoId === Number(e.estped_id ?? e.id) ? 'selected' : '' %>><%- escapeHtml(String(e.estped_nombre ?? e.nombre ?? e.Nombre ?? '')) %></option>
                   <% }) %>
                 </select>
               </label>
@@ -186,7 +186,7 @@
                 <select id="gv-filter-comercial" style="font-size:12px; padding:4px 8px; min-width:180px;" onchange="window.location.href='<%= _filtroBase %>' + '<%= _selEstadoId ? '&estado=' + _selEstadoId : '' %>' + (this.value ? '&comercial=' + this.value : '')">
                   <option value="">Todos</option>
                   <% _comercialesArr.forEach((c) => { %>
-                    <option value="<%= c.com_id ?? c.id ?? c.Id %>" <%= _selComercialId === Number(c.com_id ?? c.id ?? c.Id) ? 'selected' : '' %>><%= c.com_nombre ?? c.nombre ?? c.Nombre ?? c.com_email ?? '' %></option>
+                    <option value="<%= c.com_id ?? c.id ?? c.Id %>" <%= _selComercialId === Number(c.com_id ?? c.id ?? c.Id) ? 'selected' : '' %>><%- escapeHtml(String(c.com_nombre ?? c.nombre ?? c.Nombre ?? c.com_email ?? '')) %></option>
                   <% }) %>
                 </select>
               </label>
@@ -215,7 +215,7 @@
             <form method="get" action="/pedidos" class="gv-vista-pagination__goto" style="display:inline;">
               <input type="hidden" name="limit" value="<%= pedLim %>" />
               <% if (selectedMarcaId) { %><input type="hidden" name="marca" value="<%= selectedMarcaId %>" /><% } %>
-              <% if (typeof q === 'string' && q) { %><input type="hidden" name="q" value="<%= escapeHtml(String(q)) %>" /><% } %>
+              <% if (typeof q === 'string' && q) { %><input type="hidden" name="q" value="<%- escapeHtml(String(q)) %>" /><% } %>
               <% if (_periodoActual) { %><input type="hidden" name="periodo" value="<%= _periodoActual %>" /><% } %>
               <% if (_selectedDesde) { %><input type="hidden" name="desde" value="<%= _selectedDesde %>" /><% } %>
               <% if (_selectedHasta) { %><input type="hidden" name="hasta" value="<%= _selectedHasta %>" /><% } %>
@@ -290,9 +290,10 @@
                   </td>
                   <td>
                     <% const estadoLabel = String(p.EstadoPedidoNombre ?? p.EstadoPedido ?? p.Estado ?? p.ped_estado_txt ?? '').trim(); %>
-                    <% const estadoColor = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
+                    <% const estadoColorRaw = String(p.EstadoColor ?? '').trim().toLowerCase(); %>
                     <% const st = estadoLabel.toLowerCase(); %>
-                    <% const cls = estadoColor || (st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info'))); %>
+                    <% const clsPalette = st.includes('deneg') ? 'danger' : (st.includes('pagad') || st.includes('aprob') ? 'ok' : (st.includes('pend') ? 'warn' : 'info')); %>
+                    <% const cls = ['ok', 'danger', 'warn', 'info'].includes(estadoColorRaw) ? estadoColorRaw : clsPalette; %>
                     <% const estadoId = Number(p.Id_EstadoPedido ?? p.id_estado_pedido ?? p.ped_estped_id ?? 0) || 0; %>
                     <% if (admin) { %>
                       <button
@@ -300,38 +301,38 @@
                         id="gvEstadoBadge_<%= pid %>"
                         class="badge <%= estadoLabel ? cls : 'info' %> gv-pedido-estado-badge"
                         data-pid="<%= pid %>"
-                        data-num="<%= (p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid) %>"
+                        data-num="<%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid ?? '')) %>"
                         data-estado-id="<%= estadoId %>"
-                        data-estado-label="<%= estadoLabel %>"
+                        data-estado-label="<%- escapeHtml(estadoLabel) %>"
                         title="Hacer clic para modificar el estado del pedido"
                         style="appearance:none; border:0; cursor:pointer;"
-                      ><%= estadoLabel || '—' %></button>
+                      ><%- escapeHtml(estadoLabel || '—') %></button>
                     <% } else if (st.includes('pend')) { %>
                       <button
                         type="button"
                         class="badge <%= cls %> gv-pedido-estado-comercial"
                         data-pid="<%= pid %>"
-                        data-num="<%= (p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid) %>"
+                        data-num="<%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid ?? '')) %>"
                         title="Clic para pasar a Revisando"
                         style="appearance:none; border:0; cursor:pointer;"
-                      ><%= estadoLabel || 'Pendiente' %></button>
+                      ><%- escapeHtml(estadoLabel || 'Pendiente') %></button>
                     <% } else { %>
                       <% if (estadoLabel) { %>
-                        <span class="badge <%= cls %>"><%= estadoLabel %></span>
+                        <span class="badge <%= cls %>"><%- escapeHtml(estadoLabel) %></span>
                       <% } else { %>
                         —
                       <% } %>
                     <% } %>
                   </td>
                   <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
-                  <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                  <td><%= p.TipoClienteNombre ?? '—' %></td>
+                  <td><%- escapeHtml(String(p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? ''))) %></td>
+                  <td><%- escapeHtml(String(p.TipoClienteNombre ?? '—')) %></td>
                   <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
-                  <td><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '' %></td>
-                  <td><%= p.NumAsociadoMayorista ? (p.NumAsociadoMayorista + (p.NombreMayorista ? ' · ' + p.NombreMayorista : '')) : '—' %></td>
-                  <td><%= p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '' %></td>
-                  <td><%= p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—') %></td>
-                  <td><%= p.ProvinciaNombre ?? '—' %></td>
+                  <td><%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? '')) %></td>
+                  <td><% const _na = p.NumAsociadoMayorista; const _nm = p.NombreMayorista; %><%- _na ? escapeHtml(String(_na) + (_nm ? ' · ' + String(_nm) : '')) : '—' %></td>
+                  <td><%- escapeHtml(String(p.NumPedidoCliente ?? p.Num_Pedido_Cliente ?? p.ped_num_pedido_cliente ?? '')) %></td>
+                  <td><%- escapeHtml(String(p.ComercialNombre ?? (p.Id_Cial ?? p.id_cial ?? p.ped_com_id ?? '—'))) %></td>
+                  <td><%- escapeHtml(String(p.ProvinciaNombre ?? '—')) %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -377,8 +378,8 @@
                           <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                           <tr>
                             <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
-                            <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
-                            <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
+                            <td><a href="/pedidos/<%= pid %>"><%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid ?? '')) %></a></td>
+                            <td><%- escapeHtml(String(p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? ''))) %></td>
                             <td><%= fmtEurES(p.TotalPedido ?? p.ped_total ?? p.Total ?? 0) %></td>
                           </tr>
                         <% }) %>
@@ -412,9 +413,9 @@
                       <% const pid = p.Id ?? p.id ?? p.ped_id; %>
                       <tr>
                         <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
-                        <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
-                        <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                        <td><%= (p.EspecialEstado ?? p.especial_estado ?? 'pendiente') %></td>
+                        <td><a href="/pedidos/<%= pid %>"><%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid ?? '')) %></a></td>
+                        <td><%- escapeHtml(String(p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? ''))) %></td>
+                        <td><%- escapeHtml(String(p.EspecialEstado ?? p.especial_estado ?? 'pendiente')) %></td>
                       </tr>
                     <% }) %>
                   </tbody>
@@ -450,9 +451,9 @@
                     %>
                     <tr>
                       <td><%= fmtDateES(p.FechaPedido ?? p.ped_fecha ?? p.Fecha ?? '') %></td>
-                      <td><a href="/pedidos/<%= pid %>"><%= p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid %></a></td>
-                      <td><%= p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? '') %></td>
-                      <td><%= faltan.join(' · ') || '—' %></td>
+                      <td><a href="/pedidos/<%= pid %>"><%- escapeHtml(String(p.NumPedido ?? p.ped_numero ?? p.Numero_Pedido ?? pid ?? '')) %></a></td>
+                      <td><%- escapeHtml(String(p.ClienteNombre ?? p.ClienteNombreCial ?? p.Nombre_Razon_Social ?? p.cli_nombre_razon_social ?? p.Nombre ?? (p.Id_Cliente ?? p.ClienteId ?? ''))) %></td>
+                      <td><%- escapeHtml(String(faltan.join(' · ') || '—')) %></td>
                     </tr>
                   <% }) %>
                   <% if (!incompletos.length) { %>
@@ -479,7 +480,7 @@
                 <span style="font-weight:800; color: var(--gv-ink); font-size: 13px;">Nuevo estado</span>
                 <select id="gv-estado-select" class="gv-client-picker__q">
                   <% (estadosPedido || []).forEach((e) => { %>
-                    <option value="<%= e.id %>" data-color="<%= e.color %>"><%= e.nombre %></option>
+                    <option value="<%= e.id %>" data-color="<%- escapeHtml(String(e.color ?? '')) %>"><%- escapeHtml(String(e.nombre ?? '')) %></option>
                   <% }) %>
                 </select>
               </label>

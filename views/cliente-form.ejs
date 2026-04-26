@@ -21,7 +21,7 @@
   </div>
   <div class="card-bd">
     <% if (error) { %>
-      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%= escapeHtml(error) %></div>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;"><%- escapeHtml(error) %></div>
     <% } %>
     <% if (typeof dupDniMatches !== 'undefined' && Array.isArray(dupDniMatches) && dupDniMatches.length) { %>
       <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;">

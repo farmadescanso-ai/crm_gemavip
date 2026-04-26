@@ -14,18 +14,30 @@
  *   --id-ruta N        Valor numérico para cent_Id_Ruta en todos los INSERT
  *   --delay-ms N       Pausa entre peticiones HTTP (por defecto 1500)
  *
- * Ejemplo urls.txt:
- *   https://www.murciasalud.es/caps.php?op=mostrar_centro&id_centro=16&idsec=6
+ * Variable de entorno (útil si & en la URL se corta al usar .bat desde PowerShell):
+ *   MURCIASALUD_CENTRO_URL   URL completa; si no pasas URL en la línea de órdenes ni --file, se usa esta.
+ *
+ * Sin argumentos: lee la primera línea útil de scripts/murciasalud-centro-url.txt (ver .example).
+ * En Windows sin PowerShell: doble clic en run-murciasalud-centro-desde-archivo.cmd
  */
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
-const http = require('http');
+const { fetchMurciaCentroPageHtml } = require('../lib/murciasalud-centro-fetch');
 const { parseMurciaCentroHtml, buildInsertCentroPrescriptor } = require('../lib/murciasalud-centro-parse');
 
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+const DEFAULT_URL_FILE = path.join(__dirname, 'murciasalud-centro-url.txt');
+
+function readFirstUrlLineFromFile(filePath) {
+  if (!fs.existsSync(filePath)) return '';
+  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    return t;
+  }
+  return '';
+}
 
 function parseArgs(argv) {
   const urls = [];
@@ -54,36 +66,6 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function fetchUrl(url) {
-  return new Promise((resolve, reject) => {
-    const lib = url.startsWith('https:') ? https : http;
-    const req = lib.get(
-      url,
-      {
-        headers: {
-          'User-Agent': UA,
-          Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'es-ES,es;q=0.9',
-        },
-        timeout: 30000,
-      },
-      (res) => {
-        let data = '';
-        res.setEncoding('utf8');
-        res.on('data', (c) => {
-          data += c;
-        });
-        res.on('end', () => resolve({ status: res.statusCode, body: data, headers: res.headers }));
-      }
-    );
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Timeout'));
-    });
-  });
-}
-
 async function main() {
   const { urls, file, htmlFile, out, idRuta, delayMs } = parseArgs(process.argv.slice(2));
 
@@ -96,6 +78,16 @@ async function main() {
       if (!t || t.startsWith('#')) continue;
       list.push(t);
     }
+  }
+
+  const envUrl = String(process.env.MURCIASALUD_CENTRO_URL || '').trim();
+  if (!htmlFile && list.length === 0 && envUrl) {
+    list.push(envUrl);
+  }
+
+  const fileUrl = !htmlFile && list.length === 0 ? readFirstUrlLineFromFile(DEFAULT_URL_FILE) : '';
+  if (fileUrl) {
+    list.push(fileUrl);
   }
 
   if (htmlFile) {
@@ -116,8 +108,11 @@ async function main() {
 
   if (!list.length) {
     console.error(
-      'Indica al menos una URL, --file urls.txt o --html fichero.html.\n' +
-        'Si MurciaSalud devuelve CAPTCHA, abre la URL en el navegador, guarda la página (HTML) y usa --html.'
+      'Indica al menos una URL, --file urls.txt, --html fichero.html, MURCIASALUD_CENTRO_URL o el fichero:\n' +
+        `  ${DEFAULT_URL_FILE}\n` +
+        '(copia scripts/murciasalud-centro-url.example.txt a ese nombre y deja una linea con la URL).\n' +
+        'Si MurciaSalud devuelve CAPTCHA al script, guarda la ficha como HTML y usa --html.\n' +
+        'Sin PowerShell: doble clic en run-murciasalud-centro-desde-archivo.cmd en la raiz del CRM.'
     );
     process.exit(1);
   }
@@ -128,11 +123,7 @@ async function main() {
     process.stderr.write(`-- GET ${url}\n`);
     let body;
     try {
-      const res = await fetchUrl(url);
-      if (res.status && res.status >= 400) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      body = res.body;
+      body = await fetchMurciaCentroPageHtml(url);
     } catch (e) {
       console.error(`ERROR fetch: ${url}\n`, e.message || e);
       process.exitCode = 1;

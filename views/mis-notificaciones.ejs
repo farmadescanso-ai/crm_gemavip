@@ -37,16 +37,16 @@
               <% const pid = n.id_pedido ? Number(n.id_pedido) : null; %>
               <% const pedidoLabel = (n.pedido_num ? String(n.pedido_num) : (pid ? 'Pedido' : 'Pedido')); %>
               <tr>
-                <td><%= typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || '') %></td>
+                <td><%- escapeHtml(String(typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || ''))) %></td>
                 <td><%= isPedido ? 'Pedido especial' : 'Asignación cliente' %></td>
                 <td>
                   <% if (isPedido && pid) { %>
-                    <a href="/pedidos/<%= pid %>"><%= pedidoLabel %></a>
+                    <a href="/pedidos/<%= pid %>"><%- escapeHtml(String(pedidoLabel)) %></a>
                     <% if (n.contacto_nombre) { %>
-                      <span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre %></a></span>
+                      <span style="color: var(--gv-muted);"> · Cliente <a href="/clientes/<%= n.id_contacto %>"><%- escapeHtml(String(n.contacto_nombre)) %></a></span>
                     <% } %>
                   <% } else { %>
-                    <a href="/clientes/<%= n.id_contacto %>"><%= n.contacto_nombre || 'Cliente' %></a>
+                    <a href="/clientes/<%= n.id_contacto %>"><%- escapeHtml(String(n.contacto_nombre || 'Cliente')) %></a>
                   <% } %>
                 </td>
                 <td>
@@ -54,7 +54,7 @@
                     <%= (n.estado || '').toLowerCase() === 'pendiente' ? 'Pendiente' : ((n.estado || '').toLowerCase() === 'aprobada' ? 'Aprobada' : 'Rechazada') %>
                   </span>
                 </td>
-                <td><%= (n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion ? (typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion) : '—' %></td>
+                <td><% if ((n.estado || '').toLowerCase() !== 'pendiente' && n.fecha_resolucion) { %><%- escapeHtml(String(typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_resolucion) : n.fecha_resolucion)) %><% } else { %>—<% } %></td>
               </tr>
             <% }) %>
           <% } %>

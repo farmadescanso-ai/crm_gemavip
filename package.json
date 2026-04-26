@@ -24,7 +24,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ejs-xss-smoke": "jest --testPathPatterns=ejs-xss-smoke",
-    "murciasalud:centros-sql": "node scripts/murciasalud-centros-prescriptores-sql.js"
+    "murciasalud:centros-sql": "node scripts/murciasalud-centros-prescriptores-sql.js",
+    "murciasalud:centro-desde-archivo": "node scripts/murciasalud-centros-prescriptores-sql.js"
   },
   "keywords": [
     "farmadescaso",

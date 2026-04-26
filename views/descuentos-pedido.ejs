@@ -11,7 +11,7 @@
   <div class="card-bd">
     <% const fmtDateDash = (val) => { const s = (typeof fmtDateES === 'function') ? (fmtDateES(val) || '') : ''; return s ? s.replace(/\//g, '-') : ''; }; %>
     <% if (error) { %>
-      <div class="gv-alert gv-alert--warn"><%= escapeHtml(error) %></div>
+      <div class="gv-alert gv-alert--warn"><%- escapeHtml(error) %></div>
       <div style="height: 10px;"></div>
     <% } %>
 

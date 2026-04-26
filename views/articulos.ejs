@@ -2,7 +2,7 @@
 
 <% if (typeof loadError === 'string' && loadError) { %>
   <div class="card" style="border-color: var(--gv-danger, #c00); margin-bottom: 1rem;">
-    <p style="color: var(--gv-danger, #c00); font-weight: 700;">Error al cargar artículos: <%= loadError %></p>
+    <p style="color: var(--gv-danger, #c00); font-weight: 700;">Error al cargar artículos: <%- escapeHtml(String(loadError)) %></p>
   </div>
 <% } %>
 <% if (articuloMsg === 'deactivated') { %>
@@ -29,12 +29,12 @@
             <select id="marca-art" name="marca" class="gv-client-picker__q" style="width: auto; min-width: 200px;">
               <option value="" <%= !selectedMarcaId ? 'selected' : '' %>>Todas</option>
               <% (marcas || []).forEach((m) => { %>
-                <option value="<%= m.id ?? m.mar_id %>" <%= Number(selectedMarcaId) === Number(m.id ?? m.mar_id) ? 'selected' : '' %>><%= m.nombre ?? m.mar_nombre ?? m.id ?? m.mar_id %></option>
+                <option value="<%= m.id ?? m.mar_id %>" <%= Number(selectedMarcaId) === Number(m.id ?? m.mar_id) ? 'selected' : '' %>><%- escapeHtml(String(m.nombre ?? m.mar_nombre ?? m.id ?? m.mar_id ?? '')) %></option>
               <% }) %>
             </select>
           <% } %>
           <label for="q-art" class="visually-hidden">Buscar artículos</label>
-          <input type="search" id="q-art" name="q" class="gv-vista-search__input" placeholder="C.N., nombre, código interno…" value="<%= typeof searchQuery === 'string' ? searchQuery : '' %>" style="min-width: 220px;" />
+          <input type="search" id="q-art" name="q" class="gv-vista-search__input" placeholder="C.N., nombre, código interno…" value="<%- escapeHtml(String(typeof searchQuery === 'string' ? searchQuery : '')) %>" style="min-width: 220px;" />
           <button class="btn secondary" type="submit">Buscar</button>
           <% if (typeof searchQuery === 'string' && searchQuery) { %>
             <a class="btn secondary" href="/articulos<%= selectedMarcaId ? '?marca=' + selectedMarcaId : '' %>" title="Limpiar búsqueda">✕</a>
@@ -54,7 +54,7 @@
         <%= typeof total === 'number' ? total : (items || []).length %> artículos
       <% } %>
       <% if (filtroMarcaFijo) { %> · Marca: todas<% } else if (selectedMarcaId) { %> · Marca filtrada<% } %>
-      <% if (typeof searchQuery === 'string' && searchQuery) { %> · Buscando: &ldquo;<%= searchQuery %>&rdquo;<% } %>
+      <% if (typeof searchQuery === 'string' && searchQuery) { %> · Buscando: &ldquo;<%- escapeHtml(String(searchQuery)) %>&rdquo;<% } %>
     </p>
   </div>
   <div class="card-bd">
@@ -67,7 +67,7 @@
         Página
         <form method="get" action="/articulos" class="gv-vista-pagination__goto" style="display: inline;">
           <% if (selectedMarcaId) { %><input type="hidden" name="marca" value="<%= selectedMarcaId %>" /><% } %>
-          <% if (typeof searchQuery === 'string' && searchQuery) { %><input type="hidden" name="q" value="<%= searchQuery %>" /><% } %>
+          <% if (typeof searchQuery === 'string' && searchQuery) { %><input type="hidden" name="q" value="<%- escapeHtml(String(searchQuery)) %>" /><% } %>
           <input type="number" name="page" min="1" max="<%= totalPages || 1 %>" value="<%= page %>" class="gv-vista-pagination__input" aria-label="Ir a página" title="Ir a página" />
           <button type="submit" class="btn secondary icon gv-vista-pagination__btn">Ir</button>
         </form>
@@ -103,11 +103,11 @@
         <tbody>
           <% (items || []).forEach((a) => { const aid = a.Id ?? a.id ?? a.art_id; %>
             <tr>
-              <td><%= a.SKU ?? a.art_sku ?? '' %></td>
-              <td class="gv-articulos-td-nombre"><%= a.Nombre ?? a.art_nombre ?? '' %></td>
-              <td><%= a.Unidades_Caja ?? a.art_unidades_caja ?? '' %></td>
-              <td><%= a.PVL ?? a.art_pvl ?? '' %></td>
-              <td><%= a.IVA ?? a.art_iva ?? '' %></td>
+              <td><%- escapeHtml(String(a.SKU ?? a.art_sku ?? '')) %></td>
+              <td class="gv-articulos-td-nombre"><%- escapeHtml(String(a.Nombre ?? a.art_nombre ?? '')) %></td>
+              <td><%- escapeHtml(String(a.Unidades_Caja ?? a.art_unidades_caja ?? '')) %></td>
+              <td><%- escapeHtml(String(a.PVL ?? a.art_pvl ?? '')) %></td>
+              <td><%- escapeHtml(String(a.IVA ?? a.art_iva ?? '')) %></td>
               <td><%= (a.Activo ?? a.art_activo ?? 1) ? 'Sí' : 'No' %></td>
               <td>
                 <div class="gv-actions">

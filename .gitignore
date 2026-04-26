@@ -32,3 +32,6 @@ data/bd-dumps/*.sql
 
 # Excel generado (npm run export:clientes-holded)
 exports/
+
+# URL local para script MurciaSalud (no versionar)
+scripts/murciasalud-centro-url.txt

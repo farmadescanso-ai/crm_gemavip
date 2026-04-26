@@ -197,7 +197,8 @@
           if (!r.ok || !json || !json.ok) {
             throw new Error((json && json.error) ? json.error : 'HTTP ' + r.status);
           }
-          var color = json.estado && json.estado.color ? String(json.estado.color) : 'info';
+          var colorRaw = json.estado && json.estado.color ? String(json.estado.color).trim().toLowerCase() : '';
+          var color = ['ok', 'danger', 'warn', 'info'].indexOf(colorRaw) >= 0 ? colorRaw : 'info';
           var nombre = json.estado && json.estado.nombre ? String(json.estado.nombre) : estadoNombre || '—';
 
           currentBadge.textContent = nombre;
@@ -209,7 +210,7 @@
           );
           currentBadge.setAttribute('data-estado-label', nombre);
           currentBadge.classList.remove('ok', 'info', 'warn', 'danger');
-          currentBadge.classList.add(color || 'info');
+          currentBadge.classList.add(color);
 
           closeConfirmModal();
           currentPid = null;
