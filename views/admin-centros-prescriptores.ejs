@@ -10,6 +10,23 @@ function areaSaludCorta(raw) {
   const sinPrefijo = s.replace(/^área\s+de\s+salud\s+/iu, '').trim();
   return sinPrefijo || s;
 }
+
+/**
+ * Nombres tipo "Centro de Salud Calasparra / PAC- Punto de Atención…"
+ * → primera línea hasta el tramo principal; segunda línea desde "PAC-" (salto en ` / `).
+ */
+function nombreCentroHtml(raw) {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const sep = ' / ';
+  const idx = s.indexOf(sep);
+  if (idx === -1) return escapeHtml(s);
+  const a = s.slice(0, idx).trimEnd();
+  const b = s.slice(idx + sep.length).trimStart();
+  if (!b) return escapeHtml(s);
+  return escapeHtml(a) + '<br />' + escapeHtml(b);
+}
 %>
 <style>
   .admin-centros-pre-wrap .admin-centros-pre-table {
@@ -108,9 +125,10 @@ function areaSaludCorta(raw) {
           <% } %>
           <% list.forEach((row) => { %>
             <% const areaTxt = areaSaludCorta(row.cent_Area_Salud); %>
+            <% const nomHtml = nombreCentroHtml(row.cent_Nombre_Centro); %>
             <tr>
               <td><%= row.cent_codigo != null && row.cent_codigo !== '' ? escapeHtml(String(row.cent_codigo)) : '—' %></td>
-              <td style="font-weight: 600;"><%= row.cent_Nombre_Centro ? escapeHtml(String(row.cent_Nombre_Centro)) : '—' %></td>
+              <td style="font-weight: 600;"><%- nomHtml != null ? nomHtml : '—' %></td>
               <td><%= row.cent_Direccion ? escapeHtml(String(row.cent_Direccion)) : '—' %></td>
               <td><%= row.cent_Cod_Postal ? escapeHtml(String(row.cent_Cod_Postal)) : '—' %></td>
               <td><%= row.cent_Poblacion ? escapeHtml(String(row.cent_Poblacion)) : '—' %></td>
