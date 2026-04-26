@@ -66,7 +66,7 @@ function nombreCentroHtml(raw) {
           id="q"
           name="q"
           value="<%- escapeHtml(typeof q === 'string' ? String(q) : '') %>"
-          placeholder="Nombre, población, municipio o código…"
+          placeholder="Nombre, población o código…"
           autocomplete="off"
           maxlength="120"
         />
@@ -89,10 +89,9 @@ function nombreCentroHtml(raw) {
       <table class="admin-centros-pre-table">
         <colgroup>
           <col style="width: 6%;" />
-          <col style="width: 15%;" />
-          <col style="width: 16%;" />
+          <col style="width: 19%;" />
+          <col style="width: 20%;" />
           <col style="width: 5%;" />
-          <col style="width: 8%;" />
           <col style="width: 8%;" />
           <col style="width: 9%;" />
           <col style="width: 11%;" />
@@ -107,7 +106,6 @@ function nombreCentroHtml(raw) {
             <th style="text-align:left;">Dirección</th>
             <th style="text-align:left;">CP</th>
             <th style="text-align:left;">Población</th>
-            <th style="text-align:left;">Municipio</th>
             <th style="text-align:left;">Teléfono</th>
             <th style="text-align:left;">Email</th>
             <th style="text-align:left;">Coordinador</th>
@@ -118,7 +116,7 @@ function nombreCentroHtml(raw) {
         <tbody>
           <% if (!list.length) { %>
             <tr>
-              <td colspan="11" style="color: var(--gv-muted); padding: 16px;">
+              <td colspan="10" style="color: var(--gv-muted); padding: 16px;">
                 No hay centros que mostrar. Si la tabla existe pero está vacía, importa datos con los scripts SQL del repositorio.
               </td>
             </tr>
@@ -132,7 +130,6 @@ function nombreCentroHtml(raw) {
               <td><%= row.cent_Direccion ? escapeHtml(String(row.cent_Direccion)) : '—' %></td>
               <td><%= row.cent_Cod_Postal ? escapeHtml(String(row.cent_Cod_Postal)) : '—' %></td>
               <td><%= row.cent_Poblacion ? escapeHtml(String(row.cent_Poblacion)) : '—' %></td>
-              <td><%= row.cent_Municipio ? escapeHtml(String(row.cent_Municipio)) : '—' %></td>
               <td><%= row.cent_Telefono ? escapeHtml(String(row.cent_Telefono)) : '—' %></td>
               <td><%= row.cent_Email ? escapeHtml(String(row.cent_Email)) : '—' %></td>
               <td><%= row.cent_Coordinador ? escapeHtml(String(row.cent_Coordinador)) : '—' %></td>
