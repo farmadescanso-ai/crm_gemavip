@@ -1,6 +1,33 @@
 <%- include('partials/header', { title: title || 'Centros prescriptores' }) %>
+<% 
+/** Solo número romano + zona, p. ej. "Área de Salud IV (Noroeste)" → "IV (Noroeste)" */
+function areaSaludCorta(raw) {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const m = s.match(/([IVXLCDM]+)\s*(\([^)]+\))\s*$/i);
+  if (m) return (m[1] + ' ' + m[2]).trim();
+  const sinPrefijo = s.replace(/^área\s+de\s+salud\s+/iu, '').trim();
+  return sinPrefijo || s;
+}
+%>
+<style>
+  .admin-centros-pre-wrap .admin-centros-pre-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .admin-centros-pre-wrap .admin-centros-pre-table th,
+  .admin-centros-pre-wrap .admin-centros-pre-table td {
+    vertical-align: top;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    line-height: 1.35;
+    padding: 10px 8px;
+  }
+</style>
 
-<section class="card" style="max-width: 1200px; margin: 0 auto;">
+<section class="card admin-centros-pre-wrap" style="max-width: 1200px; margin: 0 auto;">
   <div class="card-hd">
     <h1 class="card-title">Centros prescriptores</h1>
     <% if (typeof subtitle === 'string' && subtitle) { %>
@@ -42,7 +69,20 @@
     </p>
 
     <div class="table-wrap">
-      <table>
+      <table class="admin-centros-pre-table">
+        <colgroup>
+          <col style="width: 6%;" />
+          <col style="width: 15%;" />
+          <col style="width: 16%;" />
+          <col style="width: 5%;" />
+          <col style="width: 8%;" />
+          <col style="width: 8%;" />
+          <col style="width: 9%;" />
+          <col style="width: 11%;" />
+          <col style="width: 10%;" />
+          <col style="width: 8%;" />
+          <col style="width: 4%;" />
+        </colgroup>
         <thead>
           <tr>
             <th style="text-align:left;">Código</th>
@@ -67,17 +107,18 @@
             </tr>
           <% } %>
           <% list.forEach((row) => { %>
+            <% const areaTxt = areaSaludCorta(row.cent_Area_Salud); %>
             <tr>
               <td><%= row.cent_codigo != null && row.cent_codigo !== '' ? escapeHtml(String(row.cent_codigo)) : '—' %></td>
               <td style="font-weight: 600;"><%= row.cent_Nombre_Centro ? escapeHtml(String(row.cent_Nombre_Centro)) : '—' %></td>
-              <td style="max-width: 220px; word-break: break-word;"><%= row.cent_Direccion ? escapeHtml(String(row.cent_Direccion)) : '—' %></td>
+              <td><%= row.cent_Direccion ? escapeHtml(String(row.cent_Direccion)) : '—' %></td>
               <td><%= row.cent_Cod_Postal ? escapeHtml(String(row.cent_Cod_Postal)) : '—' %></td>
               <td><%= row.cent_Poblacion ? escapeHtml(String(row.cent_Poblacion)) : '—' %></td>
               <td><%= row.cent_Municipio ? escapeHtml(String(row.cent_Municipio)) : '—' %></td>
-              <td style="white-space: nowrap;"><%= row.cent_Telefono ? escapeHtml(String(row.cent_Telefono)) : '—' %></td>
-              <td style="max-width: 140px; word-break: break-word;"><%= row.cent_Email ? escapeHtml(String(row.cent_Email)) : '—' %></td>
-              <td style="max-width: 160px; word-break: break-word;"><%= row.cent_Coordinador ? escapeHtml(String(row.cent_Coordinador)) : '—' %></td>
-              <td style="max-width: 180px; word-break: break-word;"><%= row.cent_Area_Salud ? escapeHtml(String(row.cent_Area_Salud)) : '—' %></td>
+              <td><%= row.cent_Telefono ? escapeHtml(String(row.cent_Telefono)) : '—' %></td>
+              <td><%= row.cent_Email ? escapeHtml(String(row.cent_Email)) : '—' %></td>
+              <td><%= row.cent_Coordinador ? escapeHtml(String(row.cent_Coordinador)) : '—' %></td>
+              <td><%= areaTxt ? escapeHtml(areaTxt) : '—' %></td>
               <td><%= row.cent_Id_Ruta != null && row.cent_Id_Ruta !== '' ? escapeHtml(String(row.cent_Id_Ruta)) : '—' %></td>
             </tr>
           <% }) %>
