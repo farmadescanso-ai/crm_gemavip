@@ -49,6 +49,7 @@ const {
   buildPedidosTermClauses,
   resolveDireccionEnvio
 } = require('../lib/pedido-helpers');
+const { filterOutTransferOptions, ensureTransferTarifaYFormaPago } = require('../lib/pedido-form-shared');
 
 const router = express.Router();
 const loadPedidoAndCheckOwner = createLoadPedidoAndCheckOwner('id');
@@ -122,30 +123,6 @@ async function buildPedidoFormLocalsForEdit(req, res, { existing, item, lineas, 
     paises: Array.isArray(paises) ? paises : [],
     canEdit: true,
     error: error || null
-  };
-}
-
-function ensureTransferTarifaYFormaPago(payload, body, tarifas, formasPago, tiposPedido) {
-  const idTipo = Number(body.Id_TipoPedido) || 0;
-  if (!idTipo) return payload;
-  const tipo = (tiposPedido || []).find((t) => Number(_n(t.tipp_id, _n(t.id, t.Id))) === idTipo);
-  const tipoNombre = String(_n(tipo && (tipo.tipp_tipo || tipo.Nombre || tipo.Tipo || tipo.nombre), '')).trim();
-  if (!/transfer/i.test(tipoNombre)) return payload;
-  const getTarifaNombre = (t) => String(_n(t.tarcli_nombre, _n(t.NombreTarifa, _n(t.Nombre, t.nombre))));
-  const getFormaPagoNombre = (fp) => String(_n(fp.formp_nombre, _n(fp.Nombre, _n(fp.FormaPago, fp.nombre))));
-  const tarTransfer = (tarifas || []).find((t) => /transfer/i.test(getTarifaNombre(t)));
-  const fpTransfer = (formasPago || []).find((fp) => /transfer/i.test(getFormaPagoNombre(fp)));
-  const out = { ...payload };
-  if (tarTransfer) out.Id_Tarifa = Number(_n(tarTransfer.tarcli_id, _n(tarTransfer.Id, tarTransfer.id))) || 0;
-  if (fpTransfer) out.Id_FormaPago = Number(_n(fpTransfer.formp_id, _n(fpTransfer.id, fpTransfer.Id))) || 0;
-  return out;
-}
-
-function filterOutTransferOptions(formasPago, tiposPedido) {
-  const nameOf = (item) => String(item?.formp_nombre ?? item?.Nombre ?? item?.FormaPago ?? item?.nombre ?? item?.tipp_tipo ?? item?.Tipo ?? '');
-  return {
-    formasPago: (formasPago || []).filter((fp) => !/transfer/i.test(nameOf(fp))),
-    tiposPedido: (tiposPedido || []).filter((tp) => !/transfer/i.test(nameOf(tp)))
   };
 }
 

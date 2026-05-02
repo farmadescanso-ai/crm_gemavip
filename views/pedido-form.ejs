@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido' }) %>
+<%- include('partials/header', { title: mode === 'edit' ? 'Editar pedido' : 'Nuevo pedido', headerVariant: (typeof portalPedidoForm !== 'undefined' && portalPedidoForm) ? 'portal' : undefined }) %>
 <% var isAdminForm = !!(typeof user !== 'undefined' && user && (user.roles || []).some(function(r){ return String(r).toLowerCase().indexOf('admin') !== -1; })); %>
 <% var isEspecialPedido = Number((item && (item.EsEspecial ?? item.es_especial ?? item.especial)) ?? 0) === 1; %>
 
@@ -18,10 +18,11 @@
       <div style="height: 10px;"></div>
     <% } %>
 
+    <% const _pedidoFormAction = typeof formAction === 'string' && formAction ? formAction : (mode === 'edit' ? ('/pedidos/' + (item.id || item.Id || item.ped_id) + '/edit') : '/pedidos/new'); %>
     <form
       id="pedidoForm"
       method="post"
-      action="<%= mode === 'edit' ? ('/pedidos/' + (item.id || item.Id || item.ped_id) + '/edit') : '/pedidos/new' %>"
+      action="<%= _pedidoFormAction %>"
       class="gv-pedido-form__form"
     >
       <%- include('partials/csrf-field') %>
@@ -41,6 +42,17 @@
         <div style="height: 10px;"></div>
 
       <div class="gv-doc__grid gv-doc__grid--cabecera">
+        <% if (typeof portalPedidoForm !== 'undefined' && portalPedidoForm) { %>
+          <% const curCialP = Number(item.Id_Cial ?? item.ped_com_id ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
+          <% const curCliP = Number(item.Id_Cliente ?? item.ped_cli_id ?? 0) || 0; %>
+          <input type="hidden" name="Id_Cial" id="Id_Cial" value="<%= curCialP || '' %>" />
+          <input type="hidden" name="Id_Cliente" id="Id_Cliente" value="<%= curCliP || '' %>" />
+          <div class="gv-field gv-field--full">
+            <span class="gv-field__label">Cliente</span>
+            <p style="margin:0; font-weight:700;"><%- escapeHtml(String(typeof clienteLabel === 'string' ? clienteLabel : (item.cli_nombre_razon_social || item.Nombre_Razon_Social || 'Tu empresa'))) %></p>
+            <p class="gv-field__help" style="margin-top:6px;">Pedido con la misma tarifa, artículos y condiciones que en el CRM Gemavip.</p>
+          </div>
+        <% } else { %>
         <label class="gv-field">
           <span class="gv-field__label">Comercial * <button type="button" class="gv-field-info" aria-label="Información" data-info="<%= isAdminForm ? 'Puedes cambiar el comercial del pedido manualmente.' : 'En sesión comercial, el pedido se guarda con el comercial logueado.' %>"></button></span>
           <% const curCial = Number(item.Id_Cial ?? item.ped_com_id ?? item.ComercialId ?? item.Id_Comercial ?? 0) || 0; %>
@@ -86,6 +98,7 @@
             </div>
           </div>
         </label>
+        <% } %>
 
         <label class="gv-field">
           <span class="gv-field__label">Tarifa <button type="button" class="gv-field-info" aria-label="Información" data-info="Si la tarifa o el tipo de pedido incluye &quot;Transfer&quot;, el pedido no se valora: PVL=0 y dto línea 5% por defecto (informativo, editable)."></button></span>
@@ -296,7 +309,8 @@
       </div>
 
       <div class="gv-pedido-form__actions">
-        <a class="btn secondary" href="/pedidos">Cancelar</a>
+        <% const _cancelHref = typeof cancelHref === 'string' && cancelHref ? cancelHref : '/pedidos'; %>
+        <a class="btn secondary" href="<%= _cancelHref %>">Cancelar</a>
         <button class="btn" type="submit"><%= mode === 'edit' ? 'Guardar' : 'Crear' %></button>
       </div>
     </form>
@@ -456,6 +470,7 @@
     var canEdit = String('<%= (typeof canEdit !== "undefined" && canEdit) ? "1" : "0" %>') === '1';
     var isEditMode = String('<%= mode === "edit" ? "1" : "0" %>') === '1';
     var isAdmin = String('<%= (user?.roles || []).some(r => String(r).toLowerCase().includes("admin")) ? "1" : "0" %>') === '1';
+    var portalPedidoForm = <%= (typeof portalPedidoForm !== 'undefined' && portalPedidoForm) ? 'true' : 'false' %>;
 
     var defaultDto = 0;
     function clampPct(n){ n = Number(n); if (!isFinite(n)) n = 0; return Math.max(0, Math.min(100, n)); }
@@ -806,6 +821,24 @@
         if (!json || json.ok !== true) return;
         var c = json.item || null;
         if (!c) return;
+        if (portalPedidoForm) {
+          var cialP = c.cli_com_id ?? c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial;
+          var cialNumP = parseInt(String(cialP || '').trim(), 10) || 0;
+          if (hidCial) hidCial.value = String(cialNumP || '');
+          if (selCialDisplay) selCialDisplay.value = String(cialNumP || '');
+          var tarP = c.cli_tarcli_id ?? c.Id_Tarifa ?? c.id_tarifa ?? c.Tarifa ?? c.tarifa;
+          if (tarP !== undefined && tarP !== null && String(tarP).trim() !== '') setTarifaFromCliente(tarP);
+          var dtoP = c.cli_dto ?? c.Dto ?? c.dto ?? c.Descuento ?? c.descuento;
+          if (dtoP !== undefined && dtoP !== null && String(dtoP).trim() !== '') defaultDto = clampPct(Number(String(dtoP).replace(',', '.')));
+          table.querySelectorAll('input.gv-line-dto').forEach(function (inp) {
+            if (String(inp.value || '').trim() === '') inp.value = String(defaultDto || 0);
+          });
+          refreshPrecios();
+          loadDireccionesEnvio(id);
+          toggleNumAsociadoHefameVisibility();
+          setBtnNuevaDirEnvioState(id);
+          return;
+        }
         // Defaults: comercial + tarifa + dto (best-effort)
         var cial = c.Id_Cial ?? c.id_cial ?? c.ComercialId ?? c.comercialId ?? c.Id_Comercial ?? c.id_comercial;
         var tar = c.Id_Tarifa ?? c.id_tarifa ?? c.Tarifa ?? c.tarifa;

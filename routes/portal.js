@@ -10,7 +10,22 @@ const { getPortalSessionContext, clientePermitePortal, loadPortalCliente } = req
 const { DOC_TYPES, listDocumentsForContact, fetchDocumentPdf } = require('../lib/portal-holded-documents');
 const { getHoldedApiKeyOptional } = require('../lib/holded-api');
 const { getStripePortalStatus } = require('../lib/portal-pagos-stripe');
+const { _n } = require('../lib/app-helpers');
+const { loadSimpleCatalogForSelect } = require('../lib/cliente-helpers');
+const { rejectIfValidationFailsHtml } = require('../lib/validation-handlers');
+const { pedidoCreateValidators } = require('../lib/validators/html-pedidos-ui');
+const { parseLineasFromBody, isTransferPedido, resolveMayoristaInfo } = require('../lib/pedido-helpers');
+const { filterOutTransferOptions, ensureTransferTarifaYFormaPago } = require('../lib/pedido-form-shared');
+const { warn } = require('../lib/logger');
 const db = require('../config/mysql-crm');
+
+let sendPushToAdmins = () => Promise.resolve();
+try {
+  const wp = require('../lib/web-push');
+  if (wp && typeof wp.sendPushToAdmins === 'function') sendPushToAdmins = wp.sendPushToAdmins;
+} catch (e) {
+  warn('[portal-pedidos] web-push load:', e?.message);
+}
 
 const router = express.Router();
 
@@ -71,108 +86,297 @@ async function assertPedidoCliente(pedId, cliId) {
   return p;
 }
 
+/** Locales para `pedido-form` en modo portal (misma lógica de catálogos que /pedidos/new). */
+async function getPortalPedidoNuevoLocals(req, { item: itemOverride, lineas: lineasOverride, error } = {}) {
+  const cliId = req.session.portalUser.cli_id;
+  const [tarifasIn, formasPagoIn, tiposPedidoIn, descuentosPedido, estadosPedido, estadoPendienteId, provincias, paises, clienteRow] =
+    await Promise.all([
+      db.getTarifas().catch(() => []),
+      db.getFormasPago().catch(() => []),
+      db.getTiposPedido().catch(() => []),
+      db.getDescuentosPedidoActivos().catch(() => []),
+      db.getEstadosPedidoActivos().catch(() => []),
+      db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null),
+      loadSimpleCatalogForSelect(db, 'provincias'),
+      loadSimpleCatalogForSelect(db, 'paises'),
+      db.getClienteById(cliId)
+    ]);
+
+  const tarifas = Array.isArray(tarifasIn) ? [...tarifasIn] : [];
+  const formasPago = Array.isArray(formasPagoIn) ? [...formasPagoIn] : [];
+  const tiposPedido = Array.isArray(tiposPedidoIn) ? [...tiposPedidoIn] : [];
+
+  const tarifaTransfer = await db.ensureTarifaTransfer().catch(() => null);
+  if (
+    tarifaTransfer &&
+    _n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id) != null &&
+    !tarifas.some((t) => Number(_n(t.tarcli_id, t.Id, t.id)) === Number(_n(tarifaTransfer.tarcli_id, tarifaTransfer.Id, tarifaTransfer.id)))
+  ) {
+    tarifas.push(tarifaTransfer);
+  }
+  const formaPagoTransfer = await db.ensureFormaPagoTransfer().catch(() => null);
+  if (
+    formaPagoTransfer &&
+    _n(formaPagoTransfer.id, formaPagoTransfer.Id) != null &&
+    !formasPago.some((f) => Number(_n(f.id, f.Id)) === Number(_n(formaPagoTransfer.id, formaPagoTransfer.Id)))
+  ) {
+    formasPago.push(formaPagoTransfer);
+  }
+
+  const articulos = await db.getArticulos({}).catch(() => []);
+  const _ft = filterOutTransferOptions(formasPago, tiposPedido);
+
+  let comId = Number(clienteRow?.cli_com_id ?? clienteRow?.Id_Cial ?? 0);
+  if (!Number.isFinite(comId) || comId <= 0) {
+    comId = Number((await db.getComercialIdPool().catch(() => null)) || 0);
+  }
+
+  const clienteLabel = String(
+    clienteRow?.cli_nombre_razon_social ?? clienteRow?.Nombre_Razon_Social ?? clienteRow?.Nombre ?? ''
+  ).trim() || 'Tu empresa';
+
+  const baseItem = {
+    Id_Cliente: cliId,
+    Id_Cial: comId,
+    Id_Tarifa: 0,
+    Serie: 'P',
+    EstadoPedido: 'Pendiente',
+    Id_EstadoPedido: _n(estadoPendienteId, null),
+    Id_FormaPago: null,
+    Id_TipoPedido: null,
+    Observaciones: ''
+  };
+  const mergedItem = { ...baseItem, ...(itemOverride && typeof itemOverride === 'object' ? itemOverride : {}) };
+  mergedItem.Id_Cliente = cliId;
+  mergedItem.Id_Cial = comId;
+
+  const lineas =
+    Array.isArray(lineasOverride) && lineasOverride.length
+      ? lineasOverride
+      : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
+
+  return {
+    title: 'Nuevo pedido',
+    mode: 'create',
+    portalPedidoForm: true,
+    formAction: '/portal/pedidos/nuevo',
+    cancelHref: '/portal/pedidos',
+    admin: false,
+    user: null,
+    comerciales: [],
+    tarifas,
+    formasPago: _ft.formasPago,
+    tiposPedido: _ft.tiposPedido,
+    descuentosPedido: Array.isArray(descuentosPedido) ? descuentosPedido : [],
+    estadosPedido: Array.isArray(estadosPedido) ? estadosPedido : [],
+    articulos: Array.isArray(articulos) ? articulos : [],
+    provincias: Array.isArray(provincias) ? provincias : [],
+    paises: Array.isArray(paises) ? paises : [],
+    item: mergedItem,
+    lineas,
+    clientes: [],
+    clienteLabel,
+    cliente: clienteRow,
+    canEdit: true,
+    error: error || null
+  };
+}
+
 router.get('/pedidos/nuevo', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
     const ctx = await getPortalSessionContext(cliId);
     if (!ctx.flags.ver_pedidos) return res.status(403).send('Pedidos no visibles en el portal.');
-    res.render('portal/pedido-nuevo', {
-      title: 'Nuevo pedido',
-      ctx,
-      error: null,
-      observaciones: ''
-    });
+    const locals = await getPortalPedidoNuevoLocals(req, {});
+    res.render('pedido-form', locals);
   } catch (e) {
     next(e);
   }
 });
 
-router.post('/pedidos/nuevo', async (req, res, next) => {
-  try {
-    const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
-    if (!ctx.flags.ver_pedidos) return res.status(403).send('Pedidos no visibles en el portal.');
-
-    const observaciones = String(req.body?.observaciones || '').trim().slice(0, 2000);
-    const cliente = await db.getClienteById(cliId);
-    if (!cliente) {
-      return res.status(400).render('portal/pedido-nuevo', {
-        title: 'Nuevo pedido',
-        ctx,
-        error: 'No se encontró tu ficha de cliente.',
-        observaciones
-      });
-    }
-
-    let comId = Number(cliente.cli_com_id ?? cliente.Id_Cial ?? cliente.ped_com_id ?? 0);
-    if (!Number.isFinite(comId) || comId <= 0) {
-      comId = Number((await db.getComercialIdPool().catch(() => null)) || 0);
-    }
-    if (!Number.isFinite(comId) || comId <= 0) {
-      return res.status(400).render('portal/pedido-nuevo', {
-        title: 'Nuevo pedido',
-        ctx,
-        error: 'No hay comercial asignado. Contacta con Gemavip.',
-        observaciones
-      });
-    }
-
-    const [tipos, formas] = await Promise.all([db.getTiposPedido().catch(() => []), db.getFormasPago().catch(() => [])]);
-    const t0 = Array.isArray(tipos) && tipos.length ? tipos[0] : null;
-    const f0 = Array.isArray(formas) && formas.length ? formas[0] : null;
-    const tippId = Number(t0?.tipp_id ?? t0?.Id ?? t0?.id ?? 0);
-    const formpId = Number(f0?.formp_id ?? f0?.id ?? f0?.Id ?? 0);
-
-    if (!Number.isFinite(tippId) || tippId <= 0 || !Number.isFinite(formpId) || formpId <= 0) {
-      return res.status(400).render('portal/pedido-nuevo', {
-        title: 'Nuevo pedido',
-        ctx,
-        error: 'Faltan datos de configuración (tipo o forma de pago). Contacta con Gemavip.',
-        observaciones
-      });
-    }
-
-    const obsText =
-      observaciones ||
-      'Pedido solicitado desde el portal del cliente. Completa líneas y condiciones en el CRM si hace falta.';
-    const payload = {
-      Id_Cliente: cliId,
-      Id_Cial: comId,
-      Id_TipoPedido: tippId,
-      Id_FormaPago: formpId,
-      Serie: 'P',
-      EstadoPedido: 'Pendiente',
-      Observaciones: obsText
-    };
-
-    let result;
+router.post(
+  '/pedidos/nuevo',
+  ...pedidoCreateValidators,
+  rejectIfValidationFailsHtml('pedido-form', async (req) => {
+    const body = req.body || {};
+    const lineasRaw = body.lineas || body.Lineas
+      ? Array.isArray(body.lineas || body.Lineas)
+        ? body.lineas || body.Lineas
+        : Object.values(body.lineas || body.Lineas)
+      : [{ Id_Articulo: '', Cantidad: 1, Dto: '' }];
+    return getPortalPedidoNuevoLocals(req, { item: body, lineas: lineasRaw, error: null });
+  }),
+  async (req, res, next) => {
     try {
-      result = await db.createPedido(payload);
-    } catch (err) {
-      return res.status(400).render('portal/pedido-nuevo', {
-        title: 'Nuevo pedido',
-        ctx,
-        error: err?.message || 'No se pudo crear el pedido. Contacta con Gemavip.',
-        observaciones
-      });
-    }
+      const cliId = req.session.portalUser.cli_id;
+      const ctx = await getPortalSessionContext(cliId);
+      if (!ctx.flags.ver_pedidos) return res.status(403).send('Pedidos no visibles en el portal.');
 
-    const newId = result?.insertId ?? result?.Id ?? result?.id;
-    const pid = Number(newId);
-    if (!Number.isFinite(pid) || pid <= 0) {
-      return res.status(500).render('portal/pedido-nuevo', {
-        title: 'Nuevo pedido',
-        ctx,
-        error: 'El pedido no se ha podido registrar correctamente.',
-        observaciones
-      });
-    }
+      const [tarifas, formasPago, tiposPedido] = await Promise.all([
+        db.getTarifas().catch(() => []),
+        db.getFormasPago().catch(() => []),
+        db.getTiposPedido().catch(() => [])
+      ]);
+      const body = req.body || {};
+      const postedCliente = Number(body.Id_Cliente);
+      if (!Number.isFinite(postedCliente) || postedCliente !== cliId) {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas: parseLineasFromBody(body),
+          error: 'Sesión no coincide con el cliente del pedido.'
+        });
+        return res.status(400).render('pedido-form', locals);
+      }
 
-    return res.redirect(`/portal/pedidos/${pid}`);
-  } catch (e) {
-    next(e);
+      const clientePedido = await db.getClienteById(cliId);
+      if (!clientePedido) {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas: parseLineasFromBody(body),
+          error: 'No se encontró tu ficha de cliente.'
+        });
+        return res.status(400).render('pedido-form', locals);
+      }
+
+      let comId = Number(clientePedido.cli_com_id ?? clientePedido.Id_Cial ?? 0);
+      if (!Number.isFinite(comId) || comId <= 0) {
+        comId = Number((await db.getComercialIdPool().catch(() => null)) || 0);
+      }
+      if (!Number.isFinite(comId) || comId <= 0) {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas: parseLineasFromBody(body),
+          error: 'No hay comercial asignado. Contacta con Gemavip.'
+        });
+        return res.status(400).render('pedido-form', locals);
+      }
+
+      const dniCliente = String(_n(_n(clientePedido.cli_dni_cif, clientePedido.DNI_CIF), clientePedido.DniCif) || '').trim();
+      const activo =
+        Number(_n(_n(_n(clientePedido.cli_ok_ko, clientePedido.OK_KO), clientePedido.ok_ko), 0)) === 1;
+      if (!dniCliente || dniCliente.toLowerCase() === 'pendiente') {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas: parseLineasFromBody(body),
+          error: 'No se pueden crear pedidos sin DNI/CIF en ficha. Contacta con Gemavip.'
+        });
+        return res.status(400).render('pedido-form', locals);
+      }
+      if (!activo) {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas: parseLineasFromBody(body),
+          error: 'Tu cuenta no está activa para pedidos. Contacta con Gemavip.'
+        });
+        return res.status(400).render('pedido-form', locals);
+      }
+
+      const esEspecial =
+        body.EsEspecial === '1' ||
+        body.EsEspecial === 1 ||
+        body.EsEspecial === true ||
+        String(body.EsEspecial || '').toLowerCase() === 'on';
+      const tarifaIn = Number(body.Id_Tarifa);
+      const tarifaId = Number.isFinite(tarifaIn) ? tarifaIn : NaN;
+
+      const pedidoPayload = {
+        Id_Cial: comId,
+        Id_Cliente: cliId,
+        Id_DireccionEnvio: body.Id_DireccionEnvio ? Number(body.Id_DireccionEnvio) || null : null,
+        Id_FormaPago: body.Id_FormaPago ? Number(body.Id_FormaPago) || 0 : 0,
+        Id_TipoPedido: body.Id_TipoPedido ? Number(body.Id_TipoPedido) || 0 : 0,
+        Id_EstadoPedido: body.Id_EstadoPedido ? Number(body.Id_EstadoPedido) || null : null,
+        ...(Number.isFinite(tarifaId) && tarifaId > 0 ? { Id_Tarifa: tarifaId } : {}),
+        Serie: 'P',
+        ...(esEspecial
+          ? { EsEspecial: 1, EspecialEstado: 'pendiente', EspecialFechaSolicitud: new Date() }
+          : { EsEspecial: 0 }),
+        ...(esEspecial ? { Dto: Number(String(body.Dto || '').replace(',', '.')) || 0 } : {}),
+        NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
+        NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
+        FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
+        FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
+        EstadoPedido: String(body.EstadoPedido || 'Pendiente').trim(),
+        Observaciones: String(body.Observaciones || '').trim() || null
+      };
+
+      if (!pedidoPayload.EstadoPedido) {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas: parseLineasFromBody(body),
+          error: 'Estado del pedido obligatorio.'
+        });
+        return res.status(400).render('pedido-form', locals);
+      }
+
+      const lineas = parseLineasFromBody(body);
+      let finalPayload = ensureTransferTarifaYFormaPago(pedidoPayload, body, tarifas, formasPago, tiposPedido);
+      if (await isTransferPedido(db, finalPayload).catch(() => false)) {
+        const mayoristaInfo = await resolveMayoristaInfo(db, finalPayload);
+        if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) {
+          const cod = mayoristaInfo.codigoAsociado || String(body.NumAsociadoHefame || '').trim() || null;
+          if (mayoristaInfo.nombre) finalPayload.cooperativa_nombre = mayoristaInfo.nombre;
+          if (cod) {
+            finalPayload.NumAsociadoHefame = cod;
+            finalPayload.numero_cooperativa = cod;
+          }
+        }
+      }
+
+      let created;
+      try {
+        created = await db.createPedido(finalPayload);
+      } catch (err) {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas,
+          error: err?.message || 'No se pudo crear el pedido.'
+        });
+        return res.status(400).render('pedido-form', locals);
+      }
+
+      const pedidoId = _n(_n(created && created.insertId, created && created.Id), created && created.id);
+      const pid = Number(pedidoId);
+      if (!Number.isFinite(pid) || pid <= 0) {
+        const locals = await getPortalPedidoNuevoLocals(req, {
+          item: body,
+          lineas,
+          error: 'No se obtuvo el ID del pedido creado.'
+        });
+        return res.status(500).render('pedido-form', locals);
+      }
+
+      await db.updatePedidoWithLineas(pid, {}, lineas);
+
+      if (esEspecial) {
+        await db.ensureNotificacionPedidoEspecial(pid, finalPayload.Id_Cliente, finalPayload.Id_Cial).catch(() => null);
+        const clienteNombre =
+          clientePedido?.cli_nombre_razon_social ??
+          clientePedido?.Nombre_Razon_Social ??
+          clientePedido?.Nombre ??
+          `Cliente ${finalPayload.Id_Cliente}`;
+        await sendPushToAdmins({
+          title: 'Nuevo pedido especial (portal)',
+          body: `Cliente ${clienteNombre} solicita pedido especial desde el portal`,
+          url: '/notificaciones',
+          tipo: 'pedido_especial',
+          pedidoId: pid,
+          clienteId: finalPayload.Id_Cliente,
+          clienteNombre,
+          cliente: clientePedido,
+          userId: null,
+          userName: 'Portal cliente',
+          userEmail: req.session?.portalUser?.email || null,
+          lineas
+        }).catch(() => {});
+      }
+
+      return res.redirect(`/portal/pedidos/${pid}`);
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 router.get('/pedidos', async (req, res, next) => {
   try {
