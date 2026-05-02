@@ -1,0 +1,117 @@
+<%- include('partials/header', { title: title || 'Portal del cliente' }) %>
+
+<% const cid = item ? (item.cli_id ?? item.clienteId ?? item.Id ?? item.id) : ''; %>
+<% const nombreCli = item?.cli_nombre_razon_social ?? item?.Nombre_Razon_Social ?? item?.cli_nombre_cial ?? item?.Nombre_Cial ?? ''; %>
+
+<section class="card gv-cliente-form" style="max-width: 880px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Portal del cliente (gestión)</h1>
+    <p class="card-subtitle" style="font-weight: 700;">Contacto #<%= cid %> · <%- escapeHtml(String(nombreCli || '—')) %></p>
+  </div>
+  <div class="card-bd">
+    <div class="gv-alert gv-alert--info" style="margin-bottom: 16px; border-left: 4px solid #0d9488;">
+      <p style="margin: 0 0 10px;"><strong>Aplicación externa</strong></p>
+      <p style="margin: 0; font-size: 14px; color: var(--gv-ink); line-height: 1.5;">
+        El <strong>portal</strong> no forma parte del CRM interno: es un canal para el contacto, con su propia entrada en
+        <code>/login-cliente</code> (solo clientes). Aquí defines el acceso (email y contraseña), envías la invitación y ajustas la visibilidad.
+        Las condiciones del contacto en CRM se combinan con la <a href="/admin/portal-config">configuración global del portal</a> y los overrides de abajo.
+      </p>
+      <p style="margin: 12px 0 0; font-size: 13px; color: var(--gv-muted); line-height: 1.5;">
+        <strong>Roadmap:</strong> tramitar pedidos desde el portal, notificaciones con la administración (entrantes y salientes),
+        flujo de aceptación o modificación de pedidos, catálogo (por definir) y consulta/descarga de facturas.
+      </p>
+    </div>
+
+    <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.ok) { %>
+      <% const _pok = String(portalFlash.ok); %>
+      <% if (_pok === 'mail_fail') { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;">
+        <strong>No se pudo enviar el correo de invitación.</strong>
+        Revisa en el servidor las variables <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> (o <code>MAIL_*</code>) y los logs.
+        El acceso al portal puede estar creado aunque el email no se haya enviado.
+      </div>
+      <% } else { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Acción: <code><%- escapeHtml(_pok) %></code></div>
+      <% } %>
+    <% } %>
+    <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.err) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;">Error: <code><%- escapeHtml(String(portalFlash.err)) %></code></div>
+    <% } %>
+    <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.link) { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom: 10px; word-break: break-all;">Enlace: <%- escapeHtml(String(portalFlash.link)) %></div>
+    <% } %>
+
+    <% const pac = typeof portalAcceso !== 'undefined' ? portalAcceso : null; %>
+    <% const pcfg = typeof portalCfg !== 'undefined' ? portalCfg : null; %>
+    <% const pov = typeof portalOverride !== 'undefined' ? portalOverride : null; %>
+
+    <p style="font-size: 14px;"><strong>Portal global:</strong> <%= pcfg && Number(pcfg.portcfg_activo) === 1 ? 'activo' : 'inactivo' %></p>
+    <% if (pac) { %>
+      <p style="font-size: 14px;"><strong>Email acceso:</strong> <%- escapeHtml(String(pac.pac_email_login || '')) %></p>
+      <p style="font-size: 14px;"><strong>Estado:</strong> <%= Number(pac.pac_activo) === 1 ? 'activo' : 'desactivado' %></p>
+      <p style="font-size: 14px;"><strong>Último acceso:</strong> <%= pac.pac_ultimo_acceso_at ? (typeof fmtDateES === 'function' ? fmtDateES(pac.pac_ultimo_acceso_at) : pac.pac_ultimo_acceso_at) : '—' %></p>
+    <% } else { %>
+      <p style="color: var(--gv-muted);">Sin credenciales de portal.</p>
+    <% } %>
+
+    <% if (typeof canEdit !== 'undefined' && canEdit) { %>
+      <hr style="margin: 16px 0; border: none; border-top: 1px solid rgba(0, 0, 0, 0.08);" />
+      <h4 style="font-size: 14px; font-weight: 800;">Activar / actualizar acceso</h4>
+      <p style="font-size: 13px; color: var(--gv-muted); margin: 0 0 10px;">
+        El cliente debe usar la página <strong>Portal del cliente — iniciar sesión</strong> (<code>/login-cliente</code>), distinta del acceso de comerciales.
+        Comunica la contraseña por un canal seguro si no la incluyes en el correo de invitación.
+      </p>
+      <form method="post" action="/clientes/<%= cid %>/portal/activar" style="margin: 10px 0; display: grid; gap: 8px; max-width: 420px;">
+        <%- include('partials/csrf-field') %>
+        <label>Email login <input type="email" name="email" required value="<%- pac ? escapeHtml(String(pac.pac_email_login || '')) : escapeHtml(String(item.cli_email || '')) %>" style="width: 100%;" /></label>
+        <label>Contraseña (opcional; si vacía se genera internamente) <input type="password" name="password" minlength="8" style="width: 100%;" autocomplete="new-password" /></label>
+        <button class="btn" type="submit">Guardar acceso</button>
+      </form>
+      <% if (pac) { %>
+        <form method="post" action="/clientes/<%= cid %>/portal/set-password" style="margin: 10px 0; display: grid; gap: 8px; max-width: 420px;">
+          <%- include('partials/csrf-field') %>
+          <label>Nueva contraseña <input type="password" name="password" minlength="8" required style="width: 100%;" autocomplete="new-password" /></label>
+          <button class="btn secondary" type="submit">Cambiar contraseña</button>
+        </form>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <form method="post" action="/clientes/<%= cid %>/portal/invitar"><%- include('partials/csrf-field') %><button class="btn secondary" type="submit">Enviar invitación por email</button></form>
+          <% if (Number(pac.pac_activo) === 1) { %>
+            <form method="post" action="/clientes/<%= cid %>/portal/desactivar" onsubmit="return confirm('¿Desactivar acceso al portal?');"><%- include('partials/csrf-field') %><button class="btn secondary" type="submit">Desactivar</button></form>
+          <% } else { %>
+            <form method="post" action="/clientes/<%= cid %>/portal/reactivar"><%- include('partials/csrf-field') %><button class="btn secondary" type="submit">Reactivar</button></form>
+          <% } %>
+        </div>
+      <% } %>
+      <hr style="margin: 16px 0; border: none; border-top: 1px solid rgba(0, 0, 0, 0.08);" />
+      <h4 style="font-size: 14px; font-weight: 800;">Enlace temporal a documento Holded</h4>
+      <form method="post" action="/clientes/<%= cid %>/portal/enlace-documento" style="display: grid; gap: 8px; max-width: 420px;">
+        <%- include('partials/csrf-field') %>
+        <label>Tipo doc <select name="tipo_doc"><option value="invoice">invoice</option><option value="estimate">estimate</option><option value="waybill">waybill</option><option value="salesorder">salesorder</option></select></label>
+        <label>ID documento Holded <input name="ref_externa" required placeholder="id Holded" /></label>
+        <button class="btn secondary" type="submit">Generar enlace</button>
+      </form>
+      <hr style="margin: 16px 0; border: none; border-top: 1px solid rgba(0, 0, 0, 0.08);" />
+      <h4 style="font-size: 14px; font-weight: 800;">Visibilidad en portal (override)</h4>
+      <form method="post" action="/clientes/<%= cid %>/portal/overrides" style="display: grid; gap: 8px; max-width: 480px;">
+        <%- include('partials/csrf-field') %>
+        <label><input type="checkbox" name="pco_heredar_global" value="1" <%= !pov || Number(pov.pco_heredar_global) !== 0 ? 'checked' : '' %> /> Heredar configuración global</label>
+        <p style="font-size: 12px; color: var(--gv-muted);">Desmarca heredar y elige visibilidad por tipo (solo si deseas personalizar).</p>
+        <label><input type="checkbox" name="pco_ver_facturas" value="1" /> Facturas visibles</label>
+        <label><input type="checkbox" name="pco_ver_pedidos" value="1" /> Pedidos CRM visibles</label>
+        <label><input type="checkbox" name="pco_ver_presupuestos" value="1" /> Presupuestos Holded visibles</label>
+        <label><input type="checkbox" name="pco_ver_albaranes" value="1" /> Albaranes visibles</label>
+        <label><input type="checkbox" name="pco_ver_catalogo" value="1" /> Catálogo (futuro)</label>
+        <button class="btn secondary" type="submit">Guardar overrides</button>
+      </form>
+    <% } %>
+
+    <p style="margin-top: 20px;">
+      <a class="btn secondary" href="/clientes/<%= cid %>">← Volver a la ficha del cliente</a>
+      <% if (typeof loginClienteUrl === 'string' && loginClienteUrl) { %>
+        <a class="btn secondary" href="<%= loginClienteUrl %>" target="_blank" rel="noopener" style="margin-left: 8px;">Abrir página de login del portal</a>
+      <% } %>
+    </p>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

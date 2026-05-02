@@ -89,6 +89,7 @@ function redirectIfHoldedIdInUrl(req, res, id, raw) {
   let dest = `/clientes/${id}`;
   if (p.endsWith('/edit')) dest += '/edit';
   else if (p.includes('/direcciones/new')) dest += '/direcciones/new';
+  else if (p.includes('/portal')) dest += '/portal';
   res.redirect(302, dest);
   return true;
 }

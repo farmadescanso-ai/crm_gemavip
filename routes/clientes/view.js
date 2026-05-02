@@ -74,25 +74,6 @@ function registerViewClienteRoutes(router, { db, requireLogin, isAdminUser }) {
         isAdmin: !!admin,
         isSuperAdmin
       });
-      const portalTab = {
-        id: 'portal',
-        label: 'Portal cliente',
-        fields: [{ name: '_portal', label: '', spec: { kind: 'portal_admin' } }]
-      };
-      model.tabs = [...(model.tabs || []), portalTab];
-
-      const [portalAccesoRow, portalOverride, portalCfg] = await Promise.all([
-        db.getPortalAccesoByCliId(id).catch(() => null),
-        db.getPortalClienteOverride(id).catch(() => null),
-        db.getPortalConfig().catch(() => null)
-      ]);
-
-      const pq = req.query || {};
-      const portalFlash = {
-        ok: typeof pq.portal_ok === 'string' ? pq.portal_ok : null,
-        err: typeof pq.portal_error === 'string' ? pq.portal_error : null,
-        link: typeof pq.portal_link === 'string' ? pq.portal_link : null
-      };
 
       res.render('cliente-view', {
         ...model,
@@ -110,11 +91,7 @@ function registerViewClienteRoutes(router, { db, requireLogin, isAdminUser }) {
         agendaError: false,
         tieneRelaciones: !!tieneRelaciones,
         relaciones: relaciones || [],
-        cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : [],
-        portalAcceso: portalAccesoRow,
-        portalOverride,
-        portalCfg,
-        portalFlash
+        cooperativasCliente: Array.isArray(cooperativasCliente) ? cooperativasCliente : []
       });
     } catch (e) {
       next(e);
