@@ -161,7 +161,7 @@ async function assertHoldedDocForCliente(cliId, docType, docId) {
   return list.find((d) => String(d.id) === idStr) || null;
 }
 
-router.get('/holded/:docType/:docId/pdf', async (req, res, next) => {
+async function servePortalDocumentoPdf(req, res, next) {
   try {
     const cliId = req.session.portalUser.cli_id;
     const ctx = await getPortalSessionContext(cliId);
@@ -183,7 +183,11 @@ router.get('/holded/:docType/:docId/pdf', async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-});
+}
+
+/** PDF documento (URL neutra para el portal). Mantiene alias legacy `/holded/`. */
+router.get('/doc/:docType/:docId/pdf', servePortalDocumentoPdf);
+router.get('/holded/:docType/:docId/pdf', servePortalDocumentoPdf);
 
 router.get('/mensajes', async (req, res, next) => {
   try {
