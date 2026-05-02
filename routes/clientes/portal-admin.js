@@ -44,7 +44,9 @@ function registerPortalAdminRoutes(router, { db, requireLogin, isAdminUser }) {
         ok: typeof pq.portal_ok === 'string' ? pq.portal_ok : null,
         err: typeof pq.portal_error === 'string' ? pq.portal_error : null
       };
-      const loginClienteUrl = `${baseUrl(req)}/login-cliente`;
+      const base = baseUrl(req);
+      const loginClienteUrl = `${base}/login-cliente`;
+      const portalHomeUrl = `${base}/portal`;
       res.render('cliente-portal-gestion', {
         title: 'Portal del cliente — gestión',
         item,
@@ -54,7 +56,8 @@ function registerPortalAdminRoutes(router, { db, requireLogin, isAdminUser }) {
         portalOverride,
         portalCfg,
         portalFlash,
-        loginClienteUrl
+        loginClienteUrl,
+        portalHomeUrl
       });
     } catch (e) {
       next(e);

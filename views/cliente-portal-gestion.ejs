@@ -32,7 +32,12 @@
         Mientras tanto puedes comunicar al cliente la URL <code>/login-cliente</code> y la contraseña por otro canal seguro.
       </div>
       <% } else { %>
-      <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Acción: <code><%- escapeHtml(_pok) %></code></div>
+      <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">
+        <strong>Acción:</strong> <code><%- escapeHtml(_pok) %></code>
+        <% if (_pok === 'activado' && typeof loginClienteUrl === 'string' && loginClienteUrl) { %>
+          <p style="margin: 10px 0 0; font-size: 14px;">Comparte con el cliente la <strong>URL de acceso</strong> (abajo en «Enlace para el cliente») y la contraseña por un canal seguro.</p>
+        <% } %>
+      </div>
       <% } %>
     <% } %>
     <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.err) { %>
@@ -61,6 +66,22 @@
       <p style="font-size: 14px;"><strong>Email acceso:</strong> <%- escapeHtml(String(pac.pac_email_login || '')) %></p>
       <p style="font-size: 14px;"><strong>Estado:</strong> <%= Number(pac.pac_activo) === 1 ? 'activo' : 'desactivado' %></p>
       <p style="font-size: 14px;"><strong>Último acceso:</strong> <%= pac.pac_ultimo_acceso_at ? (typeof fmtDateES === 'function' ? fmtDateES(pac.pac_ultimo_acceso_at) : pac.pac_ultimo_acceso_at) : '—' %></p>
+
+      <% if (typeof loginClienteUrl === 'string' && loginClienteUrl && typeof portalHomeUrl === 'string' && portalHomeUrl) { %>
+      <div class="gv-alert gv-alert--info" style="margin-top: 14px; border-left: 4px solid #0d9488;">
+        <p style="margin: 0 0 8px; font-weight: 800;">Enlace para el cliente (portal)</p>
+        <p style="margin: 0 0 6px; font-size: 14px;">El contacto debe abrir esta dirección e iniciar sesión con el email y la contraseña del portal:</p>
+        <p style="margin: 0 0 10px; word-break: break-all;">
+          <a href="<%- escapeHtml(loginClienteUrl) %>" target="_blank" rel="noopener" style="font-weight: 700;"><%- escapeHtml(loginClienteUrl) %></a>
+        </p>
+        <p style="margin: 0 0 6px; font-size: 13px; color: var(--gv-muted);">Tras el login, el área privada del cliente es:</p>
+        <p style="margin: 0 0 10px; word-break: break-all;">
+          <a href="<%- escapeHtml(portalHomeUrl) %>" target="_blank" rel="noopener"><%- escapeHtml(portalHomeUrl) %></a>
+          <span style="color: var(--gv-muted);"> (suele abrirse sola al entrar)</span>
+        </p>
+        <button type="button" class="btn secondary" id="gvCopyPortalLoginUrl" style="margin-top: 4px;">Copiar URL de acceso</button>
+      </div>
+      <% } %>
     <% } else { %>
       <p style="color: var(--gv-muted);">Sin credenciales de portal.</p>
     <% } %>
@@ -116,5 +137,26 @@
     </p>
   </div>
 </section>
+
+<% if (typeof pac !== 'undefined' && pac && typeof loginClienteUrl === 'string' && loginClienteUrl) { %>
+<script nonce="<%= typeof cspNonce !== 'undefined' ? cspNonce : '' %>">
+(function () {
+  var u = <%- JSON.stringify(loginClienteUrl) %>;
+  var b = document.getElementById('gvCopyPortalLoginUrl');
+  if (!b || !u) return;
+  b.addEventListener('click', function () {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(u).then(function () {
+        var t = b.textContent;
+        b.textContent = 'Copiado';
+        setTimeout(function () { b.textContent = t; }, 2000);
+      }).catch(function () { window.prompt('Copia esta URL:', u); });
+    } else {
+      window.prompt('Copia esta URL:', u);
+    }
+  });
+})();
+</script>
+<% } %>
 
 <%- include('partials/footer') %>
