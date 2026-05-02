@@ -6,6 +6,9 @@ const swaggerSpec = require('../config/swagger');
 const apiRouter = require('../routes/api');
 const publicRouter = require('../routes/public');
 const authRouter = require('../routes/auth');
+const portalAuthRouter = require('../routes/portal-auth');
+const portalPublicRouter = require('../routes/portal-public');
+const portalPrivateRouter = require('../routes/portal');
 const comercialesRouter = require('../routes/comerciales');
 const adminRouter = require('../routes/admin');
 const notificacionesRouter = require('../routes/notificaciones');
@@ -109,7 +112,10 @@ app.use('/webhook', require('../routes/webhook-aprobacion'));
 
 app.use('/', publicRouter);
 app.use('/', ventasGemavipRouter);
+app.use('/', portalAuthRouter);
 app.use('/', authRouter);
+app.use('/portal', portalPublicRouter);
+app.use('/portal', portalPrivateRouter);
 app.use('/', dashboardRouter);
 app.use('/', manualRouter);
 app.use('/', cpanelRouter);
@@ -121,8 +127,9 @@ app.use('/clientes', clientesRouter);
 app.use('/pedidos', pedidosRouter);
 app.use('/', notificacionesRouter);
 
-app.get('/', async (_req, res) => {
+app.get('/', async (req, res) => {
   if (res.locals.user) return res.redirect('/dashboard');
+  if (req.session?.portalUser?.cli_id) return res.redirect('/portal');
   return res.redirect('/login');
 });
 

@@ -1780,6 +1780,7 @@ const domains = createDomains(ensureModule);
 // Login: cargar al inicio (createPasswordResetToken, findPasswordResetToken, etc.)
 const _loginModule = require(path.join(_configDir, 'mysql-crm-login.js'));
 Object.assign(MySQLCRM.prototype, _loginModule);
+Object.assign(MySQLCRM.prototype, require(path.join(_configDir, 'mysql-crm-portal.js')));
 function getLoginModule() {
   return _loginModule;
 }

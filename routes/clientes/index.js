@@ -12,6 +12,7 @@ const { registerDireccionesRoutes } = require('./direcciones');
 const { registerEditClienteRoutes } = require('./edit');
 const { registerViewClienteRoutes } = require('./view');
 const { registerClienteActionRoutes } = require('./actions');
+const { registerPortalAdminRoutes } = require('./portal-admin');
 
 const router = express.Router();
 
@@ -27,6 +28,7 @@ registerListRoutes(router, ctx);
 registerNewClienteRoutes(router, ctx);
 registerDireccionesRoutes(router, ctx);
 registerEditClienteRoutes(router, ctx);
+registerPortalAdminRoutes(router, ctx);
 registerViewClienteRoutes(router, ctx);
 registerClienteActionRoutes(router, ctx);
 

@@ -1,0 +1,66 @@
+<%- include('../partials/header', { title: title || 'Mi cuenta', headerVariant: 'portal' }) %>
+
+<section class="card" style="max-width: 960px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Resumen</h1>
+    <p class="card-subtitle">
+      <% if (ctx && ctx.cliente) { %>
+        <%- escapeHtml(String(ctx.cliente.cli_nombre_cial || ctx.cliente.cli_nombre_razon_social || 'Cliente')) %>
+      <% } %>
+    </p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof sinHolded !== 'undefined' && sinHolded) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;">
+        Este contacto aún no está vinculado a Holded (<code>cli_Id_Holded</code>). Las facturas y presupuestos de Holded no se pueden mostrar hasta que exista el enlace.
+      </div>
+    <% } %>
+    <div class="grid cols-3" style="gap:12px; margin-bottom:20px;">
+      <% if (ctx.flags.ver_pedidos) { %>
+        <div class="card" style="padding:14px;">
+          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Pedidos (CRM)</div>
+          <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nPedidos : 0 %></div>
+          <a href="/portal/pedidos">Ver pedidos</a>
+        </div>
+      <% } %>
+      <% if (ctx.flags.ver_facturas) { %>
+        <div class="card" style="padding:14px;">
+          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Facturas (Holded)</div>
+          <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nFacturas : 0 %></div>
+          <a href="/portal/facturas">Ver facturas</a>
+        </div>
+      <% } %>
+      <% if (ctx.flags.ver_presupuestos) { %>
+        <div class="card" style="padding:14px;">
+          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Presupuestos (Holded)</div>
+          <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nPresupuestos : 0 %></div>
+          <a href="/portal/presupuestos">Ver presupuestos</a>
+        </div>
+      <% } %>
+    </div>
+
+    <% if (stripe && !stripe.ok) { %>
+      <p style="font-size:13px; color:var(--gv-muted);"><%- escapeHtml(stripe.message) %> <a href="/portal/pago">Más información</a></p>
+    <% } %>
+
+    <% if (ctx.flags.ver_pedidos && (pedidosRecientes || []).length) { %>
+      <h3 style="font-size:15px; font-weight:800; margin:16px 0 8px;">Últimos pedidos</h3>
+      <div class="table-wrap">
+        <table class="gv-contactos-table">
+          <thead><tr><th>Nº</th><th>Fecha</th><th>Estado</th></tr></thead>
+          <tbody>
+            <% (pedidosRecientes || []).slice(0,8).forEach((p) => { %>
+              <tr>
+                <td><a href="/portal/pedidos/<%= p.ped_id || p.Id %>"><%- escapeHtml(String(p.ped_numero || p.NumPedido || p.ped_id || '—')) %></a></td>
+                <td><%= typeof fmtDateES === 'function' ? fmtDateES(p.ped_fecha || p.FechaPedido) : (p.ped_fecha || '') %></td>
+                <td><%- escapeHtml(String(p.ped_estado_txt || p.Estado || '—')) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

@@ -44,3 +44,14 @@ La aplicación distingue dos roles a efectos de permisos en la interfaz web y en
 - **Auth compartido:** `lib/auth.js` exporta `isAdminUser(user)`, `requireLogin`, `normalizeRoles`, `getCommonNavLinksForRoles`, `getRoleNavLinksForRoles` y `createLoadPedidoAndCheckOwner('id')`.
 - **Web:** Las rutas usan `requireLogin` y, donde aplica, `requireAdmin` o el middleware `loadPedidoAndCheckOwner` (que comprueba que el pedido sea del usuario o que sea admin).
 - **API REST:** Los routers en `routes/api/` usan `isAdminUser(req.session?.user)` y `assertPedidoAccess` (en pedidos) para acotar resultados y devolver 403/404 según el rol.
+
+## Portal del cliente (contacto)
+
+No es un tercer valor en `Roll` de `comerciales`. Los contactos que tienen acceso al portal se autentican **aparte**, con credenciales en la tabla `portal_acceso_cliente` (vinculada a `clientes.cli_id`).
+
+- **Sesión:** `req.session.portalUser` con `{ cli_id, email, pac_id }`. No usar `req.session.user` para clientes del portal.
+- **Exclusión mutua:** Al hacer login en `/login` (comercial), se limpia `portalUser`. Al hacer login en `/login-cliente`, se limpia `user` (comercial).
+- **Rutas:** Área privada bajo `/portal` (dashboard, pedidos CRM, facturas/presupuestos/albaranes Holded, PDF en proxy). Login y recuperación en `/login-cliente` y `/login-cliente/olvidar-contrasena`.
+- **Configuración:** Global en `portal_config` (pantalla admin `/admin/portal-config`). Por contacto: pestaña **Portal cliente** en la ficha y tabla `portal_cliente_override`.
+- **Permisos CRM:** Quien puede editar el contacto (`canComercialEditCliente` o admin) puede gestionar acceso al portal desde la ficha.
+- **Implementación:** `lib/portal-auth.js`, `config/mysql-crm-portal.js`, rutas `routes/portal.js`, `routes/portal-auth.js`, `routes/portal-public.js` (enlace mágico `/portal/documento/:token`).

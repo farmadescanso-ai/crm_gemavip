@@ -1,0 +1,45 @@
+<%- include('../partials/header', { title: title || 'Facturas', headerVariant: 'portal' }) %>
+
+<section class="card" style="max-width: 960px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Facturas</h1>
+  </div>
+  <div class="card-bd">
+    <% if (sinHolded) { %>
+      <div class="gv-alert gv-alert--warn">Falta vincular el contacto con Holded para mostrar facturas.</div>
+    <% } else if (sinApi) { %>
+      <div class="gv-alert gv-alert--warn">El servidor no tiene configurada la API de Holded.</div>
+    <% } else if (!(docs || []).length) { %>
+      <p style="color:var(--gv-muted);">No hay facturas en el periodo consultado.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="gv-contactos-table">
+          <thead><tr><th>Nº</th><th>Fecha</th><th>Total</th><th>PDF</th></tr></thead>
+          <tbody>
+            <% (docs || []).forEach((d) => { %>
+              <tr>
+                <td><%- escapeHtml(String(d.docNumber || d.num || d.id || '—')) %></td>
+                <td><%= d.date ? (typeof fmtDateES === 'function' ? fmtDateES(new Date(d.date * 1000)) : '') : '—' %></td>
+                <td><%- escapeHtml(String(d.total != null ? d.total : '—')) %></td>
+                <td><a href="/portal/holded/invoice/<%= d.id %>/pdf" target="_blank" rel="noopener">Descargar</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid rgba(0,0,0,.08);">
+      <h3 style="font-size:15px; font-weight:800;">Añadir comentario (factura Holded)</h3>
+      <form method="post" action="/portal/comentario" style="display:grid; gap:8px; max-width:480px; margin-top:8px;">
+        <%- include('../partials/csrf-field') %>
+        <input type="hidden" name="tipo_doc" value="invoice" />
+        <input type="hidden" name="redirect" value="/portal/facturas" />
+        <label>ID documento Holded <input name="ref_externa" required placeholder="id" /></label>
+        <label>Mensaje <textarea name="mensaje" rows="3" required></textarea></label>
+        <button class="btn secondary" type="submit">Enviar comentario</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

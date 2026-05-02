@@ -130,5 +130,35 @@
     "pk": "id",
     "cols": ["id", "mapping_json", "updated_at", "updated_by"],
     "nota": "Solo fila id=1: JSON ruta API Holded → columna clientes; CPanel holded-comparar"
+  },
+  "portal_config": {
+    "pk": "portcfg_id",
+    "cols": ["portcfg_id", "portcfg_activo", "portcfg_enlaces_horas", "portcfg_ver_facturas", "portcfg_ver_pedidos", "portcfg_ver_presupuestos", "portcfg_ver_albaranes", "portcfg_ver_catalogo", "portcfg_stripe_activo", "portcfg_actualizado_en"],
+    "nota": "Fila única portcfg_id=1: ajustes globales portal cliente"
+  },
+  "portal_cliente_override": {
+    "pk": "pco_id",
+    "cols": ["pco_id", "pco_cli_id", "pco_heredar_global", "pco_ver_facturas", "pco_ver_pedidos", "pco_ver_presupuestos", "pco_ver_albaranes", "pco_ver_catalogo"],
+    "fk": { "pco_cli_id": "clientes" }
+  },
+  "portal_acceso_cliente": {
+    "pk": "pac_id",
+    "cols": ["pac_id", "pac_cli_id", "pac_email_login", "pac_password_hash", "pac_activo", "pac_invitado_en", "pac_ultimo_acceso_at"],
+    "fk": { "pac_cli_id": "clientes" }
+  },
+  "portal_password_reset_tokens": {
+    "pk": "pprt_id",
+    "cols": ["pprt_id", "pprt_cli_id", "pprt_token", "pprt_email", "pprt_expires_at", "pprt_used", "pprt_created_at"],
+    "fk": { "pprt_cli_id": "clientes" }
+  },
+  "portal_documento_enlace": {
+    "pk": "pde_id",
+    "cols": ["pde_id", "pde_cli_id", "pde_tipo_doc", "pde_ref_externa", "pde_token_hash", "pde_expires_at", "pde_used_at", "pde_creado_por_com_id", "pde_activo", "pde_creado_en"],
+    "fk": { "pde_cli_id": "clientes", "pde_creado_por_com_id": "comerciales" }
+  },
+  "portal_documento_comentario": {
+    "pk": "pdc_id",
+    "cols": ["pdc_id", "pdc_cli_id", "pdc_tipo_doc", "pdc_ref_externa", "pdc_mensaje", "pdc_es_cliente", "pdc_com_id", "pdc_leido_por_comercial", "pdc_creado_en"],
+    "fk": { "pdc_cli_id": "clientes", "pdc_com_id": "comerciales" }
   }
 }

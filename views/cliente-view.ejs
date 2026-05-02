@@ -192,6 +192,77 @@
           <% } else { %>
           <p style="color:var(--gv-muted); font-size:14px;">No hay mayoristas asociados.</p>
           <% } %>
+        <% } else if (t.id === 'portal') { %>
+          <div style="margin-bottom:8px;">
+            <h3 style="font-weight:900; font-size:15px; color:var(--gv-ink); margin:0 0 4px;">Portal del cliente</h3>
+            <p style="font-size:13px; color:var(--gv-muted); margin:0 0 12px;">Acceso privado para que el contacto consulte pedidos y documentos. Configuración global en <a href="/admin/portal-config">Ajustes portal</a>.</p>
+          </div>
+          <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.ok) { %>
+            <div class="gv-alert gv-alert--success" style="margin-bottom:10px;">Acción: <code><%- escapeHtml(String(portalFlash.ok)) %></code></div>
+          <% } %>
+          <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.err) { %>
+            <div class="gv-alert gv-alert--warn" style="margin-bottom:10px;">Error: <code><%- escapeHtml(String(portalFlash.err)) %></code></div>
+          <% } %>
+          <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.link) { %>
+            <div class="gv-alert gv-alert--success" style="margin-bottom:10px; word-break:break-all;">Enlace: <%- escapeHtml(String(portalFlash.link)) %></div>
+          <% } %>
+          <% const pac = typeof portalAcceso !== 'undefined' ? portalAcceso : null; %>
+          <% const pcfg = typeof portalCfg !== 'undefined' ? portalCfg : null; %>
+          <% const pov = typeof portalOverride !== 'undefined' ? portalOverride : null; %>
+          <p style="font-size:14px;"><strong>Portal global:</strong> <%= pcfg && Number(pcfg.portcfg_activo) === 1 ? 'activo' : 'inactivo' %></p>
+          <% if (pac) { %>
+            <p style="font-size:14px;"><strong>Email acceso:</strong> <%- escapeHtml(String(pac.pac_email_login || '')) %></p>
+            <p style="font-size:14px;"><strong>Estado:</strong> <%= Number(pac.pac_activo) === 1 ? 'activo' : 'desactivado' %></p>
+            <p style="font-size:14px;"><strong>Último acceso:</strong> <%= pac.pac_ultimo_acceso_at ? (typeof fmtDateES === 'function' ? fmtDateES(pac.pac_ultimo_acceso_at) : pac.pac_ultimo_acceso_at) : '—' %></p>
+          <% } else { %>
+            <p style="color:var(--gv-muted);">Sin credenciales de portal.</p>
+          <% } %>
+          <% if (typeof canEdit !== 'undefined' && canEdit) { %>
+            <hr style="margin:16px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
+            <h4 style="font-size:14px; font-weight:800;">Activar / actualizar acceso</h4>
+            <form method="post" action="/clientes/<%= cid %>/portal/activar" style="margin:10px 0; display:grid; gap:8px; max-width:420px;">
+              <%- include('partials/csrf-field') %>
+              <label>Email login <input type="email" name="email" required value="<%- pac ? escapeHtml(String(pac.pac_email_login || '')) : escapeHtml(String(item.cli_email || '')) %>" style="width:100%;" /></label>
+              <label>Contraseña (opcional; si vacía se genera internamente) <input type="password" name="password" minlength="8" style="width:100%;" autocomplete="new-password" /></label>
+              <button class="btn" type="submit">Guardar acceso</button>
+            </form>
+            <% if (pac) { %>
+              <form method="post" action="/clientes/<%= cid %>/portal/set-password" style="margin:10px 0; display:grid; gap:8px; max-width:420px;">
+                <%- include('partials/csrf-field') %>
+                <label>Nueva contraseña <input type="password" name="password" minlength="8" required style="width:100%;" autocomplete="new-password" /></label>
+                <button class="btn secondary" type="submit">Cambiar contraseña</button>
+              </form>
+              <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                <form method="post" action="/clientes/<%= cid %>/portal/invitar"><%- include('partials/csrf-field') %><button class="btn secondary" type="submit">Enviar invitación por email</button></form>
+                <% if (Number(pac.pac_activo) === 1) { %>
+                  <form method="post" action="/clientes/<%= cid %>/portal/desactivar" onsubmit="return confirm('¿Desactivar acceso al portal?');"><%- include('partials/csrf-field') %><button class="btn secondary" type="submit">Desactivar</button></form>
+                <% } else { %>
+                  <form method="post" action="/clientes/<%= cid %>/portal/reactivar"><%- include('partials/csrf-field') %><button class="btn secondary" type="submit">Reactivar</button></form>
+                <% } %>
+              </div>
+            <% } %>
+            <hr style="margin:16px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
+            <h4 style="font-size:14px; font-weight:800;">Enlace temporal a documento Holded</h4>
+            <form method="post" action="/clientes/<%= cid %>/portal/enlace-documento" style="display:grid; gap:8px; max-width:420px;">
+              <%- include('partials/csrf-field') %>
+              <label>Tipo doc <select name="tipo_doc"><option value="invoice">invoice</option><option value="estimate">estimate</option><option value="waybill">waybill</option><option value="salesorder">salesorder</option></select></label>
+              <label>ID documento Holded <input name="ref_externa" required placeholder="id Holded" /></label>
+              <button class="btn secondary" type="submit">Generar enlace</button>
+            </form>
+            <hr style="margin:16px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
+            <h4 style="font-size:14px; font-weight:800;">Visibilidad (override)</h4>
+            <form method="post" action="/clientes/<%= cid %>/portal/overrides" style="display:grid; gap:8px; max-width:480px;">
+              <%- include('partials/csrf-field') %>
+              <label><input type="checkbox" name="pco_heredar_global" value="1" <%= !pov || Number(pov.pco_heredar_global) !== 0 ? 'checked' : '' %> /> Heredar configuración global</label>
+              <p style="font-size:12px; color:var(--gv-muted);">Desmarca heredar y elige visibilidad por tipo (solo si deseas personalizar).</p>
+              <label><input type="checkbox" name="pco_ver_facturas" value="1" /> Facturas visibles</label>
+              <label><input type="checkbox" name="pco_ver_pedidos" value="1" /> Pedidos CRM visibles</label>
+              <label><input type="checkbox" name="pco_ver_presupuestos" value="1" /> Presupuestos Holded visibles</label>
+              <label><input type="checkbox" name="pco_ver_albaranes" value="1" /> Albaranes visibles</label>
+              <label><input type="checkbox" name="pco_ver_catalogo" value="1" /> Catálogo (futuro)</label>
+              <button class="btn secondary" type="submit">Guardar overrides</button>
+            </form>
+          <% } %>
         <% } else { %>
         <div class="grid cols-2<%= t.id === 'datos_banco' ? ' gv-datos-banco-stack' : '' %>" style="gap: 12px;">
             <% (t.fields || []).forEach((f) => { %>

@@ -590,4 +590,36 @@ router.post('/variables-sistema/update', requireAdmin, async (req, res, next) =>
   }
 });
 
+router.get('/portal-config', requireAdmin, async (req, res, next) => {
+  try {
+    const cfg = await db.getPortalConfig().catch(() => null);
+    res.render('admin-portal-config', {
+      title: 'Portal del cliente',
+      cfg: cfg || {},
+      saved: req.query?.saved === '1'
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/portal-config', requireAdmin, async (req, res, next) => {
+  try {
+    const on = (k) => req.body?.[k] === '1' || req.body?.[k] === 'on';
+    await db.updatePortalConfig({
+      portcfg_activo: on('portcfg_activo'),
+      portcfg_enlaces_horas: Number(req.body?.portcfg_enlaces_horas || 48),
+      portcfg_ver_facturas: on('portcfg_ver_facturas'),
+      portcfg_ver_pedidos: on('portcfg_ver_pedidos'),
+      portcfg_ver_presupuestos: on('portcfg_ver_presupuestos'),
+      portcfg_ver_albaranes: on('portcfg_ver_albaranes'),
+      portcfg_ver_catalogo: on('portcfg_ver_catalogo'),
+      portcfg_stripe_activo: on('portcfg_stripe_activo')
+    });
+    res.redirect('/admin/portal-config?saved=1');
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;

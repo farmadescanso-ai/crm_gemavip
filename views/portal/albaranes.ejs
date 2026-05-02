@@ -1,0 +1,34 @@
+<%- include('../partials/header', { title: title || 'Albaranes', headerVariant: 'portal' }) %>
+
+<section class="card" style="max-width: 960px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Albaranes</h1>
+  </div>
+  <div class="card-bd">
+    <% if (sinHolded) { %>
+      <div class="gv-alert gv-alert--warn">Falta vincular el contacto con Holded.</div>
+    <% } else if (sinApi) { %>
+      <div class="gv-alert gv-alert--warn">Falta HOLDED_API_KEY en el servidor.</div>
+    <% } else if (!(docs || []).length) { %>
+      <p style="color:var(--gv-muted);">No hay albaranes.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="gv-contactos-table">
+          <thead><tr><th>Nº</th><th>Fecha</th><th>Total</th><th>PDF</th></tr></thead>
+          <tbody>
+            <% (docs || []).forEach((d) => { %>
+              <tr>
+                <td><%- escapeHtml(String(d.docNumber || d.id || '—')) %></td>
+                <td><%= d.date ? (typeof fmtDateES === 'function' ? fmtDateES(new Date(d.date * 1000)) : '') : '—' %></td>
+                <td><%- escapeHtml(String(d.total != null ? d.total : '—')) %></td>
+                <td><a href="/portal/holded/waybill/<%= d.id %>/pdf" target="_blank" rel="noopener">PDF</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

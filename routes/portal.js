@@ -1,0 +1,217 @@
+/**
+ * Área privada /portal — dashboard, pedidos CRM, documentos Holded, comentarios, enlaces mágicos.
+ */
+'use strict';
+
+const express = require('express');
+const crypto = require('crypto');
+const { requirePortalLogin } = require('../lib/portal-auth');
+const { getPortalSessionContext, clientePermitePortal, loadPortalCliente } = require('../lib/portal-auth');
+const { DOC_TYPES, listDocumentsForContact, fetchDocumentPdf } = require('../lib/portal-holded-documents');
+const { getHoldedApiKeyOptional } = require('../lib/holded-api');
+const { getStripePortalStatus } = require('../lib/portal-pagos-stripe');
+const db = require('../config/mysql-crm');
+
+const router = express.Router();
+
+router.use((req, res, next) => {
+  res.locals.portalUser = req.session?.portalUser || null;
+  res.locals.headerVariant = 'portal';
+  res.locals.portalUserEmail = req.session?.portalUser?.email || '';
+  next();
+});
+
+router.use(requirePortalLogin);
+
+router.get('/', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!clientePermitePortal(ctx.cliente)) {
+      delete req.session.portalUser;
+      return res.redirect('/login-cliente');
+    }
+
+    const pedidos = ctx.flags.ver_pedidos
+      ? await db.getPedidosPaged({ clienteId: cliId }, { limit: 10, offset: 0 }).catch(() => [])
+      : [];
+    const nPed = ctx.flags.ver_pedidos ? await db.countPedidos({ clienteId: cliId }).catch(() => 0) : 0;
+
+    const hid = String(ctx.cliente?.cli_Id_Holded || '').trim();
+    const apiKey = getHoldedApiKeyOptional();
+    let nInv = 0;
+    let nEst = 0;
+    if (hid && apiKey && ctx.flags.ver_facturas) {
+      const inv = await listDocumentsForContact(DOC_TYPES.facturas, hid, apiKey);
+      nInv = inv.length;
+    }
+    if (hid && apiKey && ctx.flags.ver_presupuestos) {
+      const est = await listDocumentsForContact(DOC_TYPES.presupuestos, hid, apiKey);
+      nEst = est.length;
+    }
+
+    res.render('portal/dashboard', {
+      title: 'Mi cuenta',
+      ctx,
+      stats: { nPedidos: nPed, nFacturas: nInv, nPresupuestos: nEst },
+      pedidosRecientes: pedidos,
+      sinHolded: !hid,
+      stripe: getStripePortalStatus()
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+async function assertPedidoCliente(pedId, cliId) {
+  const p = await db.getPedidoById(pedId);
+  if (!p) return null;
+  const cid = Number(p.ped_cli_id ?? p.Id_Cliente ?? p.cliente_id ?? 0);
+  if (cid !== Number(cliId)) return null;
+  return p;
+}
+
+router.get('/pedidos', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!ctx.flags.ver_pedidos) {
+      return res.status(403).send('Pedidos no visibles en el portal.');
+    }
+    const pedidos = await db.getPedidosPaged({ clienteId: cliId }, { limit: 200, offset: 0 }).catch(() => []);
+    res.render('portal/pedidos', { title: 'Mis pedidos', ctx, pedidos });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/pedidos/:id', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!ctx.flags.ver_pedidos) return res.status(403).send('No disponible');
+    const pedido = await assertPedidoCliente(req.params.id, cliId);
+    if (!pedido) return res.status(404).send('No encontrado');
+    const lineas = await db.getArticulosByPedido(pedido.ped_id ?? pedido.Id ?? req.params.id).catch(() => []);
+    res.render('portal/pedido-detail', { title: 'Pedido', ctx, pedido, lineas });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/facturas', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!ctx.flags.ver_facturas) return res.status(403).send('Facturas no visibles.');
+    const hid = String(ctx.cliente?.cli_Id_Holded || '').trim();
+    const apiKey = getHoldedApiKeyOptional();
+    let docs = [];
+    if (hid && apiKey) {
+      docs = await listDocumentsForContact(DOC_TYPES.facturas, hid, apiKey);
+    }
+    res.render('portal/facturas', { title: 'Facturas', ctx, docs, sinHolded: !hid, sinApi: !apiKey });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/presupuestos', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!ctx.flags.ver_presupuestos) return res.status(403).send('No disponible');
+    const hid = String(ctx.cliente?.cli_Id_Holded || '').trim();
+    const apiKey = getHoldedApiKeyOptional();
+    let docs = [];
+    if (hid && apiKey) {
+      docs = await listDocumentsForContact(DOC_TYPES.presupuestos, hid, apiKey);
+    }
+    res.render('portal/presupuestos', { title: 'Presupuestos', ctx, docs, sinHolded: !hid, sinApi: !apiKey });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/albaranes', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!ctx.flags.ver_albaranes) return res.status(403).send('No disponible');
+    const hid = String(ctx.cliente?.cli_Id_Holded || '').trim();
+    const apiKey = getHoldedApiKeyOptional();
+    let docs = [];
+    if (hid && apiKey) {
+      docs = await listDocumentsForContact(DOC_TYPES.albaranes, hid, apiKey);
+    }
+    res.render('portal/albaranes', { title: 'Albaranes', ctx, docs, sinHolded: !hid, sinApi: !apiKey });
+  } catch (e) {
+    next(e);
+  }
+});
+
+async function assertHoldedDocForCliente(cliId, docType, docId) {
+  const cliente = await loadPortalCliente(cliId);
+  const hid = String(cliente?.cli_Id_Holded || '').trim();
+  if (!hid) return null;
+  const apiKey = getHoldedApiKeyOptional();
+  if (!apiKey) return null;
+  const list = await listDocumentsForContact(docType, hid, apiKey);
+  const idStr = String(docId);
+  return list.find((d) => String(d.id) === idStr) || null;
+}
+
+router.get('/holded/:docType/:docId/pdf', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    const dt = String(req.params.docType || '').toLowerCase();
+    const docId = String(req.params.docId || '');
+    const allowed = {
+      invoice: ctx.flags.ver_facturas,
+      estimate: ctx.flags.ver_presupuestos,
+      waybill: ctx.flags.ver_albaranes,
+      salesorder: ctx.flags.ver_pedidos
+    };
+    if (!allowed[dt]) return res.status(403).send('No permitido');
+    const ok = await assertHoldedDocForCliente(cliId, dt, docId);
+    if (!ok) return res.status(404).send('Documento no encontrado');
+    const { buffer, contentType } = await fetchDocumentPdf(dt, docId);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${dt}-${docId}.pdf"`);
+    return res.send(buffer);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/comentario', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const tipo = String(req.body?.tipo_doc || '').trim().slice(0, 32);
+    const ref = String(req.body?.ref_externa || '').trim().slice(0, 64);
+    const mensaje = String(req.body?.mensaje || '').trim();
+    if (!tipo || !ref || !mensaje) {
+      return res.status(400).send('Datos incompletos');
+    }
+    await db.addPortalDocumentoComentario({
+      cli_id: cliId,
+      tipo_doc: tipo,
+      ref_externa: ref,
+      mensaje,
+      es_cliente: true
+    });
+    const back = String(req.body?.redirect || '/portal').slice(0, 512);
+    if (back.startsWith('/') && !back.includes('//')) return res.redirect(back);
+    return res.redirect('/portal');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/pago', async (req, res) => {
+  const st = getStripePortalStatus();
+  res.render('portal/pago-stripe', { title: 'Pago online', stripe: st });
+});
+
+module.exports = router;

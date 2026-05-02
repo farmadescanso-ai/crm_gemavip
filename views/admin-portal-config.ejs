@@ -1,0 +1,37 @@
+<%- include('partials/header', { title: title || 'Portal' }) %>
+
+<section class="card" style="max-width: 720px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Portal del cliente</h1>
+    <p class="card-subtitle">Activa el acceso público y define qué tipos de documento pueden verse por defecto.</p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof saved !== 'undefined' && saved) { %>
+      <div class="gv-alert gv-alert--success" style="margin-bottom:12px;">Guardado.</div>
+    <% } %>
+    <form method="post" action="/admin/portal-config">
+      <%- include('partials/csrf-field') %>
+      <label style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <input type="checkbox" name="portcfg_activo" value="1" <%= cfg && Number(cfg.portcfg_activo) === 1 ? 'checked' : '' %> />
+        <span style="font-weight:700;">Portal activo</span>
+      </label>
+      <label style="display:grid; gap:4px; margin-bottom:10px;">
+        <span>Caducidad enlaces mágicos (horas)</span>
+        <input type="number" name="portcfg_enlaces_horas" min="1" max="8760" value="<%= cfg && cfg.portcfg_enlaces_horas != null ? cfg.portcfg_enlaces_horas : 48 %>" style="max-width:120px;" />
+      </label>
+      <p style="font-weight:800; margin:16px 0 8px;">Visibilidad por defecto</p>
+      <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="portcfg_ver_facturas" value="1" <%= !cfg || Number(cfg.portcfg_ver_facturas) !== 0 ? 'checked' : '' %> /> Facturas Holded</label>
+      <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="portcfg_ver_pedidos" value="1" <%= !cfg || Number(cfg.portcfg_ver_pedidos) !== 0 ? 'checked' : '' %> /> Pedidos CRM</label>
+      <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="portcfg_ver_presupuestos" value="1" <%= !cfg || Number(cfg.portcfg_ver_presupuestos) !== 0 ? 'checked' : '' %> /> Presupuestos Holded</label>
+      <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="portcfg_ver_albaranes" value="1" <%= !cfg || Number(cfg.portcfg_ver_albaranes) !== 0 ? 'checked' : '' %> /> Albaranes Holded</label>
+      <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" name="portcfg_ver_catalogo" value="1" <%= cfg && Number(cfg.portcfg_ver_catalogo) === 1 ? 'checked' : '' %> /> Catálogo B2B (cuando exista)</label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:10px;"><input type="checkbox" name="portcfg_stripe_activo" value="1" <%= cfg && Number(cfg.portcfg_stripe_activo) === 1 ? 'checked' : '' %> /> Permitir pago Stripe (cuando esté integrado)</label>
+      <div style="margin-top:16px;">
+        <button class="btn" type="submit">Guardar</button>
+        <a class="btn secondary" href="/dashboard" style="margin-left:8px;">Volver</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

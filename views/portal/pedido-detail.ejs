@@ -1,0 +1,31 @@
+<%- include('../partials/header', { title: title || 'Pedido', headerVariant: 'portal' }) %>
+
+<section class="card" style="max-width: 960px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Pedido <%- escapeHtml(String(pedido.ped_numero || pedido.NumPedido || pedido.ped_id || '')) %></h1>
+    <p class="card-subtitle"><a href="/portal/pedidos">← Volver</a></p>
+  </div>
+  <div class="card-bd">
+    <p><strong>Fecha:</strong> <%= typeof fmtDateES === 'function' ? fmtDateES(pedido.ped_fecha || pedido.FechaPedido) : '' %></p>
+    <p><strong>Estado:</strong> <%- escapeHtml(String(pedido.ped_estado_txt || pedido.Estado || '—')) %></p>
+    <% if (lineas && lineas.length) { %>
+      <h3 style="font-size:15px; margin:16px 0 8px;">Líneas</h3>
+      <div class="table-wrap">
+        <table class="gv-contactos-table">
+          <thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th></tr></thead>
+          <tbody>
+            <% lineas.forEach((l) => { %>
+              <tr>
+                <td><%- escapeHtml(String(l.art_nombre || l.Descripcion || l.articulo_nombre || '—')) %></td>
+                <td><%- escapeHtml(String(l.cantidad ?? l.Cantidad ?? l.pedart_cantidad ?? '—')) %></td>
+                <td><%- escapeHtml(String(l.precio ?? l.Precio ?? '—')) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

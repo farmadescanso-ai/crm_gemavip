@@ -1,0 +1,13 @@
+<%- include('../partials/header', { title: title || 'Pago', headerVariant: 'portal' }) %>
+
+<section class="card" style="max-width: 640px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Pago online</h1>
+  </div>
+  <div class="card-bd">
+    <p><%- escapeHtml(String(stripe && stripe.message ? stripe.message : '')) %></p>
+    <p style="margin-top:12px;"><a href="/portal">← Volver al inicio</a></p>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

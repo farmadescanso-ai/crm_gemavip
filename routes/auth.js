@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../config/mysql-crm');
 const { normalizeRoles } = require('../lib/auth');
+const { clearPortalSession } = require('../lib/portal-auth');
 const { comercialRowIsActive } = require('../lib/comercial-helpers');
 const { requireLogin } = require('../lib/auth');
 const { sendPasswordResetEmail, APP_BASE_URL } = require('../lib/mailer');
@@ -95,6 +96,7 @@ router.post(
       });
     }
 
+    clearPortalSession(req);
     req.session.user = {
       id: comId,
       nombre: _n(comercial.com_nombre, comercial.Nombre || null),

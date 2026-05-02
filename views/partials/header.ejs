@@ -68,6 +68,32 @@
             <a href="/login">Acceso CRM</a>
           </nav>
           <div class="userbox"></div>
+        <% } else if (hv === 'portal') { %>
+          <a class="brand" href="/portal" style="text-decoration:none;">
+            <img
+              class="brand-logo"
+              src="/assets/images/logo-gemavip.jpeg"
+              alt="Gemavip"
+              onerror="this.onerror=null; this.src='/assets/images/gemavip-logo.svg';"
+            />
+            <span class="brand-title">PORTAL CLIENTE</span>
+          </a>
+          <nav class="nav" aria-label="Portal">
+            <a href="/portal">Inicio</a>
+            <a href="/portal/pedidos">Pedidos</a>
+            <a href="/portal/facturas">Facturas</a>
+            <a href="/portal/presupuestos">Presupuestos</a>
+            <a href="/portal/albaranes">Albaranes</a>
+          </nav>
+          <div class="userbox" style="display:flex; align-items:center; gap:10px;">
+            <% if (typeof portalUserEmail === 'string' && portalUserEmail) { %>
+              <span style="font-size:13px; color:var(--gv-muted); max-width:180px; overflow:hidden; text-overflow:ellipsis;"><%= portalUserEmail %></span>
+            <% } %>
+            <form method="post" action="/logout-portal" style="margin:0;">
+              <%- include('csrf-field') %>
+              <button class="btn secondary" type="submit" style="padding:8px 14px;">Salir</button>
+            </form>
+          </div>
         <% } else { %>
           <a class="brand" href="/dashboard" style="text-decoration:none;">
             <img

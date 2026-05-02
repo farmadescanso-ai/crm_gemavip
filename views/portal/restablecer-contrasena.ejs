@@ -1,0 +1,27 @@
+<%- include('../partials/header', { title: title || 'Nueva contraseña', headerVariant: 'login' }) %>
+
+<section class="card login-card" style="max-width: 480px; margin: 2rem auto;">
+  <div class="card-hd">
+    <h2 class="card-title">Nueva contraseña</h2>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="gv-alert gv-alert--warn"><%- escapeHtml(error) %></div>
+    <% } %>
+    <form method="post" action="/login-cliente/restablecer-contrasena" style="margin-top:12px;">
+      <%- include('../partials/csrf-field') %>
+      <input type="hidden" name="token" value="<%- escapeHtml(String(token || '')) %>" />
+      <label style="display:grid; gap:6px;">
+        <span style="font-weight:700; font-size:13px;">Nueva contraseña</span>
+        <input type="password" name="password" minlength="8" required />
+      </label>
+      <label style="display:grid; gap:6px;">
+        <span style="font-weight:700; font-size:13px;">Confirmar</span>
+        <input type="password" name="password_confirm" minlength="8" required />
+      </label>
+      <button class="btn" type="submit" style="margin-top:12px;">Guardar</button>
+    </form>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>
