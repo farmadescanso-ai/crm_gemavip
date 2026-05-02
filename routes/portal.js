@@ -51,7 +51,7 @@ router.get('/', async (req, res, next) => {
     }
 
     res.render('portal/dashboard', {
-      title: 'Mi cuenta',
+      title: 'Tu cuenta · portal',
       ctx,
       stats: { nPedidos: nPed, nFacturas: nInv, nPresupuestos: nEst },
       pedidosRecientes: pedidos,

@@ -12,9 +12,10 @@
     <div class="gv-alert gv-alert--info" style="margin-bottom: 16px; border-left: 4px solid #0d9488;">
       <p style="margin: 0 0 10px;"><strong>Aplicación externa</strong></p>
       <p style="margin: 0; font-size: 14px; color: var(--gv-ink); line-height: 1.5;">
-        El <strong>portal</strong> no forma parte del CRM interno: es un canal para el contacto, con su propia entrada en
-        <code>/login-cliente</code> (solo clientes). Aquí defines el acceso (email y contraseña), envías la invitación y ajustas la visibilidad.
-        Las condiciones del contacto en CRM se combinan con la <a href="/admin/portal-config">configuración global del portal</a> y los overrides de abajo.
+        El <strong>portal</strong> es una aplicación aparte: el contacto debe <strong>iniciar sesión</strong> en <code>/login-cliente</code> con el email y contraseña que crees aquí (no usa el login de comerciales <code>/login</code>).
+        Tras entrar, ve un <strong>escritorio solo con sus datos</strong>, distinto del dashboard del CRM Gemavip.
+        Desde esta página defines el acceso, envías la invitación y ajustas la visibilidad. Las condiciones del contacto se combinan con la
+        <a href="/admin/portal-config">configuración global del portal</a> y los overrides de abajo.
       </p>
       <p style="margin: 12px 0 0; font-size: 13px; color: var(--gv-muted); line-height: 1.5;">
         <strong>Roadmap:</strong> tramitar pedidos desde el portal, notificaciones con la administración (entrantes y salientes),
@@ -68,8 +69,8 @@
       <hr style="margin: 16px 0; border: none; border-top: 1px solid rgba(0, 0, 0, 0.08);" />
       <h4 style="font-size: 14px; font-weight: 800;">Activar / actualizar acceso</h4>
       <p style="font-size: 13px; color: var(--gv-muted); margin: 0 0 10px;">
-        El cliente debe usar la página <strong>Portal del cliente — iniciar sesión</strong> (<code>/login-cliente</code>), distinta del acceso de comerciales.
-        Comunica la contraseña por un canal seguro si no la incluyes en el correo de invitación.
+        El cliente <strong>debe autenticarse</strong> en <code>/login-cliente</code> con estos datos para abrir <code>/portal</code> (su propio inicio de sesión y área; no el CRM interno).
+        Comunica la contraseña por un canal seguro si no va en el correo de invitación.
       </p>
       <form method="post" action="/clientes/<%= cid %>/portal/activar" style="margin: 10px 0; display: grid; gap: 8px; max-width: 420px;">
         <%- include('partials/csrf-field') %>

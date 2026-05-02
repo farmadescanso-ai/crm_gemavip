@@ -2,17 +2,20 @@
 
 <section class="card" style="max-width: 960px; margin: 0 auto;">
   <div class="card-hd">
-    <h1 class="card-title">Resumen</h1>
+    <h1 class="card-title">Tu cuenta · portal cliente</h1>
     <p class="card-subtitle">
       <% if (ctx && ctx.cliente) { %>
         <%- escapeHtml(String(ctx.cliente.cli_nombre_cial || ctx.cliente.cli_nombre_razon_social || 'Cliente')) %>
       <% } %>
     </p>
+    <p style="margin: 8px 0 0; font-size: 13px; color: var(--gv-muted); max-width: 52ch;">
+      Esta pantalla es <strong>solo para clientes</strong> tras entrar en <code>/login-cliente</code>. No es el panel del CRM Gemavip (comerciales); aquí solo aparecen <strong>tus</strong> pedidos y documentos permitidos.
+    </p>
   </div>
   <div class="card-bd">
     <% if (typeof sinHolded !== 'undefined' && sinHolded) { %>
       <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;">
-        Este contacto aún no está vinculado a Holded (<code>cli_Id_Holded</code>). Las facturas y presupuestos de Holded no se pueden mostrar hasta que exista el enlace.
+        Algunos listados de documentos pueden estar vacíos hasta que el contacto tenga referencias completas en el CRM.
       </div>
     <% } %>
     <div class="grid cols-3" style="gap:12px; margin-bottom:20px;">
@@ -23,21 +26,21 @@
       </div>
       <% if (ctx.flags.ver_pedidos) { %>
         <div class="card" style="padding:14px;">
-          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Pedidos (CRM)</div>
+          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Tus pedidos</div>
           <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nPedidos : 0 %></div>
           <a href="/portal/pedidos">Ver pedidos</a>
         </div>
       <% } %>
       <% if (ctx.flags.ver_facturas) { %>
         <div class="card" style="padding:14px;">
-          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Facturas (Holded)</div>
+          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Facturas</div>
           <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nFacturas : 0 %></div>
           <a href="/portal/facturas">Ver facturas</a>
         </div>
       <% } %>
       <% if (ctx.flags.ver_presupuestos) { %>
         <div class="card" style="padding:14px;">
-          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Presupuestos (Holded)</div>
+          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Presupuestos</div>
           <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nPresupuestos : 0 %></div>
           <a href="/portal/presupuestos">Ver presupuestos</a>
         </div>
