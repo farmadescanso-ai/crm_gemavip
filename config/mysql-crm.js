@@ -859,6 +859,17 @@ class MySQLCRM {
       throw e;
     }
   }
+  async createMensajePortalCliente(idCliente, texto) {
+    try {
+      return await domains.notificaciones.createMensajePortalCliente.apply(this, arguments);
+    } catch (e) {
+      if (e.code === 'ER_NO_REFERENCED_ROW_2' && e.message?.includes('fk_notif_ag')) {
+        await this.fixNotifFkCliente();
+        return await domains.notificaciones.createMensajePortalCliente.apply(this, arguments);
+      }
+      throw e;
+    }
+  }
   async hasPendingAprobacionSyncCliente(cliId) {
     return domains.notificaciones.hasPendingAprobacionSyncCliente.apply(this, arguments);
   }

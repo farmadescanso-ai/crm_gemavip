@@ -3,7 +3,7 @@
 <section class="card gv-notificaciones">
   <div class="card-hd gv-contactos-hd">
     <h1 class="card-title gv-contactos-hd__title">Notificaciones</h1>
-    <p class="card-subtitle gv-contactos-hd__sub">Solicitudes pendientes (asignación de clientes y pedidos especiales). Puedes aprobar o rechazar.</p>
+    <p class="card-subtitle gv-contactos-hd__sub">Solicitudes pendientes (asignación, pedidos, mensajes del portal cliente, etc.). Puedes aprobar o rechazar.</p>
   </div>
   <div class="card-bd">
     <% if (typeof resuelto !== 'undefined' && resuelto) { %>
@@ -80,7 +80,13 @@
                 </td>
                 <td class="gv-notif-col-fecha"><%- escapeHtml(String(typeof fmtDateES !== 'undefined' ? fmtDateES(n.fecha_creacion) : (n.fecha_creacion || ''))) %></td>
                 <td class="gv-notif-col-tipo">
-                  <%= (n.tipo || '').toLowerCase() === 'pedido_especial' ? 'Pedido especial' : 'Asignación cliente' %>
+                  <% const tipoLc = (n.tipo || '').toLowerCase(); %>
+                  <% if (tipoLc === 'pedido_especial') { %>Pedido especial
+                  <% } else if (tipoLc === 'mensaje_portal_cliente') { %>Mensaje portal
+                  <% } else if (tipoLc === 'aprobacion_pedido') { %>Aprobación pedido
+                  <% } else if (tipoLc === 'aprobacion_sync_cliente') { %>Sync Holded
+                  <% } else if (tipoLc === 'asignacion_contacto') { %>Asignación cliente
+                  <% } else { %><%- escapeHtml(String(n.tipo || '—')) %><% } %>
                 </td>
                 <td class="gv-notif-col-referencia">
                   <% const tipoN = (n.tipo || '').toLowerCase(); %>
@@ -91,6 +97,9 @@
                     <a href="/pedidos/<%= pid %>/edit" title="<%- escapeHtml(String(n.pedido_num ? String(n.pedido_num) : ('Pedido #' + pid))) %>"><%- escapeHtml(String(clienteName || 'Cliente')) %></a>
                   <% } else { %>
                     <a href="/clientes/<%= n.id_contacto %>"><%- escapeHtml(String(n.contacto_nombre || 'Cliente')) %></a>
+                    <% if (tipoN === 'mensaje_portal_cliente' && n.notas) { %>
+                      <div style="font-size:12px; color:var(--gv-muted); margin-top:4px; max-width:280px; white-space:pre-wrap; word-break:break-word;"><%- escapeHtml(String(n.notas).length > 200 ? String(n.notas).slice(0, 200) + '…' : String(n.notas)) %></div>
+                    <% } %>
                   <% } %>
                 </td>
                 <td class="gv-notif-col-comercial"><%- escapeHtml(String(n.comercial_nombre || ('Comercial #' + n.id_comercial_solicitante))) %></td>
@@ -143,7 +152,12 @@
         var estadoLabel = estado === 'pendiente' ? 'Pendiente' : (estado === 'aprobada' ? 'Aprobada' : 'Rechazada');
         var badgeClass = estado === 'pendiente' ? 'otros' : (estado === 'aprobada' ? 'persona' : 'empresa');
         var tipo = (n.tipo || '').toLowerCase();
-        var tipoLabel = tipo === 'pedido_especial' ? 'Pedido especial' : 'Asignación cliente';
+        var tipoLabel = tipo === 'pedido_especial' ? 'Pedido especial'
+          : tipo === 'mensaje_portal_cliente' ? 'Mensaje portal'
+          : tipo === 'aprobacion_pedido' ? 'Aprobación pedido'
+          : tipo === 'aprobacion_sync_cliente' ? 'Sync Holded'
+          : tipo === 'asignacion_contacto' ? 'Asignación cliente'
+          : esc(n.tipo || '—');
         var pid = n.id_pedido;
         if (!pid && tipo === 'pedido_especial' && n.notas) {
           var mm = String(n.notas).match(/pedidoId\s*=\s*(\d+)/i);
@@ -156,6 +170,11 @@
         var ref = (tipo === 'pedido_especial' && pid)
           ? ('<a href="/pedidos/' + encodeURIComponent(pid) + '/edit" title="' + pedidoLabelEsc + '">' + clienteLabelEsc + '</a>')
           : ('<a href="/clientes/' + encodeURIComponent(n.id_contacto || '') + '">' + clienteLabelEsc + '</a>');
+        if (tipo === 'mensaje_portal_cliente' && n.notas) {
+          var prev = String(n.notas);
+          if (prev.length > 200) prev = prev.slice(0, 200) + '…';
+          ref += '<div style="font-size:12px;color:var(--gv-muted);margin-top:4px;max-width:280px;white-space:pre-wrap;word-break:break-word;">' + esc(prev) + '</div>';
+        }
         var tr = document.createElement('tr');
         var acc = '<div class="gv-actions">';
         if (estado === 'pendiente') {

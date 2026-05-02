@@ -140,6 +140,48 @@ module.exports = {
     }
   },
 
+  /**
+   * Mensaje enviado desde el portal del cliente; llega a /notificaciones (admin).
+   * Atribuido al comercial del cliente (cli_com_id) o com_id 1.
+   */
+  async createMensajePortalCliente(idCliente, texto) {
+    await this._ensureNotificacionesTable();
+    const m = await this._ensureNotificacionesMeta();
+    const cid = Number(idCliente) > 0 ? Number(idCliente) : 0;
+    if (!cid) return null;
+    let notas = String(texto || '').trim();
+    if (notas.length > 500) notas = `${notas.slice(0, 497)}...`;
+    if (!notas) return null;
+
+    let comId = 1;
+    try {
+      const cr = await this.query('SELECT cli_com_id FROM clientes WHERE cli_id = ? LIMIT 1', [cid]);
+      const row = cr?.[0];
+      const c = Number(row?.cli_com_id ?? row?.cli_Com_id);
+      if (Number.isFinite(c) && c > 0) comId = c;
+    } catch (_) {
+      /* usar 1 */
+    }
+
+    const cols = [m.colTipo, m.colContacto, m.colPedido, m.colComercial, m.colEstado, m.colNotas];
+    const colList = cols.map((c) => `\`${c}\``).join(', ');
+    try {
+      const r = await this.query(
+        `INSERT INTO \`notificaciones\` (${colList}) VALUES (?, ?, NULL, ?, 'pendiente', ?)`,
+        ['mensaje_portal_cliente', cid, comId, notas]
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    } catch (_e) {
+      const colsAlt = [m.colTipo, m.colContacto, m.colComercial, m.colEstado];
+      const colListAlt = colsAlt.map((c) => `\`${c}\``).join(', ');
+      const r = await this.query(
+        `INSERT INTO \`notificaciones\` (${colListAlt}) VALUES (?, ?, ?, ?)`,
+        ['mensaje_portal_cliente', cid, comId, 'pendiente']
+      );
+      return r?.insertId ?? r?.affectedRows ?? null;
+    }
+  },
+
   async createSolicitudPedido(idPedido, idComercialSolicitante, idCliente) {
     await this._ensureNotificacionesTable();
     const m = await this._ensureNotificacionesMeta();

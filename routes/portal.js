@@ -185,6 +185,42 @@ router.get('/holded/:docType/:docId/pdf', async (req, res, next) => {
   }
 });
 
+router.get('/mensajes', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!clientePermitePortal(ctx.cliente)) {
+      delete req.session.portalUser;
+      return res.redirect('/login-cliente');
+    }
+    const q = req.query || {};
+    const sent = q.sent === '1';
+    const err = typeof q.err === 'string' ? q.err : null;
+    res.render('portal/mensajes', { title: 'Mensajes a Gemavip', ctx, sent, err });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/mensajes', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!clientePermitePortal(ctx.cliente)) {
+      delete req.session.portalUser;
+      return res.redirect('/login-cliente');
+    }
+    const mensaje = String(req.body?.mensaje || '').trim();
+    if (mensaje.length < 3) return res.redirect('/portal/mensajes?err=short');
+    if (mensaje.length > 2000) return res.redirect('/portal/mensajes?err=long');
+    const id = await db.createMensajePortalCliente(cliId, mensaje);
+    if (!id) return res.redirect('/portal/mensajes?err=save');
+    return res.redirect('/portal/mensajes?sent=1');
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/comentario', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
