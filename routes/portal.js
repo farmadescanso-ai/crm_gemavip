@@ -71,6 +71,109 @@ async function assertPedidoCliente(pedId, cliId) {
   return p;
 }
 
+router.get('/pedidos/nuevo', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!ctx.flags.ver_pedidos) return res.status(403).send('Pedidos no visibles en el portal.');
+    res.render('portal/pedido-nuevo', {
+      title: 'Nuevo pedido',
+      ctx,
+      error: null,
+      observaciones: ''
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/pedidos/nuevo', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = await getPortalSessionContext(cliId);
+    if (!ctx.flags.ver_pedidos) return res.status(403).send('Pedidos no visibles en el portal.');
+
+    const observaciones = String(req.body?.observaciones || '').trim().slice(0, 2000);
+    const cliente = await db.getClienteById(cliId);
+    if (!cliente) {
+      return res.status(400).render('portal/pedido-nuevo', {
+        title: 'Nuevo pedido',
+        ctx,
+        error: 'No se encontró tu ficha de cliente.',
+        observaciones
+      });
+    }
+
+    let comId = Number(cliente.cli_com_id ?? cliente.Id_Cial ?? cliente.ped_com_id ?? 0);
+    if (!Number.isFinite(comId) || comId <= 0) {
+      comId = Number((await db.getComercialIdPool().catch(() => null)) || 0);
+    }
+    if (!Number.isFinite(comId) || comId <= 0) {
+      return res.status(400).render('portal/pedido-nuevo', {
+        title: 'Nuevo pedido',
+        ctx,
+        error: 'No hay comercial asignado. Contacta con Gemavip.',
+        observaciones
+      });
+    }
+
+    const [tipos, formas] = await Promise.all([db.getTiposPedido().catch(() => []), db.getFormasPago().catch(() => [])]);
+    const t0 = Array.isArray(tipos) && tipos.length ? tipos[0] : null;
+    const f0 = Array.isArray(formas) && formas.length ? formas[0] : null;
+    const tippId = Number(t0?.tipp_id ?? t0?.Id ?? t0?.id ?? 0);
+    const formpId = Number(f0?.formp_id ?? f0?.id ?? f0?.Id ?? 0);
+
+    if (!Number.isFinite(tippId) || tippId <= 0 || !Number.isFinite(formpId) || formpId <= 0) {
+      return res.status(400).render('portal/pedido-nuevo', {
+        title: 'Nuevo pedido',
+        ctx,
+        error: 'Faltan datos de configuración (tipo o forma de pago). Contacta con Gemavip.',
+        observaciones
+      });
+    }
+
+    const obsText =
+      observaciones ||
+      'Pedido solicitado desde el portal del cliente. Completa líneas y condiciones en el CRM si hace falta.';
+    const payload = {
+      Id_Cliente: cliId,
+      Id_Cial: comId,
+      Id_TipoPedido: tippId,
+      Id_FormaPago: formpId,
+      Serie: 'P',
+      EstadoPedido: 'Pendiente',
+      Observaciones: obsText
+    };
+
+    let result;
+    try {
+      result = await db.createPedido(payload);
+    } catch (err) {
+      return res.status(400).render('portal/pedido-nuevo', {
+        title: 'Nuevo pedido',
+        ctx,
+        error: err?.message || 'No se pudo crear el pedido. Contacta con Gemavip.',
+        observaciones
+      });
+    }
+
+    const newId = result?.insertId ?? result?.Id ?? result?.id;
+    const pid = Number(newId);
+    if (!Number.isFinite(pid) || pid <= 0) {
+      return res.status(500).render('portal/pedido-nuevo', {
+        title: 'Nuevo pedido',
+        ctx,
+        error: 'El pedido no se ha podido registrar correctamente.',
+        observaciones
+      });
+    }
+
+    return res.redirect(`/portal/pedidos/${pid}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/pedidos', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
@@ -90,9 +193,12 @@ router.get('/pedidos/:id', async (req, res, next) => {
     const cliId = req.session.portalUser.cli_id;
     const ctx = await getPortalSessionContext(cliId);
     if (!ctx.flags.ver_pedidos) return res.status(403).send('No disponible');
-    const pedido = await assertPedidoCliente(req.params.id, cliId);
+    const rawId = req.params.id;
+    const pedIdNum = Number.parseInt(String(rawId).trim(), 10);
+    if (!Number.isFinite(pedIdNum) || pedIdNum <= 0) return res.status(404).send('No encontrado');
+    const pedido = await assertPedidoCliente(pedIdNum, cliId);
     if (!pedido) return res.status(404).send('No encontrado');
-    const lineas = await db.getArticulosByPedido(pedido.ped_id ?? pedido.Id ?? req.params.id).catch(() => []);
+    const lineas = await db.getArticulosByPedido(pedido.ped_id ?? pedido.Id ?? pedIdNum).catch(() => []);
     res.render('portal/pedido-detail', { title: 'Pedido', ctx, pedido, lineas });
   } catch (e) {
     next(e);

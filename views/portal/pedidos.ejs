@@ -1,8 +1,9 @@
 <%- include('../partials/header', { title: title || 'Pedidos', headerVariant: 'portal' }) %>
 
 <section class="card" style="max-width: 960px; margin: 0 auto;">
-  <div class="card-hd">
-    <h1 class="card-title">Mis pedidos</h1>
+  <div class="card-hd" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+    <h1 class="card-title" style="margin: 0;">Mis pedidos</h1>
+    <a class="btn" href="/portal/pedidos/nuevo" style="justify-content: center; text-decoration: none;">Nuevo pedido</a>
   </div>
   <div class="card-bd">
     <% if (!(pedidos || []).length) { %>
@@ -13,8 +14,15 @@
           <thead><tr><th>Nº</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead>
           <tbody>
             <% (pedidos || []).forEach((p) => { %>
+              <% const pedId = Number(p.ped_id ?? p.Id ?? p.id); %>
               <tr>
-                <td><a href="/portal/pedidos/<%= p.ped_id || p.Id %>"><%- escapeHtml(String(p.ped_numero || p.NumPedido || p.ped_id)) %></a></td>
+                <td>
+                  <% if (Number.isFinite(pedId) && pedId > 0) { %>
+                    <a href="/portal/pedidos/<%= pedId %>"><%- escapeHtml(String(p.ped_numero || p.NumPedido || pedId)) %></a>
+                  <% } else { %>
+                    <%- escapeHtml(String(p.ped_numero || p.NumPedido || '—')) %>
+                  <% } %>
+                </td>
                 <td><%= typeof fmtDateES === 'function' ? fmtDateES(p.ped_fecha || p.FechaPedido) : '' %></td>
                 <td><%- escapeHtml(String(p.ped_total != null ? p.ped_total : '—')) %></td>
                 <td><%- escapeHtml(String(p.ped_estado_txt || p.Estado || '—')) %></td>

@@ -1,0 +1,27 @@
+<%- include('../partials/header', { title: title || 'Nuevo pedido', headerVariant: 'portal' }) %>
+
+<section class="card" style="max-width: 640px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title">Nuevo pedido</h1>
+    <p class="card-subtitle">Se creará un pedido en estado pendiente. Gemavip completará líneas y condiciones en el CRM si hace falta.</p>
+  </div>
+  <div class="card-bd">
+    <% if (typeof error === 'string' && error) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom: 12px;"><%- escapeHtml(error) %></div>
+    <% } %>
+
+    <form method="post" action="/portal/pedidos/nuevo" style="display: grid; gap: 12px;">
+      <%- include('../partials/csrf-field') %>
+      <label style="display: grid; gap: 6px;">
+        <span style="font-weight: 700; font-size: 13px;">Observaciones (opcional)</span>
+        <textarea name="observaciones" rows="6" maxlength="2000" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--gv-border); font-size: 14px;" placeholder="Referencias, urgencia, dirección de entrega distinta…"><%= typeof observaciones === 'string' ? observaciones : '' %></textarea>
+      </label>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+        <button class="btn" type="submit" style="justify-content: center;">Crear pedido</button>
+        <a href="/portal/pedidos" style="font-size: 14px;">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

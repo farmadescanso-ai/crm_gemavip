@@ -8,6 +8,10 @@
   <div class="card-bd">
     <p><strong>Fecha:</strong> <%= typeof fmtDateES === 'function' ? fmtDateES(pedido.ped_fecha || pedido.FechaPedido) : '' %></p>
     <p><strong>Estado:</strong> <%- escapeHtml(String(pedido.ped_estado_txt || pedido.Estado || '—')) %></p>
+    <% const obs = pedido.ped_observaciones ?? pedido.Observaciones; %>
+    <% if (obs && String(obs).trim()) { %>
+      <p style="margin-top: 12px;"><strong>Observaciones:</strong><br /><span style="white-space: pre-wrap;"><%- escapeHtml(String(obs)) %></span></p>
+    <% } %>
     <% if (lineas && lineas.length) { %>
       <h3 style="font-size:15px; margin:16px 0 8px;">Líneas</h3>
       <div class="table-wrap">
