@@ -27,8 +27,8 @@
       <% if (_pok === 'mail_fail') { %>
       <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;">
         <strong>No se pudo enviar el correo de invitación.</strong>
-        Revisa en el servidor las variables <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> (o <code>MAIL_*</code>) y los logs.
-        El acceso al portal puede estar creado aunque el email no se haya enviado.
+        En Vercel (o tu hosting), configura <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> (o equivalentes <code>MAIL_*</code>) y redeploy; revisa los logs de la función si sigue fallando.
+        Mientras tanto puedes comunicar al cliente la URL <code>/login-cliente</code> y la contraseña por otro canal seguro.
       </div>
       <% } else { %>
       <div class="gv-alert gv-alert--success" style="margin-bottom: 10px;">Acción: <code><%- escapeHtml(_pok) %></code></div>
@@ -40,8 +40,22 @@
     <% const pac = typeof portalAcceso !== 'undefined' ? portalAcceso : null; %>
     <% const pcfg = typeof portalCfg !== 'undefined' ? portalCfg : null; %>
     <% const pov = typeof portalOverride !== 'undefined' ? portalOverride : null; %>
+    <% const portalGlobalOn = pcfg && Number(pcfg.portcfg_activo) === 1; %>
 
-    <p style="font-size: 14px;"><strong>Portal global:</strong> <%= pcfg && Number(pcfg.portcfg_activo) === 1 ? 'activo' : 'inactivo' %></p>
+    <% if (!portalGlobalOn) { %>
+      <div class="gv-alert gv-alert--warn" style="margin-bottom: 14px;" role="status">
+        <strong>Portal global desactivado.</strong>
+        Aunque este contacto tenga acceso «activo», <strong>no podrá entrar</strong> en <code>/login-cliente</code> hasta que un administrador marque
+        <em>Portal activo</em> en el CRM.
+        <% if (typeof admin !== 'undefined' && admin) { %>
+          <a href="/admin/portal-config">Abrir ajustes del portal</a>
+        <% } else { %>
+          Pide a un administrador que active el portal global.
+        <% } %>
+      </div>
+    <% } %>
+
+    <p style="font-size: 14px;"><strong>Portal global:</strong> <%= portalGlobalOn ? 'activo' : 'inactivo' %></p>
     <% if (pac) { %>
       <p style="font-size: 14px;"><strong>Email acceso:</strong> <%- escapeHtml(String(pac.pac_email_login || '')) %></p>
       <p style="font-size: 14px;"><strong>Estado:</strong> <%= Number(pac.pac_activo) === 1 ? 'activo' : 'desactivado' %></p>
