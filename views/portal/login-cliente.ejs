@@ -21,6 +21,12 @@
       <div class="gv-alert gv-alert--success">Contraseña actualizada. Ya puedes entrar.</div>
       <div style="height: 10px;"></div>
     <% } %>
+    <% if (typeof comercialOcupandoSesion !== 'undefined' && comercialOcupandoSesion) { %>
+      <div class="gv-alert" style="background: var(--gv-surface-2, #f4f4f5); border: 1px solid var(--gv-border); color: var(--gv-ink); font-size: 13px;">
+        Tienes sesión abierta en el área comercial. Al entrar con el usuario del portal se cerrará esa sesión en este navegador.
+      </div>
+      <div style="height: 10px;"></div>
+    <% } %>
 
     <form method="post" action="/login-cliente" class="login-form">
       <%- include('../partials/csrf-field') %>

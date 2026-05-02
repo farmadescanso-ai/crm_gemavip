@@ -31,7 +31,10 @@ router.get('/login-cliente', (req, res) => {
     }
     return res.redirect('/portal');
   }
-  if (req.session?.user) {
+  const rtQ = req.query?.returnTo;
+  const quierePortal =
+    typeof rtQ === 'string' && rtQ.startsWith('/') && !rtQ.includes('//') && rtQ.startsWith('/portal');
+  if (req.session?.user && !quierePortal) {
     return res.redirect('/dashboard');
   }
   res.render('portal/login-cliente', {
@@ -39,7 +42,8 @@ router.get('/login-cliente', (req, res) => {
     error: null,
     restablecido: req.query?.restablecido === '1',
     returnTo: typeof req.query?.returnTo === 'string' ? req.query.returnTo : null,
-    portalDisabled: false
+    portalDisabled: false,
+    comercialOcupandoSesion: !!(req.session?.user && quierePortal)
   });
 });
 
