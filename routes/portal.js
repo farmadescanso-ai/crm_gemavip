@@ -1,5 +1,5 @@
 /**
- * Área privada /portal — dashboard, pedidos CRM, documentos Holded, comentarios, enlaces mágicos.
+ * Área privada /portal — dashboard, pedidos, documentos, comentarios (evolución hacia datos solo CRM).
  */
 'use strict';
 

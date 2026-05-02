@@ -1,5 +1,5 @@
 /**
- * Gestión del portal del cliente (página dedicada /clientes/:id/portal): acceso, contraseña, invitación, enlaces.
+ * Gestión del portal del cliente (página dedicada /clientes/:id/portal): acceso, contraseña, invitación.
  */
 'use strict';
 
@@ -42,8 +42,7 @@ function registerPortalAdminRoutes(router, { db, requireLogin, isAdminUser }) {
       const pq = req.query || {};
       const portalFlash = {
         ok: typeof pq.portal_ok === 'string' ? pq.portal_ok : null,
-        err: typeof pq.portal_error === 'string' ? pq.portal_error : null,
-        link: typeof pq.portal_link === 'string' ? pq.portal_link : null
+        err: typeof pq.portal_error === 'string' ? pq.portal_error : null
       };
       const loginClienteUrl = `${baseUrl(req)}/login-cliente`;
       res.render('cliente-portal-gestion', {
@@ -141,38 +140,6 @@ function registerPortalAdminRoutes(router, { db, requireLogin, isAdminUser }) {
       const url = `${baseUrl(req)}/login-cliente`;
       const ok = await sendPortalInviteEmail(acc.pac_email_login, url, nombre ? String(nombre).slice(0, 80) : null);
       return res.redirect(`/clientes/${id}/portal?portal_ok=${ok ? 'mail' : 'mail_fail'}`);
-    } catch (e) {
-      next(e);
-    }
-  });
-
-  router.post('/:id/portal/enlace-documento', requireLogin, async (req, res, next) => {
-    try {
-      const id = Number(req.params.id);
-      if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID no válido');
-      if (!(await canManagePortal(req, res, id))) return res.status(403).send('Sin permiso');
-
-      const tipo = String(req.body?.tipo_doc || '').trim().toLowerCase();
-      const ref = String(req.body?.ref_externa || '').trim();
-      if (!tipo || !ref) return res.redirect(`/clientes/${id}/portal?portal_error=enlace`);
-
-      const cfg = await db.getPortalConfig();
-      const horas = Math.max(1, Math.min(8760, Number(cfg?.portcfg_enlaces_horas || 48)));
-      const raw = crypto.randomBytes(32).toString('hex');
-      const expires = new Date();
-      expires.setHours(expires.getHours() + horas);
-
-      await db.createPortalDocumentoEnlace({
-        cli_id: id,
-        tipo_doc: tipo,
-        ref_externa: ref,
-        rawToken: raw,
-        expires_at: expires,
-        creado_por_com_id: res.locals.user?.id || null
-      });
-
-      const link = `${baseUrl(req)}/portal/documento/${raw}`;
-      return res.redirect(`/clientes/${id}/portal?portal_link=${encodeURIComponent(link)}`);
     } catch (e) {
       next(e);
     }

@@ -37,10 +37,6 @@
     <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.err) { %>
       <div class="gv-alert gv-alert--warn" style="margin-bottom: 10px;">Error: <code><%- escapeHtml(String(portalFlash.err)) %></code></div>
     <% } %>
-    <% if (typeof portalFlash !== 'undefined' && portalFlash && portalFlash.link) { %>
-      <div class="gv-alert gv-alert--success" style="margin-bottom: 10px; word-break: break-all;">Enlace: <%- escapeHtml(String(portalFlash.link)) %></div>
-    <% } %>
-
     <% const pac = typeof portalAcceso !== 'undefined' ? portalAcceso : null; %>
     <% const pcfg = typeof portalCfg !== 'undefined' ? portalCfg : null; %>
     <% const pov = typeof portalOverride !== 'undefined' ? portalOverride : null; %>
@@ -83,14 +79,6 @@
         </div>
       <% } %>
       <hr style="margin: 16px 0; border: none; border-top: 1px solid rgba(0, 0, 0, 0.08);" />
-      <h4 style="font-size: 14px; font-weight: 800;">Enlace temporal a documento Holded</h4>
-      <form method="post" action="/clientes/<%= cid %>/portal/enlace-documento" style="display: grid; gap: 8px; max-width: 420px;">
-        <%- include('partials/csrf-field') %>
-        <label>Tipo doc <select name="tipo_doc"><option value="invoice">invoice</option><option value="estimate">estimate</option><option value="waybill">waybill</option><option value="salesorder">salesorder</option></select></label>
-        <label>ID documento Holded <input name="ref_externa" required placeholder="id Holded" /></label>
-        <button class="btn secondary" type="submit">Generar enlace</button>
-      </form>
-      <hr style="margin: 16px 0; border: none; border-top: 1px solid rgba(0, 0, 0, 0.08);" />
       <h4 style="font-size: 14px; font-weight: 800;">Visibilidad en portal (override)</h4>
       <form method="post" action="/clientes/<%= cid %>/portal/overrides" style="display: grid; gap: 8px; max-width: 480px;">
         <%- include('partials/csrf-field') %>
@@ -98,7 +86,7 @@
         <p style="font-size: 12px; color: var(--gv-muted);">Desmarca heredar y elige visibilidad por tipo (solo si deseas personalizar).</p>
         <label><input type="checkbox" name="pco_ver_facturas" value="1" /> Facturas visibles</label>
         <label><input type="checkbox" name="pco_ver_pedidos" value="1" /> Pedidos CRM visibles</label>
-        <label><input type="checkbox" name="pco_ver_presupuestos" value="1" /> Presupuestos Holded visibles</label>
+        <label><input type="checkbox" name="pco_ver_presupuestos" value="1" /> Presupuestos visibles</label>
         <label><input type="checkbox" name="pco_ver_albaranes" value="1" /> Albaranes visibles</label>
         <label><input type="checkbox" name="pco_ver_catalogo" value="1" /> Catálogo (futuro)</label>
         <button class="btn secondary" type="submit">Guardar overrides</button>
