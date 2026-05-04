@@ -1,72 +1,103 @@
 <%- include('../partials/header', { title: title || 'Mi cuenta', headerVariant: 'portal' }) %>
 
-<section class="card" style="max-width: 960px; margin: 0 auto;">
-  <div class="card-hd">
-    <h1 class="card-title">Tu cuenta · portal cliente</h1>
-    <p class="card-subtitle">
-      <% if (ctx && ctx.cliente) { %>
-        <%- escapeHtml(String(ctx.cliente.cli_nombre_cial || ctx.cliente.cli_nombre_razon_social || 'Cliente')) %>
-      <% } %>
-    </p>
-    <p style="margin: 8px 0 0; font-size: 13px; color: var(--gv-muted); max-width: 52ch;">
-      Esta pantalla es <strong>solo para clientes</strong> tras entrar en <code>/login-cliente</code>. No es el panel del CRM Gemavip (comerciales); aquí solo aparecen <strong>tus</strong> pedidos y documentos permitidos.
-    </p>
+<% const nombreCli = (ctx && ctx.cliente) ? String(ctx.cliente.cli_nombre_cial || ctx.cliente.cli_nombre_razon_social || 'Tu empresa').trim() : 'Tu empresa'; %>
+<% const flags = (ctx && ctx.flags) ? ctx.flags : {}; %>
+<% const st = typeof stats !== 'undefined' ? stats : {}; %>
+
+<section class="card gv-vista portal-dash" aria-labelledby="portal-dash-title">
+  <div class="card-hd gv-vista-hd portal-dash__hd-wrap">
+    <div class="portal-dash__hd-main">
+      <p class="portal-dash__eyebrow">Gemavip · portal cliente</p>
+      <h1 id="portal-dash-title" class="card-title gv-vista-hd__title" style="margin-bottom: 6px;">Hola, <%- escapeHtml(nombreCli) %></h1>
+      <p class="gv-vista-hd__sub portal-dash__sub" style="margin-top: 0;">
+        Resumen de tus pedidos y documentos. Para dudas o incidencias, el canal más directo es <strong>Mensajes</strong>.
+      </p>
+    </div>
+    <span class="portal-dash__badge badge info">Área privada</span>
   </div>
   <div class="card-bd">
     <% if (typeof sinHolded !== 'undefined' && sinHolded) { %>
-      <div class="gv-alert gv-alert--warn" style="margin-bottom:12px;">
-        Algunos listados de documentos pueden estar vacíos hasta que el contacto tenga referencias completas en el CRM.
+      <div class="gv-alert gv-alert--warn portal-dash__alert">
+        Algunos listados de facturas, presupuestos o albaranes pueden aparecer vacíos hasta que tu ficha tenga la referencia de facturación completa en Gemavip.
       </div>
     <% } %>
-    <div class="grid cols-3" style="gap:12px; margin-bottom:20px;">
-      <div class="card" style="padding:14px;">
-        <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Equipo Gemavip</div>
-        <div style="font-size:15px; font-weight:800; margin:6px 0;">Mensajes</div>
-        <a href="/portal/mensajes">Escribir mensaje</a>
+
+    <p class="portal-dash__intro">
+      Desde aquí accedes solo a la información de tu empresa. Los accesos rápidos llevan a cada apartado del menú superior.
+    </p>
+
+    <h2 class="portal-dash__section-title">Accesos y totales</h2>
+    <div class="dash-stats portal-dash__stats">
+      <div class="dash-stat" data-variant="green">
+        <div class="dash-stat-label">Mensajes</div>
+        <div class="dash-stat-value portal-dash__stat-text">Contacto directo</div>
+        <div class="dash-stat-foot"><a href="/portal/mensajes">Abrir mensajes</a></div>
       </div>
-      <% if (ctx.flags.ver_pedidos) { %>
-        <div class="card" style="padding:14px;">
-          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Tus pedidos</div>
-          <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nPedidos : 0 %></div>
-          <a href="/portal/pedidos">Ver pedidos</a>
+      <% if (flags.ver_pedidos) { %>
+        <div class="dash-stat" data-variant="blue">
+          <div class="dash-stat-label">Pedidos</div>
+          <div class="dash-stat-value"><%= st.nPedidos != null ? st.nPedidos : 0 %></div>
+          <div class="dash-stat-foot"><a href="/portal/pedidos">Ver pedidos</a></div>
         </div>
       <% } %>
-      <% if (ctx.flags.ver_facturas) { %>
-        <div class="card" style="padding:14px;">
-          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Facturas</div>
-          <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nFacturas : 0 %></div>
-          <a href="/portal/facturas">Ver facturas</a>
+      <% if (flags.ver_facturas) { %>
+        <div class="dash-stat" data-variant="navy">
+          <div class="dash-stat-label">Facturas</div>
+          <div class="dash-stat-value"><%= st.nFacturas != null ? st.nFacturas : 0 %></div>
+          <div class="dash-stat-foot"><a href="/portal/facturas">Ver facturas</a></div>
         </div>
       <% } %>
-      <% if (ctx.flags.ver_presupuestos) { %>
-        <div class="card" style="padding:14px;">
-          <div style="font-size:12px; color:var(--gv-muted); font-weight:700;">Presupuestos</div>
-          <div style="font-size:28px; font-weight:800;"><%= typeof stats !== 'undefined' ? stats.nPresupuestos : 0 %></div>
-          <a href="/portal/presupuestos">Ver presupuestos</a>
+      <% if (flags.ver_presupuestos) { %>
+        <div class="dash-stat" data-variant="yellow">
+          <div class="dash-stat-label">Presupuestos</div>
+          <div class="dash-stat-value"><%= st.nPresupuestos != null ? st.nPresupuestos : 0 %></div>
+          <div class="dash-stat-foot"><a href="/portal/presupuestos">Ver presupuestos</a></div>
+        </div>
+      <% } %>
+      <% if (flags.ver_albaranes) { %>
+        <div class="dash-stat" data-variant="slate">
+          <div class="dash-stat-label">Albaranes</div>
+          <div class="dash-stat-value"><%= st.nAlbaranes != null ? st.nAlbaranes : 0 %></div>
+          <div class="dash-stat-foot"><a href="/portal/albaranes">Ver albaranes</a></div>
         </div>
       <% } %>
     </div>
 
     <% if (stripe && !stripe.ok) { %>
-      <p style="font-size:13px; color:var(--gv-muted);"><%- escapeHtml(stripe.message) %> <a href="/portal/pago">Más información</a></p>
+      <div class="portal-dash__stripe-hint">
+        <p><%- escapeHtml(stripe.message) %> <a href="/portal/pago">Más información sobre pagos</a></p>
+      </div>
     <% } %>
 
-    <% if (ctx.flags.ver_pedidos && (pedidosRecientes || []).length) { %>
-      <h3 style="font-size:15px; font-weight:800; margin:16px 0 8px;">Últimos pedidos</h3>
-      <div class="table-wrap">
-        <table class="gv-contactos-table">
-          <thead><tr><th>Nº</th><th>Fecha</th><th>Estado</th></tr></thead>
-          <tbody>
-            <% (pedidosRecientes || []).slice(0,8).forEach((p) => { %>
-              <tr>
-                <td><a href="/portal/pedidos/<%= p.ped_id || p.Id %>"><%- escapeHtml(String(p.ped_numero || p.NumPedido || p.ped_id || '—')) %></a></td>
-                <td><%= typeof fmtDateES === 'function' ? fmtDateES(p.ped_fecha || p.FechaPedido) : (p.ped_fecha || '') %></td>
-                <td><%- escapeHtml(String(p.ped_estado_txt || p.Estado || '—')) %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
+    <% if (flags.ver_pedidos) { %>
+      <div class="portal-dash__block-head">
+        <h2 class="portal-dash__section-title portal-dash__section-title--inline">Últimos pedidos</h2>
+        <a class="btn" href="/portal/pedidos/nuevo">Nuevo pedido</a>
       </div>
+      <% if ((pedidosRecientes || []).length) { %>
+        <div class="portal-dash__table-card">
+          <div class="table-wrap">
+            <table class="gv-contactos-table portal-dash__table">
+              <thead><tr><th>Nº</th><th>Fecha</th><th>Estado</th></tr></thead>
+              <tbody>
+                <% (pedidosRecientes || []).slice(0, 8).forEach((p) => { %>
+                  <tr>
+                    <td><a href="/portal/pedidos/<%= p.ped_id || p.Id %>"><%- escapeHtml(String(p.ped_numero || p.NumPedido || p.ped_id || '—')) %></a></td>
+                    <td><%= typeof fmtDateES === 'function' ? fmtDateES(p.ped_fecha || p.FechaPedido) : (p.ped_fecha || '') %></td>
+                    <td><%- escapeHtml(String(p.ped_estado_txt || p.Estado || '—')) %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="portal-dash__see-all"><a href="/portal/pedidos">Ver todos los pedidos</a></p>
+      <% } else { %>
+        <div class="portal-dash__empty">
+          <p style="margin: 0 0 12px;">Aún no constan pedidos en el portal.</p>
+          <a class="btn" href="/portal/pedidos/nuevo">Crear primer pedido</a>
+        </div>
+      <% } %>
     <% } %>
   </div>
 </section>

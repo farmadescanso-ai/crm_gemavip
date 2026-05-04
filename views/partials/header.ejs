@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <link rel="icon" href="/assets/images/gemavip-logo.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles/gemavip.css?v=13" />
+    <link rel="stylesheet" href="/assets/styles/gemavip.css?v=14" />
     <% if (typeof extraStyles !== 'undefined' && Array.isArray(extraStyles)) { %>
       <% extraStyles.forEach((href) => { %>
         <% if (href) { %>
@@ -85,6 +85,9 @@
             <a href="/portal/facturas">Facturas</a>
             <a href="/portal/presupuestos">Presupuestos</a>
             <a href="/portal/albaranes">Albaranes</a>
+            <% if (typeof portalCtx !== 'undefined' && portalCtx && portalCtx.flags && portalCtx.flags.ver_catalogo) { %>
+              <a href="/portal/catalogo">Catálogo</a>
+            <% } %>
           </nav>
           <div class="userbox" style="display:flex; align-items:center; gap:10px;">
             <% if (typeof portalUserEmail === 'string' && portalUserEmail) { %>

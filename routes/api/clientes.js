@@ -679,6 +679,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const id = toInt(req.params.id, 0);
     if (!id) return res.status(400).json({ ok: false, error: 'ID no válido' });
+    const portalCli = req.session?.portalUser?.cli_id;
+    const hasComercial = !!req.session?.user;
+    if (portalCli && !hasComercial && id !== toInt(portalCli, 0)) {
+      return res.status(403).json({ ok: false, error: 'No permitido' });
+    }
     const item = await db.getClienteById(id);
     if (!item) return res.status(404).json({ ok: false, error: 'No encontrado' });
     res.json({ ok: true, item });

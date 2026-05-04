@@ -1,0 +1,32 @@
+<%- include('../partials/header', { title: title || 'Artículo', headerVariant: 'portal' }) %>
+
+<section class="card" style="max-width: 720px; margin: 0 auto;">
+  <div class="card-hd">
+    <h1 class="card-title"><%- escapeHtml(String(art.art_nombre ?? art.Nombre ?? 'Artículo')) %></h1>
+    <p class="card-subtitle"><a href="/portal/catalogo">← Volver al catálogo</a></p>
+  </div>
+  <div class="card-bd">
+    <dl style="display:grid; grid-template-columns: 140px 1fr; gap:10px 16px; margin:0; font-size:14px;">
+      <dt style="color:var(--gv-muted); font-weight:700;">SKU</dt>
+      <dd style="margin:0;"><%- escapeHtml(String(art.art_sku ?? art.SKU ?? '—')) %></dd>
+      <% const ci = art.art_codigo_interno ?? art.Codigo_Interno; %>
+      <% if (ci) { %>
+        <dt style="color:var(--gv-muted); font-weight:700;">Código interno</dt>
+        <dd style="margin:0;"><%- escapeHtml(String(ci)) %></dd>
+      <% } %>
+      <% const pres = art.art_presentacion ?? art.Presentacion; %>
+      <% if (pres) { %>
+        <dt style="color:var(--gv-muted); font-weight:700;">Presentación</dt>
+        <dd style="margin:0;"><%- escapeHtml(String(pres)) %></dd>
+      <% } %>
+      <dt style="color:var(--gv-muted); font-weight:700;">Precio (tu tarifa)</dt>
+      <dd style="margin:0; font-weight:800; font-size:18px;">
+        <%= precio != null && typeof fmtEurES === 'function' ? fmtEurES(precio) : (precio != null ? String(precio) : '—') %>
+        <span style="display:block; font-size:12px; font-weight:600; color:var(--gv-muted); margin-top:4px;"><%- escapeHtml(String(tarifaNombre || '')) %></span>
+      </dd>
+    </dl>
+    <p style="margin-top:20px; font-size:13px; color:var(--gv-muted);">Los datos son informativos. Cualquier cambio de precio o condiciones depende de Gemavip.</p>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

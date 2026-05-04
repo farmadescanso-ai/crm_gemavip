@@ -12,6 +12,7 @@ const {
   pedidosLineaDeleteQuery
 } = require('../../lib/validators/api-pedidos');
 const { asyncHandler, toInt, parsePagination } = require('./_utils');
+const { getClienteTarifaIdNum } = require('../../lib/portal-pedido-policy');
 
 const router = express.Router();
 
@@ -148,6 +149,15 @@ router.get(
           .slice(0, 200)
       : [];
     if (!articuloIds.length) return res.json({ ok: true, precios: {} });
+    const portalCli = req.session?.portalUser?.cli_id;
+    const hasComercial = !!req.session?.user;
+    if (portalCli && !hasComercial) {
+      const c = await db.getClienteById(portalCli).catch(() => null);
+      const allowedTar = getClienteTarifaIdNum(c);
+      if (tarifaId !== allowedTar) {
+        return res.status(403).json({ ok: false, error: 'Tarifa no permitida para el portal' });
+      }
+    }
     const precios = await db.getPreciosArticulosParaTarifa(tarifaId, articuloIds).catch(() => ({}));
     return res.json({ ok: true, tarifaId, precios });
   })

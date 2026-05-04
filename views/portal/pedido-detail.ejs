@@ -1,11 +1,21 @@
 <%- include('../partials/header', { title: title || 'Pedido', headerVariant: 'portal' }) %>
 
 <section class="card" style="max-width: 960px; margin: 0 auto;">
-  <div class="card-hd">
-    <h1 class="card-title">Pedido <%- escapeHtml(String(pedido.ped_numero || pedido.NumPedido || pedido.ped_id || '')) %></h1>
-    <p class="card-subtitle"><a href="/portal/pedidos">← Volver</a></p>
+  <div class="card-hd" style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:flex-start;">
+    <div>
+      <h1 class="card-title" style="margin:0;">Pedido <%- escapeHtml(String(pedido.ped_numero || pedido.NumPedido || pedido.ped_id || '')) %></h1>
+      <p class="card-subtitle" style="margin:6px 0 0;"><a href="/portal/pedidos">← Volver</a></p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="btn secondary" href="/portal/pedidos/<%= pedido.ped_id || pedido.Id %>/print" target="_blank" rel="noopener">Descargar / imprimir</a>
+    </div>
   </div>
   <div class="card-bd">
+    <% if (typeof portalPedidoEditable !== 'undefined' && !portalPedidoEditable) { %>
+      <div class="gv-alert" style="margin-bottom:14px; background:rgba(0,139,210,.08); border:1px solid rgba(0,139,210,.25); color:var(--gv-ink); font-size:14px;">
+        Este pedido ya no está en estado <strong>Pendiente</strong>. Solo puedes consultarlo y descargarlo; las modificaciones las realiza Gemavip desde el CRM.
+      </div>
+    <% } %>
     <p><strong>Fecha:</strong> <%= typeof fmtDateES === 'function' ? fmtDateES(pedido.ped_fecha || pedido.FechaPedido) : '' %></p>
     <p><strong>Estado:</strong> <%- escapeHtml(String(pedido.ped_estado_txt || pedido.Estado || '—')) %></p>
     <% const obs = pedido.ped_observaciones ?? pedido.Observaciones; %>

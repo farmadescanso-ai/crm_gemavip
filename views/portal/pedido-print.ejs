@@ -1,0 +1,47 @@
+<%- include('../partials/header', { title: title || 'Imprimir pedido', headerVariant: 'portal' }) %>
+
+<section class="card portal-print" style="max-width: 900px; margin: 0 auto;">
+  <div class="card-bd" style="padding: 20px;">
+    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:16px;">
+      <div>
+        <h1 class="card-title" style="margin:0;">Pedido <%- escapeHtml(String(pedido.ped_numero || pedido.NumPedido || pedido.ped_id || '')) %></h1>
+        <p style="margin:8px 0 0; color:var(--gv-muted); font-size:14px;">Gemavip · copia para tus archivos</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn" onclick="window.print()">Imprimir / PDF</button>
+        <a class="btn secondary" href="/portal/pedidos/<%= pedido.ped_id || pedido.Id %>">Volver al pedido</a>
+      </div>
+    </div>
+    <p><strong>Fecha:</strong> <%= typeof fmtDateES === 'function' ? fmtDateES(pedido.ped_fecha || pedido.FechaPedido) : '' %></p>
+    <p><strong>Estado:</strong> <%- escapeHtml(String(pedido.ped_estado_txt || pedido.Estado || '—')) %></p>
+    <% const obs = pedido.ped_observaciones ?? pedido.Observaciones; %>
+    <% if (obs && String(obs).trim()) { %>
+      <p><strong>Observaciones:</strong><br /><span style="white-space: pre-wrap;"><%- escapeHtml(String(obs)) %></span></p>
+    <% } %>
+    <% if (lineas && lineas.length) { %>
+      <h2 style="font-size:16px; margin:20px 0 10px;">Líneas</h2>
+      <div class="table-wrap">
+        <table class="gv-contactos-table">
+          <thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th></tr></thead>
+          <tbody>
+            <% lineas.forEach((l) => { %>
+              <tr>
+                <td><%- escapeHtml(String(l.art_nombre || l.Descripcion || l.articulo_nombre || '—')) %></td>
+                <td><%- escapeHtml(String(l.cantidad ?? l.Cantidad ?? l.pedart_cantidad ?? '—')) %></td>
+                <td><%- escapeHtml(String(l.precio ?? l.Precio ?? '—')) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<style media="print">
+  .topbar, .portal-print .btn, .portal-print a.btn { display: none !important; }
+  main.container { padding-top: 24px !important; }
+  .portal-print { box-shadow: none !important; border: none !important; }
+</style>
+
+<%- include('../partials/footer') %>

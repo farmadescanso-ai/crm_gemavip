@@ -1,0 +1,53 @@
+<%- include('../partials/header', { title: title || 'Catálogo', headerVariant: 'portal' }) %>
+
+<section class="card gv-vista portal-dash" style="max-width: 1080px; margin: 0 auto;">
+  <div class="card-hd gv-vista-hd">
+    <h1 class="card-title gv-vista-hd__title">Catálogo</h1>
+    <p class="gv-vista-hd__sub" style="margin-top:0;">Precios según tu tarifa asignada: <strong><%- escapeHtml(String(tarifaNombre || '—')) %></strong>. Solo consulta; no puedes modificar artículos ni tarifas.</p>
+  </div>
+  <div class="card-bd">
+    <form method="get" action="/portal/catalogo" class="gv-vista-search" style="margin-bottom:16px;">
+      <input class="gv-vista-search__input" type="search" name="q" value="<%- escapeHtml(String(q || '')) %>" placeholder="Buscar por nombre o SKU…" style="min-width:220px;" />
+      <button class="btn" type="submit">Buscar</button>
+    </form>
+    <% if (!(rows || []).length) { %>
+      <p style="color:var(--gv-muted);">No hay artículos que coincidan.</p>
+    <% } else { %>
+      <div class="table-wrap portal-dash__table-card">
+        <table class="gv-contactos-table portal-dash__table">
+          <thead>
+            <tr>
+              <th>Ref.</th>
+              <th>Artículo</th>
+              <th>Precio (tu tarifa)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (rows || []).forEach((a) => { %>
+              <% const aid = Number(a.art_id ?? a.Id ?? a.id) || 0; %>
+              <% const precio = aid ? precios[String(aid)] : undefined; %>
+              <tr>
+                <td><%- escapeHtml(String(a.art_sku ?? a.SKU ?? (aid ? String(aid) : '—'))) %></td>
+                <td><%- escapeHtml(String(a.art_nombre ?? a.Nombre ?? '—')) %></td>
+                <td><%= precio != null && typeof fmtEurES === 'function' ? fmtEurES(precio) : (precio != null ? String(precio) : '—') %></td>
+                <td><a href="/portal/catalogo/<%= aid %>">Ficha</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% const totalP = Number(total) || 0; %>
+      <% const pages = Math.max(1, Math.ceil(totalP / (limit || 40))); %>
+      <% if (pages > 1) { %>
+        <p style="margin-top:12px; font-size:14px;">
+          Página <%= page %> de <%= pages %> ·
+          <% if (page > 1) { %><a href="/portal/catalogo?q=<%- encodeURIComponent(String(q||'')) %>&page=<%= page - 1 %>">Anterior</a><% } %>
+          <% if (page < pages) { %> · <a href="/portal/catalogo?q=<%- encodeURIComponent(String(q||'')) %>&page=<%= page + 1 %>">Siguiente</a><% } %>
+        </p>
+      <% } %>
+    <% } %>
+  </div>
+</section>
+
+<%- include('../partials/footer') %>

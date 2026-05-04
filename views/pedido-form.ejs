@@ -50,8 +50,28 @@
           <div class="gv-field gv-field--full">
             <span class="gv-field__label">Cliente</span>
             <p style="margin:0; font-weight:700;"><%- escapeHtml(String(typeof clienteLabel === 'string' ? clienteLabel : (item.cli_nombre_razon_social || item.Nombre_Razon_Social || 'Tu empresa'))) %></p>
-            <p class="gv-field__help" style="margin-top:6px;">Pedido con la misma tarifa, artículos y condiciones que en el CRM Gemavip.</p>
+            <p class="gv-field__help" style="margin-top:6px;">Pedido para tu empresa. Las condiciones comerciales (tarifa, forma de pago, tipo y estado) las fija Gemavip según tu ficha; desde el portal solo añades líneas, referencia y observaciones.</p>
           </div>
+          <% if (typeof portalPedidoCondicionesLocked !== 'undefined' && portalPedidoCondicionesLocked) { %>
+            <% const _tid = Number(item.Id_Tarifa ?? item.ped_tarcli_id ?? 0) || 0; %>
+            <% const _tlab = typeof portalTarifaNombre === 'string' ? portalTarifaNombre : ''; %>
+            <input type="hidden" name="Id_Tarifa" id="Id_Tarifa" value="<%= _tid %>" data-label="<%- escapeHtml(_tlab) %>" />
+            <input type="hidden" name="Id_FormaPago" value="<%= Number(item.Id_FormaPago ?? item.ped_formp_id ?? 0) || 0 %>" />
+            <input type="hidden" name="Id_TipoPedido" id="Id_TipoPedido" value="<%= Number(item.Id_TipoPedido ?? item.ped_tipp_id ?? 0) || 0 %>" />
+            <input type="hidden" name="Id_EstadoPedido" id="Id_EstadoPedido" value="<%= Number(item.Id_EstadoPedido ?? item.ped_estped_id ?? 0) || 0 %>" />
+            <input type="hidden" name="EstadoPedido" id="EstadoPedidoLegacy" value="Pendiente" />
+            <input type="hidden" name="FechaPedido" value="<%= fmtDateISO(item.FechaPedido ?? item.Fecha ?? item.ped_fecha ?? '') %>" />
+            <div class="gv-field gv-field--full">
+              <span class="gv-field__label">Tarifa y condiciones</span>
+              <p style="margin:0; font-weight:800;"><%- escapeHtml(_tlab || '—') %></p>
+            </div>
+            <% if (typeof portalLockedTarifaIsTransfer !== 'undefined' && portalLockedTarifaIsTransfer) { %>
+            <div id="gv-num-asociado-hefame-wrap" class="gv-field gv-field--full gv-num-asociado-hefame">
+              <span class="gv-field__label" id="labelNumAsociado">Nº asociado (Mayorista)</span>
+              <input type="text" id="numAsociadoHefame" name="NumAsociadoHefame" class="gv-input" placeholder="Indica tu número de asociado si aplica" value="" />
+            </div>
+            <% } %>
+          <% } %>
         <% } else { %>
         <label class="gv-field">
           <span class="gv-field__label">Comercial * <button type="button" class="gv-field-info" aria-label="Información" data-info="<%= isAdminForm ? 'Puedes cambiar el comercial del pedido manualmente.' : 'En sesión comercial, el pedido se guarda con el comercial logueado.' %>"></button></span>
@@ -100,6 +120,7 @@
         </label>
         <% } %>
 
+        <% if (!(typeof portalPedidoCondicionesLocked !== 'undefined' && portalPedidoCondicionesLocked)) { %>
         <label class="gv-field">
           <span class="gv-field__label">Tarifa <button type="button" class="gv-field-info" aria-label="Información" data-info="Si la tarifa o el tipo de pedido incluye &quot;Transfer&quot;, el pedido no se valora: PVL=0 y dto línea 5% por defecto (informativo, editable)."></button></span>
           <select id="Id_Tarifa" name="Id_Tarifa" class="gv-input">
@@ -111,6 +132,7 @@
             <% }) %>
           </select>
         </label>
+        <% } %>
 
         <label class="gv-field">
           <span class="gv-field__label">Ref. cliente <button type="button" class="gv-field-info" aria-label="Información" data-info="Referencia o número de pedido del cliente (si aplica)."></button></span>
@@ -130,6 +152,7 @@
       </div>
       </div>
 
+      <% if (!(typeof portalPedidoCondicionesLocked !== 'undefined' && portalPedidoCondicionesLocked)) { %>
       <div class="gv-doc">
         <div class="gv-doc__title"><h2>Fechas y estado</h2></div>
         <div style="height: 10px;"></div>
@@ -160,7 +183,9 @@
         </label>
       </div>
       </div>
+      <% } %>
 
+      <% if (!(typeof portalPedidoCondicionesLocked !== 'undefined' && portalPedidoCondicionesLocked)) { %>
       <div class="gv-doc">
         <div class="gv-doc__title"><h2>Pago y tipo</h2></div>
         <div style="height: 10px;"></div>
@@ -207,6 +232,7 @@
         </div>
       </div>
       </div>
+      <% } %>
 
       <div class="gv-doc">
       <label class="gv-field" style="margin:0;">
@@ -219,10 +245,12 @@
         <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap:wrap;">
           <div style="font-weight: 900;">Líneas</div>
           <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <% if (!(typeof portalPedidoCondicionesLocked !== 'undefined' && portalPedidoCondicionesLocked)) { %>
             <label style="display:flex; align-items:center; gap:8px; font-weight:800; user-select:none;">
               <input type="checkbox" id="EsEspecial" name="EsEspecial" value="1" <%= isEspecialPedido ? 'checked' : '' %> />
               <span>Pedido especial</span>
             </label>
+            <% } %>
             <button class="btn gv-btn-add-product" type="button" id="addLineaBtn">+ Productos</button>
           </div>
         </div>
@@ -258,7 +286,7 @@
                   </td>
                   <td><input class="gv-line-pvl" name="lineas[<%= idx %>][PrecioUnitario]" type="number" min="0" step="0.01" value="<%= l.PrecioUnitario ?? l.Precio ?? '' %>" placeholder="tarifa" readonly title="PVL fijo: se carga desde la tarifa seleccionada" /></td>
                   <td><input name="lineas[<%= idx %>][Cantidad]" type="number" min="0" step="0.01" value="<%= l.Cantidad ?? 1 %>" /></td>
-                  <td><input class="gv-line-dto" name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" placeholder="auto" /></td>
+                  <td><input class="gv-line-dto" name="lineas[<%= idx %>][Dto]" type="number" min="0" max="100" step="0.01" value="<%= l.Dto ?? '' %>" placeholder="auto" <%= (typeof portalPedidoCondicionesLocked !== 'undefined' && portalPedidoCondicionesLocked) ? 'readonly title="Dto fijado según tu ficha de cliente"' : '' %> /></td>
                   <td style="text-align:right; font-weight:900;" class="gv-line-total">—</td>
                   <td>
                     <button class="btn icon gv-btn-trash" type="button" data-remove-linea title="Quitar línea" aria-label="Quitar línea">
@@ -474,7 +502,11 @@
 
     var defaultDto = 0;
     function clampPct(n){ n = Number(n); if (!isFinite(n)) n = 0; return Math.max(0, Math.min(100, n)); }
-    function getTarifaId(){ return selTarifa ? (parseInt(String(selTarifa.value||'0'),10) || 0) : 0; }
+    function getTarifaId(){
+      var el = document.getElementById('Id_Tarifa') || selTarifa;
+      if (!el) return 0;
+      return parseInt(String(el.value || '0'), 10) || 0;
+    }
     function isPedidoEspecial(){ return !!(chkEspecial && chkEspecial.checked); }
     function applyEspecialUI(){
       var esp = isPedidoEspecial();
@@ -544,7 +576,9 @@
     }
 
     // PVL fijo: no permitir edición manual en UI (readonly) y siempre recalcular por tarifa.
-    if (selTarifa) selTarifa.addEventListener('change', function(){ markManual(selTarifa); scheduleRefreshPrecios(); });
+    if (selTarifa && selTarifa.tagName === 'SELECT') {
+      selTarifa.addEventListener('change', function(){ markManual(selTarifa); scheduleRefreshPrecios(); });
+    }
 
     function setIfNotManual(selectEl, value){
       if (!selectEl) return;
@@ -910,10 +944,17 @@
       } catch(_e){}
       // Tarifa por texto/label
       try{
-        if (!selTarifa || selTarifa.tagName !== 'SELECT') return false;
-        var opt = selTarifa.options && selTarifa.selectedIndex >= 0 ? selTarifa.options[selTarifa.selectedIndex] : null;
-        var label = opt ? (opt.getAttribute('data-label') || opt.textContent || '') : '';
-        return /transfer/i.test(String(label || ''));
+        var elT = document.getElementById('Id_Tarifa') || selTarifa;
+        if (!elT) return false;
+        if (elT.tagName === 'INPUT') {
+          var dl = String(elT.getAttribute('data-label') || '');
+          return /transfer/i.test(dl);
+        }
+        if (elT.tagName === 'SELECT') {
+          var opt = elT.options && elT.selectedIndex >= 0 ? elT.options[elT.selectedIndex] : null;
+          var label = opt ? (opt.getAttribute('data-label') || opt.textContent || '') : '';
+          return /transfer/i.test(String(label || ''));
+        }
       } catch(_e){}
       return false;
     }
@@ -1271,7 +1312,7 @@
     }
 
     // Inicial
-    if (selEstadoPedido && hidEstadoPedido) {
+    if (selEstadoPedido && hidEstadoPedido && selEstadoPedido.tagName === 'SELECT') {
       var syncEstado = function(){
         try {
           var opt = selEstadoPedido.options && selEstadoPedido.selectedIndex >= 0 ? selEstadoPedido.options[selEstadoPedido.selectedIndex] : null;

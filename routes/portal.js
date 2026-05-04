@@ -15,7 +15,15 @@ const { loadSimpleCatalogForSelect } = require('../lib/cliente-helpers');
 const { rejectIfValidationFailsHtml } = require('../lib/validation-handlers');
 const { pedidoCreateValidators } = require('../lib/validators/html-pedidos-ui');
 const { parseLineasFromBody, isTransferPedido, resolveMayoristaInfo } = require('../lib/pedido-helpers');
-const { filterOutTransferOptions, ensureTransferTarifaYFormaPago } = require('../lib/pedido-form-shared');
+const { filterOutTransferOptions } = require('../lib/pedido-form-shared');
+const {
+  buildPortalPedidoCreatePayload,
+  aplicarDtoLineasPortal,
+  getClienteTarifaIdNum,
+  tarifaNombreById,
+  findTransferTipoId,
+  portalPedidoEstaPendiente
+} = require('../lib/portal-pedido-policy');
 const { warn } = require('../lib/logger');
 const db = require('../config/mysql-crm');
 
@@ -38,10 +46,23 @@ router.use((req, res, next) => {
 
 router.use(requirePortalLogin);
 
+/** Contexto portal (cliente + flags) una vez por petición — las rutas usan `req.portalCtx`. */
+router.use(async (req, res, next) => {
+  const cliId = req.session.portalUser.cli_id;
+  try {
+    const ctx = await getPortalSessionContext(cliId);
+    req.portalCtx = ctx;
+    res.locals.portalCtx = ctx;
+    return next();
+  } catch (e) {
+    return next(e);
+  }
+});
+
 router.get('/', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!clientePermitePortal(ctx.cliente)) {
       delete req.session.portalUser;
       return res.redirect('/login-cliente');
@@ -56,6 +77,7 @@ router.get('/', async (req, res, next) => {
     const apiKey = getHoldedApiKeyOptional();
     let nInv = 0;
     let nEst = 0;
+    let nAlb = 0;
     if (hid && apiKey && ctx.flags.ver_facturas) {
       const inv = await listDocumentsForContact(DOC_TYPES.facturas, hid, apiKey);
       nInv = inv.length;
@@ -64,11 +86,15 @@ router.get('/', async (req, res, next) => {
       const est = await listDocumentsForContact(DOC_TYPES.presupuestos, hid, apiKey);
       nEst = est.length;
     }
+    if (hid && apiKey && ctx.flags.ver_albaranes) {
+      const alb = await listDocumentsForContact(DOC_TYPES.albaranes, hid, apiKey);
+      nAlb = alb.length;
+    }
 
     res.render('portal/dashboard', {
       title: 'Tu cuenta · portal',
       ctx,
-      stats: { nPedidos: nPed, nFacturas: nInv, nPresupuestos: nEst },
+      stats: { nPedidos: nPed, nFacturas: nInv, nPresupuestos: nEst, nAlbaranes: nAlb },
       pedidosRecientes: pedidos,
       sinHolded: !hid,
       stripe: getStripePortalStatus()
@@ -86,21 +112,20 @@ async function assertPedidoCliente(pedId, cliId) {
   return p;
 }
 
-/** Locales para `pedido-form` en modo portal (misma lógica de catálogos que /pedidos/new). */
+/** Locales para `pedido-form` en modo portal: condiciones fijadas en CRM (tarifa y forma de pago del contacto). */
 async function getPortalPedidoNuevoLocals(req, { item: itemOverride, lineas: lineasOverride, error } = {}) {
   const cliId = req.session.portalUser.cli_id;
-  const [tarifasIn, formasPagoIn, tiposPedidoIn, descuentosPedido, estadosPedido, estadoPendienteId, provincias, paises, clienteRow] =
-    await Promise.all([
-      db.getTarifas().catch(() => []),
-      db.getFormasPago().catch(() => []),
-      db.getTiposPedido().catch(() => []),
-      db.getDescuentosPedidoActivos().catch(() => []),
-      db.getEstadosPedidoActivos().catch(() => []),
-      db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null),
-      loadSimpleCatalogForSelect(db, 'provincias'),
-      loadSimpleCatalogForSelect(db, 'paises'),
-      db.getClienteById(cliId)
-    ]);
+  const clienteRow = req.portalCtx?.cliente || (await db.getClienteById(cliId).catch(() => null));
+  const [tarifasIn, formasPagoIn, tiposPedidoIn, descuentosPedido, estadosPedido, estadoPendienteId, provincias, paises] = await Promise.all([
+    db.getTarifas().catch(() => []),
+    db.getFormasPago().catch(() => []),
+    db.getTiposPedido().catch(() => []),
+    db.getDescuentosPedidoActivos().catch(() => []),
+    db.getEstadosPedidoActivos().catch(() => []),
+    db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null),
+    loadSimpleCatalogForSelect(db, 'provincias'),
+    loadSimpleCatalogForSelect(db, 'paises')
+  ]);
 
   const tarifas = Array.isArray(tarifasIn) ? [...tarifasIn] : [];
   const formasPago = Array.isArray(formasPagoIn) ? [...formasPagoIn] : [];
@@ -135,20 +160,33 @@ async function getPortalPedidoNuevoLocals(req, { item: itemOverride, lineas: lin
     clienteRow?.cli_nombre_razon_social ?? clienteRow?.Nombre_Razon_Social ?? clienteRow?.Nombre ?? ''
   ).trim() || 'Tu empresa';
 
+  const tarifaIdLocked = getClienteTarifaIdNum(clienteRow);
+  const tarifaLabel = tarifaIdLocked ? tarifaNombreById(tarifas, tarifaIdLocked) : 'PVL / genérica (sin tarifa asignada en ficha)';
+  const transferTarifa = /transfer/i.test(String(tarifaLabel || ''));
+  const tipoLocked = transferTarifa ? findTransferTipoId(tiposPedido) : 0;
+  const formaLocked = getClienteFormaPagoId(clienteRow);
+
   const baseItem = {
     Id_Cliente: cliId,
     Id_Cial: comId,
-    Id_Tarifa: 0,
+    Id_Tarifa: tarifaIdLocked || 0,
     Serie: 'P',
     EstadoPedido: 'Pendiente',
     Id_EstadoPedido: _n(estadoPendienteId, null),
-    Id_FormaPago: null,
-    Id_TipoPedido: null,
+    Id_FormaPago: formaLocked || null,
+    Id_TipoPedido: tipoLocked || null,
+    FechaPedido: new Date().toISOString().slice(0, 10),
     Observaciones: ''
   };
   const mergedItem = { ...baseItem, ...(itemOverride && typeof itemOverride === 'object' ? itemOverride : {}) };
   mergedItem.Id_Cliente = cliId;
   mergedItem.Id_Cial = comId;
+  mergedItem.Id_Tarifa = tarifaIdLocked || 0;
+  mergedItem.Id_FormaPago = formaLocked || null;
+  mergedItem.Id_TipoPedido = tipoLocked || null;
+  mergedItem.Id_EstadoPedido = _n(estadoPendienteId, null);
+  mergedItem.EstadoPedido = 'Pendiente';
+  mergedItem.EsEspecial = 0;
 
   const lineas =
     Array.isArray(lineasOverride) && lineasOverride.length
@@ -159,6 +197,9 @@ async function getPortalPedidoNuevoLocals(req, { item: itemOverride, lineas: lin
     title: 'Nuevo pedido',
     mode: 'create',
     portalPedidoForm: true,
+    portalPedidoCondicionesLocked: true,
+    portalTarifaNombre: tarifaLabel,
+    portalLockedTarifaIsTransfer: transferTarifa,
     formAction: '/portal/pedidos/nuevo',
     cancelHref: '/portal/pedidos',
     admin: false,
@@ -184,8 +225,7 @@ async function getPortalPedidoNuevoLocals(req, { item: itemOverride, lineas: lin
 
 router.get('/pedidos/nuevo', async (req, res, next) => {
   try {
-    const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!ctx.flags.ver_pedidos) return res.status(403).send('Pedidos no visibles en el portal.');
     const locals = await getPortalPedidoNuevoLocals(req, {});
     res.render('pedido-form', locals);
@@ -209,13 +249,14 @@ router.post(
   async (req, res, next) => {
     try {
       const cliId = req.session.portalUser.cli_id;
-      const ctx = await getPortalSessionContext(cliId);
+      const ctx = req.portalCtx;
       if (!ctx.flags.ver_pedidos) return res.status(403).send('Pedidos no visibles en el portal.');
 
-      const [tarifas, formasPago, tiposPedido] = await Promise.all([
+      const [tarifas, formasPago, tiposPedido, estadoPendienteId] = await Promise.all([
         db.getTarifas().catch(() => []),
         db.getFormasPago().catch(() => []),
-        db.getTiposPedido().catch(() => [])
+        db.getTiposPedido().catch(() => []),
+        db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null)
       ]);
       const body = req.body || {};
       const postedCliente = Number(body.Id_Cliente);
@@ -228,7 +269,7 @@ router.post(
         return res.status(400).render('pedido-form', locals);
       }
 
-      const clientePedido = await db.getClienteById(cliId);
+      const clientePedido = ctx.cliente || (await db.getClienteById(cliId));
       if (!clientePedido) {
         const locals = await getPortalPedidoNuevoLocals(req, {
           item: body,
@@ -271,46 +312,27 @@ router.post(
         return res.status(400).render('pedido-form', locals);
       }
 
-      const esEspecial =
-        body.EsEspecial === '1' ||
-        body.EsEspecial === 1 ||
-        body.EsEspecial === true ||
-        String(body.EsEspecial || '').toLowerCase() === 'on';
-      const tarifaIn = Number(body.Id_Tarifa);
-      const tarifaId = Number.isFinite(tarifaIn) ? tarifaIn : NaN;
+      let lineas = parseLineasFromBody(body);
+      const dtoClientePct = Number(String(clientePedido.cli_dto ?? clientePedido.Dto ?? 0).replace(',', '.')) || 0;
+      lineas = aplicarDtoLineasPortal(lineas, dtoClientePct);
 
-      const pedidoPayload = {
-        Id_Cial: comId,
-        Id_Cliente: cliId,
-        Id_DireccionEnvio: body.Id_DireccionEnvio ? Number(body.Id_DireccionEnvio) || null : null,
-        Id_FormaPago: body.Id_FormaPago ? Number(body.Id_FormaPago) || 0 : 0,
-        Id_TipoPedido: body.Id_TipoPedido ? Number(body.Id_TipoPedido) || 0 : 0,
-        Id_EstadoPedido: body.Id_EstadoPedido ? Number(body.Id_EstadoPedido) || null : null,
-        ...(Number.isFinite(tarifaId) && tarifaId > 0 ? { Id_Tarifa: tarifaId } : {}),
-        Serie: 'P',
-        ...(esEspecial
-          ? { EsEspecial: 1, EspecialEstado: 'pendiente', EspecialFechaSolicitud: new Date() }
-          : { EsEspecial: 0 }),
-        ...(esEspecial ? { Dto: Number(String(body.Dto || '').replace(',', '.')) || 0 } : {}),
-        NumPedidoCliente: String(body.NumPedidoCliente || '').trim() || null,
-        NumAsociadoHefame: body.NumAsociadoHefame != null ? String(body.NumAsociadoHefame).trim() || null : undefined,
-        FechaPedido: body.FechaPedido ? String(body.FechaPedido).slice(0, 10) : undefined,
-        FechaEntrega: body.FechaEntrega ? String(body.FechaEntrega).slice(0, 10) : null,
-        EstadoPedido: String(body.EstadoPedido || 'Pendiente').trim(),
-        Observaciones: String(body.Observaciones || '').trim() || null
-      };
+      let finalPayload = buildPortalPedidoCreatePayload({
+        cliId,
+        comId,
+        cliente: clientePedido,
+        estadoPendienteId,
+        body,
+        tarifas,
+        formasPago,
+        tiposPedido
+      });
 
-      if (!pedidoPayload.EstadoPedido) {
-        const locals = await getPortalPedidoNuevoLocals(req, {
-          item: body,
-          lineas: parseLineasFromBody(body),
-          error: 'Estado del pedido obligatorio.'
-        });
-        return res.status(400).render('pedido-form', locals);
+      if (finalPayload.Id_DireccionEnvio) {
+        const dirs = await db.getDireccionesEnvioByCliente(cliId).catch(() => []);
+        const okDir = (dirs || []).some((d) => Number(d.direnv_id ?? d.Id ?? d.id) === Number(finalPayload.Id_DireccionEnvio));
+        if (!okDir) finalPayload.Id_DireccionEnvio = null;
       }
 
-      const lineas = parseLineasFromBody(body);
-      let finalPayload = ensureTransferTarifaYFormaPago(pedidoPayload, body, tarifas, formasPago, tiposPedido);
       if (await isTransferPedido(db, finalPayload).catch(() => false)) {
         const mayoristaInfo = await resolveMayoristaInfo(db, finalPayload);
         if (mayoristaInfo && (mayoristaInfo.nombre || mayoristaInfo.codigoAsociado)) {
@@ -348,29 +370,6 @@ router.post(
 
       await db.updatePedidoWithLineas(pid, {}, lineas);
 
-      if (esEspecial) {
-        await db.ensureNotificacionPedidoEspecial(pid, finalPayload.Id_Cliente, finalPayload.Id_Cial).catch(() => null);
-        const clienteNombre =
-          clientePedido?.cli_nombre_razon_social ??
-          clientePedido?.Nombre_Razon_Social ??
-          clientePedido?.Nombre ??
-          `Cliente ${finalPayload.Id_Cliente}`;
-        await sendPushToAdmins({
-          title: 'Nuevo pedido especial (portal)',
-          body: `Cliente ${clienteNombre} solicita pedido especial desde el portal`,
-          url: '/notificaciones',
-          tipo: 'pedido_especial',
-          pedidoId: pid,
-          clienteId: finalPayload.Id_Cliente,
-          clienteNombre,
-          cliente: clientePedido,
-          userId: null,
-          userName: 'Portal cliente',
-          userEmail: req.session?.portalUser?.email || null,
-          lineas
-        }).catch(() => {});
-      }
-
       return res.redirect(`/portal/pedidos/${pid}`);
     } catch (e) {
       next(e);
@@ -381,7 +380,7 @@ router.post(
 router.get('/pedidos', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!ctx.flags.ver_pedidos) {
       return res.status(403).send('Pedidos no visibles en el portal.');
     }
@@ -392,10 +391,31 @@ router.get('/pedidos', async (req, res, next) => {
   }
 });
 
+router.get('/pedidos/:id/print', async (req, res, next) => {
+  try {
+    const cliId = req.session.portalUser.cli_id;
+    const ctx = req.portalCtx;
+    if (!ctx.flags.ver_pedidos) return res.status(403).send('No disponible');
+    const pedIdNum = Number.parseInt(String(req.params.id).trim(), 10);
+    if (!Number.isFinite(pedIdNum) || pedIdNum <= 0) return res.status(404).send('No encontrado');
+    const pedido = await assertPedidoCliente(pedIdNum, cliId);
+    if (!pedido) return res.status(404).send('No encontrado');
+    const lineas = await db.getArticulosByPedido(pedido.ped_id ?? pedido.Id ?? pedIdNum).catch(() => []);
+    res.render('portal/pedido-print', {
+      title: `Pedido ${pedido.ped_numero || pedido.NumPedido || pedIdNum}`,
+      ctx,
+      pedido,
+      lineas
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/pedidos/:id', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!ctx.flags.ver_pedidos) return res.status(403).send('No disponible');
     const rawId = req.params.id;
     const pedIdNum = Number.parseInt(String(rawId).trim(), 10);
@@ -403,7 +423,76 @@ router.get('/pedidos/:id', async (req, res, next) => {
     const pedido = await assertPedidoCliente(pedIdNum, cliId);
     if (!pedido) return res.status(404).send('No encontrado');
     const lineas = await db.getArticulosByPedido(pedido.ped_id ?? pedido.Id ?? pedIdNum).catch(() => []);
-    res.render('portal/pedido-detail', { title: 'Pedido', ctx, pedido, lineas });
+    const estadoPendienteId = await db.getEstadoPedidoIdByCodigo('pendiente').catch(() => null);
+    const portalPedidoEditable = portalPedidoEstaPendiente(pedido, estadoPendienteId);
+    res.render('portal/pedido-detail', {
+      title: 'Pedido',
+      ctx,
+      pedido,
+      lineas,
+      portalPedidoEditable
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/catalogo', async (req, res, next) => {
+  try {
+    const ctx = req.portalCtx;
+    if (!ctx.flags.ver_catalogo) return res.status(403).send('Catálogo no disponible en tu portal.');
+    const cliente = ctx.cliente;
+    const tarifaId = getClienteTarifaIdNum(cliente);
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = 40;
+    const offset = (page - 1) * limit;
+    const [rows, total] = await Promise.all([
+      db.getArticulos({ search: q || undefined, limit, offset }).catch(() => []),
+      db.countArticulos({ search: q || undefined }).catch(() => 0)
+    ]);
+    const ids = (rows || []).map((r) => Number(r.art_id ?? r.Id ?? r.id)).filter((n) => Number.isFinite(n) && n > 0);
+    const precios = ids.length ? await db.getPreciosArticulosParaTarifa(tarifaId, ids).catch(() => ({})) : {};
+    const tarifas = await db.getTarifas().catch(() => []);
+    const tarifaNombre = tarifaId ? tarifaNombreById(tarifas, tarifaId) : 'PVL / sin tarifa en ficha';
+    res.render('portal/catalogo', {
+      title: 'Catálogo',
+      ctx,
+      rows: rows || [],
+      precios: precios || {},
+      q,
+      page,
+      total: Number(total) || 0,
+      limit,
+      tarifaId,
+      tarifaNombre
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/catalogo/:artId', async (req, res, next) => {
+  try {
+    const ctx = req.portalCtx;
+    if (!ctx.flags.ver_catalogo) return res.status(403).send('Catálogo no disponible.');
+    const artId = Number.parseInt(String(req.params.artId).trim(), 10);
+    if (!Number.isFinite(artId) || artId <= 0) return res.status(404).send('No encontrado');
+    const art = await db.getArticuloById(artId);
+    if (!art) return res.status(404).send('No encontrado');
+    const tarifaId = getClienteTarifaIdNum(ctx.cliente);
+    const precios = await db.getPreciosArticulosParaTarifa(tarifaId, [artId]).catch(() => ({}));
+    const precio = precios[String(artId)];
+    const tarifas = await db.getTarifas().catch(() => []);
+    const tarifaNombre = tarifaId ? tarifaNombreById(tarifas, tarifaId) : 'PVL / sin tarifa en ficha';
+    res.render('portal/catalogo-articulo', {
+      title: String(art.art_nombre ?? art.Nombre ?? 'Artículo'),
+      ctx,
+      art,
+      precio,
+      tarifaId,
+      tarifaNombre
+    });
   } catch (e) {
     next(e);
   }
@@ -412,7 +501,7 @@ router.get('/pedidos/:id', async (req, res, next) => {
 router.get('/facturas', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!ctx.flags.ver_facturas) return res.status(403).send('Facturas no visibles.');
     const hid = String(ctx.cliente?.cli_Id_Holded || '').trim();
     const apiKey = getHoldedApiKeyOptional();
@@ -429,7 +518,7 @@ router.get('/facturas', async (req, res, next) => {
 router.get('/presupuestos', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!ctx.flags.ver_presupuestos) return res.status(403).send('No disponible');
     const hid = String(ctx.cliente?.cli_Id_Holded || '').trim();
     const apiKey = getHoldedApiKeyOptional();
@@ -446,7 +535,7 @@ router.get('/presupuestos', async (req, res, next) => {
 router.get('/albaranes', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!ctx.flags.ver_albaranes) return res.status(403).send('No disponible');
     const hid = String(ctx.cliente?.cli_Id_Holded || '').trim();
     const apiKey = getHoldedApiKeyOptional();
@@ -474,7 +563,7 @@ async function assertHoldedDocForCliente(cliId, docType, docId) {
 async function servePortalDocumentoPdf(req, res, next) {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     const dt = String(req.params.docType || '').toLowerCase();
     const docId = String(req.params.docId || '');
     const allowed = {
@@ -502,7 +591,7 @@ router.get('/holded/:docType/:docId/pdf', servePortalDocumentoPdf);
 router.get('/mensajes', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!clientePermitePortal(ctx.cliente)) {
       delete req.session.portalUser;
       return res.redirect('/login-cliente');
@@ -519,7 +608,7 @@ router.get('/mensajes', async (req, res, next) => {
 router.post('/mensajes', async (req, res, next) => {
   try {
     const cliId = req.session.portalUser.cli_id;
-    const ctx = await getPortalSessionContext(cliId);
+    const ctx = req.portalCtx;
     if (!clientePermitePortal(ctx.cliente)) {
       delete req.session.portalUser;
       return res.redirect('/login-cliente');
