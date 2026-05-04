@@ -20,6 +20,7 @@ const {
   buildPortalPedidoCreatePayload,
   aplicarDtoLineasPortal,
   getClienteTarifaIdNum,
+  getClienteFormaPagoId,
   tarifaNombreById,
   findTransferTipoId,
   portalPedidoEstaPendiente
